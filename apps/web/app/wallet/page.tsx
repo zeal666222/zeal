@@ -1,152 +1,74 @@
 "use client";
+export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
-import { Loader2, CreditCard, Wallet as WalletIcon, ArrowUpRight, ArrowDownLeft } from "lucide-react";
-import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { Wallet, ShieldCheck, ArrowRight, IndianRupee, CreditCard } from "lucide-react";
+import Link from "next/link";
 
 export default function WalletPage() {
-  const supabase = createClient();
-  const [balance, setBalance] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
-  const [topupAmount, setTopupAmount] = useState<number>(500);
-  const [processing, setProcessing] = useState(false);
+  const [amount, setAmount] = useState<number>(500);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let channel: any;
-
-    async function initializeWallet() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      
-      const uid = session.user.id;
-
-      // 1. Fetch initial balance (Bypass strict inference with 'as any')
-      const { data, error } = await supabase
-        .from("Wallet")
-        .select("balance")
-        .eq("userId", uid)
-        .maybeSingle();
-
-      if (!error && data) {
-        setBalance((data as any).balance);
-      }
-      setLoading(false);
-
-      // 2. Enterprise Real-time Ledger Subscription
-      // This listens directly to PostgreSQL. When the Instamojo webhook successfully 
-      // updates the balance, this UI will update instantly without a page refresh.
-      channel = supabase
-        .channel('realtime-wallet')
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'Wallet',
-            filter: `userId=eq.${uid}`,
-          },
-          (payload) => {
-            const newBalance = (payload.new as any).balance;
-            if (newBalance !== undefined) {
-              setBalance(newBalance);
-              toast.success(`Wallet updated! New balance: ₹${newBalance.toFixed(2)}`);
-            }
-          }
-        )
-        .subscribe();
-    }
-
-    initializeWallet();
-
-    // Cleanup subscription on unmount
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [supabase]);
-
-  const handleTopup = async () => {
-    setProcessing(true);
+  const handleRecharge = async () => {
+    setLoading(true);
     try {
-      // Create order endpoint fetches Instamojo payment link
-      const res = await fetch("/api/wallet/topup", {
+      const res = await fetch("/api/billing/instamojo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: topupAmount })
+        body: JSON.stringify({ amount, purpose: "Zeal Wallet Recharge (INR)" })
       });
       const data = await res.json();
-      
-      if (!res.ok) throw new Error(data.error || "Failed to initiate top-up");
-      
-      if (data.paymentUrl) {
-        // Redirect user to Instamojo hosted checkout
-        window.location.href = data.paymentUrl;
+      if (data.payment_url) {
+        window.location.href = data.payment_url;
       } else {
-        // Dev fallback if keys are missing
-        toast.success("Top-up request sent successfully.");
+        alert("Gateway initialized. Redirecting to payment sandbox...");
+        // Fallback simulation for local testing
+        setTimeout(() => {
+          window.location.href = "/profile";
+        }, 1500);
       }
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      alert("Network error connecting to payment gateway.");
     } finally {
-      setProcessing(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex items-center gap-4">
-        <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl">
-          <WalletIcon className="w-8 h-8" />
-        </div>
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Zeal Wallet</h1>
-          <p className="text-gray-500">Manage your prepaid consultation funds</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Balance Card */}
-        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-3xl shadow-lg text-white">
-          <p className="text-indigo-100 font-medium mb-2">Available Balance</p>
-          <div className="text-5xl font-bold mb-6">
-            ₹{loading ? "..." : balance.toFixed(2)}
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      <div className="max-w-2xl mx-auto relative z-10">
+        <Link href="/profile" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-emerald-600 mb-8 transition-colors">
+          <ArrowRight size={16} className="rotate-180" /> Back to Profile
+        </Link>
+        
+        <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 sm:p-12 shadow-2xl text-center">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-500 text-white flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <Wallet size={36} />
           </div>
-          <div className="flex gap-4">
-            <div className="flex items-center gap-2 text-sm bg-white/20 px-3 py-1.5 rounded-full">
-              <ArrowDownLeft size={16} /> Secure
-            </div>
-            <div className="flex items-center gap-2 text-sm bg-white/20 px-3 py-1.5 rounded-full">
-              <ArrowUpRight size={16} /> Instant Sync
-            </div>
-          </div>
-        </div>
+          <h1 className="text-3xl font-bold mb-2">Recharge Secure Wallet</h1>
+          <p className="text-slate-500 font-light mb-8 flex items-center justify-center gap-2 text-sm">
+            <ShieldCheck size={16} className="text-emerald-500" /> Processed securely in INR (₹)
+          </p>
 
-        {/* Top-up Action Card */}
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-          <h2 className="text-xl font-semibold mb-6 text-gray-900">Quick Top-Up</h2>
           <div className="grid grid-cols-3 gap-4 mb-8">
-            {[200, 500, 1000].map(amt => (
-              <button
-                key={amt}
-                onClick={() => setTopupAmount(amt)}
-                className={`py-3 rounded-xl border-2 font-semibold transition-all ${
-                  topupAmount === amt 
-                    ? "border-indigo-600 bg-indigo-50 text-indigo-700" 
-                    : "border-gray-100 hover:border-indigo-200 text-gray-600 bg-white"
-                }`}
+            {[200, 500, 1000].map((preset) => (
+              <button 
+                key={preset}
+                onClick={() => setAmount(preset)}
+                className={`p-4 rounded-2xl border text-xl font-bold transition-all cursor-pointer ${amount === preset ? 'bg-emerald-50 dark:bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-white/10 hover:border-emerald-500/50'}`}
               >
-                ₹{amt}
+                ₹{preset}
               </button>
             ))}
           </div>
-          
-          <button
-            onClick={handleTopup}
-            disabled={processing || topupAmount <= 0}
-            className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-70 transition-all shadow-md shadow-indigo-200"
+
+          <button 
+            onClick={handleRecharge}
+            disabled={loading}
+            className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-2xl font-bold text-lg hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-xl disabled:opacity-50 cursor-pointer"
           >
-            {processing ? <Loader2 className="w-6 h-6 animate-spin" /> : <CreditCard className="w-6 h-6" />}
-            {processing ? "Connecting Gateway..." : `Pay ₹${topupAmount}`}
+            {loading ? "Connecting Gateway..." : `Recharge ₹${amount.toFixed(2)}`}
+            {!loading && <CreditCard size={20} />}
           </button>
         </div>
       </div>

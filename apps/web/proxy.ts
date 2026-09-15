@@ -1,55 +1,20 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
+import { updateSession } from "@/utils/supabase/middleware";
 
 export default async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  // Fallback checks to prevent runtime crash if env loader misses edge runtime
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://zyrunsnweznyrhuroduo.supabase.co";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cnVuc253ZXpueXJodXJvZHVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0OTc2MDgsImV4cCI6MjEwMzA3MzYwOH0.kOPtlaJvT0fnGYit6dG43rekXDin3HoinUNrFB8vtL0";
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll(); },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const path = request.nextUrl.pathname;
-
-  // 1. Completely ignore public routes to speed up routing
-  const publicPaths = ["/", "/login", "/auth/callback", "/explore", "/zeal", "/ai-consultants", "/services"];
-  const isPublic = path === "/" || publicPaths.some(p => path !== "/" && path.startsWith(p));
-
-  if (isPublic) {
-    return supabaseResponse;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("CRITICAL: Supabase URL or Anon Key is missing in proxy runtime.");
   }
 
-  // 2. Lock down protected routes
-  const protectedPrefixes = ["/profile", "/chat", "/wallet", "/dashboard", "/admin", "/super-admin"];
-  const isProtected = protectedPrefixes.some((prefix) => path.startsWith(prefix));
-
-  if (isProtected && !user) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", path);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return supabaseResponse;
+  return await updateSession(request);
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

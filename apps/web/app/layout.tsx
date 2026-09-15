@@ -4,8 +4,8 @@ import { Navbar } from "@/components/layout/Navbar";
 import { BottomBar } from "@/components/layout/BottomBar";
 
 export const metadata: Metadata = {
-  title: "Zeal — Cinematic Metaphysics & AI Intelligence",
-  description: "Enterprise-grade Vedic astrology and AI neural consultation platform.",
+  title: "Zeal — Multi-Faith Wellness Platform",
+  description: "Enterprise-grade wellness and AI consultation workspace.",
 };
 
 export default function RootLayout({
@@ -15,7 +15,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <body className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 antialiased selection:bg-purple-500/30 pb-20 md:pb-0">
+      {/* pb-28 ensures desktop and mobile content stops before hitting the bottom bar */}
+      <body className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 antialiased selection:bg-purple-500/30 pb-28">
         <Navbar />
         <main>{children}</main>
         <BottomBar />
