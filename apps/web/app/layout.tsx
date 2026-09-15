@@ -1,25 +1,30 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "@/components/layout/Navbar";
-import { BottomBar } from "@/components/layout/BottomBar";
+import { ServerNav } from "@/components/navigation/ServerNav";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Zeal — Multi-Faith Wellness Platform",
-  description: "Enterprise-grade wellness and AI consultation workspace.",
+  title: "Project Zeal | Metaphysical Consultations",
+  description: "Enterprise-grade metaphysical consultation platform.",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="en" className="dark">
-      {/* pb-28 ensures desktop and mobile content stops before hitting the bottom bar */}
-      <body className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 antialiased selection:bg-purple-500/30 pb-28">
-        <Navbar />
-        <main>{children}</main>
-        <BottomBar />
+      <body className={`${inter.className} bg-slate-950 text-slate-50 antialiased min-h-screen flex flex-col`}>
+        {/* The ServerNav securely decides if it should render itself or not */}
+        <ServerNav />
+        
+        {/* Main application content */}
+        <main className="flex-1 flex flex-col">
+          {children}
+        </main>
       </body>
     </html>
   );
