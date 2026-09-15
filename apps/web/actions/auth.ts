@@ -51,7 +51,7 @@ export async function signUpAction(formData: FormData) {
     return { success: false, error: error.message };
   }
 
-  return { success: true, message: "Registration successful! Check your email or log in." };
+  return { success: true, message: "Registration successful! You can now sign in." };
 }
 
 export async function signInAction(formData: FormData) {
