@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { ServerNav } from "@/components/navigation/ServerNav";
 import { GlobalCallListener } from "@/components/global/GlobalCallListener";
+import { AppLayout, Profile } from "@/components/navigation/AppLayout";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -18,7 +18,6 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Check if a user is logged in to mount their personal real-time listener
   const cookieStore = await cookies();
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,18 +26,27 @@ export default async function RootLayout({
   );
   
   const { data: { user } } = await supabase.auth.getUser();
+  
+  let profile: Profile = null;
+  if (user) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, role, wallet_balance, full_name, avatar_url')
+      .eq('id', user.id)
+      .single();
+    profile = data as Profile;
+  }
 
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-slate-950 text-slate-50 antialiased min-h-screen flex flex-col`}>
-        {/* Global UI Components */}
-        <ServerNav />
+      <body className={`${inter.className} bg-slate-950 text-slate-50 antialiased`}>
+        {/* Mount Global Signaling WebSockets */}
         {user && <GlobalCallListener userId={user.id} />}
         
-        {/* Main application content */}
-        <main className="flex-1 flex flex-col">
+        {/* Core Layout Controller */}
+        <AppLayout user={user} profile={profile}>
           {children}
-        </main>
+        </AppLayout>
       </body>
     </html>
   );
