@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
+// Centralized client initialization with error handling
 async function getSupabase() {
   const cookieStore = await cookies();
   return createServerClient(
@@ -13,109 +14,111 @@ async function getSupabase() {
       cookies: {
         getAll() { return cookieStore.getAll(); },
         setAll(cookiesToSet) {
-          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {}
+          try { 
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); 
+          } catch (err) {
+            console.error("[COOKIE_SET_ERROR]", err);
+          }
         },
       },
     }
   );
 }
 
-export async function loginAction(formData: FormData): Promise<{
-  success: boolean;
-  destination?: string;
-  error?: string;
-}> {
-  const email = (formData.get("email") as string)?.trim();
-  const password = formData.get("password") as string;
-  const customRedirect = formData.get("redirectTo") as string | null;
+export async function loginAction(formData: FormData): Promise<{ success: boolean; destination?: string; error?: string; }> {
+  try {
+    const email = (formData.get("email") as string)?.trim();
+    const password = formData.get("password") as string;
+    const customRedirect = formData.get("redirectTo") as string | null;
 
-  if (!email || !password) {
-    return { success: false, error: "Email and password are required." };
+    if (!email || !password) {
+      return { success: false, error: "Email and password are required." };
+    }
+
+    const supabase = await getSupabase();
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (authError || !authData.user) {
+      return { success: false, error: authError?.message || "Invalid credentials." };
+    }
+
+    // Aggressive Auto-Healing Upsert (Ensures profile exists even if signup was interrupted)
+    const fallbackName = authData.user.user_metadata?.full_name || email.split("@")[0];
+    const { error: upsertError } = await supabase.from("profiles").upsert(
+      { id: authData.user.id, full_name: fallbackName, role: "user" }, 
+      { onConflict: "id", ignoreDuplicates: true }
+    );
+
+    if (upsertError) console.error("[AUTH_UPSERT_ERROR]", upsertError);
+
+    // Fetch Role to determine destination
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", authData.user.id).single();
+    const role = profile?.role || "user";
+
+    let destination = "/explore";
+    if (["admin", "superadmin", "super_admin"].includes(role)) {
+      destination = "/admin/dashboard";
+    } else if (role === "consultant") {
+      destination = "/consultant/dashboard";
+    } else {
+      destination = (customRedirect && customRedirect !== "/" && customRedirect !== "/login") ? customRedirect : "/explore";
+    }
+
+    return { success: true, destination };
+  } catch (error: any) {
+    console.error("[LOGIN_ACTION_ERROR]", error);
+    return { success: false, error: "An unexpected error occurred during login." };
   }
-
-  const supabase = await getSupabase();
-  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-
-  if (authError || !authData.user) {
-    return { success: false, error: authError?.message || "Invalid credentials." };
-  }
-
-  // Role verification from database
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", authData.user.id)
-    .single();
-
-  const role = profile?.role || "user";
-  let destination = "/explore";
-
-  if (["admin", "superadmin", "super_admin"].includes(role)) {
-    destination = "/admin/dashboard";
-  } else if (role === "consultant") {
-    destination = "/consultant/dashboard";
-  } else {
-    destination =
-      customRedirect && customRedirect !== "/" && customRedirect !== "/login"
-        ? customRedirect
-        : "/explore";
-  }
-
-  return { success: true, destination };
 }
 
-export async function registerAction(formData: FormData): Promise<{
-  success: boolean;
-  destination?: string;
-  error?: string;
-}> {
-  const email = (formData.get("email") as string)?.trim();
-  const password = formData.get("password") as string;
-  const fullName = (formData.get("fullName") as string)?.trim();
-  const accountType = (formData.get("accountType") as string) || "user";
+export async function registerAction(formData: FormData): Promise<{ success: boolean; destination?: string; error?: string; }> {
+  try {
+    const email = (formData.get("email") as string)?.trim();
+    const password = formData.get("password") as string;
+    const fullName = (formData.get("fullName") as string)?.trim();
+    const accountType = (formData.get("accountType") as string) || "user";
 
-  if (!email || !password || !fullName) {
-    return { success: false, error: "All fields are required." };
+    if (!email || !password || !fullName) {
+      return { success: false, error: "All fields are required." };
+    }
+
+    const supabase = await getSupabase();
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email, password, options: { data: { full_name: fullName, role: "user" } },
+    });
+
+    if (authError || !authData.user) {
+      return { success: false, error: authError?.message || "Registration failed." };
+    }
+
+    // Force profile creation immediately
+    const { error: profileError } = await supabase.from("profiles").upsert(
+      { id: authData.user.id, full_name: fullName, role: "user" },
+      { onConflict: "id" }
+    );
+
+    if (profileError) {
+      console.error("[REGISTER_PROFILE_ERROR]", profileError);
+      return { success: false, error: "Account created, but profile initialization failed." };
+    }
+
+    return { success: true, destination: accountType === "consultant" ? "/apply" : "/explore" };
+  } catch (error: any) {
+    console.error("[REGISTER_ACTION_ERROR]", error);
+    return { success: false, error: "An unexpected error occurred during registration." };
   }
-
-  const supabase = await getSupabase();
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-        role: "user",
-      },
-    },
-  });
-
-  if (authError || !authData.user) {
-    return { success: false, error: authError?.message || "Registration failed." };
-  }
-
-  // Ensure public profile exists
-  await supabase.from("profiles").upsert(
-    {
-      id: authData.user.id,
-      full_name: fullName,
-      role: "user",
-    },
-    { onConflict: "id" }
-  );
-
-  if (accountType === "consultant") {
-    return { success: true, destination: "/apply" };
-  }
-
-  return { success: true, destination: "/explore" };
 }
 
 export async function signOutAction() {
-  const supabase = await getSupabase();
-  await supabase.auth.signOut();
+  let hasError = false;
+  try {
+    const supabase = await getSupabase();
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.error("[SIGNOUT_ERROR]", error);
+    hasError = true;
+  }
+  
+  // NOTE: Next.js redirect() throws an error internally. It MUST be outside the try/catch block.
   redirect("/login");
 }
