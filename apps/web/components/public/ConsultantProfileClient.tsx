@@ -39,7 +39,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
 
     if (res.status === 'active') {
       // Auto-accepted by AI
-      router.push(`/session/${res.sessionId}`);
+      router.push(`/chat/${res.sessionId}`);
       return;
     }
 
@@ -48,7 +48,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session_requests', filter: `id=eq.${res.sessionId}` },
         (payload) => {
           if (payload.new.status === 'active') {
-            router.push(`/session/${payload.new.id}`);
+            router.push(`/chat/${payload.new.id}`);
           } else if (payload.new.status === 'declined') {
             setCallState('declined');
             setTimeout(() => setCallState('idle'), 3000);

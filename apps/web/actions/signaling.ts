@@ -17,7 +17,6 @@ export async function initiateSessionAction(consultantId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "Unauthorized" };
 
-  // Check if consultant is AI
   const { data: consultant } = await supabase
     .from("profiles")
     .select("is_ai, is_online")
@@ -28,7 +27,6 @@ export async function initiateSessionAction(consultantId: string) {
     return { success: false, error: "Consultant is currently offline." };
   }
 
-  // If AI, auto-accept immediately
   const initialStatus = consultant.is_ai ? "active" : "ringing";
 
   const { data: session, error } = await supabase

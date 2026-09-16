@@ -43,7 +43,7 @@ export function GlobalCallListener({ userId }: { userId: string }) {
     await respondToSessionAction(sessionId, status);
     
     if (status === 'active') {
-      router.push(`/session/${sessionId}`);
+      router.push(`/chat/${sessionId}`);
     }
   };
 
