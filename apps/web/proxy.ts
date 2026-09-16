@@ -16,6 +16,7 @@ export async function proxy(request: NextRequest) {
           response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
+          // FIXED: Changed `value, ''` to `value: ''` to satisfy strict object assignment
           request.cookies.set({ name, value: '', ...options })
           response = NextResponse.next({ request: { headers: request.headers } })
           response.cookies.set({ name, value: '', ...options })
@@ -27,10 +28,13 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
   
-  // Define Route Categories
-  const isAuthRoute = path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/apply');
+  // Whitelist auth routes & OAuth callback routes
+  const isAuthRoute = path.startsWith('/login') || 
+                      path.startsWith('/register') || 
+                      path.startsWith('/apply') ||
+                      path.startsWith('/auth');
   
-  // Public routes anyone can view
+  // Public routes viewable by guests
   const isPublicRoute = path === '/' || 
                         path.startsWith('/explore') || 
                         path.startsWith('/services') ||
@@ -41,7 +45,7 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
-  // Gateway: If not logged in and trying to access a private route, send to login
+  // Gateway: If guest tries to access protected route
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
@@ -49,7 +53,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // RBAC for Authenticated Users
+  // Dynamic Routing for Authenticated Users
   if (user) {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     const role = profile?.role || 'user'
@@ -66,8 +70,8 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Keep logged-in users out of auth routes
-    if (isAuthRoute) {
+    // Keep logged-in users out of /login or /register
+    if (path === '/login' || path === '/register') {
       const url = request.nextUrl.clone()
       if (['admin', 'superadmin', 'super_admin'].includes(role)) url.pathname = '/admin/dashboard'
       else if (role === 'consultant') url.pathname = '/consultant/dashboard'

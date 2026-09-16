@@ -5,7 +5,8 @@ import { cookies } from "next/headers";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? "/explore";
+  const intent = searchParams.get("intent") ?? "user";
 
   if (code) {
     const cookieStore = await cookies();
@@ -20,30 +21,62 @@ export async function GET(request: Request) {
               cookiesToSet.forEach(({ name, value, options }) =>
                 cookieStore.set(name, value, options)
               );
-            } catch (error) {
-              console.error("Cookie setting failed in callback:", error);
-            }
+            } catch {}
           },
         },
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    
-    if (!error) {
-      // Netlify specific fix: Ensure we redirect to the forwarded host if it exists
-      const forwardedHost = request.headers.get("x-forwarded-host");
-      const isLocalEnv = process.env.NODE_ENV === "development";
-      
-      if (isLocalEnv) {
-        return NextResponse.redirect(`${origin}${next}`);
-      } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error && data.user) {
+      // 1. Fetch or create user profile
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("id, role, full_name")
+        .eq("id", data.user.id)
+        .single();
+
+      let role = existingProfile?.role;
+
+      if (!existingProfile) {
+        const metadata = data.user.user_metadata || {};
+        const fullName =
+          metadata.full_name ||
+          metadata.name ||
+          data.user.email?.split("@")[0] ||
+          "Seeker";
+        const avatarUrl = metadata.avatar_url || metadata.picture || null;
+
+        await supabase.from("profiles").upsert(
+          {
+            id: data.user.id,
+            full_name: fullName,
+            avatar_url: avatarUrl,
+            role: "user",
+          },
+          { onConflict: "id" }
+        );
+        role = "user";
+      }
+
+      // 2. Consultant Intent: Route newly logged in user directly to /apply
+      if (intent === "consultant" && role !== "consultant") {
+        return NextResponse.redirect(`${origin}/apply`);
+      }
+
+      // 3. Smart Role-Based Redirect
+      if (["admin", "superadmin", "super_admin"].includes(role || "")) {
+        return NextResponse.redirect(`${origin}/admin/dashboard`);
+      } else if (role === "consultant") {
+        return NextResponse.redirect(`${origin}/consultant/dashboard`);
       } else {
-        return NextResponse.redirect(`${origin}${next}`);
+        const destination =
+          next && next !== "/" && next !== "/login" ? next : "/explore";
+        return NextResponse.redirect(`${origin}${destination}`);
       }
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
+  return NextResponse.redirect(`${origin}/login?error=OAuthAuthenticationFailed`);
 }
