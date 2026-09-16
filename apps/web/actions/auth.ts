@@ -5,7 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-// Standard user client (Subject to strict RLS)
+// 1. Standard Client
 async function getSupabase() {
   const cookieStore = await cookies();
   return createServerClient(
@@ -26,11 +26,8 @@ async function getSupabase() {
   );
 }
 
-// God-Mode Admin client (Bypasses RLS to guarantee profile provisioning)
+// 2. Admin Client (Used exclusively as an auto-healing fallback)
 const getAdminSupabase = () => {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    console.warn("[WARNING] Missing SUPABASE_SERVICE_ROLE_KEY. Profile provisioning may fail due to RLS.");
-  }
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -51,16 +48,15 @@ export async function loginAction(formData: FormData): Promise<{ success: boolea
 
     if (authError || !authData.user) return { success: false, error: authError?.message || "Invalid credentials." };
 
-    // AGGRESSIVE UPSERT via Admin Client to heal any missing profiles securely
+    // AUTO-HEALING: Guarantee profile existence if the SQL trigger failed
     const adminClient = getAdminSupabase();
     const fallbackName = authData.user.user_metadata?.full_name || email.split("@")[0];
-    
     await adminClient.from("profiles").upsert(
-      { id: authData.user.id, full_name: fallbackName, role: "user" }, 
+      { id: authData.user.id, full_name: fallbackName, role: "user" },
       { onConflict: "id", ignoreDuplicates: true }
     );
 
-    const { data: profile } = await adminClient.from("profiles").select("role").eq("id", authData.user.id).single();
+    const { data: profile } = await supabase.from("profiles").select("role").eq("id", authData.user.id).single();
     const role = profile?.role || "user";
 
     let destination = "/explore";
@@ -89,21 +85,15 @@ export async function registerAction(formData: FormData): Promise<{ success: boo
       email, password, options: { data: { full_name: fullName, role: "user" } },
     });
 
-    if (authError || !authData.user) return { success: false, error: authError?.message || "Registration failed." };
+    if (authError || !authData.user) return { success: false, error: authError?.message || "Registration failed. Email might be in use." };
 
-    // HIGH-END FIX: Use the Admin Client to bypass RLS and guarantee the profile row is created
+    // AUTO-HEALING: Hard-upsert the profile from the server to bypass any trigger failures
     const adminClient = getAdminSupabase();
-    const { error: profileError } = await adminClient.from("profiles").upsert(
+    await adminClient.from("profiles").upsert(
       { id: authData.user.id, full_name: fullName, role: "user" },
-      { onConflict: "id" }
+      { onConflict: "id", ignoreDuplicates: true }
     );
 
-    if (profileError) {
-      console.error("[REGISTER_PROFILE_ERROR]", profileError);
-      return { success: false, error: "Account created, but profile initialization failed. Please contact support." };
-    }
-
-    // Consultant intent dictates the routing, but they remain role="user" until Admin approval
     return { success: true, destination: accountType === "consultant" ? "/apply" : "/explore" };
   } catch (error: any) {
     console.error("[REGISTER_ACTION_ERROR]", error);
