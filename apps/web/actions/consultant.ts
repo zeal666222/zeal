@@ -13,11 +13,7 @@ async function getSupabaseServerClient() {
       cookies: {
         getAll() { return cookieStore.getAll(); },
         setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {}
+          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {}
         },
       },
     }
@@ -27,18 +23,15 @@ async function getSupabaseServerClient() {
 export async function submitConsultantApplication(formData: FormData) {
   const expertise = formData.get("expertise") as string;
   const bio = formData.get("bio") as string;
+  const avatarUrl = formData.get("avatarUrl") as string;
+  const coverUrl = formData.get("coverUrl") as string;
   
   const supabase = await getSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) return { success: false, error: "Unauthorized" };
 
-  // Fetch full name for the application record
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
 
   const { error } = await supabase
     .from("consultant_applications")
@@ -47,14 +40,13 @@ export async function submitConsultantApplication(formData: FormData) {
       full_name: profile?.full_name || "Unknown Applicant",
       expertise,
       bio,
+      avatar_url: avatarUrl || null,
+      cover_url: coverUrl || null,
       status: "pending"
     });
 
   if (error) {
-    // Check if the error is the UNIQUE constraint (meaning they already applied)
-    if (error.code === '23505') {
-      return { success: false, error: "You already have a pending application under review." };
-    }
+    if (error.code === '23505') return { success: false, error: "You already have a pending application." };
     return { success: false, error: error.message };
   }
 
@@ -65,7 +57,6 @@ export async function submitConsultantApplication(formData: FormData) {
 export async function checkApplicationStatus() {
   const supabase = await getSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) return { status: null };
 
   const { data } = await supabase
