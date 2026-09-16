@@ -26,19 +26,30 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
   const path = request.nextUrl.pathname
-  const isAuthRoute = path.startsWith('/login') || path.startsWith('/register')
-  const isPublicRoute = path === '/'
   
+  // Define Route Categories
+  const isAuthRoute = path.startsWith('/login') || path.startsWith('/register') || path.startsWith('/apply');
+  
+  // Public routes anyone can view
+  const isPublicRoute = path === '/' || 
+                        path.startsWith('/explore') || 
+                        path.startsWith('/services') ||
+                        (path.startsWith('/consultant/') && !path.startsWith('/consultant/dashboard'));
+
+  // Static Assets Bypass
   if (path.startsWith('/api') || path.startsWith('/_next') || path.match(/\.(.*)$/)) {
     return response
   }
 
+  // Gateway: If not logged in and trying to access a private route, send to login
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    url.searchParams.set('redirectedFrom', path)
     return NextResponse.redirect(url)
   }
 
+  // RBAC for Authenticated Users
   if (user) {
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
     const role = profile?.role || 'user'
@@ -49,12 +60,13 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (path.startsWith('/consultant') && role !== 'consultant' && !['admin', 'superadmin', 'super_admin'].includes(role)) {
+    if (path.startsWith('/consultant/dashboard') && role !== 'consultant' && !['admin', 'superadmin', 'super_admin'].includes(role)) {
       const url = request.nextUrl.clone()
       url.pathname = '/explore'
       return NextResponse.redirect(url)
     }
 
+    // Keep logged-in users out of auth routes
     if (isAuthRoute) {
       const url = request.nextUrl.clone()
       if (['admin', 'superadmin', 'super_admin'].includes(role)) url.pathname = '/admin/dashboard'

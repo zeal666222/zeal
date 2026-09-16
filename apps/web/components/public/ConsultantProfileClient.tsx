@@ -3,10 +3,8 @@
 import { useState, useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { initiateSessionAction } from "@/actions/signaling";
-import { useRouter } from "next/navigation";
-import { 
-  Star, Shield, Phone, MessageSquare, Sparkles, Image as ImageIcon
-} from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Star, Shield, Phone, MessageSquare, Sparkles, Image as ImageIcon } from "lucide-react";
 
 type PublicProfile = { id: string; full_name: string; avatar_url: string | null; cover_url: string | null; is_ai: boolean; is_online: boolean; };
 type Post = { id: string; image_url: string | null; content: string; created_at: string; };
@@ -16,6 +14,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
   const [activeTab, setActiveTab] = useState<"grid" | "about">("grid");
   const [callState, setCallState] = useState<'idle' | 'calling' | 'declined'>('idle');
   const router = useRouter();
+  const pathname = usePathname();
 
   const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
@@ -31,19 +30,22 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
     setCallState('calling');
     const res = await initiateSessionAction(profile.id);
     
+    // Auth Interceptor Logic
     if (!res.success) {
+      if (res.error === "Unauthorized") {
+        router.push(`/login?redirectedFrom=${pathname}`);
+        return;
+      }
       alert(res.error);
       setCallState('idle');
       return;
     }
 
     if (res.status === 'active') {
-      // Auto-accepted by AI
       router.push(`/chat/${res.sessionId}`);
       return;
     }
 
-    // If Ringing, listen for the human consultant's response
     const ringChannel = supabase.channel(`ringing:${res.sessionId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session_requests', filter: `id=eq.${res.sessionId}` },
         (payload) => {
@@ -61,13 +63,13 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
   const fallbackAvatar = "bg-gradient-to-br from-indigo-500 to-purple-600 text-white";
 
   return (
-    <div className="min-h-screen-app bg-slate-950 pb-24 md:pb-0 flex flex-col relative">
+    <div className="flex flex-col relative w-full">
       <div className="relative w-full h-48 md:h-80 bg-slate-900">
         {profile.cover_url ? <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" /> : <div className={`w-full h-full ${fallbackCover} flex items-center justify-center opacity-80`} />}
         <div className="absolute bottom-0 w-full h-24 bg-gradient-to-t from-slate-950 to-transparent" />
       </div>
 
-      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 relative -mt-16 md:-mt-24 z-10">
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 relative -mt-16 md:-mt-24 z-10 pb-10">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-3">
             <div className="relative inline-block">
@@ -84,36 +86,44 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
             <button 
               onClick={handleInitiateSession}
               disabled={!profile.is_online || callState !== 'idle'}
-              className={`px-8 py-3.5 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-xl ${!profile.is_online ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : callState === 'declined' ? 'bg-rose-600 text-white' : callState === 'calling' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+              className={`btn-3d px-8 py-3.5 rounded-full font-bold flex items-center gap-2 transition-all shadow-xl ${!profile.is_online ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700' : callState === 'declined' ? 'bg-rose-600 text-white' : callState === 'calling' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white'}`}
             >
-              <Phone size={18} /> {callState === 'calling' ? 'Ringing...' : callState === 'declined' ? 'Busy' : 'Initiate Live Session'}
+              <Phone size={18} className="drop-shadow-md"/> <span className="drop-shadow-md">{callState === 'calling' ? 'Ringing...' : callState === 'declined' ? 'Busy' : 'Initiate Live Session'}</span>
             </button>
           </div>
         </div>
 
         <div className="flex items-center gap-8 mt-10 border-b border-white/5">
-          <button onClick={() => setActiveTab("grid")} className={`pb-4 text-sm font-bold uppercase tracking-wider transition-colors relative ${activeTab === "grid" ? "text-white" : "text-slate-500"}`}>Content Grid {activeTab === "grid" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white rounded-t-full" />}</button>
-          <button onClick={() => setActiveTab("about")} className={`pb-4 text-sm font-bold uppercase tracking-wider transition-colors relative ${activeTab === "about" ? "text-white" : "text-slate-500"}`}>About {activeTab === "about" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white rounded-t-full" />}</button>
+          <button onClick={() => setActiveTab("grid")} className={`pb-4 text-sm font-bold uppercase tracking-wider transition-colors relative ${activeTab === "grid" ? "text-white" : "text-slate-500"}`}>Content Grid {activeTab === "grid" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white rounded-t-full shadow-[0_0_10px_white]" />}</button>
+          <button onClick={() => setActiveTab("about")} className={`pb-4 text-sm font-bold uppercase tracking-wider transition-colors relative ${activeTab === "about" ? "text-white" : "text-slate-500"}`}>About {activeTab === "about" && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-white rounded-t-full shadow-[0_0_10px_white]" />}</button>
         </div>
 
         <div className="py-8">
-          {activeTab === "grid" && posts.map((post) => (
-             <div key={post.id} className="aspect-square bg-slate-900 border border-white/5 rounded-2xl overflow-hidden relative group">
-                <div className="w-full h-full flex items-center justify-center p-4 text-center bg-gradient-to-br from-slate-900 to-slate-950"><p className="text-xs md:text-sm text-slate-300">{post.content}</p></div>
-             </div>
-          ))}
+          {activeTab === "grid" && (
+            posts.length === 0 ? (
+              <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl"><ImageIcon size={40} className="mx-auto text-slate-600 mb-4" /><h3 className="text-lg font-bold text-slate-300">No content yet</h3></div>
+            ) : (
+              <div className="grid grid-cols-3 gap-1 md:gap-4">
+                {posts.map((post) => (
+                  <div key={post.id} className="aspect-square bg-slate-900 border border-white/5 rounded-lg md:rounded-2xl overflow-hidden relative group cursor-pointer hover:border-white/20 transition-all">
+                    {post.image_url ? <img src={post.image_url} alt="Post" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center p-4 text-center bg-gradient-to-br from-slate-900 to-slate-950"><p className="text-xs md:text-sm text-slate-300 line-clamp-4">{post.content}</p></div>}
+                  </div>
+                ))}
+              </div>
+            )
+          )}
           {activeTab === "about" && <div className="text-slate-300 leading-relaxed"><p>I am dedicated to providing clarity...</p></div>}
         </div>
       </div>
 
-      {/* Sticky Mobile CTA */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 p-4 bg-slate-950/90 backdrop-blur-2xl border-t border-white/10 z-50">
+      {/* Sticky Mobile CTA wrapped in btn-3d styling */}
+      <div className="md:hidden fixed bottom-24 left-4 right-4 z-40 flex justify-center">
         <button 
           onClick={handleInitiateSession}
           disabled={!profile.is_online || callState !== 'idle'}
-          className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all ${!profile.is_online ? 'bg-slate-800 text-slate-500' : callState === 'calling' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-emerald-600 text-white'}`}
+          className={`btn-3d w-full py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-2xl ${!profile.is_online ? 'bg-slate-800 text-slate-500 border border-slate-700 opacity-90' : callState === 'calling' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white'}`}
         >
-          <Phone size={20} /> {callState === 'calling' ? 'Ringing...' : 'Initiate Live Session'}
+          <Phone size={20} className="drop-shadow-md"/> <span className="drop-shadow-md">{callState === 'calling' ? 'Ringing...' : 'Initiate Live Session'}</span>
         </button>
       </div>
     </div>
