@@ -2,7 +2,6 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
 async function getSupabaseServerClient() {
   const cookieStore = await cookies();
@@ -24,6 +23,7 @@ async function getSupabaseServerClient() {
   );
 }
 
+// Full Submission Action
 export async function completeOnboardingAction(formData: FormData) {
   const dob = formData.get("dob") as string;
   const gender = formData.get("gender") as string;
@@ -34,7 +34,6 @@ export async function completeOnboardingAction(formData: FormData) {
 
   if (!user) return { success: false, error: "Unauthorized" };
 
-  // 1. Update Profile in Supabase (Real Database Write)
   const { error: profileError } = await supabase
     .from("profiles")
     .update({
@@ -47,24 +46,44 @@ export async function completeOnboardingAction(formData: FormData) {
 
   if (profileError) return { success: false, error: profileError.message };
 
-  // 2. Ensure Welcome Bonus Ledger Entry Exists
-  // The trigger already gave them 500 in `wallet_balance`, but we need a ledger history record.
+  await injectWelcomeBonusLedger(supabase, user.id);
+  return { success: true };
+}
+
+// New Skip Action for Standard Users
+export async function skipOnboardingAction() {
+  const supabase = await getSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "Unauthorized" };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ onboarding_completed: true })
+    .eq("id", user.id);
+
+  if (error) return { success: false, error: error.message };
+
+  await injectWelcomeBonusLedger(supabase, user.id);
+  return { success: true };
+}
+
+// Helper: Ensure the ledger reflects the welcome bonus
+async function injectWelcomeBonusLedger(supabase: any, userId: string) {
   const { data: existingTx } = await supabase
     .from("transactions")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("description", "Welcome Bonus")
     .single();
 
   if (!existingTx) {
     await supabase.from("transactions").insert({
-      user_id: user.id,
+      user_id: userId,
       amount: 500.00,
       transaction_type: "credit",
       description: "Welcome Bonus",
       status: "completed"
     });
   }
-
-  return { success: true };
 }

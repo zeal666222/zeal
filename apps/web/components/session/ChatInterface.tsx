@@ -1,15 +1,3 @@
-#!/usr/bin/env bash
-# ==============================================================================
-# PROJECT ZEAL — TS WEBRTC FIX & HARDENED CHAT ENGINE
-# ==============================================================================
-set -euo pipefail
-
-INFO="\033[1;34m[INFO]\033[0m"
-SUCCESS="\033[1;32m[SUCCESS]\033[0m"
-ERR_MSG="\033[1;31m[ERROR]\033[0m"
-
-echo -e "${INFO} 1. Deploying Hardened WebRTC & Chat Interface (apps/web/components/session/ChatInterface.tsx)..."
-cat << 'EOF' > apps/web/components/session/ChatInterface.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -267,31 +255,3 @@ export function ChatInterface({ sessionId, currentUserId, initialMessages, partn
     </div>
   );
 }
-EOF
-
-echo -e "${INFO} 2. Running strict enterprise type check..."
-if npx tsc --noEmit --project apps/web/tsconfig.json; then
-    echo -e "${SUCCESS} Workspace compiled successfully. No type errors!"
-else
-    echo -e "${ERR_MSG} Type check failed! Please review the terminal output above."
-    exit 1
-fi
-
-echo -e "${INFO} 3. Executing Next.js Production Build Verification..."
-if npm run build; then
-    echo -e "${SUCCESS} Next.js production build completed successfully!"
-    
-    echo -e "${INFO} 4. Committing architectural fixes..."
-    git add -A
-    git commit -m "fix(zeal): resolve WebRTC stream type assignment and harden ChatInterface" || echo "No changes to commit..."
-    
-    echo -e "${INFO} 5. Pushing securely to GitHub main branch..."
-    git push -u origin main
-    
-    echo -e "${SUCCESS} ====================================================================="
-    echo -e "${SUCCESS} PROJECT ZEAL WEBRTC ENGINE SECURELY VERIFIED & DEPLOYED!"
-    echo -e "${SUCCESS} ====================================================================="
-else
-    echo -e "${ERR_MSG} Production build failed! Please review the error logs above."
-    exit 1
-fi
