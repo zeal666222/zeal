@@ -1,215 +1,94 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, Suspense } from "react";
 import { registerAction } from "@/actions/auth";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Briefcase, Loader2, Mail, Lock, User as UserIcon,
-  ArrowRight, AlertCircle, Check, Eye, EyeOff, Sparkles,
-  IndianRupee, Users, Activity, BarChart3, Star, ShieldCheck,
+  Mail, Lock, User as UserIcon, Loader2, AlertCircle, Eye, EyeOff,
+  ArrowRight, Compass, Check,
 } from "lucide-react";
 
-type Strength = 0 | 1 | 2 | 3 | 4;
-const META: Record<Strength, { label: string; color: string; width: string }> = {
-  0: { label: "", color: "", width: "0%" },
-  1: { label: "Weak", color: "bg-rose-500", width: "20%" },
-  2: { label: "Fair", color: "bg-amber-500", width: "45%" },
-  3: { label: "Good", color: "bg-blue-500", width: "70%" },
-  4: { label: "Strong", color: "bg-emerald-500", width: "100%" },
-};
-
-function strength(pw: string): Strength {
-  if (!pw) return 0;
-  let s = 0;
-  if (pw.length >= 12) s++;
-  if (pw.length >= 16) s++;
-  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
-  if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) s++;
-  return Math.min(s, 4) as Strength;
-}
-
-export default function ConsultantRegisterPage() {
-  const router = useRouter();
+function Content() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [agreed, setAgreed] = useState(false);
+  const [show, setShow] = useState(false);
+  const router = useRouter();
 
-  const s = useMemo(() => strength(password), [password]);
-  const meta = META[s];
-  const passwordOk = password.length >= 12;
-  const matches = password === confirm && confirm.length > 0;
-  const emailValid = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [email]);
-  const nameValid = fullName.trim().length >= 2;
-  const canSubmit = nameValid && emailValid && passwordOk && matches && agreed && !loading;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const nameOk = fullName.trim().length >= 2;
+  const pwOk = password.length >= 12;
+  const canSubmit = emailOk && nameOk && pwOk && !loading;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!canSubmit) return;
     setLoading(true);
     setError("");
-
-    const fd = new FormData();
-    fd.append("fullName", fullName.trim());
-    fd.append("email", email.trim().toLowerCase());
-    fd.append("password", password);
-    fd.append("accountType", "consultant");  // → routes to /apply
-
+    const fd = new FormData(e.currentTarget);
+    fd.append("accountType", "consultant");
     const res = await registerAction(fd);
-
     if (res.success && res.destination) {
       router.push(res.destination);
     } else {
-      setError(res.error || "Registration failed.");
+      setError(res.error || "Could not create your account.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex relative overflow-hidden">
-      <div className="absolute top-1/3 right-1/4 w-[600px] h-[600px] bg-indigo-600/10 blur-[180px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-emerald-600/6 blur-[160px] rounded-full pointer-events-none" />
+    <div className="min-h-screen relative flex items-center justify-center p-6 overflow-hidden bg-[#0B0A14]">
+      <div className="absolute -top-40 right-0 w-[700px] h-[700px] rounded-full bg-indigo-500/10 blur-[180px] pointer-events-none" />
+      <div className="absolute -bottom-40 left-0 w-[600px] h-[600px] rounded-full bg-emerald-500/6 blur-[180px] pointer-events-none" />
 
-      {/* ─── Left panel ─────────────────────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[55%] relative flex-col justify-between p-14 border-r border-white/5">
-        <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-2xl shadow-indigo-500/30 group-hover:scale-105 transition-transform">
-              <Briefcase size={20} className="text-white" />
-            </div>
-            <div>
-              <p className="text-white font-black tracking-wider text-lg leading-none">ZEAL</p>
-              <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
-                Practice Console
-              </p>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-full max-w-[440px]"
+      >
+        <div className="text-center mb-9">
+          <Link href="/" className="inline-block mb-6">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
+              <Compass size={22} className="text-indigo-300" strokeWidth={1.5} />
             </div>
           </Link>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.7 }}
-          className="max-w-lg"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-6">
-            <Sparkles size={12} /> Join the network
-          </div>
-          <h1 className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight">
-            Launch your
-            <br />
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-emerald-400 bg-clip-text text-transparent">
-              practice.
-            </span>
+          <h1 className="text-[28px] font-light text-white/95 tracking-tight">
+            Apply to practice on Zeal
           </h1>
-          <p className="text-slate-400 text-base mt-6 leading-relaxed max-w-md">
-            Register in under a minute. Complete a 3-step verification, then start earning.
+          <p className="text-[13px] text-white/40 mt-2 font-light">
+            Create your account, then complete a short verification
           </p>
+        </div>
 
-          <div className="mt-10 space-y-3.5">
-            {[
-              { icon: IndianRupee, text: "Keep 90% of every session" },
-              { icon: Users, text: "Client CRM + booking history" },
-              { icon: Activity, text: "Real-time seeker requests" },
-              { icon: BarChart3, text: "Live earnings dashboard" },
-              { icon: Star, text: "Reviews that build your reputation" },
-            ].map((f, i) => (
+        <div className="rounded-3xl border border-white/[0.07] bg-white/[0.02] backdrop-blur-2xl p-8 shadow-[0_20px_70px_-20px_rgba(0,0,0,0.8)]">
+          <div className="mb-6 p-4 rounded-2xl bg-indigo-500/[0.06] border border-indigo-400/15">
+            <p className="text-[11.5px] text-indigo-200/85 font-light leading-relaxed">
+              After account creation you'll be taken to a 3-step verification —
+              discipline, rate, and bio. Approval typically takes under 24 hours.
+            </p>
+          </div>
+
+          <AnimatePresence>
+            {error && (
               <motion.div
-                key={f.text}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + i * 0.08 }}
-                className="flex items-center gap-3 text-sm text-slate-300"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mb-6 p-3.5 rounded-2xl bg-rose-500/[0.08] border border-rose-400/20 text-rose-200 text-[12.5px] font-light flex items-start gap-2.5"
               >
-                <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-                  <f.icon size={13} className="text-indigo-400" />
-                </div>
-                {f.text}
+                <AlertCircle size={15} className="mt-px shrink-0 opacity-80" />
+                <span>{error}</span>
               </motion.div>
-            ))}
-          </div>
+            )}
+          </AnimatePresence>
 
-          <div className="mt-10 p-4 rounded-2xl bg-slate-900/60 border border-white/5">
-            <div className="flex items-center gap-2 text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-2">
-              <ShieldCheck size={11} /> Application Flow
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-slate-400">
-              <span className="text-white font-bold">1. Create account</span>
-              <ArrowRight size={11} className="text-slate-600" />
-              <span className="text-white font-bold">2. Verify discipline</span>
-              <ArrowRight size={11} className="text-slate-600" />
-              <span className="text-white font-bold">3. Go live</span>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="flex items-center gap-6 text-[11px] text-slate-600">
-          <span>© 2026 Zeal</span>
-          <span>•</span>
-          <span>90% revenue share</span>
-          <span>•</span>
-          <span>No monthly fee</span>
-        </motion.div>
-      </div>
-
-      {/* ─── Right form ─────────────────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6 relative">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-md"
-        >
-          <div className="lg:hidden text-center mb-6">
-            <Link href="/" className="inline-flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center">
-                <Briefcase size={18} className="text-white" />
-              </div>
-              <span className="text-white font-black text-lg tracking-wider">ZEAL</span>
-            </Link>
-          </div>
-
-          <div className="mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-widest mb-3">
-              <Briefcase size={11} /> Consultant
-            </div>
-            <h2 className="text-2xl font-black text-white tracking-tight">
-              Create consultant account
-            </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Free to apply — no monthly fees
-            </p>
-          </div>
-
-          <div className="mb-6 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs">
-            <div className="font-black flex items-center gap-2 text-indigo-200 mb-1.5">
-              <ShieldCheck size={14} /> Fast-track onboarding
-            </div>
-            <p className="text-[11px] leading-relaxed text-indigo-300/80">
-              After account creation you'll be routed to a 3-step verification form.
-              Approval typically takes under 24 hours.
-            </p>
-          </div>
-
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-5 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-start gap-2.5"
-            >
-              <AlertCircle size={14} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </motion.div>
-          )}
-
-          <div className="mb-6">
+          <div className="mb-5">
             <GoogleAuthButton
               label="Sign up with Google"
               redirectPath="/apply"
@@ -217,176 +96,132 @@ export default function ConsultantRegisterPage() {
             />
           </div>
 
-          <div className="relative flex items-center justify-center mb-6">
-            <div className="border-t border-white/5 w-full" />
-            <span className="bg-slate-950 px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
-              or email
+          <div className="relative flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-[10px] uppercase tracking-[0.25em] text-white/25 font-light">
+              or
             </span>
-            <div className="border-t border-white/5 w-full" />
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={submit} className="space-y-5">
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                Legal Name
+              <label className="block text-[11px] font-medium text-white/50 tracking-wide mb-2">
+                Legal name
               </label>
-              <div className="relative group">
-                <UserIcon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
+              <div className="relative">
+                <UserIcon size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" strokeWidth={1.5} />
                 <input
+                  name="fullName"
                   type="text"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Aacharya Sharma"
+                  placeholder="Your professional name"
                   autoComplete="name"
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:bg-slate-900/90 focus:border-indigo-500"
+                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[14px] text-white/90 placeholder:text-white/20 outline-none focus:border-indigo-400/40 focus:bg-white/[0.05] transition-all font-light"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label className="block text-[11px] font-medium text-white/50 tracking-wide mb-2">
                 Email
               </label>
-              <div className="relative group">
-                <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
+              <div className="relative">
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" strokeWidth={1.5} />
                 <input
+                  name="email"
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@practice.com"
                   autoComplete="email"
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:bg-slate-900/90 focus:border-indigo-500"
+                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[14px] text-white/90 placeholder:text-white/20 outline-none focus:border-indigo-400/40 focus:bg-white/[0.05] transition-all font-light"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label className="block text-[11px] font-medium text-white/50 tracking-wide mb-2">
                 Password
               </label>
-              <div className="relative group">
-                <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
+              <div className="relative">
+                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" strokeWidth={1.5} />
                 <input
-                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  type={show ? "text" : "password"}
                   required
                   minLength={12}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 12 characters"
+                  placeholder="At least 12 characters"
                   autoComplete="new-password"
-                  className="w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:bg-slate-900/90 focus:border-indigo-500"
+                  className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[14px] text-white/90 placeholder:text-white/20 outline-none focus:border-indigo-400/40 focus:bg-white/[0.05] transition-all font-light"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((v) => !v)}
+                  onClick={() => setShow((v) => !v)}
                   tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-600 hover:text-slate-300 transition-colors rounded-lg hover:bg-white/5"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-all"
                 >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {show ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
-
               {password.length > 0 && (
-                <div className="mt-2 space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div
-                        animate={{ width: meta.width }}
-                        transition={{ duration: 0.4 }}
-                        className={`h-full ${meta.color} rounded-full`}
-                      />
-                    </div>
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${
-                      s <= 1 ? "text-rose-400" :
-                      s === 2 ? "text-amber-400" :
-                      s === 3 ? "text-blue-400" : "text-emerald-400"
-                    }`}>{meta.label}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500">
-                    {passwordOk
-                      ? "✓ Meets 12-character minimum"
-                      : `${12 - password.length} more character${12 - password.length === 1 ? "" : "s"} required`}
-                  </p>
-                </div>
+                <p className={`mt-2 text-[11px] font-light flex items-center gap-1.5 ${
+                  pwOk ? "text-emerald-300/80" : "text-white/40"
+                }`}>
+                  {pwOk ? <><Check size={11} /> 12-character minimum met</> : `${12 - password.length} more character${12 - password.length === 1 ? "" : "s"}`}
+                </p>
               )}
             </div>
-
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-                Confirm Password
-              </label>
-              <div className="relative group">
-                <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-indigo-400 transition-colors" />
-                <input
-                  type="password"
-                  required
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  placeholder="Repeat password"
-                  autoComplete="new-password"
-                  className={`w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:bg-slate-900/90 focus:border-indigo-500 ${
-                    confirm.length > 0 && !matches ? "border-rose-500/40" : "border-white/5"
-                  }`}
-                />
-                {matches && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                    <Check size={12} className="text-emerald-400" />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <label className="flex items-start gap-3 cursor-pointer py-2">
-              <div className="relative mt-0.5">
-                <input
-                  type="checkbox"
-                  checked={agreed}
-                  onChange={(e) => setAgreed(e.target.checked)}
-                  className="peer sr-only"
-                />
-                <div className="w-5 h-5 rounded-md border-2 border-white/10 bg-slate-900/60 peer-checked:bg-indigo-600 peer-checked:border-indigo-600 transition-all flex items-center justify-center">
-                  {agreed && <Check size={12} className="text-white" />}
-                </div>
-              </div>
-              <span className="text-[11px] text-slate-500 leading-relaxed">
-                I agree to Zeal's{" "}
-                <Link href="/terms" className="text-indigo-400 hover:text-indigo-300 font-bold">Terms</Link>
-                {" "}and{" "}
-                <Link href="/privacy" className="text-indigo-400 hover:text-indigo-300 font-bold">Privacy Policy</Link>.
-              </span>
-            </label>
 
             <button
               type="submit"
               disabled={!canSubmit}
-              className="btn-3d w-full py-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium text-[13.5px] tracking-wide transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 shadow-[0_10px_30px_-10px_rgba(99,102,241,0.5)]"
             >
               {loading ? (
-                <><Loader2 size={16} className="animate-spin" /> Creating account...</>
+                <><Loader2 size={15} className="animate-spin" /> Creating account…</>
               ) : (
-                <>Continue to Application <ArrowRight size={15} /></>
+                <>Continue to application <ArrowRight size={15} /></>
               )}
             </button>
-          </form>
 
-          <div className="mt-7 pt-6 border-t border-white/5 text-center space-y-3">
-            <p className="text-xs text-slate-500">
-              Already a consultant?{" "}
-              <Link href="/consultant/login" className="text-indigo-400 hover:text-indigo-300 font-bold">
-                Sign in
-              </Link>
+            <p className="text-[11px] text-white/30 text-center font-light leading-relaxed pt-1">
+              By continuing you agree to our{" "}
+              <Link href="/terms" className="text-white/60 hover:text-white/80">Terms</Link>
+              {" "}and{" "}
+              <Link href="/privacy" className="text-white/60 hover:text-white/80">Privacy Policy</Link>.
             </p>
-            <p className="text-[11px] text-slate-600">
-              Looking for a session?{" "}
-              <Link href="/register" className="text-purple-400 hover:text-purple-300 font-bold">
-                Seeker signup
-              </Link>
-            </p>
-          </div>
-        </motion.div>
-      </div>
+          </form>
+        </div>
+
+        <div className="mt-7 text-center space-y-2.5">
+          <p className="text-[12px] text-white/40 font-light">
+            Already a consultant?{" "}
+            <Link href="/consultant/login" className="text-indigo-300/80 hover:text-indigo-300 transition-colors">
+              Sign in
+            </Link>
+          </p>
+          <p className="text-[12px] text-white/40 font-light">
+            Looking for a session?{" "}
+            <Link href="/register" className="text-white/80 hover:text-white transition-colors">
+              Seeker signup
+            </Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0B0A14]" />}>
+      <Content />
+    </Suspense>
   );
 }

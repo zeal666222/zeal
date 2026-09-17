@@ -1,4 +1,3 @@
-cat > clean-auth.sh << 'ENDOFSCRIPT'
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
 # ZEAL — RELAXED PREMIUM AUTH PAGES
@@ -1123,7 +1122,3 @@ echo ""
 [[ $E -eq 0 ]] && echo "[OK] Ready" || echo "[WARN] $E type error(s)"
 
 exit 0
-ENDOFSCRIPT
-
-chmod +x clean-auth.sh
-bash clean-auth.sh

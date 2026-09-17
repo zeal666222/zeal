@@ -1,240 +1,96 @@
 "use client";
 
-import { useState, Suspense, useMemo } from "react";
+import { useState, Suspense } from "react";
 import { loginAction } from "@/actions/auth";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Sparkles, Loader2, Mail, Lock, ShieldCheck, AlertCircle,
-  ArrowRight, Eye, EyeOff, Check, Flame, Compass, Briefcase,
+  Mail, Lock, Loader2, AlertCircle, Eye, EyeOff, ArrowRight, Sparkles,
 } from "lucide-react";
 
-function friendlyError(raw: string): string {
+function friendly(raw: string): string {
   const m = raw.toLowerCase();
   if (m.includes("invalid login") || m.includes("invalid credential"))
     return "Email or password is incorrect.";
   if (m.includes("rate") || m.includes("too many"))
     return "Too many attempts. Please wait a minute.";
-  if (m.includes("lock")) return raw;
   if (m.includes("email not confirmed"))
     return "Please confirm your email before signing in.";
-  return raw || "Authentication failed.";
+  return raw || "Sign-in failed.";
 }
 
-function LoginContent() {
+function Content() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [phase, setPhase] = useState<"idle" | "verifying" | "granted">("idle");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [touched, setTouched] = useState({ email: false, password: false });
-
+  const [show, setShow] = useState(false);
   const router = useRouter();
   const params = useSearchParams();
   const redirectTo = params.get("redirectedFrom") || "";
 
-  const emailValid = useMemo(
-    () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
-    [email]
-  );
-  const formValid = emailValid && password.length > 0;
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canSubmit = emailOk && password.length > 0 && !loading;
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setTouched({ email: true, password: true });
-    if (!formValid) return;
-
+    if (!canSubmit) return;
     setLoading(true);
-    setPhase("verifying");
     setError("");
-
     const fd = new FormData(e.currentTarget);
     if (redirectTo) fd.append("redirectTo", redirectTo);
-
     const res = await loginAction(fd);
-
     if (res.success && res.destination) {
-      // If consultant tries to sign in here, gently route them
-      if (res.destination === "/consultant/dashboard") {
-        router.push(res.destination);
-        return;
-      }
-      setPhase("granted");
       router.push(res.destination);
     } else {
-      setError(friendlyError(res.error || ""));
-      setPhase("idle");
+      setError(friendly(res.error || ""));
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-purple-600/10 blur-[180px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-indigo-600/8 blur-[160px] rounded-full pointer-events-none" />
+    <div className="min-h-screen relative flex items-center justify-center p-6 overflow-hidden bg-[#0B0A14]">
+      <div className="absolute -top-40 right-0 w-[700px] h-[700px] rounded-full bg-purple-500/10 blur-[180px] pointer-events-none" />
+      <div className="absolute -bottom-40 left-0 w-[600px] h-[600px] rounded-full bg-indigo-500/8 blur-[180px] pointer-events-none" />
 
-      {/* ─── Left panel ─────────────────────────────────────────────────── */}
-      <div className="hidden lg:flex lg:w-[55%] relative flex-col justify-between p-14 border-r border-white/5">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <Link href="/" className="inline-flex items-center gap-3 group">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center shadow-2xl shadow-purple-500/30 group-hover:scale-105 transition-transform">
-              <Sparkles size={20} className="text-white" />
-            </div>
-            <div>
-              <p className="text-white font-black tracking-wider text-lg leading-none">ZEAL</p>
-              <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
-                Wellness Universe
-              </p>
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+        className="relative w-full max-w-[420px]"
+      >
+        <div className="text-center mb-9">
+          <Link href="/" className="inline-block mb-6">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] backdrop-blur-sm">
+              <Sparkles size={22} className="text-purple-300" strokeWidth={1.5} />
             </div>
           </Link>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.7 }}
-          className="max-w-lg"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-6">
-            <Compass size={12} /> Seeker Access
-          </div>
-          <h1 className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight">
-            Find your
-            <br />
-            <span className="bg-gradient-to-r from-purple-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent">
-              clarity.
-            </span>
+          <h1 className="text-[28px] font-light text-white/95 tracking-tight">
+            Welcome back
           </h1>
-          <p className="text-slate-400 text-base mt-6 leading-relaxed max-w-md">
-            Connect with verified consultants across 37+ traditions.
-            Sign in to continue your journey.
+          <p className="text-[13px] text-white/40 mt-2 font-light">
+            Sign in to continue your journey
           </p>
+        </div>
 
-          <div className="mt-10 space-y-3.5">
-            {[
-              "Instant AI intent matching",
-              "Verified & rated consultants",
-              "Encrypted sessions",
-              "Per-minute billing, no subscriptions",
-            ].map((f, i) => (
-              <motion.div
-                key={f}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + i * 0.08 }}
-                className="flex items-center gap-3 text-sm text-slate-300"
-              >
-                <div className="w-5 h-5 rounded-full bg-purple-500/15 border border-purple-500/25 flex items-center justify-center shrink-0">
-                  <Check size={11} className="text-purple-400" />
-                </div>
-                {f}
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Consultant path banner on left panel */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="max-w-md"
-        >
-          <Link
-            href="/consultant/login"
-            className="group flex items-center gap-4 p-5 rounded-2xl bg-gradient-to-r from-indigo-950/60 to-purple-950/40 border border-indigo-500/20 hover:border-indigo-500/50 transition-all"
-          >
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-105 transition-transform shrink-0">
-              <Briefcase size={18} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-black text-sm">Are you a consultant?</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                Sign in to your Command Center
-              </p>
-            </div>
-            <ArrowRight size={16} className="text-indigo-400 group-hover:translate-x-1 transition-transform shrink-0" />
-          </Link>
-        </motion.div>
-      </div>
-
-      {/* ─── Right form panel ───────────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center p-6 relative">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          className="w-full max-w-md"
-        >
-          {/* Mobile logo */}
-          <div className="lg:hidden text-center mb-6">
-            <Link href="/" className="inline-flex items-center gap-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
-                <Sparkles size={18} className="text-white" />
-              </div>
-              <span className="text-white font-black text-lg tracking-wider">ZEAL</span>
-            </Link>
-          </div>
-
-          {/* Mobile consultant CTA */}
-          <Link
-            href="/consultant/login"
-            className="lg:hidden flex items-center gap-3 p-4 rounded-2xl bg-indigo-950/60 border border-indigo-500/20 mb-6 active:scale-[0.98] transition-transform"
-          >
-            <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shrink-0">
-              <Briefcase size={16} className="text-white" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-bold text-xs">Consultant?</p>
-              <p className="text-[10px] text-slate-400">Sign in to Command Center</p>
-            </div>
-            <ArrowRight size={14} className="text-indigo-400 shrink-0" />
-          </Link>
-
-          <div className="mb-8">
-            <h2 className="text-2xl font-black text-white tracking-tight">
-              Welcome back
-            </h2>
-            <p className="text-sm text-slate-500 mt-1">
-              Sign in to continue as a seeker
-            </p>
-          </div>
-
-          <AnimatePresence mode="wait">
+        <div className="rounded-3xl border border-white/[0.07] bg-white/[0.02] backdrop-blur-2xl p-8 shadow-[0_20px_70px_-20px_rgba(0,0,0,0.8)]">
+          <AnimatePresence>
             {error && (
               <motion.div
-                key="error"
-                initial={{ opacity: 0, y: -8 }}
+                initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="mb-5 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-start gap-2.5"
+                className="mb-6 p-3.5 rounded-2xl bg-rose-500/[0.08] border border-rose-400/20 text-rose-200 text-[12.5px] font-light flex items-start gap-2.5"
               >
-                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <AlertCircle size={15} className="mt-px shrink-0 opacity-80" />
                 <span>{error}</span>
-              </motion.div>
-            )}
-            {phase !== "idle" && (
-              <motion.div
-                key="phase"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mb-5 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold flex items-center gap-2.5"
-              >
-                <ShieldCheck size={14} />
-                {phase === "verifying" ? "Verifying..." : "Access granted — routing..."}
               </motion.div>
             )}
           </AnimatePresence>
 
-          <div className="mb-6">
+          <div className="mb-5">
             <GoogleAuthButton
               label="Continue with Google"
               redirectPath={redirectTo || "/explore"}
@@ -242,21 +98,21 @@ function LoginContent() {
             />
           </div>
 
-          <div className="relative flex items-center justify-center mb-6">
-            <div className="border-t border-white/5 w-full" />
-            <span className="bg-slate-950 px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
+          <div className="relative flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-[10px] uppercase tracking-[0.25em] text-white/25 font-light">
               or
             </span>
-            <div className="border-t border-white/5 w-full" />
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={submit} className="space-y-5">
             <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label className="block text-[11px] font-medium text-white/50 tracking-wide mb-2">
                 Email
               </label>
-              <div className="relative group">
-                <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors" />
+              <div className="relative">
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" strokeWidth={1.5} />
                 <input
                   name="email"
                   type="email"
@@ -264,101 +120,81 @@ function LoginContent() {
                   autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                   placeholder="you@example.com"
-                  className={`w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:bg-slate-900/90 focus:border-purple-500 ${
-                    touched.email && !emailValid && email.length > 0
-                      ? "border-rose-500/50"
-                      : "border-white/5"
-                  }`}
+                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[14px] text-white/90 placeholder:text-white/20 outline-none focus:border-purple-400/40 focus:bg-white/[0.05] transition-all font-light"
                 />
               </div>
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <label className="text-[11px] font-medium text-white/50 tracking-wide">
                   Password
                 </label>
-                <Link href="/forgot-password" className="text-[10px] text-purple-400 hover:text-purple-300 font-bold uppercase tracking-wider">
+                <Link href="/forgot-password" className="text-[11px] text-purple-300/70 hover:text-purple-300 transition-colors font-light">
                   Forgot?
                 </Link>
               </div>
-              <div className="relative group">
-                <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors" />
+              <div className="relative">
+                <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25" strokeWidth={1.5} />
                 <input
                   name="password"
-                  type={showPassword ? "text" : "password"}
+                  type={show ? "text" : "password"}
                   required
                   autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-                  placeholder="••••••••••••"
-                  className="w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:bg-slate-900/90 focus:border-purple-500"
+                  placeholder="••••••••"
+                  className="w-full pl-11 pr-12 py-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] text-[14px] text-white/90 placeholder:text-white/20 outline-none focus:border-purple-400/40 focus:bg-white/[0.05] transition-all font-light"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((v) => !v)}
+                  onClick={() => setShow((v) => !v)}
                   tabIndex={-1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-600 hover:text-slate-300 transition-colors rounded-lg hover:bg-white/5"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/[0.04] transition-all"
                 >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {show ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading || !formValid}
-              className="btn-3d w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canSubmit}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-medium text-[13.5px] tracking-wide transition-all hover:opacity-95 active:scale-[0.99] disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 shadow-[0_10px_30px_-10px_rgba(147,51,234,0.5)]"
             >
               {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  {phase === "verifying" ? "Signing in..." : "Redirecting..."}
-                </>
+                <><Loader2 size={15} className="animate-spin" /> Signing in…</>
               ) : (
-                <>
-                  Sign in as Seeker <ArrowRight size={15} />
-                </>
+                <>Sign in <ArrowRight size={15} /></>
               )}
             </button>
           </form>
+        </div>
 
-          <div className="mt-7 pt-6 border-t border-white/5 text-center space-y-2.5">
-            <p className="text-xs text-slate-500">
-              New to Zeal?{" "}
-              <Link href="/register" className="text-purple-400 hover:text-purple-300 font-bold">
-                Create a free account
-              </Link>
-            </p>
-            <p className="text-[11px] text-slate-600">
-              Administrator?{" "}
-              <a
-                href="https://zeal-admin-rose.vercel.app/login"
-                className="text-rose-400 hover:text-rose-300 font-bold"
-              >
-                Restricted access
-              </a>
-            </p>
-          </div>
-        </motion.div>
-      </div>
+        <div className="mt-7 text-center space-y-2.5">
+          <p className="text-[12px] text-white/40 font-light">
+            New here?{" "}
+            <Link href="/register" className="text-white/80 hover:text-white transition-colors">
+              Create an account
+            </Link>
+          </p>
+          <p className="text-[12px] text-white/40 font-light">
+            Want to practice on Zeal?{" "}
+            <Link href="/consultant/register" className="text-indigo-300/80 hover:text-indigo-300 transition-colors">
+              Apply as a consultant
+            </Link>
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 }
 
-export default function LoginPage() {
+export default function Page() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-          <Loader2 className="animate-spin text-purple-500" size={32} />
-        </div>
-      }
-    >
-      <LoginContent />
+    <Suspense fallback={<div className="min-h-screen bg-[#0B0A14]" />}>
+      <Content />
     </Suspense>
   );
 }
