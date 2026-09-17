@@ -42,3 +42,9 @@ zeal_full_repository_dump.txt
 # Supabase
 .branches/
 .temp/
+.env.local.backup
+.env.vercel.required
+.env*.backup
+*.bak
+*.bak-*
+_archive/

@@ -1,4 +1,3 @@
-cat > final-fix.sh << 'ENDOFSCRIPT'
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
 # ZEAL — FINAL ALL-IN-ONE FIX + COMMIT + PUSH
@@ -263,7 +262,3 @@ echo "  curl -s https://zeal-main-web.netlify.app/api/health | jq"
 echo ""
 
 exit 0
-ENDOFSCRIPT
-
-chmod +x final-fix.sh
-bash final-fix.sh

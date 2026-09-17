@@ -1,21 +1,3 @@
-# ═══════════════════════════════════════════════════════════════════════════════
-# ZEAL WEB — Netlify Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-# ⚠️  CRITICAL: NO `base =` DIRECTIVE.
-#
-# In the Netlify UI, set:
-#   Base directory    : (EMPTY — leave blank)
-#   Package directory : apps/web
-#   Build command     : (leave blank — this file provides it)
-#   Publish directory : (leave blank — this file provides it)
-#
-# WHY: `next` is hoisted to root /node_modules by npm workspaces.
-#      If base=apps/web, Netlify installs deps inside apps/web/node_modules
-#      (where `next` doesn't exist), so the Lambda function crashes with
-#      "Cannot find module 'next/dist/server/lib/start-server.js'".
-#      With base unset, Netlify installs at root → finds `next` → works.
-# ═══════════════════════════════════════════════════════════════════════════════
-
 [build]
   command = "npm install --legacy-peer-deps && npm run build --workspace=web"
   publish = "apps/web/.next"
@@ -28,12 +10,10 @@
   NPM_FLAGS = "--legacy-peer-deps"
   NEXT_TELEMETRY_DISABLED = "1"
 
-# ─── Scheduled cron functions ──────────────────────────────────────────────────
 [functions]
   directory = "apps/web/netlify/functions"
   node_bundler = "esbuild"
 
-# ─── Security headers ─────────────────────────────────────────────────────────
 [[headers]]
   for = "/*"
   [headers.values]
@@ -53,7 +33,6 @@
   [headers.values]
     Cache-Control = "no-store, max-age=0, must-revalidate"
 
-# ─── Redirects ────────────────────────────────────────────────────────────────
 [[redirects]]
   from = "/auth/login"
   to = "/login"
