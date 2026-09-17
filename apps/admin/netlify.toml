@@ -41,6 +41,6 @@
 # ─── API PROXY: forward /api/* to the web app ─────────────────────────────────
 [[redirects]]
   from = "/api/*"
-  to = "https://zeal-web.netlify.app/api/:splat"
+  to = "https://zeal-main-web.netlify.app/api/:splat"
   status = 200
   force = true
