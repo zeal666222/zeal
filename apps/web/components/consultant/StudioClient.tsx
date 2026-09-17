@@ -1,270 +1,200 @@
 "use client";
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Consultant Studio — Real-Time Command Center
-// Subscribes to: consultant:{id}:status, user:{id}:wallet, consultant:{id}:incoming
-// ═══════════════════════════════════════════════════════════════════════════════
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Power, Video, MessageSquare, IndianRupee, Star,
-  Clock, Users, Loader2, Sparkles, Activity, Bell,
+  Power, Video, MessageSquare, IndianRupee, Star, Clock, Users,
+  Loader2, Sparkles, Activity, Flame, ChevronRight,
 } from "lucide-react";
 import { getBrowserClient } from "@zeal/database";
+import type { CompletenessReport } from "@zeal/database/server";
 
-type ConsultantProfile = {
-  id: string;
-  full_name: string;
-  wallet_balance: number;
-  is_online: boolean;
-};
+interface Profile { id: string; full_name: string; wallet_balance: number; is_online: boolean; }
+interface Stats { sessions: number; rating: number; sparkScore: number; }
+interface Incoming { id: string; seekerName: string; rate: number; modality: string; receivedAt: string; }
+interface Props { initialProfile: Profile; completeness: CompletenessReport; subdomain: string | null; stats: Stats; }
 
-type IncomingRequest = {
-  id: string;
-  seekerName: string;
-  rate: number;
-  modality: string;
-  receivedAt: string;
-};
-
-export function StudioClient({ initialProfile }: { initialProfile: ConsultantProfile }) {
+export function StudioClient({ initialProfile, completeness, subdomain, stats }: Props) {
   const router = useRouter();
-  const [isOnline, setIsOnline] = useState(initialProfile.is_online);
+  const [online, setOnline] = useState(initialProfile.is_online);
   const [toggling, setToggling] = useState(false);
   const [balance, setBalance] = useState(initialProfile.wallet_balance);
-  const [incoming, setIncoming] = useState<IncomingRequest[]>([]);
-  const supabaseRef = useRef<ReturnType<typeof getBrowserClient> | null>(null);
+  const [incoming, setIncoming] = useState<Incoming[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const sbRef = useRef<ReturnType<typeof getBrowserClient> | null>(null);
 
-  // Lazy-init browser client
-  if (!supabaseRef.current && typeof window !== "undefined") {
-    try { supabaseRef.current = getBrowserClient(); } catch { /* ignore */ }
+  if (!sbRef.current && typeof window !== "undefined") {
+    try { sbRef.current = getBrowserClient(); } catch {}
   }
 
-  // ─── Realtime: incoming requests + wallet ─────────────────────────────────
   useEffect(() => {
-    const supabase = supabaseRef.current;
-    if (!supabase) return;
-
-    const incomingChannel = supabase
-      .channel(`consultant:${initialProfile.id}:incoming`)
+    const sb = sbRef.current;
+    if (!sb) return;
+    const ch = sb.channel(`consultant:${initialProfile.id}:incoming`)
       .on("broadcast", { event: "incoming_request" }, (payload: any) => {
-        const req = payload.payload as IncomingRequest;
-        if (req?.id) {
-          setIncoming((prev) => [req, ...prev].slice(0, 10));
-          // Vibrate if supported
-          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-            navigator.vibrate?.([100, 50, 100]);
-          }
+        const r = payload.payload as Incoming;
+        if (r?.id) {
+          setIncoming((prev) => [r, ...prev].slice(0, 10));
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([100, 50, 100]);
         }
-      })
-      .subscribe();
-
-    const walletChannel = supabase
-      .channel(`user:${initialProfile.id}:wallet`)
-      .on("broadcast", { event: "wallet_updated" }, (payload: any) => {
-        const data = payload.payload as { balance?: number };
-        if (typeof data?.balance === "number") setBalance(data.balance);
-      })
-      .subscribe();
-
-    return () => {
-      try { supabase.removeChannel(incomingChannel); } catch { /* ignore */ }
-      try { supabase.removeChannel(walletChannel); } catch { /* ignore */ }
-    };
+      }).subscribe();
+    const w = sb.channel(`user:${initialProfile.id}:wallet`)
+      .on("broadcast", { event: "*" }, (payload: any) => {
+        const b = payload.payload?.balance ?? payload.payload?.record?.balance;
+        if (typeof b === "number") setBalance(b);
+      }).subscribe();
+    return () => { try { sb.removeChannel(ch); } catch {} try { sb.removeChannel(w); } catch {} };
   }, [initialProfile.id]);
 
-  // ─── Online toggle ────────────────────────────────────────────────────────
-  const handleToggle = useCallback(async () => {
+  const toggle = useCallback(async () => {
     setToggling(true);
-    const next = !isOnline;
+    setToast(null);
+    const next = !online;
     try {
       const res = await fetch("/api/consultant/online", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_online: next }),
       });
-      if (!res.ok) throw new Error("Failed");
-      setIsOnline(next);
-
-      // Broadcast to seekers
-      const supabase = supabaseRef.current;
-      if (supabase) {
-        const ch = supabase.channel(`consultant:${initialProfile.id}:status`);
-        await ch.subscribe();
-        await ch.send({
-          type: "broadcast",
-          event: "status_updated",
-          payload: { consultantId: initialProfile.id, is_online: next },
-        });
-        await supabase.removeChannel(ch);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (err?.error === "PROFILE_INCOMPLETE") {
+          setToast(`Complete your profile to go live (${err.score ?? 0}%)`);
+        } else {
+          setToast(err?.message || "Could not toggle status");
+        }
+        return;
       }
-    } catch (err) {
-      console.error("[Studio] toggle failed", err);
-    } finally {
-      setToggling(false);
-    }
-  }, [isOnline, initialProfile.id]);
+      setOnline(next);
+      const sb = sbRef.current;
+      if (sb) {
+        const ch = sb.channel(`consultant:${initialProfile.id}:status`);
+        await ch.subscribe();
+        await ch.send({ type: "broadcast", event: "status_updated", payload: { consultantId: initialProfile.id, is_online: next } });
+        try { await sb.removeChannel(ch); } catch {}
+      }
+    } catch {
+      setToast("Network error");
+    } finally { setToggling(false); }
+  }, [online, initialProfile.id]);
 
-  const acceptRequest = (req: IncomingRequest) => {
-    setIncoming((prev) => prev.filter((r) => r.id !== req.id));
-    router.push(`/chat/${req.id}`);
-  };
-
-  const dismissRequest = (id: string) => {
-    setIncoming((prev) => prev.filter((r) => r.id !== id));
-  };
+  const accept = (r: Incoming) => { setIncoming((p) => p.filter((x) => x.id !== r.id)); router.push(`/chat/${r.id}`); };
 
   return (
-    <div className="flex-1 flex flex-col relative">
-      {/* ─── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-6 mb-8 border-b border-white/5 pb-8">
-        <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#9D7DC5]/10 border border-[#9D7DC5]/20 text-[#9D7DC5] text-xs font-bold mb-4">
-            <Sparkles size={14} /> Consultant Studio
-          </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
-            Command Center
-          </h1>
-          <p className="text-slate-400 text-sm mt-2 flex items-center gap-2">
-            Welcome back, <strong className="text-slate-200">{initialProfile.full_name}</strong>.
-          </p>
-        </div>
-
-        {/* Master Power Switch */}
-        <div className="flex items-center gap-4 bg-slate-900/80 backdrop-blur-md border border-white/10 rounded-2xl p-2 shadow-xl w-full lg:w-auto">
-          <div className="px-4 flex-1">
-            <span className={`text-xs font-bold uppercase tracking-wider ${isOnline ? "text-emerald-400" : "text-slate-500"}`}>
-              {isOnline ? "Accepting Sessions" : "Currently Offline"}
-            </span>
-          </div>
-          <button
-            onClick={handleToggle}
-            disabled={toggling}
-            aria-label="Toggle online status"
-            className={`relative w-16 h-10 rounded-full transition-colors duration-300 flex items-center p-1 ${
-              isOnline
-                ? "bg-emerald-500/20 border border-emerald-500/50"
-                : "bg-slate-800 border border-slate-700"
-            }`}
-          >
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 transform ${
-                isOnline
-                  ? "translate-x-6 bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(16,185,129,0.8)]"
-                  : "translate-x-0 bg-slate-600 text-slate-300"
-              }`}
-            >
-              {toggling ? <Loader2 size={16} className="animate-spin" /> : <Power size={16} />}
+    <div className="space-y-6">
+      {!completeness.isLive && (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/25 p-6 shadow-2xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 blur-[80px] rounded-full pointer-events-none" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">
+              <Sparkles size={13} /> Complete your profile
             </div>
-          </button>
+            <h2 className="text-xl font-black text-white mb-1">
+              {completeness.score}% complete — unlock going live
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">Finish the checklist to accept sessions and earn.</p>
+            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden mb-5">
+              <div className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all" style={{ width: `${completeness.score}%` }} />
+            </div>
+            <ul className="space-y-2 mb-5">
+              {completeness.checks.map((c) => (
+                <li key={c.id} className="flex items-center gap-3 text-sm">
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${c.passed ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-800 text-slate-500"}`}>
+                    {c.passed ? "✓" : "○"}
+                  </span>
+                  <span className={c.passed ? "text-slate-500 line-through" : "text-slate-200"}>{c.label}</span>
+                  {!c.passed && (
+                    <a href={c.actionHref} className="ml-auto text-xs text-amber-400 hover:text-amber-300 font-bold">
+                      Fix <ChevronRight size={11} className="inline" />
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <a href="/apply" className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg">
+              Complete profile <ChevronRight size={14} />
+            </a>
+          </div>
         </div>
+      )}
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl lg:text-3xl font-black text-white">Welcome back, {initialProfile.full_name}</h1>
+          <p className="text-sm text-slate-400 mt-1">Your practice at a glance</p>
+        </div>
+        <button onClick={toggle} disabled={toggling || !completeness.isLive}
+          title={!completeness.isLive ? "Complete profile to go live" : undefined}
+          className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+            online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-slate-800 border-slate-700 text-slate-400"
+          }`}
+        >
+          {toggling ? <Loader2 size={18} className="animate-spin" /> : <Power size={18} className={online ? "animate-pulse" : ""} />}
+          <span className="text-sm font-bold uppercase tracking-wider">
+            {toggling ? "Updating…" : online ? "Accepting Sessions" : "Currently Offline"}
+          </span>
+        </button>
       </div>
 
-      {/* ─── Metric Cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-8">
-        <MetricCard
-          label="Balance"
-          value={`₹${Number(balance).toFixed(0)}`}
-          icon={IndianRupee}
-          accent="text-emerald-400"
-          bg="bg-emerald-500/10"
-        />
-        <MetricCard
-          label="Rating"
-          value="5.0"
-          icon={Star}
-          accent="text-amber-400"
-          bg="bg-amber-500/10"
-        />
-        <MetricCard
-          label="Sessions"
-          value="0"
-          icon={Video}
-          accent="text-indigo-400"
-          bg="bg-indigo-500/10"
-        />
-        <MetricCard
-          label="Hours"
-          value="0h"
-          icon={Clock}
-          accent="text-purple-400"
-          bg="bg-purple-500/10"
-        />
+      {toast && (
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-bold">{toast}</div>
+      )}
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+        <Metric label="Balance"  value={`₹${Number(balance).toFixed(0)}`} icon={IndianRupee} accent="text-emerald-400" bg="bg-emerald-500/10" />
+        <Metric label="Rating"   value={`${stats.rating.toFixed(1)}★`}     icon={Star}         accent="text-amber-400"   bg="bg-amber-500/10" />
+        <Metric label="Sessions" value={String(stats.sessions)}            icon={Video}        accent="text-indigo-400"  bg="bg-indigo-500/10" />
+        <Metric label="Sparks"   value={stats.sparkScore.toLocaleString()} icon={Flame}        accent="text-orange-400"  bg="bg-orange-500/10" />
       </div>
 
-      {/* ─── Main Grid ───────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 flex-1">
-        {/* Incoming Queue */}
-        <div className="lg:col-span-2 flex flex-col">
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-6 lg:p-8 shadow-2xl flex-1 flex flex-col relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full pointer-events-none" />
-
-            <div className="flex items-center justify-between mb-6 relative z-10">
-              <h3 className="text-lg lg:text-xl font-black flex items-center gap-3 text-white">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <div className="bg-slate-900/60 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl min-h-[420px]">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-lg font-black text-white flex items-center gap-3">
                 <Activity className="text-indigo-400 w-5 h-5" /> Live Seeker Queue
               </h3>
-              {isOnline && (
+              {online && (
                 <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs font-bold text-emerald-400 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                  Searching...
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Searching
                 </span>
               )}
             </div>
 
-            {/* Incoming Requests */}
             {incoming.length > 0 ? (
-              <div className="space-y-3 relative z-10">
-                {incoming.map((req) => (
-                  <div
-                    key={req.id}
-                    className="flex items-center justify-between gap-3 p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl animate-in fade-in slide-in-from-top-2"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-300 font-bold flex-shrink-0">
-                        <Bell size={16} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-white text-sm truncate">{req.seekerName}</p>
-                        <p className="text-xs text-slate-400">
-                          ₹{req.rate}/min · {req.modality}
-                        </p>
-                      </div>
+              <div className="space-y-3">
+                {incoming.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between gap-3 p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl">
+                    <div className="min-w-0">
+                      <p className="font-bold text-white text-sm truncate">{r.seekerName}</p>
+                      <p className="text-xs text-slate-400">₹{r.rate}/min · {r.modality}</p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => dismissRequest(req.id)}
-                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-colors"
-                      >
-                        Skip
-                      </button>
-                      <button
-                        onClick={() => acceptRequest(req)}
-                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-xs font-bold shadow-lg transition-all active:scale-95"
-                      >
-                        Accept
-                      </button>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => setIncoming((p) => p.filter((x) => x.id !== r.id))}
+                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold">Skip</button>
+                      <button onClick={() => accept(r)}
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-xs font-bold">Accept</button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className={`flex-1 flex items-center justify-center border-2 border-dashed rounded-3xl p-8 relative z-10 transition-colors ${
-                isOnline ? "border-indigo-500/30 bg-indigo-950/20" : "border-white/5 bg-slate-950/50"
+              <div className={`flex items-center justify-center border-2 border-dashed rounded-3xl p-8 min-h-[340px] ${
+                online ? "border-indigo-500/30 bg-indigo-950/20" : "border-white/5 bg-slate-950/50"
               }`}>
                 <div className="text-center">
-                  <div className={`w-16 lg:w-20 h-16 lg:h-20 rounded-full flex items-center justify-center mx-auto mb-4 transition-colors ${
-                    isOnline ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-white/5 text-slate-500"
+                  <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${
+                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-white/5 text-slate-500"
                   }`}>
-                    {isOnline ? <Users size={28} /> : <Power size={28} />}
+                    {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
-                  <h4 className="text-base lg:text-xl font-bold text-slate-200 mb-2">
-                    {isOnline ? "Waiting for connections..." : "Studio is Offline"}
+                  <h4 className="text-base font-bold text-slate-200 mb-2">
+                    {online ? "Waiting for connections…" : completeness.isLive ? "You're offline" : "Studio locked"}
                   </h4>
-                  <p className="text-xs lg:text-sm text-slate-500 max-w-sm mx-auto">
-                    {isOnline
-                      ? "Your profile is visible to seekers. Incoming requests will appear here instantly."
-                      : "Toggle your power switch to online to start receiving consultations."}
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                    {online
+                      ? "Your profile is visible to seekers. Requests appear here instantly."
+                      : completeness.isLive
+                      ? "Toggle the switch above to start receiving sessions."
+                      : "Complete your profile to unlock the studio."}
                   </p>
                 </div>
               </div>
@@ -272,54 +202,51 @@ export function StudioClient({ initialProfile }: { initialProfile: ConsultantPro
           </div>
         </div>
 
-        {/* Communication sidebar (desktop only) */}
-        <div className="hidden lg:flex bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl flex-col">
-          <h3 className="text-lg font-black mb-6 flex items-center gap-3 text-white">
-            <MessageSquare className="text-slate-400" size={20} /> Quick Actions
-          </h3>
-
-          <div className="space-y-3 flex-1">
-            <QuickAction icon={Video} label="Video Gateway" subtitle="Requires active session" />
-            <QuickAction icon={MessageSquare} label="Live Chat Bridge" subtitle="Requires active session" />
+        <div className="space-y-4">
+          <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+            <h3 className="text-sm font-black mb-4 text-white uppercase tracking-wider flex items-center gap-2">
+              <MessageSquare className="text-slate-400" size={16} /> Quick Actions
+            </h3>
+            <div className="space-y-3">
+              <Quick icon={Clock} label="Set Availability" href="/consultant/availability" />
+              <Quick icon={IndianRupee} label="View Earnings" href="/consultant/earnings" />
+              <Quick icon={Users} label="My Clients" href="/consultant/clients" />
+            </div>
           </div>
+          {subdomain && (
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-[#9D7DC5]/20 rounded-3xl p-6 shadow-2xl">
+              <p className="text-[10px] uppercase tracking-widest text-[#9D7DC5] font-bold mb-1">Your White-Label Site</p>
+              <p className="text-sm font-mono text-white break-all">{subdomain}.zeal.app</p>
+              <a href={`/white-label/${subdomain}`} target="_blank"
+                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#9D7DC5] hover:text-white font-bold">
+                Open site <ChevronRight size={12} />
+              </a>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function MetricCard({
-  label, value, icon: Icon, accent, bg,
-}: {
-  label: string; value: string; icon: typeof IndianRupee; accent: string; bg: string;
-}) {
+function Metric({ label, value, icon: Icon, accent, bg }: { label: string; value: string; icon: typeof IndianRupee; accent: string; bg: string }) {
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl transition-all duration-300 hover:border-white/20">
+    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-3">
         <span className="text-slate-400 text-[10px] lg:text-xs font-bold uppercase tracking-wider">{label}</span>
-        <div className={`p-2 rounded-lg lg:rounded-xl ${bg} ${accent}`}>
-          <Icon size={16} />
-        </div>
+        <div className={`p-2 rounded-lg ${bg} ${accent}`}><Icon size={16} /></div>
       </div>
       <div className="text-xl lg:text-3xl font-black font-mono tracking-tight text-white">{value}</div>
     </div>
   );
 }
 
-function QuickAction({
-  icon: Icon, label, subtitle,
-}: {
-  icon: typeof Video; label: string; subtitle: string;
-}) {
+function Quick({ icon: Icon, label, href }: { icon: typeof Clock; label: string; href: string }) {
   return (
-    <div className="w-full p-4 bg-white/5 border border-white/5 rounded-2xl opacity-50 cursor-not-allowed">
-      <div className="flex items-center gap-3 mb-1">
-        <Icon size={16} className="text-slate-400" />
-        <div className="text-sm font-bold text-slate-200">{label}</div>
-      </div>
-      <div className="text-xs text-slate-500">{subtitle}</div>
-    </div>
+    <a href={href} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors group">
+      <Icon size={16} className="text-[#9D7DC5]" />
+      <span className="text-sm text-slate-200 flex-1">{label}</span>
+      <ChevronRight size={12} className="text-slate-500 group-hover:text-[#9D7DC5]" />
+    </a>
   );
 }
