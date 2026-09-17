@@ -1,4 +1,3 @@
-cat > premium-auth-frontend.sh << 'ENDOFSCRIPT'
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
 # ZEAL — PREMIUM AUTH FRONTEND (admin + unified + consultant)
@@ -1925,7 +1924,3 @@ echo "  https://zeal-web-red.vercel.app/apply      (consultant wizard)"
 echo ""
 
 exit 0
-ENDOFSCRIPT
-
-chmod +x premium-auth-frontend.sh
-bash premium-auth-frontend.sh
