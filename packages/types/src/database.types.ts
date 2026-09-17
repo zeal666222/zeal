@@ -1,383 +1,2029 @@
-// packages/types/src/database.types.ts
-// ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL — Complete Supabase Database Types
-// Covers all 24 tables + 16 RPC functions + compat views
-// ═══════════════════════════════════════════════════════════════════════════════
-
 export type Json =
-  | string | number | boolean | null
+  | string
+  | number
+  | boolean
+  | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
-// ─── Enums ───────────────────────────────────────────────────────────────────
-export type Role = "USER" | "CLIENT_ADMIN" | "SUPER_ADMIN" | "ADMIN" | "SUPPORT" | "VIEWER";
-export type ConsultantStatus = "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED";
-export type ConsultantCategory =
-  | "ASTROLOGER" | "PSYCHOLOGIST" | "TAROT" | "NUMEROLOGIST" | "PALMIST"
-  | "VASTU" | "REIKI" | "LIFE_COACH" | "MOTIVATIONAL_SPEAKER"
-  | "SPIRITUAL_GUIDE" | "YOGA_INSTRUCTOR" | "HEALER";
-export type Faith = "HINDU" | "ISLAM" | "CHRISTIAN" | "BUDDHIST" | "JEWISH" | "SIKH" | "OTHER";
-export type BookingStatus = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "MISSED" | "DISPUTED";
-export type CallStatus = "INITIATED" | "CONNECTED" | "ENDED" | "RECORDING_READY";
-export type TransactionType = "TOPUP" | "PAYMENT" | "REFUND" | "PAYOUT" | "FEE" | "COMMISSION";
-
-// ─── Table row generic ───────────────────────────────────────────────────────
-type Table<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
-  Row: Row;
-  Insert: Insert;
-  Update: Update;
-};
-
-export interface Database {
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   public: {
     Tables: {
-      // ─── Core Identity ────────────────────────────────────────────────────
-      User: Table<{
-        id: string; email: string; username: string;
-        name: string | null; avatar: string | null;
-        role: Role; sparks: number; isVerified: boolean;
-        is_online: boolean;
-        createdAt: string; updatedAt: string;
-      }>;
-
-      // Compat view: legacy `profiles` maps to User
-      profiles: Table<{
-        id: string; email: string; username: string;
-        full_name: string | null; avatar_url: string | null;
-        role: string; sparks: number;
-        wallet_balance: number;
-        is_online: boolean;
-        onboarding_completed: boolean;
-        is_ai: boolean;
-        system_prompt: string | null;
-        created_at: string; updated_at: string;
-      }>;
-
-      UserPreferences: Table<{
-        id: string; userId: string;
-        interests: string[]; goals: string[]; favoriteConsultants: string[];
-        createdAt: string; updatedAt: string;
-      }>;
-
-      UserActivity: Table<{
-        id: string; userId: string; consultantId: string | null;
-        type: string; createdAt: string;
-      }>;
-
-      // ─── Financial ────────────────────────────────────────────────────────
-      Wallet: Table<{
-        id: string; userId: string;
-        balance: number; escrow: number;
-        pendingIn: number; pendingOut: number; blocked: number;
-        createdAt: string; updatedAt: string;
-      }>;
-
-      Transaction: Table<{
-        id: string; walletId: string; type: TransactionType;
-        amount: number; balance: number; description: string;
-        referenceId: string | null; metadata: Json | null;
-        createdAt: string;
-      }>;
-
-      // Legacy ledger (compat)
-      wallet_ledger: Table<{
-        id: string; user_id: string; amount: number;
-        transaction_type: "CREDIT" | "DEBIT" | "HOLD" | "REFUND";
-        gateway: string; reference_id: string | null;
-        status: string; created_at: string;
-      }>;
-
-      // ─── Consultants ──────────────────────────────────────────────────────
-      Consultant: Table<{
-        id: string; userId: string; category: ConsultantCategory;
-        specialties: string[]; languages: string[]; bio: string | null;
-        perMinuteRate: number; isVerified: boolean; isActive: boolean;
-        faith: Faith; rating: number; totalConsultations: number; earnings: number;
-        availability: Json; status: ConsultantStatus;
-        verificationDocs: Json | null; rejectionReason: string | null;
-        approvedBy: string | null; approvedAt: string | null;
-        subdomain: string | null; subdomainActive: boolean;
-        whiteLabelEnabled: boolean; theme: Json | null;
-        chatRate: number | null; audioRate: number | null;
-        videoRate: number | null; physicalRate: number | null;
-        bufferMinutes: number; createdAt: string; updatedAt: string;
-      }>;
-
-      AIConsultant: Table<{
-        id: string; name: string; username: string; avatar: string;
-        category: string; isPaid: boolean; perMinuteRate: number; rating: number;
-        experience: number; totalConsultations: number; sparks: number;
-        bio: string; specialties: string[]; languages: string[]; model: string;
-        responseTime: number; accuracy: number; isActive: boolean;
-        gender: string | null; persona: string | null; voiceStyle: string | null;
-        isFeatured: boolean; createdAt: string; updatedAt: string;
-      }>;
-
-      // ─── Consultations (legacy compat) ────────────────────────────────────
-      consultations: Table<{
-        id: string; client_id: string; consultant_id: string;
-        service_type: "CHAT" | "AUDIO" | "VIDEO" | "PHYSICAL";
-        status: "PENDING" | "ACTIVE" | "COMPLETED" | "CANCELLED" | "TERMINATED";
-        rate_per_minute: number; total_cost: number;
-        started_at: string | null; ended_at: string | null;
-        created_at: string;
-      }>;
-
-      // ─── Bookings & Calls ─────────────────────────────────────────────────
-      Booking: Table<{
-        id: string; userId: string | null; consultantId: string;
-        scheduledAt: string; durationMinutes: number; status: BookingStatus;
-        meetingLink: string | null; externalEmail: string | null;
-        paymentId: string | null; amount: number;
-        platformFee: number; consultantEarning: number;
-        rating: number | null; review: string | null;
-        createdAt: string; updatedAt: string;
-      }>;
-
-      CallSession: Table<{
-        id: string; bookingId: string | null; userId: string;
-        consultantId: string | null; isAI: boolean; aiConsultantId: string | null;
-        startTime: string; endTime: string | null; durationSeconds: number;
-        amount: number; status: CallStatus;
-        recordingUrl: string | null; recordingReady: boolean;
-        createdAt: string; updatedAt: string;
-      }>;
-
-      // ─── Social ───────────────────────────────────────────────────────────
-      Post: Table<{
-        id: string; content: string; mediaUrls: string[]; authorId: string;
-        cheerCount: number; commentCount: number; shareCount: number;
-        isPinned: boolean; isFlagged: boolean;
-        createdAt: string; updatedAt: string;
-      }>;
-
-      Comment: Table<{
-        id: string; content: string; authorId: string; postId: string;
-        parentId: string | null; createdAt: string; updatedAt: string;
-      }>;
-
-      Cheer: Table<{ id: string; userId: string; postId: string; createdAt: string }>;
-
-      Notification: Table<{
-        id: string; userId: string; type: string; message: string;
-        redirectUrl: string | null; read: boolean; actorId: string;
-        createdAt: string; updatedAt: string;
-      }>;
-
-      // ─── Chat ─────────────────────────────────────────────────────────────
-      Conversation: Table<{
-        id: string; createdAt: string; lastMessageAt: string;
-        lastMessageText: string | null; isGroup: boolean; metadata: Json | null;
-      }>;
-
-      ConversationParticipant: Table<{
-        conversationId: string; userId: string; joinedAt: string;
-        lastReadAt: string | null; role: string;
-      }>;
-
-      Message: Table<{
-        id: string; conversationId: string; senderId: string | null;
-        content: string; type: string; metadata: Json | null;
-        createdAt: string; editedAt: string | null; deletedAt: string | null;
-      }>;
-
-      // Legacy chat (compat)
-      ChatMessage: Table<{
-        id: string; conversationId: string; senderId: string;
-        content: string; readAt: string | null; createdAt: string;
-      }>;
-
-      // Legacy session_messages (compat)
-      session_messages: Table<{
-        id: string; session_id: string; sender_id: string;
-        content: string; created_at: string;
-      }>;
-
-      session_requests: Table<{
-        id: string; seeker_id: string; consultant_id: string;
-        status: string; created_at: string;
-      }>;
-
-      // ─── Admin ────────────────────────────────────────────────────────────
-      AdminAuditLog: Table<{
-        id: string; userId: string | null; email: string | null;
-        action: string; targetType: string | null; targetId: string | null;
-        metadata: Json | null; ip: string | null; userAgent: string | null;
-        success: boolean; createdAt: string;
-      }>;
-
-      AdminInvite: Table<{
-        id: string; email: string; role: Role; tokenHash: string;
-        invitedBy: string; expiresAt: string;
-        acceptedAt: string | null; revokedAt: string | null;
-        createdAt: string;
-      }>;
-
-      AdminLoginAttempt: Table<{
-        id: string; email: string; ip: string | null;
-        success: boolean; reason: string | null; createdAt: string;
-      }>;
-
-      DebugLog: Table<{
-        id: string; createdAt: string; level: string; channel: string;
-        event: string; message: string | null; data: Json | null;
-        durationMs: number | null; requestId: string | null;
-        userId: string | null; route: string | null;
-      }>;
-    };
-
-    Views: Record<string, never>;
-
+      _legacy_audit_events: {
+        Row: {
+          actor_email: string | null
+          actor_id: string | null
+          actor_role: string | null
+          created_at: string
+          entry_hash: string | null
+          event_action: string
+          event_category: string
+          event_outcome: string
+          id: string
+          ip_address: unknown
+          metadata: Json | null
+          prev_hash: string | null
+          request_id: string | null
+          target_id: string | null
+          target_type: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          entry_hash?: string | null
+          event_action: string
+          event_category: string
+          event_outcome: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          prev_hash?: string | null
+          request_id?: string | null
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          actor_email?: string | null
+          actor_id?: string | null
+          actor_role?: string | null
+          created_at?: string
+          entry_hash?: string | null
+          event_action?: string
+          event_category?: string
+          event_outcome?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json | null
+          prev_hash?: string | null
+          request_id?: string | null
+          target_id?: string | null
+          target_type?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      _legacy_audit_logs: {
+        Row: {
+          action: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
+      _legacy_consultant_applications: {
+        Row: {
+          avatar_url: string | null
+          bio: string
+          cover_url: string | null
+          created_at: string | null
+          expertise: string
+          full_name: string
+          id: string
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio: string
+          cover_url?: string | null
+          created_at?: string | null
+          expertise: string
+          full_name: string
+          id?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string
+          cover_url?: string | null
+          created_at?: string | null
+          expertise?: string
+          full_name?: string
+          id?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      _legacy_consultant_bookings: {
+        Row: {
+          consultant_name: string
+          created_at: string | null
+          date: string
+          id: string
+          specialty: string | null
+          status: string | null
+          time: string
+        }
+        Insert: {
+          consultant_name: string
+          created_at?: string | null
+          date: string
+          id?: string
+          specialty?: string | null
+          status?: string | null
+          time: string
+        }
+        Update: {
+          consultant_name?: string
+          created_at?: string | null
+          date?: string
+          id?: string
+          specialty?: string | null
+          status?: string | null
+          time?: string
+        }
+        Relationships: []
+      }
+      _legacy_consultations: {
+        Row: {
+          client_id: string
+          consultant_id: string
+          created_at: string | null
+          ended_at: string | null
+          id: string
+          rate_per_minute: number
+          service_type: string | null
+          started_at: string | null
+          status: string | null
+          total_cost: number | null
+        }
+        Insert: {
+          client_id: string
+          consultant_id: string
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          rate_per_minute: number
+          service_type?: string | null
+          started_at?: string | null
+          status?: string | null
+          total_cost?: number | null
+        }
+        Update: {
+          client_id?: string
+          consultant_id?: string
+          created_at?: string | null
+          ended_at?: string | null
+          id?: string
+          rate_per_minute?: number
+          service_type?: string | null
+          started_at?: string | null
+          status?: string | null
+          total_cost?: number | null
+        }
+        Relationships: []
+      }
+      _legacy_messages: {
+        Row: {
+          consultation_id: string
+          content: string
+          created_at: string | null
+          id: string
+          sender_id: string
+          sender_role: string
+        }
+        Insert: {
+          consultation_id: string
+          content: string
+          created_at?: string | null
+          id?: string
+          sender_id: string
+          sender_role: string
+        }
+        Update: {
+          consultation_id?: string
+          content?: string
+          created_at?: string | null
+          id?: string
+          sender_id?: string
+          sender_role?: string
+        }
+        Relationships: []
+      }
+      _legacy_notifications: {
+        Row: {
+          actorId: string | null
+          created_at: string | null
+          id: string
+          is_read: boolean | null
+          message: string
+          read: boolean | null
+          redirectUrl: string | null
+          target_user_id: string
+          title: string
+          type: string | null
+          updatedAt: string | null
+          userId: string | null
+        }
+        Insert: {
+          actorId?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message: string
+          read?: boolean | null
+          redirectUrl?: string | null
+          target_user_id: string
+          title: string
+          type?: string | null
+          updatedAt?: string | null
+          userId?: string | null
+        }
+        Update: {
+          actorId?: string | null
+          created_at?: string | null
+          id?: string
+          is_read?: boolean | null
+          message?: string
+          read?: boolean | null
+          redirectUrl?: string | null
+          target_user_id?: string
+          title?: string
+          type?: string | null
+          updatedAt?: string | null
+          userId?: string | null
+        }
+        Relationships: []
+      }
+      _legacy_session_messages: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          sender_id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          sender_id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          sender_id?: string | null
+          session_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "_legacy_session_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      _legacy_session_requests: {
+        Row: {
+          consultant_id: string | null
+          created_at: string | null
+          id: string
+          seeker_id: string | null
+          status: string | null
+        }
+        Insert: {
+          consultant_id?: string | null
+          created_at?: string | null
+          id?: string
+          seeker_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          consultant_id?: string | null
+          created_at?: string | null
+          id?: string
+          seeker_id?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_requests_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_requests_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_requests_seeker_id_fkey"
+            columns: ["seeker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_requests_seeker_id_fkey"
+            columns: ["seeker_id"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      _legacy_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          description: string | null
+          id: string
+          status: string | null
+          transaction_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          transaction_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          transaction_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      AdminAuditLog: {
+        Row: {
+          action: string
+          changed_by: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          ip: string | null
+          metadata: Json | null
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          success: boolean | null
+          table_name: string
+          targetId: string | null
+          targetType: string | null
+          userAgent: string | null
+          userId: string | null
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          ip?: string | null
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          success?: boolean | null
+          table_name: string
+          targetId?: string | null
+          targetType?: string | null
+          userAgent?: string | null
+          userId?: string | null
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          ip?: string | null
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          success?: boolean | null
+          table_name?: string
+          targetId?: string | null
+          targetType?: string | null
+          userAgent?: string | null
+          userId?: string | null
+        }
+        Relationships: []
+      }
+      AdminInvite: {
+        Row: {
+          acceptedAt: string | null
+          createdAt: string
+          email: string
+          expiresAt: string
+          id: string
+          invitedBy: string
+          revokedAt: string | null
+          role: string
+          tokenHash: string
+        }
+        Insert: {
+          acceptedAt?: string | null
+          createdAt?: string
+          email: string
+          expiresAt: string
+          id?: string
+          invitedBy: string
+          revokedAt?: string | null
+          role?: string
+          tokenHash: string
+        }
+        Update: {
+          acceptedAt?: string | null
+          createdAt?: string
+          email?: string
+          expiresAt?: string
+          id?: string
+          invitedBy?: string
+          revokedAt?: string | null
+          role?: string
+          tokenHash?: string
+        }
+        Relationships: []
+      }
+      AdminLoginAttempt: {
+        Row: {
+          createdAt: string
+          email: string
+          id: string
+          ip: string | null
+          reason: string | null
+          success: boolean
+        }
+        Insert: {
+          createdAt?: string
+          email: string
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success: boolean
+        }
+        Update: {
+          createdAt?: string
+          email?: string
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
+      ai_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          id: string
+          name: string
+          specialty: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          specialty: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          specialty?: string
+        }
+        Relationships: []
+      }
+      ai_services: {
+        Row: {
+          created_at: string | null
+          description: string
+          href: string
+          icon_name: string
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          href: string
+          icon_name: string
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          href?: string
+          icon_name?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      AIConsultant: {
+        Row: {
+          accuracy: number
+          avatar: string
+          bio: string
+          category: string
+          createdAt: string
+          experience: number
+          gender: string | null
+          id: string
+          isActive: boolean
+          isFeatured: boolean
+          isPaid: boolean
+          languages: string[]
+          model: string
+          name: string
+          perMinuteRate: number
+          persona: string | null
+          rating: number
+          responseTime: number
+          sparks: number
+          specialties: string[]
+          totalConsultations: number
+          updatedAt: string
+          username: string
+          voiceStyle: string | null
+        }
+        Insert: {
+          accuracy?: number
+          avatar: string
+          bio: string
+          category: string
+          createdAt?: string
+          experience?: number
+          gender?: string | null
+          id?: string
+          isActive?: boolean
+          isFeatured?: boolean
+          isPaid?: boolean
+          languages?: string[]
+          model?: string
+          name: string
+          perMinuteRate?: number
+          persona?: string | null
+          rating?: number
+          responseTime?: number
+          sparks?: number
+          specialties?: string[]
+          totalConsultations?: number
+          updatedAt?: string
+          username: string
+          voiceStyle?: string | null
+        }
+        Update: {
+          accuracy?: number
+          avatar?: string
+          bio?: string
+          category?: string
+          createdAt?: string
+          experience?: number
+          gender?: string | null
+          id?: string
+          isActive?: boolean
+          isFeatured?: boolean
+          isPaid?: boolean
+          languages?: string[]
+          model?: string
+          name?: string
+          perMinuteRate?: number
+          persona?: string | null
+          rating?: number
+          responseTime?: number
+          sparks?: number
+          specialties?: string[]
+          totalConsultations?: number
+          updatedAt?: string
+          username?: string
+          voiceStyle?: string | null
+        }
+        Relationships: []
+      }
+      auth_attempts: {
+        Row: {
+          created_at: string
+          email: string
+          id: number
+          ip: string | null
+          reason: string | null
+          success: boolean
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: number
+          ip?: string | null
+          reason?: string | null
+          success: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: number
+          ip?: string | null
+          reason?: string | null
+          success?: boolean
+        }
+        Relationships: []
+      }
+      Booking: {
+        Row: {
+          amount: number
+          consultantEarning: number
+          consultantId: string | null
+          createdAt: string | null
+          durationMinutes: number
+          externalEmail: string | null
+          id: string
+          meetingLink: string | null
+          paymentId: string | null
+          platformFee: number
+          rating: number | null
+          review: string | null
+          scheduledAt: string
+          status: string
+          updatedAt: string | null
+          userId: string | null
+        }
+        Insert: {
+          amount?: number
+          consultantEarning?: number
+          consultantId?: string | null
+          createdAt?: string | null
+          durationMinutes?: number
+          externalEmail?: string | null
+          id?: string
+          meetingLink?: string | null
+          paymentId?: string | null
+          platformFee?: number
+          rating?: number | null
+          review?: string | null
+          scheduledAt: string
+          status?: string
+          updatedAt?: string | null
+          userId?: string | null
+        }
+        Update: {
+          amount?: number
+          consultantEarning?: number
+          consultantId?: string | null
+          createdAt?: string | null
+          durationMinutes?: number
+          externalEmail?: string | null
+          id?: string
+          meetingLink?: string | null
+          paymentId?: string | null
+          platformFee?: number
+          rating?: number | null
+          review?: string | null
+          scheduledAt?: string
+          status?: string
+          updatedAt?: string | null
+          userId?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Booking_consultantId_fkey"
+            columns: ["consultantId"]
+            isOneToOne: false
+            referencedRelation: "Consultant"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Booking_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Booking_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      CallSession: {
+        Row: {
+          aiConsultantId: string | null
+          amount: number
+          bookingId: string | null
+          consultantId: string | null
+          createdAt: string
+          durationSeconds: number
+          endTime: string | null
+          id: string
+          isAI: boolean
+          recordingReady: boolean
+          recordingUrl: string | null
+          startTime: string
+          status: string
+          updatedAt: string
+          userId: string
+        }
+        Insert: {
+          aiConsultantId?: string | null
+          amount?: number
+          bookingId?: string | null
+          consultantId?: string | null
+          createdAt?: string
+          durationSeconds?: number
+          endTime?: string | null
+          id?: string
+          isAI?: boolean
+          recordingReady?: boolean
+          recordingUrl?: string | null
+          startTime?: string
+          status?: string
+          updatedAt?: string
+          userId: string
+        }
+        Update: {
+          aiConsultantId?: string | null
+          amount?: number
+          bookingId?: string | null
+          consultantId?: string | null
+          createdAt?: string
+          durationSeconds?: number
+          endTime?: string | null
+          id?: string
+          isAI?: boolean
+          recordingReady?: boolean
+          recordingUrl?: string | null
+          startTime?: string
+          status?: string
+          updatedAt?: string
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "CallSession_bookingId_fkey"
+            columns: ["bookingId"]
+            isOneToOne: true
+            referencedRelation: "Booking"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "CallSession_consultantId_fkey"
+            columns: ["consultantId"]
+            isOneToOne: false
+            referencedRelation: "Consultant"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "CallSession_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "CallSession_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Cheer: {
+        Row: {
+          createdAt: string
+          id: string
+          postId: string
+          userId: string
+        }
+        Insert: {
+          createdAt?: string
+          id?: string
+          postId: string
+          userId: string
+        }
+        Update: {
+          createdAt?: string
+          id?: string
+          postId?: string
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Cheer_postId_fkey"
+            columns: ["postId"]
+            isOneToOne: false
+            referencedRelation: "Post"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Cheer_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Cheer_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Comment: {
+        Row: {
+          authorId: string
+          content: string
+          createdAt: string
+          id: string
+          parentId: string | null
+          postId: string
+          updatedAt: string
+        }
+        Insert: {
+          authorId: string
+          content: string
+          createdAt?: string
+          id?: string
+          parentId?: string | null
+          postId: string
+          updatedAt?: string
+        }
+        Update: {
+          authorId?: string
+          content?: string
+          createdAt?: string
+          id?: string
+          parentId?: string | null
+          postId?: string
+          updatedAt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Comment_authorId_fkey"
+            columns: ["authorId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Comment_authorId_fkey"
+            columns: ["authorId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Comment_parentId_fkey"
+            columns: ["parentId"]
+            isOneToOne: false
+            referencedRelation: "Comment"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Comment_postId_fkey"
+            columns: ["postId"]
+            isOneToOne: false
+            referencedRelation: "Post"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Consultant: {
+        Row: {
+          approvedAt: string | null
+          approvedBy: string | null
+          audioRate: number | null
+          availability: Json | null
+          bio: string | null
+          bufferMinutes: number | null
+          category: string
+          chatRate: number | null
+          createdAt: string | null
+          earnings: number | null
+          faith: string | null
+          id: string
+          isActive: boolean | null
+          isVerified: boolean | null
+          languages: string[] | null
+          perMinuteRate: number
+          physicalRate: number | null
+          rating: number | null
+          rejectionReason: string | null
+          sparkScore: number | null
+          specialties: string[] | null
+          status: string | null
+          subdomain: string | null
+          subdomainActive: boolean | null
+          theme: Json | null
+          totalConsultations: number | null
+          updatedAt: string | null
+          userId: string
+          verificationDocs: Json | null
+          videoRate: number | null
+          whiteLabelEnabled: boolean | null
+        }
+        Insert: {
+          approvedAt?: string | null
+          approvedBy?: string | null
+          audioRate?: number | null
+          availability?: Json | null
+          bio?: string | null
+          bufferMinutes?: number | null
+          category?: string
+          chatRate?: number | null
+          createdAt?: string | null
+          earnings?: number | null
+          faith?: string | null
+          id?: string
+          isActive?: boolean | null
+          isVerified?: boolean | null
+          languages?: string[] | null
+          perMinuteRate?: number
+          physicalRate?: number | null
+          rating?: number | null
+          rejectionReason?: string | null
+          sparkScore?: number | null
+          specialties?: string[] | null
+          status?: string | null
+          subdomain?: string | null
+          subdomainActive?: boolean | null
+          theme?: Json | null
+          totalConsultations?: number | null
+          updatedAt?: string | null
+          userId: string
+          verificationDocs?: Json | null
+          videoRate?: number | null
+          whiteLabelEnabled?: boolean | null
+        }
+        Update: {
+          approvedAt?: string | null
+          approvedBy?: string | null
+          audioRate?: number | null
+          availability?: Json | null
+          bio?: string | null
+          bufferMinutes?: number | null
+          category?: string
+          chatRate?: number | null
+          createdAt?: string | null
+          earnings?: number | null
+          faith?: string | null
+          id?: string
+          isActive?: boolean | null
+          isVerified?: boolean | null
+          languages?: string[] | null
+          perMinuteRate?: number
+          physicalRate?: number | null
+          rating?: number | null
+          rejectionReason?: string | null
+          sparkScore?: number | null
+          specialties?: string[] | null
+          status?: string | null
+          subdomain?: string | null
+          subdomainActive?: boolean | null
+          theme?: Json | null
+          totalConsultations?: number | null
+          updatedAt?: string | null
+          userId?: string
+          verificationDocs?: Json | null
+          videoRate?: number | null
+          whiteLabelEnabled?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Consultant_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Consultant_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: true
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Conversation: {
+        Row: {
+          createdAt: string | null
+          id: string
+          isGroup: boolean | null
+          lastMessageAt: string | null
+          lastMessageText: string | null
+          metadata: Json | null
+        }
+        Insert: {
+          createdAt?: string | null
+          id?: string
+          isGroup?: boolean | null
+          lastMessageAt?: string | null
+          lastMessageText?: string | null
+          metadata?: Json | null
+        }
+        Update: {
+          createdAt?: string | null
+          id?: string
+          isGroup?: boolean | null
+          lastMessageAt?: string | null
+          lastMessageText?: string | null
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
+      ConversationParticipant: {
+        Row: {
+          conversationId: string
+          joinedAt: string | null
+          lastReadAt: string | null
+          role: string | null
+          userId: string
+        }
+        Insert: {
+          conversationId: string
+          joinedAt?: string | null
+          lastReadAt?: string | null
+          role?: string | null
+          userId: string
+        }
+        Update: {
+          conversationId?: string
+          joinedAt?: string | null
+          lastReadAt?: string | null
+          role?: string | null
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ConversationParticipant_conversationId_fkey"
+            columns: ["conversationId"]
+            isOneToOne: false
+            referencedRelation: "Conversation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ConversationParticipant_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ConversationParticipant_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      DebugLog: {
+        Row: {
+          channel: string
+          createdAt: string
+          data: Json | null
+          durationMs: number | null
+          event: string
+          id: string
+          level: string
+          message: string | null
+          requestId: string | null
+          route: string | null
+          userId: string | null
+        }
+        Insert: {
+          channel: string
+          createdAt?: string
+          data?: Json | null
+          durationMs?: number | null
+          event: string
+          id?: string
+          level: string
+          message?: string | null
+          requestId?: string | null
+          route?: string | null
+          userId?: string | null
+        }
+        Update: {
+          channel?: string
+          createdAt?: string
+          data?: Json | null
+          durationMs?: number | null
+          event?: string
+          id?: string
+          level?: string
+          message?: string | null
+          requestId?: string | null
+          route?: string | null
+          userId?: string | null
+        }
+        Relationships: []
+      }
+      Message: {
+        Row: {
+          content: string
+          conversationId: string | null
+          createdAt: string | null
+          deletedAt: string | null
+          editedAt: string | null
+          id: string
+          metadata: Json | null
+          senderId: string | null
+          type: string | null
+        }
+        Insert: {
+          content: string
+          conversationId?: string | null
+          createdAt?: string | null
+          deletedAt?: string | null
+          editedAt?: string | null
+          id?: string
+          metadata?: Json | null
+          senderId?: string | null
+          type?: string | null
+        }
+        Update: {
+          content?: string
+          conversationId?: string | null
+          createdAt?: string | null
+          deletedAt?: string | null
+          editedAt?: string | null
+          id?: string
+          metadata?: Json | null
+          senderId?: string | null
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Message_conversationId_fkey"
+            columns: ["conversationId"]
+            isOneToOne: false
+            referencedRelation: "Conversation"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Message_senderId_fkey"
+            columns: ["senderId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Message_senderId_fkey"
+            columns: ["senderId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Notification: {
+        Row: {
+          actorId: string | null
+          createdAt: string
+          id: string
+          message: string
+          read: boolean
+          redirectUrl: string | null
+          type: string
+          updatedAt: string
+          userId: string
+        }
+        Insert: {
+          actorId?: string | null
+          createdAt?: string
+          id?: string
+          message: string
+          read?: boolean
+          redirectUrl?: string | null
+          type?: string
+          updatedAt?: string
+          userId: string
+        }
+        Update: {
+          actorId?: string | null
+          createdAt?: string
+          id?: string
+          message?: string
+          read?: boolean
+          redirectUrl?: string | null
+          type?: string
+          updatedAt?: string
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Notification_actorId_fkey"
+            columns: ["actorId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Notification_actorId_fkey"
+            columns: ["actorId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Notification_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Notification_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Post: {
+        Row: {
+          authorId: string | null
+          cheerCount: number | null
+          commentCount: number | null
+          content: string
+          created_at: string | null
+          id: string
+          isFlagged: boolean | null
+          isPinned: boolean | null
+          mediaUrls: string[] | null
+          shareCount: number | null
+          updatedAt: string | null
+        }
+        Insert: {
+          authorId?: string | null
+          cheerCount?: number | null
+          commentCount?: number | null
+          content: string
+          created_at?: string | null
+          id?: string
+          isFlagged?: boolean | null
+          isPinned?: boolean | null
+          mediaUrls?: string[] | null
+          shareCount?: number | null
+          updatedAt?: string | null
+        }
+        Update: {
+          authorId?: string | null
+          cheerCount?: number | null
+          commentCount?: number | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          isFlagged?: boolean | null
+          isPinned?: boolean | null
+          mediaUrls?: string[] | null
+          shareCount?: number | null
+          updatedAt?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultant_posts_consultant_id_fkey"
+            columns: ["authorId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultant_posts_consultant_id_fkey"
+            columns: ["authorId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sparks: {
+        Row: {
+          consultant_id: string
+          last_spark_at: string | null
+          total_sparks: number | null
+        }
+        Insert: {
+          consultant_id: string
+          last_spark_at?: string | null
+          total_sparks?: number | null
+        }
+        Update: {
+          consultant_id?: string
+          last_spark_at?: string | null
+          total_sparks?: number | null
+        }
+        Relationships: []
+      }
+      Transaction: {
+        Row: {
+          amount: number
+          balance: number
+          createdAt: string | null
+          description: string
+          id: string
+          metadata: Json | null
+          referenceId: string | null
+          type: string
+          walletId: string
+        }
+        Insert: {
+          amount: number
+          balance: number
+          createdAt?: string | null
+          description?: string
+          id?: string
+          metadata?: Json | null
+          referenceId?: string | null
+          type?: string
+          walletId: string
+        }
+        Update: {
+          amount?: number
+          balance?: number
+          createdAt?: string | null
+          description?: string
+          id?: string
+          metadata?: Json | null
+          referenceId?: string | null
+          type?: string
+          walletId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Transaction_walletId_fkey"
+            columns: ["walletId"]
+            isOneToOne: false
+            referencedRelation: "Wallet"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      User: {
+        Row: {
+          avatar_url: string | null
+          cover_url: string | null
+          created_at: string | null
+          createdAt: string | null
+          date_of_birth: string | null
+          email: string
+          full_name: string | null
+          gender: string | null
+          id: string
+          is_ai: boolean | null
+          is_online: boolean | null
+          isVerified: boolean | null
+          name: string | null
+          onboarding_completed: boolean | null
+          role: Database["public"]["Enums"]["AppRole"] | null
+          sparks: number | null
+          sparkScore: number | null
+          system_prompt: string | null
+          updated_at: string | null
+          updatedAt: string | null
+          username: string | null
+          wallet_balance: number | null
+          zodiac_sign: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          createdAt?: string | null
+          date_of_birth?: string | null
+          email: string
+          full_name?: string | null
+          gender?: string | null
+          id: string
+          is_ai?: boolean | null
+          is_online?: boolean | null
+          isVerified?: boolean | null
+          name?: string | null
+          onboarding_completed?: boolean | null
+          role?: Database["public"]["Enums"]["AppRole"] | null
+          sparks?: number | null
+          sparkScore?: number | null
+          system_prompt?: string | null
+          updated_at?: string | null
+          updatedAt?: string | null
+          username?: string | null
+          wallet_balance?: number | null
+          zodiac_sign?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          createdAt?: string | null
+          date_of_birth?: string | null
+          email?: string
+          full_name?: string | null
+          gender?: string | null
+          id?: string
+          is_ai?: boolean | null
+          is_online?: boolean | null
+          isVerified?: boolean | null
+          name?: string | null
+          onboarding_completed?: boolean | null
+          role?: Database["public"]["Enums"]["AppRole"] | null
+          sparks?: number | null
+          sparkScore?: number | null
+          system_prompt?: string | null
+          updated_at?: string | null
+          updatedAt?: string | null
+          username?: string | null
+          wallet_balance?: number | null
+          zodiac_sign?: string | null
+        }
+        Relationships: []
+      }
+      UserActivity: {
+        Row: {
+          consultantId: string | null
+          createdAt: string
+          id: string
+          type: string
+          userId: string
+        }
+        Insert: {
+          consultantId?: string | null
+          createdAt?: string
+          id?: string
+          type: string
+          userId: string
+        }
+        Update: {
+          consultantId?: string | null
+          createdAt?: string
+          id?: string
+          type?: string
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "UserActivity_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "UserActivity_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: false
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      UserPreferences: {
+        Row: {
+          createdAt: string
+          favoriteConsultants: string[]
+          goals: string[]
+          id: string
+          interests: string[]
+          updatedAt: string
+          userId: string
+        }
+        Insert: {
+          createdAt?: string
+          favoriteConsultants?: string[]
+          goals?: string[]
+          id?: string
+          interests?: string[]
+          updatedAt?: string
+          userId: string
+        }
+        Update: {
+          createdAt?: string
+          favoriteConsultants?: string[]
+          goals?: string[]
+          id?: string
+          interests?: string[]
+          updatedAt?: string
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "UserPreferences_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "UserPreferences_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: true
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      Wallet: {
+        Row: {
+          balance: number
+          blocked: number
+          createdAt: string
+          escrow: number
+          id: string
+          pendingIn: number
+          pendingOut: number
+          updatedAt: string
+          userId: string
+        }
+        Insert: {
+          balance?: number
+          blocked?: number
+          createdAt?: string
+          escrow?: number
+          id?: string
+          pendingIn?: number
+          pendingOut?: number
+          updatedAt?: string
+          userId: string
+        }
+        Update: {
+          balance?: number
+          blocked?: number
+          createdAt?: string
+          escrow?: number
+          id?: string
+          pendingIn?: number
+          pendingOut?: number
+          updatedAt?: string
+          userId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Wallet_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "Wallet_userId_fkey"
+            columns: ["userId"]
+            isOneToOne: true
+            referencedRelation: "User"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_ledger: {
+        Row: {
+          amount: number
+          created_at: string | null
+          gateway: string | null
+          id: string
+          reference_id: string | null
+          status: string | null
+          transaction_type: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          gateway?: string | null
+          id?: string
+          reference_id?: string | null
+          status?: string | null
+          transaction_type?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          gateway?: string | null
+          id?: string
+          reference_id?: string | null
+          status?: string | null
+          transaction_type?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          cover_url: string | null
+          created_at: string | null
+          date_of_birth: string | null
+          email: string | null
+          full_name: string | null
+          gender: string | null
+          id: string | null
+          is_ai: boolean | null
+          is_online: boolean | null
+          onboarding_completed: boolean | null
+          role: string | null
+          sparks: number | null
+          system_prompt: string | null
+          updated_at: string | null
+          wallet_balance: number | null
+          zodiac_sign: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          gender?: string | null
+          id?: string | null
+          is_ai?: boolean | null
+          is_online?: boolean | null
+          onboarding_completed?: boolean | null
+          role?: never
+          sparks?: number | null
+          system_prompt?: string | null
+          updated_at?: string | null
+          wallet_balance?: number | null
+          zodiac_sign?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          cover_url?: string | null
+          created_at?: string | null
+          date_of_birth?: string | null
+          email?: string | null
+          full_name?: string | null
+          gender?: string | null
+          id?: string | null
+          is_ai?: boolean | null
+          is_online?: boolean | null
+          onboarding_completed?: boolean | null
+          role?: never
+          sparks?: number | null
+          system_prompt?: string | null
+          updated_at?: string | null
+          wallet_balance?: number | null
+          zodiac_sign?: string | null
+        }
+        Relationships: []
+      }
+    }
     Functions: {
-      // ─── Wallet RPCs ──────────────────────────────────────────────────────
-      process_wallet_deduction: {
+      add_column_if_not_exists: {
         Args: {
-          p_user_id: string; p_amount: number; p_description: string;
-          p_reference_id?: string | null;
-          p_transaction_type?: TransactionType;
-          p_metadata?: Json | null;
-        };
-        Returns: Json;
-      };
-      process_wallet_deduction_safe: {
+          p_column_def: string
+          p_column_name: string
+          p_schema_name: string
+          p_table_name: string
+        }
+        Returns: undefined
+      }
+      add_constraint_if_not_exists: {
         Args: {
-          p_user_id: string; p_amount: number; p_description: string;
-          p_reference_id?: string | null;
-          p_transaction_type?: TransactionType;
-        };
-        Returns: Json;
-      };
-      process_wallet_topup: {
-        Args: {
-          p_user_id: string; p_amount: number; p_description: string;
-          p_reference_id?: string | null; p_metadata?: Json | null;
-        };
-        Returns: Json;
-      };
-      credit_funds_safe: {
-        Args: {
-          p_user_id: string; p_amount: number;
-          p_description: string; p_reference_id: string | null;
-        };
-        Returns: Json;
-      };
-      hold_in_escrow_safe: {
-        Args: {
-          p_user_id: string; p_amount: number;
-          p_reference_id: string; p_description: string;
-        };
-        Returns: Json;
-      };
-      process_escrow_release: {
-        Args: {
-          p_booking_id: string; p_consultant_id: string;
-          p_consultant_earning: number; p_platform_fee: number;
-        };
-        Returns: Json;
-      };
-      ledger_debit: {
-        Args: {
-          p_wallet_id: string; p_amount: number; p_type: TransactionType;
-          p_description: string; p_reference_id: string | null;
-          p_metadata?: Json;
-        };
-        Returns: Json;
-      };
-      ledger_credit: {
-        Args: {
-          p_wallet_id: string; p_amount: number; p_type: TransactionType;
-          p_description: string; p_reference_id: string | null;
-          p_metadata?: Json;
-        };
-        Returns: Json;
-      };
-      ledger_transfer: {
-        Args: {
-          p_from_wallet: string; p_to_wallet: string; p_amount: number;
-          p_reference_id: string; p_description: string;
-        };
-        Returns: Json;
-      };
-
-      // ─── Consultation RPCs ────────────────────────────────────────────────
-      pulse_deduct_inr: {
-        Args: { p_consultation_id: string; p_client_id: string };
-        Returns: Json;
-      };
-      increment_spark: {
-        Args: { p_consultant_id: string };
-        Returns: undefined;
-      };
-      increment_comment_count: {
-        Args: { p_post_id: string };
-        Returns: number;
-      };
-      toggle_cheer: {
-        Args: { p_user_id: string; p_post_id: string };
-        Returns: Json;
-      };
-      claim_quest: {
-        Args: { p_user_id: string; p_quest_id: string; p_reward: number };
-        Returns: Json;
-      };
-
-      // ─── Booking RPCs ─────────────────────────────────────────────────────
-      cancel_booking: {
-        Args: { p_booking_id: string; p_actor_id: string };
-        Returns: Json;
-      };
-      check_booking_conflict: {
-        Args: {
-          p_consultant_id: string; p_start: string;
-          p_duration_minutes: number;
-        };
-        Returns: boolean;
-      };
-      end_call_session: {
-        Args: { p_session_id: string };
-        Returns: Json;
-      };
-
-      // ─── Withdrawal RPCs ──────────────────────────────────────────────────
-      request_withdrawal: {
-        Args: {
-          p_user_id: string; p_amount: number;
-          p_upi: string; p_bank: string;
-        };
-        Returns: Json;
-      };
-      process_withdrawal: {
-        Args: {
-          p_tx_id: string; p_action: string;
-          p_reason?: string | null;
-        };
-        Returns: Json;
-      };
-
-      // ─── Admin RPCs ───────────────────────────────────────────────────────
-      verify_consultant: {
-        Args: {
-          p_consultant_id: string; p_admin_id: string; p_action: string;
-          p_reason?: string | null; p_subdomain?: string | null;
-        };
-        Returns: Json;
-      };
-
-      // ─── Chat RPCs ────────────────────────────────────────────────────────
+          p_constraint_def: string
+          p_constraint_name: string
+          p_schema_name: string
+          p_table_name: string
+        }
+        Returns: undefined
+      }
+      approve_consultant: {
+        Args: { target_application_id: string; target_user_id: string }
+        Returns: undefined
+      }
+      auth_is_admin: { Args: never; Returns: boolean }
+      auth_is_consultant: { Args: never; Returns: boolean }
+      auth_user_role: { Args: never; Returns: string }
+      cleanup_admin_logs: { Args: never; Returns: undefined }
+      current_user_id: { Args: never; Returns: string }
+      custom_access_token_hook: { Args: { event: Json }; Returns: Json }
+      deduct_wallet_balance: {
+        Args: { amount: number; user_id: string }
+        Returns: number
+      }
+      delete_user_cascade: { Args: { p_user_id: string }; Returns: Json }
       get_or_create_conversation: {
-        Args: { p_user_a: string; p_user_b: string };
-        Returns: string;
-      };
-    };
-
+        Args: { p_user_a: string; p_user_b: string }
+        Returns: string
+      }
+      is_locked_out: { Args: { p_email: string }; Returns: boolean }
+      is_super_admin: { Args: never; Returns: boolean }
+      pulse_deduct_inr: {
+        Args: { p_client_id: string; p_consultation_id: string }
+        Returns: Json
+      }
+      recharge_wallet: { Args: { recharge_amount: number }; Returns: number }
+    }
     Enums: {
-      Role: Role;
-      ConsultantStatus: ConsultantStatus;
-      ConsultantCategory: ConsultantCategory;
-      Faith: Faith;
-      BookingStatus: BookingStatus;
-      CallStatus: CallStatus;
-      TransactionType: TransactionType;
-    };
-  };
+      AppRole:
+        | "USER"
+        | "CLIENT_ADMIN"
+        | "SUPPORT"
+        | "ADMIN"
+        | "SUPER_ADMIN"
+        | "VIEWER"
+        | "AI"
+      BookingStatus:
+        | "PENDING"
+        | "CONFIRMED"
+        | "IN_PROGRESS"
+        | "COMPLETED"
+        | "CANCELLED"
+        | "MISSED"
+        | "DISPUTED"
+      CallStatus: "INITIATED" | "CONNECTED" | "ENDED" | "RECORDING_READY"
+      ConsultantCategory:
+        | "ASTROLOGER"
+        | "PSYCHOLOGIST"
+        | "TAROT"
+        | "NUMEROLOGIST"
+        | "PALMIST"
+        | "VASTU"
+        | "REIKI"
+        | "LIFE_COACH"
+        | "HEALER"
+        | "MOTIVATIONAL_SPEAKER"
+        | "SPIRITUAL_GUIDE"
+        | "YOGA_INSTRUCTOR"
+      ConsultantStatus: "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED"
+      Faith:
+        | "HINDU"
+        | "ISLAM"
+        | "CHRISTIAN"
+        | "BUDDHIST"
+        | "JEWISH"
+        | "SIKH"
+        | "OTHER"
+      Role:
+        | "USER"
+        | "HEALER"
+        | "ADMIN"
+        | "SUPER_ADMIN"
+        | "CLIENT_ADMIN"
+        | "SUPPORT"
+        | "VIEWER"
+      TransactionType:
+        | "TOPUP"
+        | "PAYMENT"
+        | "REFUND"
+        | "PAYOUT"
+        | "FEE"
+        | "COMMISSION"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never) = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never) = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never) = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      AppRole: [
+        "USER",
+        "CLIENT_ADMIN",
+        "SUPPORT",
+        "ADMIN",
+        "SUPER_ADMIN",
+        "VIEWER",
+        "AI",
+      ],
+      BookingStatus: [
+        "PENDING",
+        "CONFIRMED",
+        "IN_PROGRESS",
+        "COMPLETED",
+        "CANCELLED",
+        "MISSED",
+        "DISPUTED",
+      ],
+      CallStatus: ["INITIATED", "CONNECTED", "ENDED", "RECORDING_READY"],
+      ConsultantCategory: [
+        "ASTROLOGER",
+        "PSYCHOLOGIST",
+        "TAROT",
+        "NUMEROLOGIST",
+        "PALMIST",
+        "VASTU",
+        "REIKI",
+        "LIFE_COACH",
+        "HEALER",
+        "MOTIVATIONAL_SPEAKER",
+        "SPIRITUAL_GUIDE",
+        "YOGA_INSTRUCTOR",
+      ],
+      ConsultantStatus: ["PENDING", "VERIFIED", "REJECTED", "SUSPENDED"],
+      Faith: [
+        "HINDU",
+        "ISLAM",
+        "CHRISTIAN",
+        "BUDDHIST",
+        "JEWISH",
+        "SIKH",
+        "OTHER",
+      ],
+      Role: [
+        "USER",
+        "HEALER",
+        "ADMIN",
+        "SUPER_ADMIN",
+        "CLIENT_ADMIN",
+        "SUPPORT",
+        "VIEWER",
+      ],
+      TransactionType: [
+        "TOPUP",
+        "PAYMENT",
+        "REFUND",
+        "PAYOUT",
+        "FEE",
+        "COMMISSION",
+      ],
+    },
+  },
+} as const

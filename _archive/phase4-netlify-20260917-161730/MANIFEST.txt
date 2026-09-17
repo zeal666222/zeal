@@ -1,8 +1,0 @@
-# ZEAL — PHASE 4 NETLIFY MANIFEST
-# Timestamp : 20260917-161730
-# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
-
-CREATED	/d/zeal/apps/web/netlify.toml	
-CREATED	/d/zeal/apps/admin/netlify.toml	
-CREATED	/d/zeal/apps/web/netlify/functions/cron-reminders.ts	
-CREATED	/d/zeal/apps/web/netlify/functions/cron-alerting.ts	

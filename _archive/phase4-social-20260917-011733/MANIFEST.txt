@@ -1,9 +1,0 @@
-# ZEAL — PHASE 4 MANIFEST
-# Timestamp : 20260917-011733
-MODIFIED	/d/zeal/apps/web/app/sparks/page.tsx	/d/zeal/_archive/phase4-social-20260917-011733/backup-apps_web_app_sparks_page.tsx
-MODIFIED	/d/zeal/apps/web/app/notifications/page.tsx	/d/zeal/_archive/phase4-social-20260917-011733/backup-apps_web_app_notifications_page.tsx
-MODIFIED	/d/zeal/apps/web/app/services/horoscope/page.tsx	/d/zeal/_archive/phase4-social-20260917-011733/backup-apps_web_app_services_horoscope_page.tsx
-MODIFIED	/d/zeal/apps/web/app/services/tarot/page.tsx	/d/zeal/_archive/phase4-social-20260917-011733/backup-apps_web_app_services_tarot_page.tsx
-MODIFIED	/d/zeal/apps/web/app/services/numerology/page.tsx	/d/zeal/_archive/phase4-social-20260917-011733/backup-apps_web_app_services_numerology_page.tsx
-MODIFIED	/d/zeal/apps/web/app/services/kundali/page.tsx	/d/zeal/_archive/phase4-social-20260917-011733/backup-apps_web_app_services_kundali_page.tsx
-MODIFIED	/d/zeal/apps/web/app/consultant/[id]/page.tsx	/d/zeal/_archive/phase4-social-20260917-011733/backup-apps_web_app_consultant_[id]_page.tsx

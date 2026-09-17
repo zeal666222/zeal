@@ -1,7 +1,0 @@
-# ZEAL — PHASE 2 DISCOVERY MANIFEST
-# Timestamp : 20260917-011145
-CREATED	/d/zeal/apps/web/app/api/ai/route.ts	
-CREATED	/d/zeal/apps/web/components/discovery/SearchHero.tsx	
-MODIFIED	/d/zeal/apps/web/app/services/page.tsx	/d/zeal/_archive/phase2-discovery-20260917-011145/backup-apps_web_app_services_page.tsx
-MODIFIED	/d/zeal/apps/web/app/services/[category]/page.tsx	/d/zeal/_archive/phase2-discovery-20260917-011145/backup-apps_web_app_services_[category]_page.tsx
-MODIFIED	/d/zeal/apps/web/app/services/[category]/[service]/page.tsx	/d/zeal/_archive/phase2-discovery-20260917-011145/backup-apps_web_app_services_[category]_[service]_page.tsx

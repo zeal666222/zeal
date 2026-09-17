@@ -1,6 +1,0 @@
-# ZEAL — PHASE 6a MFA MANIFEST
-# Timestamp : 20260917-162613
-# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
-CREATED	/d/zeal/apps/web/app/mfa-challenge/page.tsx	
-MODIFIED	/d/zeal/apps/web/middleware.ts	/d/zeal/_archive/phase6a-mfa-20260917-162613/backup-apps_web_middleware.ts
-MODIFIED	/d/zeal/apps/web/app/profile/page.tsx	/d/zeal/_archive/phase6a-mfa-20260917-162613/backup-apps_web_app_profile_page.tsx

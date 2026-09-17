@@ -1,4 +1,0 @@
-# ZEAL — PHASE 0.6 MANIFEST
-# Timestamp : 20260916-225115
-# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
-MODIFIED	/d/zeal/packages/database/src/index.ts	/d/zeal/_archive/phase06-20260916-225115/backup-packages_database_src_index.ts

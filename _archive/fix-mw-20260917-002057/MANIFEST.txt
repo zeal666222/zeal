@@ -1,3 +1,0 @@
-# ZEAL — FIX-MIDDLEWARE MANIFEST
-# Timestamp : 20260917-002057
-MODIFIED	/d/zeal/apps/web/proxy.ts	/d/zeal/_archive/fix-mw-20260917-002057/backup-apps_web_proxy.ts
