@@ -1,10 +1,13 @@
-// apps/web/middleware.ts — Session refresh + route guards + MFA enforcement
+// apps/web/middleware.ts
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZEAL WEB — Middleware
+//   • Refreshes Supabase session cookie
+//   • Bearer-authed /api/* requests skip middleware (handled by api-guard)
+//   • Route guards for consultant + admin prefixes
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-
-// Roles that must complete MFA before accessing any protected route
-// (once they've enrolled at least one TOTP factor)
-const MFA_REQUIRED_ROLES = ["SUPER_ADMIN", "ADMIN", "SUPPORT"];
 
 const PUBLIC_ROUTES = [
   "/", "/explore", "/services", "/ai-astrologers", "/consultant", "/white-label",
@@ -22,9 +25,6 @@ const CONSULTANT_REQUIRED_PREFIXES = [
 ];
 const ADMIN_REQUIRED_PREFIXES = ["/admin"];
 
-// Routes reachable even when MFA challenge is pending
-const MFA_BYPASS_PATHS = ["/mfa-challenge", "/profile", "/login", "/api/auth", "/auth"];
-
 const isPublic = (p: string) =>
   p === "/" || PUBLIC_ROUTES.some((r) => p === r || p.startsWith(r + "/"));
 const requiresAuth = (p: string) =>
@@ -33,10 +33,19 @@ const requiresConsultant = (p: string) =>
   CONSULTANT_REQUIRED_PREFIXES.some((r) => p === r || p.startsWith(r + "/"));
 const requiresAdmin = (p: string) =>
   ADMIN_REQUIRED_PREFIXES.some((r) => p === r || p.startsWith(r + "/"));
-const mfaBypass = (p: string) =>
-  MFA_BYPASS_PATHS.some((r) => p === r || p.startsWith(r + "/"));
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // ─── Bearer-authed API requests bypass middleware ─────────────────────
+  // These come from the admin app proxy. The api-guard verifies the token.
+  if (
+    pathname.startsWith("/api/") &&
+    request.headers.get("authorization")?.startsWith("Bearer ")
+  ) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -44,9 +53,13 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return request.cookies.getAll(); },
+        getAll() {
+          return request.cookies.getAll();
+        },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
@@ -56,8 +69,9 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (isPublic(pathname)) return response;
 
@@ -72,34 +86,10 @@ export async function middleware(request: NextRequest) {
     const rawRole = (user.app_metadata?.role as string | undefined) ?? "USER";
     const role = rawRole.length > 0 ? rawRole : "USER";
 
-    // ─── MFA enforcement ────────────────────────────────────────────────────
-    // Only enforced for MFA-required roles that have enrolled a TOTP factor.
-    // If not enrolled yet, user passes through (they must enroll via /profile).
-    // If enrolled, current session must be AAL2.
-    if (MFA_REQUIRED_ROLES.includes(role) && !mfaBypass(pathname)) {
-      try {
-        const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-
-        const needsChallenge =
-          aal?.nextLevel === "aal2" && aal?.currentLevel === "aal1";
-
-        if (needsChallenge) {
-          const url = request.nextUrl.clone();
-          url.pathname = "/mfa-challenge";
-          url.searchParams.set("redirectedFrom", pathname);
-          return NextResponse.redirect(url);
-        }
-      } catch (err) {
-        // Fail-open on AAL check errors — do not lock users out
-        console.warn("[middleware] AAL check failed:", err);
-      }
-    }
-
-    // ─── Role guards ────────────────────────────────────────────────────────
     if (requiresConsultant(pathname)) {
-      const isConsultant =
+      const ok =
         role === "CLIENT_ADMIN" || role === "ADMIN" || role === "SUPER_ADMIN";
-      if (!isConsultant) {
+      if (!ok) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         return NextResponse.redirect(url);
@@ -107,10 +97,10 @@ export async function middleware(request: NextRequest) {
     }
 
     if (requiresAdmin(pathname)) {
-      const isAdmin =
+      const ok =
         role === "ADMIN" || role === "SUPER_ADMIN" ||
         role === "SUPPORT" || role === "VIEWER";
-      if (!isAdmin) {
+      if (!ok) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         return NextResponse.redirect(url);

@@ -1,4 +1,3 @@
-cat > vercel-setup.sh << 'ENDOFSCRIPT'
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
 # ZEAL — VERCEL DEPLOYMENT SETUP
@@ -623,7 +622,3 @@ echo -e "${BOLD}Backups:${NC} ${ARCHIVE}"
 echo ""
 
 exit 0
-ENDOFSCRIPT
-
-chmod +x vercel-setup.sh
-bash vercel-setup.sh
