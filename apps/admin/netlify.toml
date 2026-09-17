@@ -1,12 +1,14 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# ZEAL ADMIN — Netlify Deployment Configuration
-# Site: https://zeal-admin.netlify.app  (replace with actual domain)
+# ZEAL ADMIN — Netlify Configuration (monorepo-safe)
+# ─────────────────────────────────────────────────────────────────────────────
+# CRITICAL: no `base =` key. Netlify UI must have:
+#   Base directory    : (empty/unset)
+#   Package directory : apps/admin
 # ═══════════════════════════════════════════════════════════════════════════════
 
 [build]
-  base = "apps/admin"
-  command = "cd ../.. && npm install --legacy-peer-deps && npm run build --workspace=admin"
-  publish = ".next"
+  command = "npm install --legacy-peer-deps && npm run build --workspace=admin"
+  publish = "apps/admin/.next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
@@ -14,8 +16,9 @@
 [build.environment]
   NODE_VERSION = "20"
   NPM_FLAGS = "--legacy-peer-deps"
+  NEXT_TELEMETRY_DISABLED = "1"
 
-# ─── Security headers (stricter than web — admin surface) ─────────────────────
+# ─── Security headers (stricter for admin) ────────────────────────────────────
 [[headers]]
   for = "/*"
   [headers.values]
@@ -35,14 +38,9 @@
   [headers.values]
     Cache-Control = "no-store, max-age=0, must-revalidate"
 
-# ─── API PROXY — forward /api/* to the web app ────────────────────────────────
-# This is the critical piece: admin app's /api/* requests hit the web app's
-# API routes, which contain all the /api/admin/* handlers.
+# ─── API PROXY: forward /api/* to the web app ─────────────────────────────────
 [[redirects]]
   from = "/api/*"
-  to = "https://zeal-main-web.netlify.app/api/:splat"
+  to = "https://zeal-web.netlify.app/api/:splat"
   status = 200
   force = true
-
-# ─── Root redirect to dashboard if already authenticated ──────────────────────
-# (Handled by middleware; no config needed)
