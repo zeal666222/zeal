@@ -6,24 +6,11 @@ import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Sparkles, Loader2, Mail, Lock, User,
-  Briefcase, ArrowRight, ShieldCheck, Compass,
+  Sparkles, Loader2, Mail, Lock, User as UserIcon,
+  Briefcase, ArrowRight, ShieldCheck, Compass, AlertCircle, Check,
 } from "lucide-react";
 
 type Strength = 0 | 1 | 2 | 3;
-
-function computeStrength(pw: string): Strength {
-  if (!pw) return 0;
-  let score = 0;
-  if (pw.length >= 12) score++;
-  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
-  if (/\d/.test(pw)) score++;
-  if (/[^A-Za-z0-9]/.test(pw)) score++;
-  if (score <= 1) return 1;
-  if (score === 2) return 2;
-  return 3;
-}
-
 const STRENGTH_META: Record<Strength, { label: string; color: string; width: string }> = {
   0: { label: "", color: "", width: "0%" },
   1: { label: "Weak", color: "bg-rose-500", width: "33%" },
@@ -31,21 +18,37 @@ const STRENGTH_META: Record<Strength, { label: string; color: string; width: str
   3: { label: "Strong", color: "bg-emerald-500", width: "100%" },
 };
 
+function computeStrength(pw: string): Strength {
+  if (!pw) return 0;
+  let s = 0;
+  if (pw.length >= 12) s++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) s++;
+  if (/\d/.test(pw)) s++;
+  if (/[^A-Za-z0-9]/.test(pw)) s++;
+  if (s <= 1) return 1;
+  if (s === 2) return 2;
+  return 3;
+}
+
 export default function RegisterPage() {
   const [accountType, setAccountType] = useState<"user" | "consultant">("user");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const router = useRouter();
 
   const strength = useMemo(() => computeStrength(password), [password]);
   const meta = STRENGTH_META[strength];
   const passwordOk = password.length >= 12;
+  const matches = password.length > 0 && password === confirm;
+  const canSubmit = passwordOk && matches;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!passwordOk) {
-      setError("Password must be at least 12 characters.");
+    if (!canSubmit) {
+      if (!passwordOk) setError("Password must be at least 12 characters.");
+      else if (!matches) setError("Passwords do not match.");
       return;
     }
 
@@ -60,7 +63,7 @@ export default function RegisterPage() {
     if (res.success && res.destination) {
       router.push(res.destination);
     } else {
-      setError(res.error || "Failed to create account. Please try again.");
+      setError(res.error || "Failed to create account.");
       setLoading(false);
     }
   };
@@ -106,14 +109,14 @@ export default function RegisterPage() {
               <ShieldCheck size={16} className="text-indigo-400" /> Consultant Fast-Track
             </div>
             <p className="text-[11px] leading-relaxed text-indigo-300/80 font-medium">
-              You will be securely routed to the multi-step verification form after account creation.
+              After creating your account, you'll be routed to a multi-step verification form. Approval typically takes 24 hours.
             </p>
           </div>
         )}
 
         {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold text-center animate-in fade-in">
-            {error}
+          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold text-center flex items-center justify-center gap-2 animate-in fade-in">
+            <AlertCircle size={14} /> {error}
           </div>
         )}
 
@@ -135,7 +138,7 @@ export default function RegisterPage() {
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Legal Name</label>
             <div className="relative group">
-              <User size={18} className="absolute left-4 top-3.5 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+              <UserIcon size={18} className="absolute left-4 top-3.5 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
               <input name="fullName" type="text" required placeholder="Aacharya Sharma"
                 className="w-full pl-12 pr-4 py-3.5 bg-slate-950/50 border border-white/10 rounded-2xl text-sm focus:border-purple-500 focus:bg-slate-950 text-white outline-none transition-all shadow-inner" />
             </div>
@@ -172,16 +175,11 @@ export default function RegisterPage() {
               <div className="mt-2 space-y-1.5 animate-in fade-in slide-in-from-top-1">
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full ${meta.color} transition-all duration-500 ease-out rounded-full`}
-                      style={{ width: meta.width }}
-                    />
+                    <div className={`h-full ${meta.color} transition-all duration-500 ease-out rounded-full`} style={{ width: meta.width }} />
                   </div>
                   <span className={`text-[10px] font-black uppercase tracking-widest ${
                     strength === 1 ? "text-rose-400" : strength === 2 ? "text-amber-400" : "text-emerald-400"
-                  }`}>
-                    {meta.label}
-                  </span>
+                  }`}>{meta.label}</span>
                 </div>
                 <p className="text-[10px] text-slate-500 font-medium">
                   {passwordOk ? "✓ Meets 12-character minimum" : `${12 - password.length} more character${12 - password.length === 1 ? "" : "s"} required`}
@@ -190,12 +188,35 @@ export default function RegisterPage() {
             )}
           </div>
 
+          <div>
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Confirm Password</label>
+            <div className="relative group">
+              <Lock size={18} className="absolute left-4 top-3.5 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+              <input
+                name="confirmPassword"
+                type="password"
+                required
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="Repeat password"
+                className={`w-full pl-12 pr-4 py-3.5 bg-slate-950/50 border rounded-2xl text-sm focus:border-purple-500 focus:bg-slate-950 text-white outline-none transition-all shadow-inner ${
+                  confirm.length > 0 && !matches ? "border-rose-500/40" : "border-white/10"
+                }`}
+              />
+              {matches && confirm.length > 0 && (
+                <Check size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400" />
+              )}
+            </div>
+          </div>
+
           <button
             type="submit"
-            disabled={loading || !passwordOk}
+            disabled={loading || !canSubmit}
             className="btn-3d w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 mt-8 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : (
+            {loading ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
               <>
                 <span>{accountType === "consultant" ? "Initialize Application" : "Create Seeker Profile"}</span>
                 <ArrowRight size={16} />

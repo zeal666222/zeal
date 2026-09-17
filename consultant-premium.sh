@@ -1,4 +1,3 @@
-cat > consultant-premium.sh << 'ENDOFSCRIPT'
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
 # ZEAL — HIGH-END AUTH + CONSULTANT WORKSPACE
@@ -1423,7 +1422,3 @@ echo "  https://zeal-web-red.vercel.app/consultant/dashboard"
 echo ""
 
 exit 0
-ENDOFSCRIPT
-
-chmod +x consultant-premium.sh
-bash consultant-premium.sh

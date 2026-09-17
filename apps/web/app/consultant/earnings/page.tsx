@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Wallet, IndianRupee, ArrowUpRight, Loader2 } from "lucide-react";
-import { getBrowserClient } from "@zeal/database";
+import { useEffect, useMemo, useState } from "react";
+import { Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Loader2, TrendingUp } from "lucide-react";
 
-interface Transaction {
+interface Tx {
   id: string;
   type: string;
   amount: number;
@@ -15,49 +14,32 @@ interface Transaction {
 
 export default function ConsultantEarningsPage() {
   const [balance, setBalance] = useState(0);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [txs, setTxs] = useState<Tx[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabaseRef = useRef<ReturnType<typeof getBrowserClient> | null>(null);
-
-  if (!supabaseRef.current && typeof window !== "undefined") {
-    try { supabaseRef.current = getBrowserClient(); } catch { /* ignore */ }
-  }
 
   useEffect(() => {
-    let cancelled = false;
-
     fetch("/api/consultant/earnings")
-      .then((r) => r.ok ? r.json() : { balance: 0, transactions: [] })
-      .then((data) => {
-        if (cancelled) return;
-        setBalance(data.balance ?? 0);
-        setTransactions(data.transactions ?? []);
+      .then((r) => (r.ok ? r.json() : { balance: 0, transactions: [] }))
+      .then((d) => {
+        setBalance(d.balance ?? 0);
+        setTxs(d.transactions ?? []);
       })
-      .finally(() => !cancelled && setLoading(false));
-
-    const supabase = supabaseRef.current;
-    if (supabase) {
-      const channel = supabase
-        .channel("consultant_earnings")
-        .on("broadcast", { event: "wallet_updated" }, (payload: any) => {
-          const data = payload.payload as { balance?: number };
-          if (typeof data?.balance === "number") setBalance(data.balance);
-        })
-        .subscribe();
-
-      return () => {
-        cancelled = true;
-        try { supabase.removeChannel(channel); } catch { /* ignore */ }
-      };
-    }
-
-    return () => { cancelled = true; };
+      .finally(() => setLoading(false));
   }, []);
+
+  const stats = useMemo(() => {
+    const earned = txs.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    const paid = txs.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    const last7 = txs
+      .filter((t) => t.amount > 0 && new Date(t.createdAt) > new Date(Date.now() - 7 * 864e5))
+      .reduce((s, t) => s + t.amount, 0);
+    return { earned, paid, last7 };
+  }, [txs]);
 
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" />
+        <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
       </div>
     );
   }
@@ -66,10 +48,10 @@ export default function ConsultantEarningsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl lg:text-3xl font-black text-white">Earnings</h1>
-        <p className="text-sm text-slate-400 mt-1">Real-time wallet updates</p>
+        <p className="text-sm text-slate-400 mt-1">Real-time wallet and payout history</p>
       </div>
 
-      {/* Balance Card */}
+      {/* Balance card */}
       <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-950 border border-emerald-500/30 rounded-3xl shadow-2xl">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none" />
         <div className="relative z-10">
@@ -85,6 +67,26 @@ export default function ConsultantEarningsPage() {
               {Number(balance).toFixed(2)}
             </span>
           </div>
+          <div className="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-white/5">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Lifetime earned</p>
+              <p className="text-sm font-black font-mono text-emerald-400 mt-1">
+                ₹{stats.earned.toFixed(0)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Last 7 days</p>
+              <p className="text-sm font-black font-mono text-purple-400 mt-1 flex items-center gap-1">
+                <TrendingUp size={11} /> ₹{stats.last7.toFixed(0)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">Withdrawn</p>
+              <p className="text-sm font-black font-mono text-slate-300 mt-1">
+                ₹{stats.paid.toFixed(0)}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -92,35 +94,38 @@ export default function ConsultantEarningsPage() {
       <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-5 lg:p-6">
         <h2 className="text-base lg:text-lg font-bold text-white mb-4">Recent Transactions</h2>
 
-        {transactions.length === 0 ? (
+        {txs.length === 0 ? (
           <p className="text-slate-500 text-sm text-center py-8">No transactions yet</p>
         ) : (
           <div className="space-y-2">
-            {transactions.slice(0, 20).map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    tx.amount > 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+            {txs.slice(0, 30).map((tx) => {
+              const credit = tx.amount > 0;
+              return (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      credit ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                    }`}>
+                      {credit ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{tx.description}</p>
+                      <p className="text-xs text-slate-500">
+                        {new Date(tx.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-sm font-bold font-mono flex-shrink-0 ${
+                    credit ? "text-emerald-400" : "text-slate-300"
                   }`}>
-                    <ArrowUpRight size={14} className={tx.amount < 0 ? "rotate-90" : ""} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{tx.description}</p>
-                    <p className="text-xs text-slate-500">
-                      {new Date(tx.createdAt).toLocaleString()}
-                    </p>
-                  </div>
+                    {credit ? "+" : "-"}₹{Math.abs(tx.amount).toFixed(2)}
+                  </span>
                 </div>
-                <span className={`text-sm font-bold font-mono flex-shrink-0 ${
-                  tx.amount > 0 ? "text-emerald-400" : "text-slate-300"
-                }`}>
-                  {tx.amount > 0 ? "+" : ""}₹{Math.abs(tx.amount).toFixed(2)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

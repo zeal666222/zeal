@@ -1,6 +1,9 @@
 // apps/web/app/consultant/layout.tsx
 // ═══════════════════════════════════════════════════════════════════════════════
-// Consultant Workspace Layout — Mobile-first
+// Consultant Workspace Layout
+//   • Auth check + role guard
+//   • Loads consultant profile + wallet
+//   • Renders WorkspaceSidebar + main shell
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { redirect } from "next/navigation";
@@ -14,6 +17,20 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
+interface ProfileRow {
+  id: string;
+  name: string | null;
+  email: string | null;
+  avatar: string | null;
+  role: string;
+}
+interface ConsultantRow {
+  id: string;
+  status: string;
+  subdomain: string | null;
+  isActive: boolean;
+}
+
 export default async function ConsultantLayout({
   children,
 }: {
@@ -21,28 +38,30 @@ export default async function ConsultantLayout({
 }) {
   const supabase = await createServerClientFromCookies();
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirectedFrom=/consultant/dashboard");
 
-  // Fetch profile + consultant row in parallel
   const [profileRes, consultantRes] = await Promise.all([
-    supabase.from("User").select("id, name, email, avatar, role").eq("id", user.id).maybeSingle(),
-    supabase.from("Consultant").select("id, status, subdomain, isActive").eq("userId", user.id).maybeSingle(),
+    supabase
+      .from("User")
+      .select("id, name, email, avatar, role")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("Consultant")
+      .select("id, status, subdomain, isActive")
+      .eq("userId", user.id)
+      .maybeSingle(),
   ]);
 
-  const profile = profileRes.data as { id: string; name: string | null; email: string | null; avatar: string | null; role: string } | null;
-  const consultant = consultantRes.data as { id: string; status: string; subdomain: string | null; isActive: boolean } | null;
+  const profile = profileRes.data as ProfileRow | null;
+  const consultant = consultantRes.data as ConsultantRow | null;
 
-  // Not a consultant → bounce to onboarding or application
+  // Not a consultant → route to /apply
   if (!consultant) {
     redirect("/apply");
-  }
-
-  // Pending → show status page
-  if (consultant.status === "PENDING" || consultant.status === "REJECTED") {
-    if (!["/consultant/pending", "/consultant/onboarding"].includes("")) {
-      // Allow onboarding + pending pages to render
-    }
   }
 
   // Count pending bookings for badge
@@ -67,7 +86,6 @@ export default async function ConsultantLayout({
         pendingBookings={pendingCount ?? 0}
       />
 
-      {/* Main content — mobile-first spacing */}
       <main className="lg:ml-64 min-h-screen-app pb-20 lg:pb-8">
         <div className="pt-14 lg:pt-0">
           <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
