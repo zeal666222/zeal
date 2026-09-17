@@ -8,11 +8,11 @@
     "@radix-ui/react-tabs": "1.1.21",
     "class-variance-authority": "0.7.1",
     "framer-motion": "12.43.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.0",
+    "@types/react": "19.1.2",
     "clsx": "2.1.1",
     "tailwind-merge": "2.6.1",
     "typescript": "^5.5.0"

@@ -22,6 +22,21 @@ const nextConfig = {
   },
   poweredByHeader: false,
   compress: true,
+  async redirects() {
+    return [
+      { source: "/auth/login",             destination: "/login",              permanent: true },
+      { source: "/auth/register",          destination: "/register",           permanent: true },
+      { source: "/ai-consultants",         destination: "/ai-astrologers",     permanent: true },
+      { source: "/services/palmistry",     destination: "/services",           permanent: false },
+      { source: "/services/matchmaking",   destination: "/services",           permanent: false },
+      { source: "/consultant/white-label", destination: "/consultant/settings", permanent: false },
+      { source: "/zeal",                   destination: "/",                   permanent: false },
+      { source: "/quests",                 destination: "/sparks",             permanent: false },
+      { source: "/referral",              destination: "/sparks",             permanent: false },
+      { source: "/bazaar",                 destination: "/explore",            permanent: false },
+    ];
+  },
+  turbopack: { root: __dirname },
 };
 
 nextConfig.headers = async () => [

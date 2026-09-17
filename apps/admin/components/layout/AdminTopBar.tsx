@@ -40,5 +40,5 @@ export function AdminTopBar() {
   );
 }
 
-import { cn } from "@/lib/utils";
+import { cn } from "@zeal/ui";
 

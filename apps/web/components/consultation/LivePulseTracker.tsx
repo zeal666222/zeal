@@ -48,7 +48,7 @@ export function LivePulseTracker({ consultationId, isClientNode, ratePerMinute, 
     if (!isClientNode || terminated) return;
 
     const interval = setInterval(async () => {
-      const result = await executeConsultationPulse(consultationId);
+      const result: any = await executeConsultationPulse(consultationId);
       
       if (result && result.success) {
         setBalance(result.remaining_inr);

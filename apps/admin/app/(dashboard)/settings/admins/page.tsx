@@ -121,5 +121,5 @@ export default function AdminInvitesPage() {
   );
 }
 
-import { cn } from "@/lib/utils";
+import { cn } from "@zeal/ui";
 

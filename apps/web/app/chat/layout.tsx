@@ -1,36 +1,33 @@
-import { getUserConversations } from "@/actions/inbox";
-import { InstagramInboxList } from "@/components/chat/InstagramInboxList";
+// apps/web/app/chat/layout.tsx
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chat layout — server component
+// Fetches conversations via typed helper; hands off to ChatShell
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { redirect } from "next/navigation";
+import { createServerClientFromCookies } from "@zeal/database/server";
+import { ChatShell } from "./ChatShell";
+import { fetchUserConversations } from "@/lib/chat/fetch-conversations";
+
+export const dynamic = "force-dynamic";
 
 export default async function ChatLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { success, conversations, currentUserId } = await getUserConversations();
+  const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login?redirectedFrom=/chat");
 
-  if (!success || !currentUserId) {
-    redirect("/login");
-  }
+  const conversations = await fetchUserConversations(user.id);
 
   return (
-    <div className="flex-1 min-h-screen-app bg-slate-950 flex overflow-hidden">
-      {/* 
-        INSTAGRAM SPLIT VIEW ARCHITECTURE:
-        - Desktop (md:): Fixed width 360px - 400px left list, remaining space for active chat
-        - Mobile: Managed via layout and route transitions
-      */}
-      <aside className="w-full md:w-80 lg:w-96 shrink-0 h-screen-app md:block">
-        <InstagramInboxList
-          initialConversations={conversations}
-          currentUserId={currentUserId}
-        />
-      </aside>
-
-      {/* Detail View (Active Chat or Empty State) */}
-      <main className="flex-1 h-screen-app hidden md:flex flex-col bg-slate-950">
-        {children}
-      </main>
-    </div>
+    <ChatShell
+      currentUserId={user.id}
+      initialConversations={conversations}
+    >
+      {children}
+    </ChatShell>
   );
 }

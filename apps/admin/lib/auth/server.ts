@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@zeal/database/server";
 
 export async function getUserId() {
   const supabase = await createClient();

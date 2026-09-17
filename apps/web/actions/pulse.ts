@@ -1,5 +1,5 @@
 "use server";
-import { createClient } from "@/utils/supabase/server";
+import { createClient } from "@zeal/database/server";
 
 export async function executeConsultationPulse(consultationId: string) {
   try {

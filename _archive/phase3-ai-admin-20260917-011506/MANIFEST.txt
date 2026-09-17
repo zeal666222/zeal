@@ -1,0 +1,11 @@
+# ZEAL — PHASE 3 MANIFEST
+# Timestamp : 20260917-011506
+MODIFIED	/d/zeal/apps/web/hooks/useChat.ts	/d/zeal/_archive/phase3-ai-admin-20260917-011506/backup-apps_web_hooks_useChat.ts
+CREATED	/d/zeal/apps/web/app/api/chat/ai/[consultantId]/route.ts	
+MODIFIED	/d/zeal/apps/web/components/session/ChatInterface.tsx	/d/zeal/_archive/phase3-ai-admin-20260917-011506/backup-apps_web_components_session_ChatInterface.tsx
+MODIFIED	/d/zeal/apps/web/app/chat/[id]/page.tsx	/d/zeal/_archive/phase3-ai-admin-20260917-011506/backup-apps_web_app_chat_[id]_page.tsx
+MODIFIED	/d/zeal/apps/web/app/ai-astrologers/[id]/page.tsx	/d/zeal/_archive/phase3-ai-admin-20260917-011506/backup-apps_web_app_ai-astrologers_[id]_page.tsx
+CREATED	/d/zeal/apps/admin/components/shared/PulseGrid.tsx	
+CREATED	/d/zeal/apps/admin/hooks/useConsultantRealtime.ts	
+MODIFIED	/d/zeal/apps/admin/app/consultant/dashboard/page.tsx	/d/zeal/_archive/phase3-ai-admin-20260917-011506/backup-apps_admin_app_consultant_dashboard_page.tsx
+CREATED	/d/zeal/apps/admin/app/(dashboard)/consultants/page.tsx	

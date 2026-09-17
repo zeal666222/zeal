@@ -1,77 +1,83 @@
+// apps/web/app/api/consultant/clients/route.ts
+// Lists unique clients from bookings + conversation participants
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/auth";
-import { prisma } from "@zeal/database";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import { createServerClientFromCookies } from "@zeal/database/server";
 
-export const GET = withErrorHandler(async (req: Request) => {
-  const userId = await getUserId();
-  if (!userId) {
-    throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
+export const dynamic = "force-dynamic";
+
+interface ConsultantRow { id: string; }
+interface BookingRow { userId: string | null; scheduledAt: string; }
+interface UserRow {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string | null;
+}
+
+export async function GET() {
+  const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const consultant = await prisma.consultant.findUnique({
-    where: { userId },
-    select: { id: true },
-  });
+  const { data: consultantRaw } = await supabase
+    .from("Consultant")
+    .select("id")
+    .eq("userId", user.id)
+    .maybeSingle();
+
+  const consultant = consultantRaw as ConsultantRow | null;
   if (!consultant) {
-    throw new AppError("Not a consultant", 403, ErrorCode.AUTH_FORBIDDEN);
+    return NextResponse.json({ clients: [] });
   }
 
-  const url = new URL(req.url);
-  const search = url.searchParams.get("search") || "";
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
-  const page = Math.max(parseInt(url.searchParams.get("page") || "1"), 1);
+  const { data: bookingsRaw } = await supabase
+    .from("Booking")
+    .select("userId, scheduledAt")
+    .eq("consultantId", consultant.id)
+    .not("userId", "is", null)
+    .order("scheduledAt", { ascending: false });
 
-  // Distinct clients from bookings
-  const where = {
-    consultantId: consultant.id,
-    userId: { not: null },
-  };
+  const bookings = (bookingsRaw ?? []) as BookingRow[];
 
-  const bookings = await prisma.booking.findMany({
-    where,
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          username: true,
-          avatar: true,
-          email: true,
-        },
-      },
-    },
-    orderBy: { scheduledAt: "desc" },
-    skip: (page - 1) * limit,
-    take: limit,
-  });
-
-  // Deduplicate clients
-  const clientMap = new Map<string, unknown>();
+  // Aggregate per client
+  const stats = new Map<string, { sessions: number; lastSessionAt: string }>();
   for (const b of bookings) {
-    if (b.user && !clientMap.has(b.user.id)) {
-      clientMap.set(b.user.id, {
-        ...b.user,
-        lastSessionAt: b.scheduledAt,
-        totalSessions: 0,
-      });
+    if (!b.userId) continue;
+    const existing = stats.get(b.userId);
+    if (existing) {
+      existing.sessions += 1;
+      if (b.scheduledAt > existing.lastSessionAt) {
+        existing.lastSessionAt = b.scheduledAt;
+      }
+    } else {
+      stats.set(b.userId, { sessions: 1, lastSessionAt: b.scheduledAt });
     }
   }
 
-  let clients = Array.from(clientMap.values());
-  if (search) {
-    const lower = search.toLowerCase();
-    clients = clients.filter((c) => {
-      const cl = c as { name?: string | null; username?: string; email?: string };
-      return (
-        (cl.name || "").toLowerCase().includes(lower) ||
-        (cl.username || "").toLowerCase().includes(lower) ||
-        (cl.email || "").toLowerCase().includes(lower)
-      );
-    });
+  const userIds = Array.from(stats.keys());
+  if (userIds.length === 0) {
+    return NextResponse.json({ clients: [] });
   }
 
-  return NextResponse.json({ clients, total: clients.length });
-});
+  const { data: usersRaw } = await supabase
+    .from("User")
+    .select("id, name, username, email")
+    .in("id", userIds);
 
-// BATCH3_APPLIED
+  const users = (usersRaw ?? []) as UserRow[];
+
+  const clients = users.map((u) => {
+    const s = stats.get(u.id);
+    return {
+      id: u.id,
+      name: u.name || u.username || null,
+      email: u.email,
+      lastSessionAt: s?.lastSessionAt ?? null,
+      sessions: s?.sessions ?? 0,
+    };
+  });
+
+  return NextResponse.json({ clients });
+}

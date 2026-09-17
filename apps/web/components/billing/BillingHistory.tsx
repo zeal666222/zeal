@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useZealRealtime } from "@/providers/RealtimeProvider";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@zeal/database";
 import { ArrowDownRight, ArrowUpRight, Receipt, Loader2, Clock } from "lucide-react";
 
 interface Transaction {

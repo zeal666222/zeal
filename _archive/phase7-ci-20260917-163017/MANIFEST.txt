@@ -1,0 +1,5 @@
+# ZEAL — PHASE 7 CI MANIFEST
+# Timestamp : 20260917-163017
+# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
+CREATED	/d/zeal/.github/workflows/ci.yml	
+CREATED	/d/zeal/scripts/smoke-test.sh	

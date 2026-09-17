@@ -1,35 +1,41 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@zeal/database";
+import { createAdminClient } from "@zeal/database/server";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { requireRole } from "@/lib/auth/rbac";
 import { sendEmail } from "@/lib/emails";
 import { audit, requestMeta } from "@/lib/audit";
 
+export const dynamic = "force-dynamic";
+
 export const POST = withErrorHandler(
   async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
     const actor = await requireRole("SUPPORT");
     const { id } = await params;
+    const admin = createAdminClient();
 
-    const session = await prisma.callSession.findUnique({
-      where: { id },
-      include: {
-        booking: {
-          include: {
-            user: { select: { email: true } },
-            consultant: { include: { user: { select: { email: true } } } },
-          },
-        },
-      },
-    });
+    const { data: session } = await admin
+      .from("CallSession")
+      .select(`
+        id, recordingUrl,
+        booking:Booking!CallSession_bookingId_fkey(
+          userId,
+          user:User!Booking_userId_fkey(email),
+          consultant:Consultant!Booking_consultantId_fkey(
+            userId,
+            user:User!Consultant_userId_fkey(email)
+          )
+        )
+      `)
+      .eq("id", id)
+      .maybeSingle();
 
     if (!session) throw new AppError("Session not found", 404, ErrorCode.SESSION_NOT_FOUND);
-    if (!session.recordingUrl) {
-      throw new AppError("No recording available", 400, ErrorCode.VALIDATION_INPUT);
-    }
+    if (!session.recordingUrl) throw new AppError("No recording available", 400, ErrorCode.VALIDATION_INPUT);
 
+    const booking = (session as any).booking;
     const recipients = [
-      session.booking?.user?.email,
-      session.booking?.consultant.user.email,
+      booking?.user?.email,
+      booking?.consultant?.user?.email,
     ].filter((e): e is string => typeof e === "string" && e.length > 0);
 
     let sent = 0;
@@ -38,7 +44,7 @@ export const POST = withErrorHandler(
         await sendEmail({
           to,
           subject: "Your Zeal session recording",
-          html: "<p>Your session recording is available:</p><p><a href=\"" + session.recordingUrl + "\">" + session.recordingUrl + "</a></p>",
+          html: `<p>Your session recording is available:</p><p><a href="${session.recordingUrl}">${session.recordingUrl}</a></p>`,
         });
         sent++;
       } catch (err) {
@@ -61,4 +67,3 @@ export const POST = withErrorHandler(
     return NextResponse.json({ success: true, sent });
   },
 );
-

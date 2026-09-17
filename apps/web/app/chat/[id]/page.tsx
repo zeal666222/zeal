@@ -1,75 +1,81 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+// apps/web/app/chat/[id]/page.tsx
+import { createServerClientFromCookies } from "@zeal/database/server";
+import { redirect, notFound } from "next/navigation";
 import { ChatInterface } from "@/components/session/ChatInterface";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
-export default async function DedicatedChatPage({
+export const dynamic = "force-dynamic";
+
+interface PartnerRow {
+  userId: string;
+}
+
+interface UserRow {
+  name: string | null;
+  username: string;
+  avatar: string | null;
+  role: string;
+}
+
+export default async function ChatRoomPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const resolvedParams = await params;
-  const sessionId = resolvedParams.id;
-
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } }
-  );
+  const { id: conversationId } = await params;
+  const supabase = await createServerClientFromCookies();
 
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(`/login?redirectedFrom=/chat/${conversationId}`);
 
-  // 1. Fetch Session and Associated Profiles (Symmetrical Query for strict TS)
-  const { data: session, error } = await supabase
-    .from("session_requests")
-    .select(`
-      id, status, seeker_id, consultant_id,
-      seeker:profiles!session_requests_seeker_id_fkey(full_name, is_ai),
-      consultant:profiles!session_requests_consultant_id_fkey(full_name, is_ai)
-    `)
-    .eq("id", sessionId)
-    .single();
+  // Verify participation
+  const { data: participant } = await supabase
+    .from("ConversationParticipant")
+    .select("userId")
+    .eq("conversationId", conversationId)
+    .eq("userId", user.id)
+    .maybeSingle();
 
-  if (error || !session) redirect("/chat");
+  if (!participant) notFound();
 
-  const isSeeker = user.id === session.seeker_id;
-  const rawPartner = isSeeker ? session.consultant : session.seeker;
-  
-  // Explicitly cast to bypass Supabase dynamic join union limits
-  const partner = (Array.isArray(rawPartner) ? rawPartner[0] : rawPartner) as any;
+  // Find the partner participant
+  const { data: partnerRaw } = await supabase
+    .from("ConversationParticipant")
+    .select("userId")
+    .eq("conversationId", conversationId)
+    .neq("userId", user.id)
+    .limit(1);
 
-  const partnerName = partner?.full_name || "Consultant";
-  const isAI = isSeeker ? Boolean(partner?.is_ai) : false;
+  const partnerArr = (partnerRaw ?? []) as PartnerRow[];
+  const partnerId = partnerArr[0]?.userId ?? "";
 
-  // 2. Fetch Chat History
-  const { data: messages } = await supabase
-    .from("session_messages")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: true });
+  let partnerName = "Chat";
+  let partnerAvatar: string | null = null;
+  let isAI = false;
+
+  if (partnerId) {
+    const { data: partnerUserRaw } = await supabase
+      .from("User")
+      .select("name, username, avatar, role")
+      .eq("id", partnerId)
+      .maybeSingle();
+
+    const partnerUser = partnerUserRaw as UserRow | null;
+
+    if (partnerUser) {
+      partnerName = partnerUser.name || partnerUser.username || "Chat";
+      partnerAvatar = partnerUser.avatar ?? null;
+      isAI = partnerUser.role === "AI";
+    }
+  }
 
   return (
-    <div className="fixed md:static inset-0 z-50 md:z-auto bg-slate-950 flex flex-col h-screen-app">
-      {/* Mobile Back Button Bar */}
-      <div className="md:hidden flex-none h-12 bg-slate-900 border-b border-white/10 px-4 flex items-center">
-        <Link href="/chat" className="flex items-center gap-1 text-sm font-bold text-slate-300 hover:text-white">
-          <ArrowLeft size={18} /> Direct
-        </Link>
-      </div>
-
-      <div className="flex-1 h-full min-h-0">
-        <ChatInterface
-          sessionId={sessionId}
-          currentUserId={user.id}
-          initialMessages={messages || []}
-          partnerName={partnerName}
-          isAI={isAI}
-        />
-      </div>
-    </div>
+    <ChatInterface
+      conversationId={conversationId}
+      currentUserId={user.id}
+      partnerId={partnerId}
+      partnerName={partnerName}
+      partnerAvatar={partnerAvatar}
+      isAI={isAI}
+    />
   );
 }

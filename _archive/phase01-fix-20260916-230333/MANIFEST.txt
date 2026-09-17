@@ -1,0 +1,6 @@
+# ZEAL — PHASE 1.1 MANIFEST
+# Timestamp : 20260916-230333
+CREATED	/d/zeal/apps/web/lib/chat/fetch-conversations.ts	
+MODIFIED	/d/zeal/apps/web/app/api/chat/conversations/route.ts	/d/zeal/_archive/phase01-fix-20260916-230333/backup-apps_web_app_api_chat_conversations_route.ts
+MODIFIED	/d/zeal/apps/web/app/chat/layout.tsx	/d/zeal/_archive/phase01-fix-20260916-230333/backup-apps_web_app_chat_layout.tsx
+MODIFIED	/d/zeal/apps/web/hooks/useChat.ts	/d/zeal/_archive/phase01-fix-20260916-230333/backup-apps_web_hooks_useChat.ts

@@ -1,0 +1,14 @@
+# ZEAL — PHASE 1 MANIFEST
+# Timestamp : 20260916-230136
+CREATED	/d/zeal/supabase/migrations/013_inbox_broadcast.sql	
+CREATED	/d/zeal/apps/web/hooks/useTyping.ts	
+CREATED	/d/zeal/apps/web/hooks/useConversations.ts	
+MODIFIED	/d/zeal/apps/web/app/api/chat/[id]/messages/route.ts	/d/zeal/_archive/phase01-20260916-230136/backup-apps_web_app_api_chat_[id]_messages_route.ts
+MODIFIED	/d/zeal/apps/web/app/api/chat/conversations/route.ts	/d/zeal/_archive/phase01-20260916-230136/backup-apps_web_app_api_chat_conversations_route.ts
+CREATED	/d/zeal/apps/web/app/api/chat/[id]/read/route.ts	
+CREATED	/d/zeal/apps/web/app/chat/ChatShell.tsx	
+MODIFIED	/d/zeal/apps/web/app/chat/layout.tsx	/d/zeal/_archive/phase01-20260916-230136/backup-apps_web_app_chat_layout.tsx
+MODIFIED	/d/zeal/apps/web/components/chat/InstagramInboxList.tsx	/d/zeal/_archive/phase01-20260916-230136/backup-apps_web_components_chat_InstagramInboxList.tsx
+MODIFIED	/d/zeal/apps/web/components/session/ChatInterface.tsx	/d/zeal/_archive/phase01-20260916-230136/backup-apps_web_components_session_ChatInterface.tsx
+MODIFIED	/d/zeal/apps/web/app/chat/[id]/page.tsx	/d/zeal/_archive/phase01-20260916-230136/backup-apps_web_app_chat_[id]_page.tsx
+MODIFIED	/d/zeal/apps/web/app/session/[id]/page.tsx	/d/zeal/_archive/phase01-20260916-230136/backup-apps_web_app_session_[id]_page.tsx

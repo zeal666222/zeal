@@ -1,98 +1,101 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@zeal/database";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { requireSuperAdmin, logAdminAction } from "@/lib/auth/admin";
-import { z } from "zod";
+import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
 
-const ActionSchema = z.object({
-  userId: z.string().cuid(),
-  action: z.enum(["VERIFY", "UNVERIFY", "BAN", "UNBAN", "PROMOTE_ADMIN", "DEMOTE"]),
-});
+export const dynamic = "force-dynamic";
 
-export const GET = withErrorHandler(async (req: Request) => {
-  await requireSuperAdmin();
+const ALLOWED_ACTIONS = ["VERIFY", "UNVERIFY", "PROMOTE_ADMIN", "DEMOTE", "BAN", "UNBAN"] as const;
+
+export async function GET(req: Request) {
+  const guard = await requireAdminAPI("ADMIN");
+  if (!guard.ok) return guard.response;
+  const { admin } = guard;
 
   const url = new URL(req.url);
   const search = url.searchParams.get("search") || "";
   const role = url.searchParams.get("role");
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
   const page = Math.max(parseInt(url.searchParams.get("page") || "1"), 1);
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
 
-  const where: Record<string, unknown> = {};
-  if (role) where.role = role;
+  let q = admin
+    .from("User")
+    .select("id, email, username, name, avatar, role, sparks, isVerified, is_online, createdAt", { count: "exact" })
+    .order("createdAt", { ascending: false })
+    .range(from, to);
+
+  if (role) q = q.eq("role", role);
   if (search) {
-    where.OR = [
-      { email: { contains: search, mode: "insensitive" } },
-      { name: { contains: search, mode: "insensitive" } },
-      { username: { contains: search, mode: "insensitive" } },
-    ];
+    q = q.or(`email.ilike.%${search}%,name.ilike.%${search}%,username.ilike.%${search}%`);
   }
 
-  const [users, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        email: true,
-        username: true,
-        name: true,
-        avatar: true,
-        role: true,
-        isVerified: true,
-        sparks: true,
-        createdAt: true,
-        _count: { select: { bookings: true, posts: true, callSessions: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.user.count({ where }),
-  ]);
-
+  const { data, error, count } = await q;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({
-    users,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    users: data ?? [],
+    pagination: { page, limit, total: count ?? 0, pages: Math.ceil((count ?? 0) / limit) },
   });
-});
+}
 
-export const POST = withErrorHandler(async (req: Request) => {
-  const adminId = await requireSuperAdmin();
+export async function POST(req: Request) {
+  const guard = await requireAdminAPI("SUPER_ADMIN");
+  if (!guard.ok) return guard.response;
+  const { admin, userId: adminId } = guard;
 
-  const body = await req.json();
-  const { userId, action } = ActionSchema.parse(body);
+  let body: { userId?: string; action?: string };
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
-  const target = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, role: true },
-  });
-  if (!target) {
-    throw new AppError("User not found", 404, ErrorCode.NOT_FOUND);
+  const { userId, action } = body;
+  if (!userId || !action || !ALLOWED_ACTIONS.includes(action as typeof ALLOWED_ACTIONS[number])) {
+    return NextResponse.json({ error: "Invalid userId or action" }, { status: 400 });
+  }
+  if (userId === adminId && action === "DEMOTE") {
+    return NextResponse.json({ error: "Cannot demote yourself" }, { status: 400 });
   }
 
   let update: Record<string, unknown> = {};
   switch (action) {
-    case "VERIFY": update = { isVerified: true }; break;
-    case "UNVERIFY": update = { isVerified: false }; break;
-    case "PROMOTE_ADMIN": update = { role: "SUPER_ADMIN" }; break;
-    case "DEMOTE": update = { role: "USER" }; break;
-    case "BAN":
-    case "UNBAN": update = { isVerified: false }; break;
+    case "VERIFY":        update = { isVerified: true }; break;
+    case "UNVERIFY":      update = { isVerified: false }; break;
+    case "PROMOTE_ADMIN": update = { role: "ADMIN" }; break;
+    case "DEMOTE":        update = { role: "USER" }; break;
+    case "BAN":           update = { isVerified: false }; break;
+    case "UNBAN":         update = { isVerified: true }; break;
   }
 
-  const user = await prisma.user.update({
-    where: { id: userId },
-    data: update,
-    select: { id: true, role: true, isVerified: true },
-  });
+  const { data, error } = await admin
+    .from("User").update(update).eq("id", userId)
+    .select("id, role, isVerified").single();
 
-  await logAdminAction({
-    adminId,
-    action,
-    targetType: "user",
-    targetId: userId,
-  });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ user, action });
-});
+  // ─── PHASE 2: Sync app_metadata on role-affecting actions ────────────────
+  if (["PROMOTE_ADMIN", "DEMOTE", "BAN", "UNBAN"].includes(action)) {
+    try {
+      const meta: Record<string, unknown> = {};
+      if (action === "PROMOTE_ADMIN") meta.role = "ADMIN";
+      if (action === "DEMOTE") meta.role = "USER";
+      if (action === "BAN") meta.role = "USER";
+      if (action === "UNBAN") meta.role = "USER";
 
+      await admin.auth.admin.updateUserById(userId, { app_metadata: meta });
+      await admin.from("audit_events").insert({
+        event_category: "AUTHORIZATION",
+        event_action: `user_${action.toLowerCase()}`,
+        event_outcome: "SUCCESS",
+        actor_id: adminId,
+        actor_role: "SUPER_ADMIN",
+        target_type: "user",
+        target_id: userId,
+        metadata: meta,
+      });
+    } catch (syncErr) {
+      console.warn("[admin/users] role sync failed:", syncErr);
+    }
+  }
+
+  await logAdminAction(admin, { adminId, action, targetType: "user", targetId: userId });
+  return NextResponse.json({ user: data, action });
+}

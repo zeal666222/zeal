@@ -1,0 +1,48 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ZEAL ADMIN — Netlify Deployment Configuration
+# Site: https://zeal-admin.netlify.app  (replace with actual domain)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[build]
+  base = "apps/admin"
+  command = "cd ../.. && npm install --legacy-peer-deps && npm run build --workspace=admin"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# ─── Security headers (stricter than web — admin surface) ─────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0, must-revalidate"
+
+# ─── API PROXY — forward /api/* to the web app ────────────────────────────────
+# This is the critical piece: admin app's /api/* requests hit the web app's
+# API routes, which contain all the /api/admin/* handlers.
+[[redirects]]
+  from = "/api/*"
+  to = "https://zeal-main-web.netlify.app/api/:splat"
+  status = 200
+  force = true
+
+# ─── Root redirect to dashboard if already authenticated ──────────────────────
+# (Handled by middleware; no config needed)

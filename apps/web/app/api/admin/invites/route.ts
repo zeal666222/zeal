@@ -1,72 +1,72 @@
+// apps/web/app/api/admin/invites/route.ts
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { createInvite } from "@/lib/auth/invites";
-import { audit, requestMeta } from "@/lib/audit";
-import { isAdminRole, roleAtLeast, type AdminRole } from "@/lib/auth/roles";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { z } from "zod";
+import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import crypto from "crypto";
 
 export const dynamic = "force-dynamic";
 
-const InviteSchema = z.object({
-  email: z.string().email(),
-  role: z.enum(["SUPER_ADMIN", "ADMIN", "SUPPORT", "VIEWER"]),
-});
+const VALID_ROLES = ["VIEWER", "SUPPORT", "ADMIN", "SUPER_ADMIN"] as const;
 
-async function getCaller() {
-  const cookieStore = await cookies();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  const sb = createServerClient(url, key, {
-    cookies: {
-      get: (n) => cookieStore.get(n)?.value,
-      set: () => {},
-      remove: () => {},
-    },
-  });
-  const { data: { user } } = await sb.auth.getUser();
-  return user;
-}
+export async function POST(req: Request) {
+  const guard = await requireAdminAPI("SUPER_ADMIN");
+  if (!guard.ok) return guard.response;
+  const { admin, userId: adminId, email: adminEmail } = guard;
 
-export const POST = withErrorHandler(async (req: Request) => {
-  const user = await getCaller();
-  if (!user) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
-
-  const callerRole = user.app_metadata?.role;
-  if (!isAdminRole(callerRole) || !roleAtLeast(callerRole, "SUPER_ADMIN")) {
-    throw new AppError("Forbidden — SUPER_ADMIN only", 403, ErrorCode.AUTH_FORBIDDEN);
+  let body: { email?: string; role?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const body = await req.json();
-  const { email, role } = InviteSchema.parse(body);
+  const email = (body.email || "").toLowerCase().trim();
+  const role = body.role;
 
-  if (!roleAtLeast(callerRole, role as AdminRole)) {
-    throw new AppError("Cannot invite a role higher than your own", 403, ErrorCode.AUTH_FORBIDDEN);
+  if (!email || !email.includes("@")) {
+    return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+  }
+  if (!role || !VALID_ROLES.includes(role as typeof VALID_ROLES[number])) {
+    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
-  const { token, expiresAt } = await createInvite({
-    email: email.toLowerCase(),
-    role: role as AdminRole,
-    invitedBy: user.id,
+  // Generate 32-byte token, hash it for storage
+  const token = crypto.randomBytes(32).toString("base64url");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+
+  // Revoke any previous pending invites for this email
+  await admin
+    .from("AdminInvite")
+    .update({ revokedAt: new Date().toISOString() })
+    .eq("email", email)
+    .is("acceptedAt", null)
+    .is("revokedAt", null);
+
+  const { error } = await admin.from("AdminInvite").insert({
+    email,
+    role,
+    tokenHash,
+    invitedBy: adminId,
+    expiresAt,
   });
 
-  const meta = requestMeta(req);
-  await audit({
-    userId: user.id,
-    email: user.email ?? null,
-    action: "invite.create",
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction(admin, {
+    adminId,
+    action: "INVITE_CREATE",
     targetType: "admin_invite",
     targetId: email,
     metadata: { role },
-    ip: meta.ip,
-    userAgent: meta.userAgent,
   });
 
-  const adminBaseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001";
-  const inviteUrl = adminBaseUrl + "/accept-invite?token=" + encodeURIComponent(token);
+  const baseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001";
+  const inviteUrl = `${baseUrl}/accept-invite?token=${encodeURIComponent(token)}`;
 
-  return NextResponse.json({ success: true, inviteUrl, expiresAt });
-});
-
+  return NextResponse.json({
+    success: true,
+    inviteUrl,
+    expiresAt,
+    invitedBy: adminEmail,
+  });
+}

@@ -1,53 +1,38 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+// apps/web/app/consultant/dashboard/page.tsx
+import { createServerClientFromCookies } from "@zeal/database/server";
 import { redirect } from "next/navigation";
 import { StudioClient } from "@/components/consultant/StudioClient";
 
-export default async function ConsultantDashboardPage() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
+export const dynamic = "force-dynamic";
 
-  // Authenticate
+export default async function ConsultantDashboardPage() {
+  const supabase = await createServerClientFromCookies();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Fetch Full Profile for Studio Bootup
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, full_name, wallet_balance, is_online")
+    .from("User")
+    .select("id, name, is_online")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  const role = profile?.role || "user";
-  
-  // Ensure only Consultants or Admins can access the studio
-  if (role !== "consultant" && !["admin", "superadmin", "super_admin"].includes(role)) {
-    redirect("/explore");
-  }
+  const { data: wallet } = await supabase
+    .from("Wallet")
+    .select("balance")
+    .eq("userId", user.id)
+    .maybeSingle();
+
+  const userData = profile as { id: string; name: string | null; is_online: boolean } | null;
+  const walletData = wallet as { balance: number } | null;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 p-4 sm:p-10 relative overflow-hidden flex flex-col">
-      {/* Studio Ambient Lighting */}
-      <div className="absolute top-0 left-0 w-[800px] h-[800px] bg-indigo-600/10 blur-[200px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[800px] h-[800px] bg-purple-600/10 blur-[200px] rounded-full pointer-events-none" />
-      
-      <div className="max-w-7xl mx-auto w-full relative z-10 pt-4 flex-1 flex flex-col">
-        {/* Inject the Interactive Client Workspace */}
-        <StudioClient initialProfile={{
-          full_name: profile?.full_name || "Consultant",
-          wallet_balance: profile?.wallet_balance || 0,
-          is_online: profile?.is_online || false
-        }} />
-      </div>
-    </div>
+    <StudioClient
+      initialProfile={{
+        id: user.id,
+        full_name: userData?.name ?? "Consultant",
+        wallet_balance: walletData?.balance ?? 0,
+        is_online: userData?.is_online ?? false,
+      }}
+    />
   );
 }

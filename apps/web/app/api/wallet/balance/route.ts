@@ -1,20 +1,33 @@
+// apps/web/app/api/wallet/balance/route.ts
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies, getUserId } from "@zeal/database";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import { createServerClientFromCookies } from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withErrorHandler(async () => {
-  const userId = await getUserId();
-  if (!userId) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
+interface WalletRow {
+  id: string;
+  balance: number;
+  escrow: number;
+  pendingIn: number;
+  pendingOut: number;
+  blocked: number;
+}
 
+export async function GET() {
   const supabase = await createServerClientFromCookies();
-  const { data, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data } = await supabase
     .from("Wallet")
     .select("id, balance, escrow, pendingIn, pendingOut, blocked")
-    .eq("userId", userId)
-    .single();
+    .eq("userId", user.id)
+    .maybeSingle();
 
-  if (error && error.code !== "PGRST116") throw new AppError(error.message, 500, ErrorCode.INTERNAL_SERVER);
-  return NextResponse.json({ wallet: data || { balance: 0 } });
-});
+  const wallet = data as WalletRow | null;
+  return NextResponse.json({
+    wallet: wallet ?? { balance: 0, escrow: 0, pendingIn: 0, pendingOut: 0, blocked: 0 },
+  });
+}

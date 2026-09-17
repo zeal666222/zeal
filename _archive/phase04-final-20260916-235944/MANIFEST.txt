@@ -1,0 +1,6 @@
+# ZEAL — PHASE 4.2 MANIFEST
+# Timestamp : 20260916-235944
+MODIFIED	/d/zeal/apps/web/app/api/admin/broadcast/route.ts	/d/zeal/_archive/phase04-final-20260916-235944/backup-apps_web_app_api_admin_broadcast_route.ts
+MODIFIED	/d/zeal/apps/admin/hooks/useAdminRealtime.ts	/d/zeal/_archive/phase04-final-20260916-235944/backup-apps_admin_hooks_useAdminRealtime.ts
+CREATED	/d/zeal/apps/admin/components/providers/ThemeProvider.tsx	
+CREATED	/d/zeal/apps/admin/lib/query/provider.tsx	

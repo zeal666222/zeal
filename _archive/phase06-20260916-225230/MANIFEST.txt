@@ -1,0 +1,15 @@
+# ZEAL — PHASE 0.6 MANIFEST
+# Timestamp : 20260916-225230
+# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
+MODIFIED	/d/zeal/packages/database/src/index.ts	/d/zeal/_archive/phase06-20260916-225230/backup-packages_database_src_index.ts
+DELETED	/d/zeal/apps/web/app/quests/page.tsx	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_app_quests_page.tsx
+DELETED	/d/zeal/apps/web/app/api/quests/route.ts	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_app_api_quests_route.ts
+DELETED	/d/zeal/apps/web/app/api/quests/[questId]/complete/route.ts	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_app_api_quests_[questId]_complete_route.ts
+DELETED	/d/zeal/apps/web/app/api/quests/progress/route.ts	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_app_api_quests_progress_route.ts
+DELETED	/d/zeal/apps/web/components/quests/QuestCard.tsx	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_components_quests_QuestCard.tsx
+DELETED	/d/zeal/apps/web/app/bazaar/page.tsx	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_app_bazaar_page.tsx
+DELETED	/d/zeal/apps/web/app/api/bazaar/bid/route.ts	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_app_api_bazaar_bid_route.ts
+DELETED	/d/zeal/apps/web/app/api/bazaar/listings/route.ts	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_app_api_bazaar_listings_route.ts
+DELETED	/d/zeal/apps/web/components/bazaar/BazaarListing.tsx	/d/zeal/_archive/phase06-20260916-225230/deleted-apps_web_components_bazaar_BazaarListing.tsx
+MODIFIED	apps/web/middleware.ts	/d/zeal/_archive/phase06-20260916-225230/backup-apps_web_middleware.ts
+MODIFIED	/d/zeal/apps/web/next.config.js	/d/zeal/_archive/phase06-20260916-225230/backup-apps_web_next.config.js

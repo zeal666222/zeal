@@ -1,57 +1,128 @@
 "use client";
-export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { Wallet, Home, ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Wallet, IndianRupee, ArrowUpRight, Loader2 } from "lucide-react";
+import { getBrowserClient } from "@zeal/database";
+
+interface Transaction {
+  id: string;
+  type: string;
+  amount: number;
+  balance: number;
+  description: string;
+  createdAt: string;
+}
 
 export default function ConsultantEarningsPage() {
-  const [balance, setBalance] = useState(1450.00);
-  const daily = [
-    { day: "Mon", amount: 200 },
-    { day: "Tue", amount: 350 },
-    { day: "Wed", amount: 450 }
-  ];
-  const max = Math.max(...daily.map((d: any) => d.amount), 1);
+  const [balance, setBalance] = useState(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const supabaseRef = useRef<ReturnType<typeof getBrowserClient> | null>(null);
 
-  const handleWithdraw = () => {
-    alert("Withdrawal request submitted successfully.");
-  };
+  if (!supabaseRef.current && typeof window !== "undefined") {
+    try { supabaseRef.current = getBrowserClient(); } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/consultant/earnings")
+      .then((r) => r.ok ? r.json() : { balance: 0, transactions: [] })
+      .then((data) => {
+        if (cancelled) return;
+        setBalance(data.balance ?? 0);
+        setTransactions(data.transactions ?? []);
+      })
+      .finally(() => !cancelled && setLoading(false));
+
+    const supabase = supabaseRef.current;
+    if (supabase) {
+      const channel = supabase
+        .channel("consultant_earnings")
+        .on("broadcast", { event: "wallet_updated" }, (payload: any) => {
+          const data = payload.payload as { balance?: number };
+          if (typeof data?.balance === "number") setBalance(data.balance);
+        })
+        .subscribe();
+
+      return () => {
+        cancelled = true;
+        try { supabase.removeChannel(channel); } catch { /* ignore */ }
+      };
+    }
+
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <button onClick={() => window.location.href = "/consultant/dashboard"} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-400 mb-8">
-          <Home size={16} /> Back to Dashboard
-        </button>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-black text-white">Earnings</h1>
+        <p className="text-sm text-slate-400 mt-1">Real-time wallet updates</p>
+      </div>
 
-        <div className="bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 sm:p-12 shadow-2xl">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold">Earnings & Payouts</h1>
-              <p className="text-slate-400 text-sm mt-1">Manage your professional practice revenue.</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs uppercase text-slate-400 font-bold">Available</p>
-              <p className="text-3xl font-bold text-emerald-400">${balance.toFixed(2)}</p>
-            </div>
+      {/* Balance Card */}
+      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-950 border border-emerald-500/30 rounded-3xl shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none" />
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-2">
+            <Wallet className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+              Available Balance
+            </span>
           </div>
-
-          <div className="mb-8 p-6 bg-slate-950/50 rounded-2xl border border-white/5">
-            <h4 className="font-bold mb-4">Weekly Revenue Trend</h4>
-            <div className="flex items-end gap-4 h-32 pt-6">
-              {daily.map((d: any) => (
-                <div key={d.day} className="flex-1 flex flex-col items-center gap-2">
-                  <div style={{ height: `${(d.amount / max) * 100}%` }} className="w-full bg-purple-600 rounded-t-lg" />
-                  <span className="text-xs text-slate-400">{d.day}</span>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 text-white">
+            <IndianRupee className="w-8 h-8 text-emerald-400" />
+            <span className="text-3xl lg:text-5xl font-black font-mono tracking-tight">
+              {Number(balance).toFixed(2)}
+            </span>
           </div>
-
-          <button onClick={handleWithdraw} className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl font-bold transition-all shadow-xl">
-            Request Payout
-          </button>
         </div>
+      </div>
+
+      {/* Transactions */}
+      <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-5 lg:p-6">
+        <h2 className="text-base lg:text-lg font-bold text-white mb-4">Recent Transactions</h2>
+
+        {transactions.length === 0 ? (
+          <p className="text-slate-500 text-sm text-center py-8">No transactions yet</p>
+        ) : (
+          <div className="space-y-2">
+            {transactions.slice(0, 20).map((tx) => (
+              <div
+                key={tx.id}
+                className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    tx.amount > 0 ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
+                  }`}>
+                    <ArrowUpRight size={14} className={tx.amount < 0 ? "rotate-90" : ""} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-white truncate">{tx.description}</p>
+                    <p className="text-xs text-slate-500">
+                      {new Date(tx.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                <span className={`text-sm font-bold font-mono flex-shrink-0 ${
+                  tx.amount > 0 ? "text-emerald-400" : "text-slate-300"
+                }`}>
+                  {tx.amount > 0 ? "+" : ""}₹{Math.abs(tx.amount).toFixed(2)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

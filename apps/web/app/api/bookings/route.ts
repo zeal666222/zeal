@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@zeal/database/server";
 import * as Ledger from "@/lib/wallet/ledger";
 import crypto from "crypto";
 

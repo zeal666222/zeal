@@ -1,8 +1,15 @@
-import { createClient } from "@/lib/supabase/client";
-import { User, Session } from "@supabase/supabase-js";
+// apps/web/lib/auth/client.ts
+// ═══════════════════════════════════════════════════════════════════════════════
+// Server-side session helpers
+// ═══════════════════════════════════════════════════════════════════════════════
 
-export async function getClientSession(): Promise<{ user: User | null; session: Session | null }> {
-  const supabase = createClient();
+import { createServerClientFromCookies } from "@zeal/database/server";
+
+export async function getClientSession(): Promise<{
+  user: any | null;
+  session: any | null;
+}> {
+  const supabase = await createServerClientFromCookies();
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     console.error("Error getting session:", error);
@@ -12,6 +19,6 @@ export async function getClientSession(): Promise<{ user: User | null; session: 
 }
 
 export async function signOutClient(): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createServerClientFromCookies();
   await supabase.auth.signOut();
 }

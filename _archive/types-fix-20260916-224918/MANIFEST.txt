@@ -1,0 +1,10 @@
+# ZEAL — TYPES-FIX MANIFEST
+# Timestamp : 20260916-224918
+# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
+MODIFIED	/d/zeal/packages/types/src/database.types.ts	/d/zeal/_archive/types-fix-20260916-224918/backup-packages_types_src_database.types.ts
+CREATED	/d/zeal/apps/web/components/global/GlobalCallListener.tsx	
+CREATED	/d/zeal/apps/web/lib/livekit/room.ts	
+CREATED	/d/zeal/apps/web/hooks/useSocket.ts	
+CREATED	/d/zeal/apps/web/hooks/useWebSocket.ts	
+MODIFIED	/d/zeal/apps/web/hooks/useNotifications.ts	/d/zeal/_archive/types-fix-20260916-224918/backup-apps_web_hooks_useNotifications.ts
+MODIFIED	/d/zeal/apps/web/components/consultation/LivePulseTracker.tsx	/d/zeal/_archive/types-fix-20260916-224918/backup-apps_web_components_consultation_LivePulseTracker.tsx

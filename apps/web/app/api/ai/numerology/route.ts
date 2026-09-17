@@ -1,21 +1,52 @@
+// apps/web/app/api/ai/numerology/route.ts
 import { NextResponse } from "next/server";
-export async function POST(request: Request) {
-  try {
-    const { fullName, dob } = await request.json();
-    const groqApiKey = process.env.GROQ_API_KEY;
-    if (!groqApiKey) {
-      return NextResponse.json({ success: true, analysis: `Numerology profile for ${fullName} (DOB: ${dob}): Life Path number calculated with master frequency resonance indicating leadership and spiritual evolution.` });
+import { createServerClientFromCookies } from "@zeal/database/server";
+import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
+import { withCache } from "@/lib/ai/response-cache";
+import { runAI } from "@/lib/ai/router";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const identifier = user ? `numerology:${user.id}` : `numerology:ip:${req.headers.get("x-forwarded-for") ?? "anon"}`;
+  const rl = await checkRateLimit(aiRateLimiter, identifier);
+  if (!rl.ok) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: rl.headers });
+  }
+
+  let body: { fullName?: string; dob?: string };
+  try { body = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const { fullName, dob } = body;
+  if (!fullName || !dob) {
+    return NextResponse.json({ error: "Name and DOB required" }, { status: 400 });
+  }
+
+  const { value, cached } = await withCache(
+    { namespace: "numerology", ttl: 24 * 60 * 60 },
+    { fullName, dob },
+    async () => {
+      const result = await runAI({
+        task: "numerology",
+        systemPrompt: "You are a master numerologist with deep knowledge of Pythagorean and Chaldean systems. Calculate accurately and interpret meaningfully.",
+        userPrompt: `Calculate Life Path, Destiny, and Soul Urge numbers for:\nName: ${fullName}\nDOB: ${dob}\n\nProvide an extensive, grounded reading.`,
+        temperature: 0.7,
+        maxTokens: 1200,
+      });
+      return { analysis: result.content, model: result.model };
     }
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${groqApiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "system", content: "You are a master numerologist." }, { role: "user", content: `Calculate life path and destiny numbers for Name: ${fullName}, DOB: ${dob}. Give an extensive report.` }],
-        temperature: 0.7, max_tokens: 1000
-      })
-    });
-    const data = await res.json();
-    return NextResponse.json({ success: true, analysis: data.choices?.[0]?.message?.content || "Numerology analysis complete." });
-  } catch (err: any) { return NextResponse.json({ success: false, error: err.message }, { status: 500 }); }
+  );
+
+  return NextResponse.json({
+    success: true,
+    fullName,
+    dob,
+    analysis: value.analysis,
+    cached,
+  }, { headers: { ...rl.headers, "X-Cache": cached ? "HIT" : "MISS" } });
 }

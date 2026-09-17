@@ -13,8 +13,14 @@
     "type-check": "npm run type-check --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
     "supabase:gen-types": "supabase gen types typescript --local > packages/types/src/database.types.ts",
-    "supabase:db-push": "supabase db push",
-    "prisma:generate": "echo \"Prisma replaced by Supabase native client. Skipping generate.\""
+    "supabase:db-push": "supabase db push"
+  },
+  "overrides": {
+    "next": "16.1.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2"
   },
   "devDependencies": {
     "@tanstack/react-query": "5.101.4",
@@ -22,19 +28,19 @@
     "@trpc/next": "11.18.0",
     "@trpc/react-query": "11.18.0",
     "@trpc/server": "11.18.0",
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.0",
-    "next": "^16.2.12",
+    "@types/react": "19.1.2",
+    "@types/react-dom": "19.1.2",
+    "next": "16.1.7",
     "prettier": "^3.3.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
     "superjson": "2.2.6",
     "tailwindcss": "^4.2.4",
     "typescript": "^5.5.0",
     "zod": "4.4.3"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   },
   "dependencies": {
     "@hookform/resolvers": "5.7.1",

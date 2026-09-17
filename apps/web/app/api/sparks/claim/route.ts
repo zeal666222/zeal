@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { prisma, withTransaction } from "@zeal/database";
+import { createServerClientFromCookies } from "@zeal/database/server";
 import { getUserId } from "@/lib/auth";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { serverPublish } from "@/lib/realtime/server";
 import { z } from "zod";
 
+export const dynamic = "force-dynamic";
+
 const ClaimSchema = z.object({
-  questId: z.string().cuid(),
+  questId: z.string().min(1),
   reward: z.number().int().min(1).max(10000),
 });
 
@@ -17,42 +19,32 @@ export const POST = withErrorHandler(async (req: Request) => {
   const body = await req.json();
   const { questId, reward } = ClaimSchema.parse(body);
 
-  // Idempotency via a deterministic referenceId
-  const referenceId = "quest-claim:" + userId + ":" + questId;
-  const existing = await prisma.transaction.findFirst({
-    where: { referenceId },
+  const supabase = await createServerClientFromCookies();
+
+  // Use claim_quest RPC (idempotent via referenceId)
+  const { data, error } = await supabase.rpc("claim_quest", {
+    p_user_id: userId,
+    p_quest_id: questId,
+    p_reward: reward,
   });
-  if (existing) {
+
+  if (error) throw new AppError(error.message, 500, ErrorCode.INTERNAL_SERVER);
+
+  const result = data as { success?: boolean; alreadyClaimed?: boolean; sparks?: number; error?: string } | null;
+
+  if (result?.alreadyClaimed) {
     return NextResponse.json({ alreadyClaimed: true, sparks: reward });
   }
+  if (result && result.success === false) {
+    throw new AppError(result.error || "Claim failed", 500, ErrorCode.INTERNAL_SERVER);
+  }
 
-  const user = await withTransaction(async (tx: any) => {
-    const updated = await tx.user.update({
-      where: { id: userId },
-      data: { sparks: { increment: reward } },
-      select: { sparks: true },
-    });
+  const newSparks = result?.sparks ?? 0;
 
-    // Audit trail via a zero-amount transaction (sparks aren't wallet money)
-    const wallet = await tx.wallet.findUnique({ where: { userId } });
-    if (wallet) {
-      await tx.transaction.create({
-        data: {
-          walletId: wallet.id,
-          type: "TOPUP",
-          amount: 0,
-          balance: wallet.balance,
-          description: "Quest reward: +" + reward + " Sparks",
-          referenceId,
-          metadata: { questId, reward, kind: "sparks" },
-        },
-      });
-    }
-    return updated;
+  await serverPublish("user:" + userId, "sparks:updated", {
+    sparks: newSparks,
+    delta: reward,
   });
 
-  await serverPublish("user:" + userId, "sparks:updated", { sparks: user.sparks, delta: reward });
-
-  return NextResponse.json({ success: true, sparks: user.sparks });
+  return NextResponse.json({ success: true, sparks: newSparks });
 });
-

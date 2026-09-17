@@ -1,40 +1,76 @@
+// apps/web/app/api/admin/broadcast/route.ts
 import { NextResponse } from "next/server";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { requireSuperAdmin, logAdminAction } from "@/lib/auth/admin";
-import { NotificationService } from "@/lib/notifications/service";
-import { z } from "zod";
+import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
 
-const BroadcastSchema = z.object({
-  message: z.string().min(1).max(500),
-  segment: z.enum(["all", "consultants", "users"]).default("all"),
-});
+export const dynamic = "force-dynamic";
 
-export const POST = withErrorHandler(async (req: Request) => {
-  const adminId = await requireSuperAdmin();
+export async function POST(req: Request) {
+  const guard = await requireAdminAPI("ADMIN");
+  if (!guard.ok) return guard.response;
+  const { admin, userId: adminId } = guard;
 
-  const body = await req.json();
-  const { message, segment } = BroadcastSchema.parse(body);
-
-  if (!message.trim()) {
-    throw new AppError("Message required", 400, ErrorCode.VALIDATION_INPUT);
+  let body: { message?: string; segment?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const result = await NotificationService.broadcast({
-    message,
-    type: "system",
-    actorId: adminId,
-    segment,
-  });
+  const message = (body.message || "").trim();
+  const segment = body.segment || "all";
 
-  await logAdminAction({
+  if (!message || message.length > 500) {
+    return NextResponse.json({ error: "Message required (max 500 chars)" }, { status: 400 });
+  }
+  if (!["all", "users", "consultants"].includes(segment)) {
+    return NextResponse.json({ error: "Invalid segment" }, { status: 400 });
+  }
+
+  // Find target users
+  let userIds: string[] = [];
+
+  if (segment === "consultants") {
+    const { data } = await admin
+      .from("Consultant")
+      .select("userId")
+      .eq("status", "VERIFIED")
+      .limit(5000);
+    userIds = (data ?? []).map((c: { userId: string }) => c.userId);
+  } else if (segment === "users") {
+    const { data } = await admin
+      .from("User")
+      .select("id")
+      .eq("role", "USER")
+      .limit(5000);
+    userIds = (data ?? []).map((u: { id: string }) => u.id);
+  } else {
+    const { data } = await admin.from("User").select("id").limit(5000);
+    userIds = (data ?? []).map((u: { id: string }) => u.id);
+  }
+
+  if (userIds.length === 0) {
+    return NextResponse.json({ sent: 0, segment });
+  }
+
+  // Insert notifications in batches
+  const rows = userIds.map((userId) => ({
+    userId,
+    type: "system",
+    message,
+    actorId: adminId,
+    read: false,
+  }));
+
+  const { error } = await admin.from("Notification").insert(rows);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await logAdminAction(admin, {
     adminId,
     action: "BROADCAST",
     targetType: "segment",
     targetId: segment,
-    metadata: { message, sent: result.sent },
+    metadata: { message: message.slice(0, 100), sent: userIds.length },
   });
 
-  return NextResponse.json({ sent: result.sent, segment });
-});
-
-// BATCH3_APPLIED
+  return NextResponse.json({ sent: userIds.length, segment });
+}

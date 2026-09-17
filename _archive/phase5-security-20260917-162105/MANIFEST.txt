@@ -1,0 +1,5 @@
+# ZEAL — PHASE 5 SECURITY MANIFEST
+# Timestamp : 20260917-162105
+# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
+MODIFIED	/d/zeal/apps/web/actions/auth.ts	/d/zeal/_archive/phase5-security-20260917-162105/backup-apps_web_actions_auth.ts
+MODIFIED	/d/zeal/apps/admin/actions/auth.ts	/d/zeal/_archive/phase5-security-20260917-162105/backup-apps_admin_actions_auth.ts

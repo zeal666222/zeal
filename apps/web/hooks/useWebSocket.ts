@@ -1,38 +1,23 @@
 "use client";
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// useWebSocket — Legacy compat wrapper
+// ─────────────────────────────────────────────────────────────────────────────
+// Superseded by `useChat` (Supabase Realtime Broadcast).
+// Kept so legacy `/app/(app)/chat/ChatClient.tsx` compiles during migration.
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { useCallback } from "react";
-import { useRealtimeConnection } from "./useRealtime";
 
-/**
- * Compatibility hook – the actual realtime connection lives in RealtimeProvider.
- * Use `useRealtime(channel, event, handler)` for subscriptions.
- */
-export function useWebSocket(_userId: string | undefined) {
-  const isConnected = useRealtimeConnection();
-
-  const sendMessage = useCallback(async (event: string, data: unknown) => {
-    try {
-      const res = await fetch("/api/realtime/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channel: "user:broadcast",
-          event,
-          data,
-        }),
-      });
-      if (!res.ok) {
-        console.warn("[useWebSocket] Publish failed");
-      }
-    } catch (err) {
-      console.warn("[useWebSocket] Publish error:", err);
-    }
+export function useWebSocket(_userId?: string) {
+  const sendMessage = useCallback((_event: string, _data: unknown) => {
+    // No-op — chat is handled by /api/chat/[id]/messages + useChat hook
   }, []);
 
   return {
-    isConnected,
     sendMessage,
+    isConnected: false,
+    reconnect: () => {},
+    disconnect: () => {},
   };
 }
-
-// BATCH_F1_APPLIED

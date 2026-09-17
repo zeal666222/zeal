@@ -1,48 +1,58 @@
+// apps/web/app/api/admin/platform-fee/route.ts
 import { NextResponse } from "next/server";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { requireSuperAdmin } from "@/lib/auth/admin";
-import { redis } from "@/lib/cache";
-import { z } from "zod";
+import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
 
-const PLATFORM_FEE_KEY = "platform_fee_percent";
+export const dynamic = "force-dynamic";
+
 const DEFAULT_FEE = 10;
 
-const FeeSchema = z.object({
-  feePercent: z.number().min(0).max(50),
-});
+export async function GET() {
+  const guard = await requireAdminAPI("SUPER_ADMIN");
+  if (!guard.ok) return guard.response;
 
-export const GET = withErrorHandler(async () => {
-  await requireSuperAdmin();
   let feePercent = DEFAULT_FEE;
   try {
-    const cached = await redis.get<string>(PLATFORM_FEE_KEY);
-    if (typeof cached === "string" && cached.length > 0) {
+    const { redis } = await import("@/lib/cache");
+    const cached = await redis.get<string>("platform_fee_percent");
+    if (typeof cached === "string") {
       const parsed = parseFloat(cached);
-      if (!isNaN(parsed)) feePercent = parsed;
-    } else {
-      try { await redis.set(PLATFORM_FEE_KEY, String(DEFAULT_FEE)); } catch {}
+      if (!Number.isNaN(parsed)) feePercent = parsed;
     }
-  } catch {}
+  } catch { /* Redis optional */ }
+
   return NextResponse.json({ feePercent });
-});
+}
 
-export const POST = withErrorHandler(async (req: Request) => {
-  const adminId = await requireSuperAdmin();
+export async function POST(req: Request) {
+  const guard = await requireAdminAPI("SUPER_ADMIN");
+  if (!guard.ok) return guard.response;
+  const { admin, userId: adminId } = guard;
 
-  const body = await req.json();
-  const { feePercent } = FeeSchema.parse(body);
-
+  let body: { feePercent?: number };
   try {
-    await redis.set(PLATFORM_FEE_KEY, String(feePercent));
-  } catch (err) {
-    throw new AppError(
-      "Cache unavailable — cannot update platform fee",
-      503,
-      ErrorCode.INTERNAL_SERVER,
-    );
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  console.debug("[Admin] Platform fee updated to " + feePercent + "% by " + adminId);
-  return NextResponse.json({ feePercent });
-});
+  const fee = Number(body.feePercent);
+  if (!Number.isFinite(fee) || fee < 0 || fee > 50) {
+    return NextResponse.json({ error: "Fee must be 0–50" }, { status: 400 });
+  }
 
+  try {
+    const { redis } = await import("@/lib/cache");
+    await redis.set("platform_fee_percent", String(fee));
+  } catch {
+    return NextResponse.json({ error: "Cache unavailable" }, { status: 503 });
+  }
+
+  await logAdminAction(admin, {
+    adminId,
+    action: "PLATFORM_FEE_UPDATE",
+    targetType: "platform",
+    metadata: { feePercent: fee },
+  });
+
+  return NextResponse.json({ feePercent: fee });
+}

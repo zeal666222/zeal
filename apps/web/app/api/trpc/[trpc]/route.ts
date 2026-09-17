@@ -1,4 +1,4 @@
-import { prisma } from "@zeal/database";
+import { prisma } from "@zeal/database/server";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "@zeal/types/server";
 

@@ -1,82 +1,100 @@
+// apps/web/app/api/chat/[id]/messages/route.ts
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chat messages API — GET (fetch) + POST (send)
+// Uses unified Message table with RLS (participants only)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { NextResponse } from "next/server";
-import { prisma } from "@zeal/database";
-import { getUserId } from "@/lib/auth";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { serverPublish } from "@/lib/realtime/server";
-import { z } from "zod";
+import { createServerClientFromCookies } from "@zeal/database/server";
 
-const SendSchema = z.object({
-  content: z.string().min(1).max(2000),
-});
+export const dynamic = "force-dynamic";
 
-export const GET = withErrorHandler(
-  async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
-    const userId = await getUserId();
-    if (!userId) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
-    const { id } = await params;
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: conversationId } = await params;
+  const url = new URL(req.url);
+  const limit = Math.min(
+    Math.max(parseInt(url.searchParams.get("limit") || "50"), 1),
+    200
+  );
 
-    const conversation = await prisma.conversation.findUnique({ where: { id } });
-    if (!conversation) throw new AppError("Conversation not found", 404, ErrorCode.NOT_FOUND);
-    if (conversation.userAId !== userId && conversation.userBId !== userId) {
-      throw new AppError("Forbidden", 403, ErrorCode.AUTH_FORBIDDEN);
-    }
+  const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    const messages = await prisma.chatMessage.findMany({
-      where: { conversationId: id },
-      orderBy: { createdAt: "asc" },
-      take: 500,
-    });
+  // Verify participant (RLS enforces too, but explicit check gives cleaner 404)
+  const { data: participant } = await supabase
+    .from("ConversationParticipant")
+    .select("userId")
+    .eq("conversationId", conversationId)
+    .eq("userId", user.id)
+    .maybeSingle();
 
-    return NextResponse.json({ messages });
-  },
-);
+  if (!participant) {
+    return NextResponse.json({ error: "Not a participant" }, { status: 403 });
+  }
 
-export const POST = withErrorHandler(
-  async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
-    const userId = await getUserId();
-    if (!userId) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
-    const { id } = await params;
+  const { data: messages, error } = await supabase
+    .from("Message")
+    .select("id, conversationId, senderId, content, type, createdAt, editedAt, deletedAt")
+    .eq("conversationId", conversationId)
+    .order("createdAt", { ascending: false })
+    .limit(limit);
 
-    const conversation = await prisma.conversation.findUnique({ where: { id } });
-    if (!conversation) throw new AppError("Conversation not found", 404, ErrorCode.NOT_FOUND);
-    if (conversation.userAId !== userId && conversation.userBId !== userId) {
-      throw new AppError("Forbidden", 403, ErrorCode.AUTH_FORBIDDEN);
-    }
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-    const body = await req.json();
-    const { content } = SendSchema.parse(body);
+  // Return in chronological order
+  const ordered = (messages ?? []).slice().reverse();
+  return NextResponse.json({ messages: ordered });
+}
 
-    const message = await prisma.chatMessage.create({
-      data: { conversationId: id, senderId: userId, content },
-    });
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: conversationId } = await params;
 
-    await prisma.conversation.update({
-      where: { id },
-      data: {
-        lastMessageAt: new Date(),
-        lastMessageText: content,
-        updatedAt: new Date(),
-      },
-    });
+  const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    // Notify the OTHER participant
-    const recipientId =
-      conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+  let body: { content?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
-    await serverPublish("chat:" + id, "message:new", {
-      conversationId: id,
-      messageId: message.id,
-      senderId: userId,
-    });
+  const content = (body.content || "").trim();
+  if (!content) {
+    return NextResponse.json({ error: "Empty content" }, { status: 400 });
+  }
+  if (content.length > 4000) {
+    return NextResponse.json({ error: "Too long" }, { status: 400 });
+  }
 
-    await serverPublish("user:" + recipientId, "message:new", {
-      conversationId: id,
-      messageId: message.id,
-      senderId: userId,
-      preview: content.slice(0, 80),
-    });
+  const { data: message, error } = await supabase
+    .from("Message")
+    .insert({
+      conversationId,
+      senderId: user.id,
+      content,
+      type: "text",
+    })
+    .select("id, conversationId, senderId, content, type, createdAt")
+    .single();
 
-    return NextResponse.json({ message });
-  },
-);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
+  return NextResponse.json({ message });
+}

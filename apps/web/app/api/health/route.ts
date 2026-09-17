@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@zeal/database";
+import { createAdminClient } from "@zeal/database/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,7 +31,12 @@ export async function GET() {
   const checks: CheckResult[] = [];
 
   checks.push(await timedCheck("database", async () => {
-    await prisma.$queryRaw`SELECT 1`;
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("User")
+      .select("id", { count: "exact", head: true })
+      .limit(1);
+    if (error) throw new Error(error.message);
   }));
 
   checks.push(await timedCheck("env-supabase", async () => {
@@ -41,8 +46,11 @@ export async function GET() {
   }));
 
   checks.push(await timedCheck("env-payments", async () => {
-    if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) throw new Error("Razorpay key missing");
-    if (!process.env.RAZORPAY_KEY_SECRET) throw new Error("Razorpay secret missing");
+    const hasInstamojo =
+      !!process.env.INSTAMOJO_API_KEY && !!process.env.INSTAMOJO_AUTH_TOKEN;
+    const hasRazorpay =
+      !!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID && !!process.env.RAZORPAY_KEY_SECRET;
+    if (!hasInstamojo && !hasRazorpay) throw new Error("No payment provider configured");
   }));
 
   checks.push(await timedCheck("env-ai", async () => {
@@ -54,7 +62,9 @@ export async function GET() {
   }));
 
   checks.push(await timedCheck("realtime-flag", async () => {
-    if (process.env.NEXT_PUBLIC_REALTIME_ENABLED !== "true") throw new Error("Realtime not enabled");
+    if (process.env.NEXT_PUBLIC_REALTIME_ENABLED !== "true") {
+      throw new Error("Realtime not enabled");
+    }
   }));
 
   const overall = checks.every((c) => c.status === "ok")
@@ -80,4 +90,3 @@ export async function GET() {
     },
   );
 }
-

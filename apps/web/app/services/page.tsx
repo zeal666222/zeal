@@ -1,101 +1,107 @@
-"use client";
+// apps/web/app/services/page.tsx
+// ═══════════════════════════════════════════════════════════════════════════════
+// Services Hub — AI search hero + 37-category grid with live stats
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { createAdminClient } from "@zeal/database/server";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { SearchHero } from "@/components/discovery/SearchHero";
+import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
+
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { Sparkles, Search, ArrowRight, Bot } from "lucide-react";
-import Link from "next/link";
-import { motion } from "framer-motion";
+export const metadata = {
+  title: "Zeal Services — Discover 37+ wellness traditions",
+  description: "AI-powered search across astrology, tarot, therapy, numerology, palmistry, and 30+ more traditions.",
+};
 
-const CATEGORIES = [
-  "Vedic Astrology", "Western Astrology", "Chinese Astrology", "Hellenistic Astrology", "KP Astrology",
-  "Nadi Astrology", "Horary (Prashna)", "Tarot Reading", "Oracle Cards", "Angel Reading",
-  "Pythagorean Numerology", "Chaldean Numerology", "Islamic Numerology (Jafr)", "Kabbalistic Numerology", "Feng Shui",
-  "Vastu Shastra", "Palmistry", "Face Reading", "Aura Reading", "Chakra Healing",
-  "Reiki Healing", "Crystal Healing", "Shamanic Healing", "Past Life Regression", "Akashic Records",
-  "Runes Casting", "I Ching", "Tea Leaf Reading", "Pendulum Dowsing", "Mediumship",
-  "Dream Interpretation", "Symbology", "Karmic Debt Analysis", "Synastry (Matchmaking)", "Muhurta (Electional)",
-  "Astro-Cartography", "Spiritual Coaching"
-];
+async function getCategoryStats() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("Consultant")
+    .select("category, sparkScore, rating")
+    .eq("status", "VERIFIED")
+    .eq("isActive", true);
 
-export default function ServicesHubPage() {
-  const [query, setQuery] = useState("");
-  const [aiResponse, setAiResponse] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const map = new Map<string, { count: number; sparks: number }>();
+  for (const c of data ?? []) {
+    const key = String(c.category ?? "").toLowerCase().replace(/_/g, "-");
+    const existing = map.get(key) ?? { count: 0, sparks: 0 };
+    existing.count += 1;
+    existing.sparks += Number(c.sparkScore ?? 0);
+    map.set(key, existing);
+  }
+  return map;
+}
 
-  const handleAiSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setLoading(true);
-    
-    // Simulate Groq AI LPU routing logic
-    setTimeout(() => {
-      setAiResponse("I have analyzed your request. I recommend connecting with a Vedic Astrologer specializing in Dasha cycles, or testing our Synastry AI.");
-      setLoading(false);
-    }, 1200);
-  };
+export default async function ServicesPage() {
+  const statsMap = await getCategoryStats();
+  const categories = Object.entries(CATEGORY_ID_TO_NAME);
+  const totalConsultants = Array.from(statsMap.values()).reduce((s, v) => s + v.count, 0);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-200 dark:bg-purple-600/10 blur-[150px] rounded-full pointer-events-none -z-10" />
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <SearchHero />
 
-      <div className="max-w-[84rem] mx-auto relative z-10">
-        <h1 className="text-4xl sm:text-6xl font-medium tracking-tight mb-4">Master Intelligence Hub.</h1>
-        <p className="text-slate-600 dark:text-slate-400 font-light mb-12 text-lg">
-          Discover 37 multi-faith disciplines, neural AI avatars, and verified human masters.
+      {/* Stats bar */}
+      <div className="flex flex-wrap items-center gap-6 mb-8 text-sm">
+        <div>
+          <span className="text-2xl font-black text-white">{categories.length}</span>
+          <span className="text-slate-400 ml-2">categories</span>
+        </div>
+        <div>
+          <span className="text-2xl font-black text-white">{totalConsultants}</span>
+          <span className="text-slate-400 ml-2">verified guides</span>
+        </div>
+        <div>
+          <span className="text-2xl font-black text-[#9D7DC5]">24/7</span>
+          <span className="text-slate-400 ml-2">AI consultants</span>
+        </div>
+      </div>
+
+      {/* Category grid */}
+      <div className="mb-6">
+        <h2 className="text-2xl md:text-3xl font-black text-white">
+          Explore every tradition
+        </h2>
+        <p className="text-sm text-slate-400 mt-1">
+          From Vedic astrology to modern therapy — one platform.
         </p>
+      </div>
 
-        {/* Zeal Core AI Assistant Search */}
-        <div className="bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-[2.5rem] p-8 shadow-2xl mb-12">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-              <Bot size={20} />
-            </div>
-            <h2 className="text-xl font-bold">Ask Zeal Core</h2>
-          </div>
-          
-          <form onSubmit={handleAiSearch} className="relative mb-4">
-            <Search className="absolute left-4 top-4 text-slate-400" size={20} />
-            <input 
-              type="text" 
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="E.g., 'I am facing a career crisis, what reading do I need?'" 
-              className="w-full pl-12 pr-32 py-4 bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10 rounded-2xl outline-none focus:border-purple-500 transition-colors"
-            />
-            <button 
-              type="submit" 
-              disabled={loading || !query}
-              className="absolute right-2 top-2 bottom-2 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-950 rounded-xl font-bold hover:bg-purple-600 transition-colors disabled:opacity-50"
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {categories.map(([id, name]) => {
+          const stats = statsMap.get(id) ?? { count: 0, sparks: 0 };
+          return (
+            <Link
+              key={id}
+              href={`/services/${id}`}
+              className="group glass-card-3d p-5 hover:border-[#9D7DC5]/40 hover:-translate-y-1 transition-all duration-300 block relative overflow-hidden"
             >
-              {loading ? "Computing..." : "Analyze"}
-            </button>
-          </form>
-
-          {aiResponse && (
-            <div className="p-4 bg-purple-50 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 rounded-2xl text-purple-800 dark:text-purple-300 text-sm leading-relaxed flex gap-3">
-              <Sparkles className="shrink-0 mt-0.5" size={16} />
-              <p>{aiResponse}</p>
-            </div>
-          )}
-        </div>
-
-        {/* 37 Categories Grid */}
-        <h3 className="text-2xl font-bold mb-6">Explore 37 Metaphysical Disciplines</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {CATEGORIES.map((cat) => {
-            const slug = cat.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-            return (
-              <Link 
-                key={cat} 
-                href={`/services/${slug}`} 
-                className="p-5 bg-white/60 dark:bg-slate-900/40 backdrop-blur-md border border-slate-200 dark:border-white/5 rounded-2xl hover:border-purple-500/50 hover:bg-white dark:hover:bg-slate-900 transition-all group flex justify-between items-center shadow-sm"
-              >
-                <span className="font-medium text-sm group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{cat}</span>
-                <ArrowRight size={16} className="text-slate-300 dark:text-slate-600 group-hover:text-purple-500 transition-colors" />
-              </Link>
-            );
-          })}
-        </div>
+              <div className="absolute top-0 right-0 w-24 h-24 bg-[#9D7DC5]/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#9D7DC5]/20 to-[#533AFD]/10 flex items-center justify-center text-xl mb-3">
+                  ✨
+                </div>
+                <h3 className="font-bold text-white text-sm leading-tight mb-1.5 line-clamp-2">
+                  {name}
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {stats.count} guide{stats.count !== 1 ? "s" : ""}
+                </p>
+                {stats.sparks > 0 && (
+                  <p className="text-xs text-orange-400 mt-1 font-mono">
+                    🔥 {stats.sparks.toLocaleString()}
+                  </p>
+                )}
+                <div className="mt-3 flex items-center text-[#9D7DC5] text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                  Explore <ArrowRight size={12} className="ml-1" />
+                </div>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </div>
   );

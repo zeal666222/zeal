@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@zeal/database";
+import { prisma } from "@zeal/database/server";
 import Link from "next/link";
 import type { CSSProperties } from "react";
 

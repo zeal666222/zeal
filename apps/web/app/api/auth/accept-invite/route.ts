@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyInvite, acceptInvite } from "@/lib/auth/invites";
-import { prisma } from "@zeal/database";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +14,9 @@ function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("Supabase admin env missing");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 }
 
 export async function POST(req: Request) {
@@ -34,22 +35,32 @@ export async function POST(req: Request) {
     });
 
     if (error || !data?.user) {
-      return NextResponse.json({ error: error?.message || "createUser failed" }, { status: 400 });
+      return NextResponse.json(
+        { error: error?.message || "createUser failed" },
+        { status: 400 },
+      );
     }
 
-    await prisma.user.upsert({
-      where: { id: data.user.id },
-      update: { email: invite.email, role: invite.role as never },
-      create: {
-        id: data.user.id,
-        email: invite.email,
-        username: invite.email.split("@")[0] || "user",
-        role: invite.role as never,
-        isVerified: true,
-      },
-    });
+    // Upsert public User row via admin client — no Prisma
+    const { error: upsertErr } = await sb
+      .from("User")
+      .upsert(
+        {
+          id: data.user.id,
+          email: invite.email,
+          username: invite.email.split("@")[0] || "user",
+          role: invite.role,
+          isVerified: true,
+        },
+        { onConflict: "id" },
+      );
+
+    if (upsertErr) {
+      console.warn("[accept-invite] User upsert failed:", upsertErr.message);
+    }
 
     await acceptInvite(invite.id);
+
     return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

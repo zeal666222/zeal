@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@zeal/database";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
@@ -29,7 +29,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     // Ping Supabase to ensure connection health
     const healthCheck = supabase.channel('system-health')
       .on('system', { event: '*' }, () => setStatus("SUBSCRIBED"))
-      .subscribe((evt) => {
+      .subscribe((evt: string) => {
         if (evt === 'SUBSCRIBED') setStatus("SUBSCRIBED");
         if (evt === 'CHANNEL_ERROR') setStatus("ERROR");
         if (evt === 'CLOSED') setStatus("DISCONNECTED");
@@ -49,7 +49,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const channel = supabase
       .channel(`public:${table}:${filter}`)
       .on("postgres_changes", { event: "*", schema: "public", table, filter }, callback)
-      .subscribe((evt) => {
+      .subscribe((evt: string) => {
         if (evt === 'CHANNEL_ERROR') {
           console.error(`Failed to subscribe to ${table}`);
         }

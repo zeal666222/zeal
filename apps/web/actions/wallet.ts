@@ -1,73 +1,65 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
+// ═══════════════════════════════════════════════════════════════════════════════
+// Wallet Actions — Atomic RPC-based (no read-modify-write race)
+// Uses: credit_funds_safe, process_wallet_deduction_safe
+// ═══════════════════════════════════════════════════════════════════════════════
 
-async function getSupabaseServerClient() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {}
-        },
-      },
+import { createServerClientFromCookies } from "@zeal/database/server";
+
+export async function getWalletBalance(): Promise<{ balance: number }> {
+  const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { balance: 0 };
+
+  const { data } = await supabase
+    .from("Wallet")
+    .select("balance")
+    .eq("userId", user.id)
+    .maybeSingle();
+
+  const row = data as { balance: number } | null;
+  return { balance: row?.balance ?? 0 };
+}
+
+export async function topUpWalletAction(amount: number): Promise<{
+  success: boolean;
+  newBalance?: number;
+  error?: string;
+}> {
+  try {
+    const supabase = await createServerClientFromCookies();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 100_000) {
+      return { success: false, error: "Invalid amount (1–100000)" };
     }
-  );
-}
 
-export async function fetchWalletData() {
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+    const refId = `topup:${user.id}:${Date.now()}`;
 
-  if (!user) return { success: false, error: "Unauthorized" };
+    const { data, error } = await supabase.rpc("credit_funds_safe", {
+      p_user_id: user.id,
+      p_amount: amount,
+      p_description: `Wallet top-up ₹${amount}`,
+      p_reference_id: refId,
+    });
 
-  // Fetch Balance
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("wallet_balance, full_name")
-    .eq("id", user.id)
-    .single();
+    if (error) return { success: false, error: error.message };
 
-  // Fetch Ledger (Recent 5 transactions)
-  const { data: transactions } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(5);
+    const result = data as { success?: boolean; balance?: number; error?: string } | null;
+    if (result && result.success === false) {
+      return { success: false, error: result.error || "RPC failed" };
+    }
 
-  return { 
-    success: true, 
-    balance: profile?.wallet_balance || 0,
-    fullName: profile?.full_name || "Zeal Member",
-    transactions: transactions || [] 
-  };
-}
-
-export async function processRechargeAction(amount: number) {
-  const supabase = await getSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) return { success: false, error: "Unauthorized" };
-
-  // Securely call the atomic RPC function on the database
-  const { data, error } = await supabase.rpc("recharge_wallet", {
-    recharge_amount: amount
-  });
-
-  if (error) return { success: false, error: error.message };
-
-  revalidatePath("/profile"); // Instantly update UI cache
-  return { success: true, newBalance: data };
+    return {
+      success: true,
+      newBalance: result?.balance ?? undefined,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Top-up failed",
+    };
+  }
 }

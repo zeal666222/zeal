@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@zeal/database";
+import { createServerClientFromCookies } from "@zeal/database/server";
 import { getUserId } from "@/lib/auth";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { z } from "zod";
+
+export const dynamic = "force-dynamic";
 
 const ReportSchema = z.object({
   reason: z.enum(["spam", "harassment", "misinformation", "inappropriate", "other"]),
@@ -18,28 +20,25 @@ export const POST = withErrorHandler(
     const body = await req.json();
     const { reason, note } = ReportSchema.parse(body);
 
-    const post = await prisma.post.findUnique({ where: { id: postId }, select: { id: true } });
+    const supabase = await createServerClientFromCookies();
+
+    const { data: post } = await supabase
+      .from("Post").select("id").eq("id", postId).maybeSingle();
     if (!post) throw new AppError("Post not found", 404, ErrorCode.NOT_FOUND);
 
-    await prisma.post.update({
-      where: { id: postId },
-      data: { isFlagged: true },
-    });
+    await supabase.from("Post").update({ isFlagged: true }).eq("id", postId);
 
-    // Log the report as a system notification for admins (best-effort)
+    // Best-effort audit entry
     try {
-      await prisma.notification.create({
-        data: {
-          userId,
-          type: "system",
-          message: "[REPORT] Post " + postId + ": " + reason + (note ? " — " + note : ""),
-          actorId: userId,
-          read: true,
-        },
+      await supabase.from("Notification").insert({
+        userId,
+        type: "system",
+        message: `[REPORT] Post ${postId}: ${reason}${note ? " — " + note : ""}`,
+        actorId: userId,
+        read: true,
       });
     } catch { /* ignore */ }
 
     return NextResponse.json({ success: true });
   },
 );
-

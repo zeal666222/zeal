@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { prisma, withTransaction } from "@zeal/database";
+import { createAdminClient } from "@zeal/database/server";
 import { getUserId } from "@/lib/auth";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { audit, requestMeta } from "@/lib/audit";
+
+export const dynamic = "force-dynamic";
 
 export const POST = withErrorHandler(async (req: Request) => {
   const userId = await getUserId();
@@ -14,19 +16,15 @@ export const POST = withErrorHandler(async (req: Request) => {
     throw new AppError("Type DELETE to confirm", 400, ErrorCode.VALIDATION_INPUT);
   }
 
-  await withTransaction(async (tx: any) => {
-    await tx.notification.deleteMany({ where: { userId } });
-    await tx.cheer.deleteMany({ where: { userId } });
-    await tx.comment.deleteMany({ where: { authorId: userId } });
-    await tx.post.deleteMany({ where: { authorId: userId } });
-    await tx.callSession.deleteMany({ where: { userId } });
-    await tx.booking.deleteMany({ where: { userId } });
-    await tx.transaction.deleteMany({ where: { wallet: { userId } } });
-    await tx.wallet.deleteMany({ where: { userId } });
-    await tx.consultant.deleteMany({ where: { userId } });
-    await tx.userActivity.deleteMany({ where: { userId } });
-    await tx.user.delete({ where: { id: userId } });
-  });
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("delete_user_cascade", { p_user_id: userId });
+
+  if (error) throw new AppError(error.message, 500, ErrorCode.INTERNAL_SERVER);
+
+  const result = data as { success?: boolean; error?: string } | null;
+  if (result && result.success === false) {
+    throw new AppError(result.error || "Delete failed", 500, ErrorCode.INTERNAL_SERVER);
+  }
 
   const meta = requestMeta(req);
   await audit({
@@ -41,4 +39,3 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   return NextResponse.json({ success: true });
 });
-

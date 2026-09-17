@@ -8,7 +8,7 @@ import {
   Wallet, CreditCard, Settings, LogOut, Shield, BarChart3,
   Megaphone, Menu, X, UserPlus,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@zeal/ui";
 import { useAuth } from "@/components/providers/SupabaseAuthProvider";
 import { useAdminStore, type AdminRole } from "@/lib/store/adminStore";
 import { Avatar, AvatarImage, AvatarFallback } from "@zeal/ui";

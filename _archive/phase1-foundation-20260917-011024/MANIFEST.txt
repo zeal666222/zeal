@@ -1,0 +1,7 @@
+# ZEAL — PHASE 1 FOUNDATION MANIFEST
+# Timestamp : 20260917-011024
+# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
+CREATED	/d/zeal/supabase/migrations/016_unified.sql	
+CREATED	/d/zeal/apps/web/lib/realtime/universal.ts	
+CREATED	/d/zeal/apps/web/lib/ai/index.ts	
+CREATED	/d/zeal/apps/web/lib/ai/persona-loader.ts	

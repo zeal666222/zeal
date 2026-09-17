@@ -1,0 +1,92 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ZEAL WEB — Netlify Deployment Configuration
+# Site: https://zeal-web.netlify.app  (replace with actual domain)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+[build]
+  base = "apps/web"
+  command = "cd ../.. && npm install --legacy-peer-deps && npm run build --workspace=web"
+  publish = ".next"
+
+# Next.js runtime plugin (required for App Router on Netlify)
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Node version
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# ─── Security headers ─────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(self), microphone=(self), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+# ─── Cache static assets aggressively ─────────────────────────────────────────
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/favicon.ico"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# ─── API routes must never be cached ─────────────────────────────────────────
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0, must-revalidate"
+
+# ─── Health check never caches ────────────────────────────────────────────────
+[[headers]]
+  for = "/api/health"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
+
+# ─── Netlify Scheduled Functions for cron jobs ────────────────────────────────
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# ─── Redirects (Next.js handles most; these are edge cases) ──────────────────
+[[redirects]]
+  from = "/auth/login"
+  to = "/login"
+  status = 301
+
+[[redirects]]
+  from = "/auth/register"
+  to = "/register"
+  status = 301
+
+[[redirects]]
+  from = "/ai-consultants"
+  to = "/ai-astrologers"
+  status = 301
+
+[[redirects]]
+  from = "/zeal"
+  to = "/"
+  status = 302
+
+[[redirects]]
+  from = "/quests"
+  to = "/sparks"
+  status = 302
+
+[[redirects]]
+  from = "/referral"
+  to = "/sparks"
+  status = 302
+
+[[redirects]]
+  from = "/bazaar"
+  to = "/explore"
+  status = 302

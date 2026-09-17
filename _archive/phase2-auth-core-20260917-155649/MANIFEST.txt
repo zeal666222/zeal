@@ -1,0 +1,13 @@
+# ZEAL — PHASE 2 AUTH CORE MANIFEST
+# Timestamp : 20260917-155649
+# Format    : ACTION<TAB>ORIGINAL_PATH<TAB>BACKUP_PATH
+MODIFIED	/d/zeal/apps/web/lib/auth/server.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_lib_auth_server.ts
+MODIFIED	/d/zeal/apps/web/app/api/auth/sync-user/route.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_app_api_auth_sync-user_route.ts
+MODIFIED	/d/zeal/apps/web/actions/auth.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_actions_auth.ts
+MODIFIED	/d/zeal/apps/web/app/auth/callback/route.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_app_auth_callback_route.ts
+MODIFIED	/d/zeal/apps/web/middleware.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_middleware.ts
+MODIFIED	/d/zeal/apps/web/actions/consultant.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_actions_consultant.ts
+MODIFIED	/d/zeal/apps/web/app/api/admin/verification/route.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_app_api_admin_verification_route.ts
+MODIFIED	/d/zeal/apps/web/app/api/admin/users/route.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_app_api_admin_users_route.ts
+MODIFIED	/d/zeal/apps/admin/actions/auth.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_admin_actions_auth.ts
+MODIFIED	/d/zeal/apps/web/lib/auth/api-guard.ts	/d/zeal/_archive/phase2-auth-core-20260917-155649/backup-apps_web_lib_auth_api-guard.ts

@@ -1,0 +1,7 @@
+# ZEAL — PHASE 5 DEPLOY MANIFEST
+# Timestamp : 20260917-012038
+CREATED	/d/zeal/scripts/validate-env.sh	
+CREATED	/d/zeal/scripts/health-check.sh	
+CREATED	/d/zeal/apps/web/vercel.json	
+CREATED	/d/zeal/apps/admin/vercel.json	
+MODIFIED	/d/zeal/.env.example	/d/zeal/_archive/phase5-deploy-20260917-012038/backup-.env.example

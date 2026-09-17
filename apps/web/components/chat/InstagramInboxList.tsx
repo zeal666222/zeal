@@ -1,143 +1,55 @@
 "use client";
 
-import { useState, useEffect } from "react";
+// ═══════════════════════════════════════════════════════════════════════════════
+// InstagramInboxList — real-time inbox with presence
+// Theme: dark slate + Zeal purple. Mobile-first.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createBrowserClient } from "@supabase/ssr";
-import { ConversationItem } from "@/actions/inbox";
-import { 
-  Search, Sparkles, MessageCircle, Edit3, 
-  ChevronRight 
-} from "lucide-react";
+import { Search, Sparkles, MessageCircle, Edit3, ChevronRight } from "lucide-react";
+import { useConversations, type ConversationItem } from "@/hooks/useConversations";
+import { cn } from "@zeal/ui";
 
-function formatRelativeTime(timestamp: string | null): string {
-  if (!timestamp) return "";
-  const now = new Date();
-  const date = new Date(timestamp);
-  const diffMs = now.getTime() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-  const diffDay = Math.floor(diffHour / 24);
-
-  if (diffMin < 1) return "now";
-  if (diffMin < 60) return `${diffMin}m`;
-  if (diffHour < 24) return `${diffHour}h`;
-  if (diffDay < 7) return `${diffDay}d`;
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+interface Props {
+  currentUserId: string;
+  initialConversations: ConversationItem[];
 }
 
-export function InstagramInboxList({
-  initialConversations,
-  currentUserId,
-}: {
-  initialConversations: ConversationItem[];
-  currentUserId: string;
-}) {
-  const [conversations, setConversations] = useState<ConversationItem[]>(initialConversations);
-  const [searchQuery, setSearchQuery] = useState("");
+function formatRelative(ts: string | null): string {
+  if (!ts) return "";
+  const now = Date.now();
+  const then = new Date(ts).getTime();
+  const diff = Math.max(0, now - then);
+  const min = Math.floor(diff / 60_000);
+  if (min < 1) return "now";
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d`;
+  return new Date(ts).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+export function InstagramInboxList({ currentUserId, initialConversations }: Props) {
   const pathname = usePathname();
-
-  useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const messageChannel = supabase
-      .channel("inbox:realtime_messages")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "session_messages" },
-        (payload) => {
-          const newMsg = payload.new as { session_id: string; content: string; created_at: string; sender_id: string };
-          
-          let preview = newMsg.content;
-          if (preview.startsWith("[WEBRTC_")) {
-            preview = "📹 Video call";
-          }
-
-          setConversations((prev: ConversationItem[]) => {
-            const index = prev.findIndex((c) => c.sessionId === newMsg.session_id);
-            if (index === -1) return prev;
-            
-            const existing = prev[index];
-            if (!existing) return prev;
-
-            // TS FIX: Explicit mapping completely eliminates "possibly undefined" spread errors
-            const target: ConversationItem = {
-              sessionId: existing.sessionId,
-              partnerId: existing.partnerId,
-              partnerName: existing.partnerName,
-              partnerAvatar: existing.partnerAvatar,
-              isOnline: existing.isOnline,
-              isAI: existing.isAI,
-              status: existing.status,
-              lastMessage: preview,
-              lastMessageTime: newMsg.created_at,
-              lastMessageSenderId: newMsg.sender_id,
-            };
-
-            const remaining = prev.filter((_, i) => i !== index);
-            return [target, ...remaining];
-          });
-        }
-      )
-      .subscribe();
-
-    const profileChannel = supabase
-      .channel("inbox:realtime_presence")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles" },
-        (payload) => {
-          const updated = payload.new as { id: string; is_online: boolean };
-          if (typeof updated.is_online === "boolean") {
-            setConversations((prev: ConversationItem[]) =>
-              prev.map((c): ConversationItem => {
-                if (c.partnerId === updated.id) {
-                  return {
-                    sessionId: c.sessionId,
-                    partnerId: c.partnerId,
-                    partnerName: c.partnerName,
-                    partnerAvatar: c.partnerAvatar,
-                    isOnline: Boolean(updated.is_online),
-                    isAI: c.isAI,
-                    status: c.status,
-                    lastMessage: c.lastMessage,
-                    lastMessageTime: c.lastMessageTime,
-                    lastMessageSenderId: c.lastMessageSenderId,
-                  };
-                }
-                return c;
-              })
-            );
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(messageChannel);
-      supabase.removeChannel(profileChannel);
-    };
-  }, []);
+  const { conversations } = useConversations(currentUserId, initialConversations);
+  const [query, setQuery] = useState("");
 
   const filtered = conversations.filter((c) =>
-    c.partnerName.toLowerCase().includes(searchQuery.toLowerCase())
+    c.partnerName.toLowerCase().includes(query.toLowerCase())
   );
 
   const onlinePartners = conversations.filter((c) => c.isOnline);
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 border-r border-white/10 select-none">
-      
-      <div className="flex-none h-16 px-5 border-b border-white/10 flex items-center justify-between">
+    <div className="flex flex-col h-full bg-slate-950 select-none">
+      {/* Header */}
+      <div className="flex-none h-16 px-5 border-b border-white/5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-2">
-            Messages
-          </h1>
-          <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 text-xs font-bold border border-purple-500/30">
+          <h1 className="text-xl font-black tracking-tight text-white">Messages</h1>
+          <span className="px-2 py-0.5 rounded-full bg-[#9D7DC5]/20 text-[#9D7DC5] text-xs font-bold border border-[#9D7DC5]/30">
             {conversations.length}
           </span>
         </div>
@@ -150,19 +62,21 @@ export function InstagramInboxList({
         </Link>
       </div>
 
+      {/* Search */}
       <div className="p-3">
         <div className="relative">
           <Search size={15} className="absolute left-3.5 top-3 text-slate-500" />
           <input
             type="text"
             placeholder="Search Direct Messages..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-900/90 border border-white/5 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-slate-900/90 border border-white/5 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-[#9D7DC5]/50 transition-colors"
           />
         </div>
       </div>
 
+      {/* Online row */}
       {onlinePartners.length > 0 && (
         <div className="py-2 px-4 border-b border-white/5 flex items-center gap-3 overflow-x-auto hide-scrollbar">
           {onlinePartners.map((p) => (
@@ -172,7 +86,7 @@ export function InstagramInboxList({
               className="flex flex-col items-center gap-1 shrink-0 group active:scale-95 transition-transform"
             >
               <div className="relative">
-                <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-purple-500 via-pink-500 to-emerald-400">
+                <div className="w-12 h-12 rounded-full p-[2px] bg-gradient-to-tr from-[#9D7DC5] via-pink-500 to-emerald-400">
                   {p.partnerAvatar ? (
                     <img
                       src={p.partnerAvatar}
@@ -195,13 +109,14 @@ export function InstagramInboxList({
         </div>
       )}
 
+      {/* Conversation list */}
       <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-white/5">
         {filtered.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center p-6 text-center">
             <MessageCircle size={32} className="text-slate-600 mb-2" />
             <p className="text-sm font-bold text-slate-300">No chats found</p>
             <p className="text-xs text-slate-500 mt-1 max-w-[200px]">
-              Initiate a session from a consultant's profile to start chatting.
+              Start a session from a consultant&apos;s profile to begin chatting.
             </p>
           </div>
         ) : (
@@ -213,11 +128,12 @@ export function InstagramInboxList({
               <Link
                 key={conv.sessionId}
                 href={`/chat/${conv.sessionId}`}
-                className={`flex items-center gap-3.5 px-4 py-3.5 transition-colors group relative ${
+                className={cn(
+                  "flex items-center gap-3.5 px-4 py-3.5 transition-colors group relative",
                   isActive
-                    ? "bg-purple-600/15 border-l-4 border-purple-500"
+                    ? "bg-[#9D7DC5]/15 border-l-4 border-[#9D7DC5]"
                     : "hover:bg-white/[0.03]"
-                }`}
+                )}
               >
                 <div className="relative shrink-0">
                   {conv.partnerAvatar ? (
@@ -227,11 +143,10 @@ export function InstagramInboxList({
                       className="w-12 h-12 rounded-full object-cover bg-slate-900"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-900 to-indigo-900 border border-white/10 flex items-center justify-center font-bold text-sm text-white">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] border border-white/10 flex items-center justify-center font-bold text-sm text-white">
                       {conv.partnerName.charAt(0)}
                     </div>
                   )}
-
                   {conv.isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />
                   )}
@@ -241,16 +156,15 @@ export function InstagramInboxList({
                   <div className="flex items-center justify-between gap-1 mb-0.5">
                     <h3 className="text-sm font-bold text-slate-200 truncate flex items-center gap-1.5">
                       {conv.partnerName}
-                      {conv.isAI && <Sparkles size={12} className="text-purple-400 shrink-0" />}
+                      {conv.isAI && <Sparkles size={12} className="text-[#9D7DC5] shrink-0" />}
                     </h3>
                     <span className="text-[11px] text-slate-500 shrink-0">
-                      {formatRelativeTime(conv.lastMessageTime)}
+                      {formatRelative(conv.lastMessageTime)}
                     </span>
                   </div>
-
                   <p className="text-xs text-slate-400 truncate flex items-center gap-1">
                     {isMeLast && <span className="text-slate-500">You:</span>}
-                    <span>{conv.lastMessage}</span>
+                    <span>{conv.lastMessage || "Start a conversation"}</span>
                   </p>
                 </div>
 

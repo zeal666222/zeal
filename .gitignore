@@ -1,69 +1,44 @@
-# ═══════════════════════════════════════════════════════════════════════════
 # Dependencies
-# ═══════════════════════════════════════════════════════════════════════════
 node_modules/
-apps/*/node_modules/
-packages/*/node_modules/
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Build outputs
-# ═══════════════════════════════════════════════════════════════════════════
+# Build artifacts
+.next/
+.turbo/
 dist/
 build/
 out/
-.next/
-.turbo/
 *.tsbuildinfo
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Environment — NEVER commit secrets
-# ═══════════════════════════════════════════════════════════════════════════
-.env
-.env.*
-!.env.example
-!.env.*.template
-.env.local.backup
-.env.vercel.required
+# Caches
+node_modules/.cache/
+.vercel/
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Local backups and exports
-# ═══════════════════════════════════════════════════════════════════════════
+# Local backups
 .backups/
-backups/
-zeal-export-*.txt
-zeal-repo-export*.txt
-project-zeal-full-export.txt
-audit-report*.txt
-ts-errors*.txt
-eslint-output.txt
-env-vars.txt
 
-# ═══════════════════════════════════════════════════════════════════════════
+# Env
+.env
+.env.local
+.env*.local
+.env.production
+.env*.production
+
 # Logs
-# ═══════════════════════════════════════════════════════════════════════════
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
 
-# ═══════════════════════════════════════════════════════════════════════════
-# OS / IDE
-# ═══════════════════════════════════════════════════════════════════════════
+# OS
 .DS_Store
 Thumbs.db
+
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-nul
-NUL
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Prisma
-# ═══════════════════════════════════════════════════════════════════════════
-packages/database/prisma/*.db
-packages/database/prisma/*.db-journal
+# Generated
+zeal_full_repository_dump.txt
+*.tmp
 
-# Prisma 7 generated client (rebuilt on install)
-packages/database/generated/
+# Supabase
+.branches/
+.temp/

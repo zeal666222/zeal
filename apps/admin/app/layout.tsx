@@ -4,6 +4,10 @@ import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
 import { QueryProvider } from "@/lib/query/provider";
 import "./globals.css";
 
+// Ensure this layout is always rendered dynamically (avoids
+// /_not-found prerender crash when providers need a request context)
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Admin – Zeal",
   description: "Admin dashboard for Zeal platform",

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database";
+import { createServerClientFromCookies } from "@zeal/database/server";
 import { withErrorHandler } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
@@ -28,7 +28,7 @@ export const GET = withErrorHandler(async (req: Request) => {
   let nextCursor: string | undefined;
   if (data && data.length > limit) {
     const last = data.pop();
-    nextCursor = last?.createdAt;
+    nextCursor = (last as any)?.createdAt;
   }
 
   const posts = (data || []).map((p: Record<string, unknown>) => ({

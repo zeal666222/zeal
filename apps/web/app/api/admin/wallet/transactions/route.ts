@@ -1,22 +1,27 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@zeal/database";
+import { createAdminClient } from "@zeal/database/server";
 import { withErrorHandler } from "@/lib/errors";
 import { requireSuperAdmin } from "@/lib/auth/admin";
+
+export const dynamic = "force-dynamic";
 
 export const GET = withErrorHandler(async (req: Request) => {
   const adminId = await requireSuperAdmin();
   const url = new URL(req.url);
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);
 
-  const wallet = await prisma.wallet.findUnique({ where: { userId: adminId } });
+  const admin = createAdminClient();
+  const { data: wallet } = await admin
+    .from("Wallet").select("id").eq("userId", adminId).maybeSingle();
+
   if (!wallet) return NextResponse.json({ items: [] });
 
-  const items = await prisma.transaction.findMany({
-    where: { walletId: wallet.id },
-    orderBy: { createdAt: "desc" },
-    take: limit,
-  });
+  const { data: items } = await admin
+    .from("Transaction")
+    .select("*")
+    .eq("walletId", wallet.id)
+    .order("createdAt", { ascending: false })
+    .limit(limit);
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items: items ?? [] });
 });
-

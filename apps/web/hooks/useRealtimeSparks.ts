@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { createClient } from "@zeal/database";
 
 /**
  * Enterprise Hook: Subscribes directly to the PostgreSQL logical replication stream.
@@ -26,7 +26,7 @@ export function useRealtimeSparks(userId: string, initialSparks: number) {
           table: "User",
           filter: `id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const newSparks = (payload.new as any).sparks;
           if (typeof newSparks === "number" && newSparks !== sparks) {
             setSparks(newSparks);

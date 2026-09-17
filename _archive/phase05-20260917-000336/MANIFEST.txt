@@ -1,0 +1,21 @@
+# ZEAL — PHASE 5 MANIFEST
+# Timestamp : 20260917-000336
+DELETED	/d/zeal/apps/web/app/referral/page.tsx	/d/zeal/_archive/phase05-20260917-000336/deleted-apps_web_app_referral_page.tsx
+DELETED	/d/zeal/apps/web/app/api/referral/[userId]/route.ts	/d/zeal/_archive/phase05-20260917-000336/deleted-apps_web_app_api_referral_[userId]_route.ts
+DELETED	/d/zeal/apps/web/components/referral/ReferralCard.tsx	/d/zeal/_archive/phase05-20260917-000336/deleted-apps_web_components_referral_ReferralCard.tsx
+MODIFIED	apps/web/middleware.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_middleware.ts
+MODIFIED	/d/zeal/apps/web/next.config.js	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_next.config.js
+CREATED	/d/zeal/supabase/migrations/014_sparks_aggregate.sql	
+CREATED	/d/zeal/apps/web/hooks/useSparks.ts	
+CREATED	/d/zeal/apps/web/components/shared/SparkBadge.tsx	
+MODIFIED	/d/zeal/apps/web/app/api/sparks/feed/route.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_app_api_sparks_feed_route.ts
+MODIFIED	/d/zeal/apps/web/app/sparks/page.tsx	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_app_sparks_page.tsx
+MODIFIED	/d/zeal/apps/web/lib/rate-limit/index.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_lib_rate-limit_index.ts
+CREATED	/d/zeal/apps/web/lib/ai/response-cache.ts	
+CREATED	/d/zeal/apps/web/lib/ai/groq-client.ts	
+CREATED	/d/zeal/apps/web/lib/ai/astroask-client.ts	
+MODIFIED	/d/zeal/apps/web/lib/ai/router.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_lib_ai_router.ts
+MODIFIED	/d/zeal/apps/web/app/api/ai/horoscope/route.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_app_api_ai_horoscope_route.ts
+MODIFIED	/d/zeal/apps/web/app/api/ai/kundali/route.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_app_api_ai_kundali_route.ts
+MODIFIED	/d/zeal/apps/web/app/api/ai/tarot/route.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_app_api_ai_tarot_route.ts
+MODIFIED	/d/zeal/apps/web/app/api/ai/numerology/route.ts	/d/zeal/_archive/phase05-20260917-000336/backup-apps_web_app_api_ai_numerology_route.ts

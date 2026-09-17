@@ -1,0 +1,21 @@
+# ZEAL — PHASE 2 + 2.5 MANIFEST
+# Timestamp : 20260917-160108
+# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
+
+# Phase 2 — Server core
+MODIFIED	/d/zeal/apps/web/lib/auth/server.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_lib_auth_server.ts
+MODIFIED	/d/zeal/apps/web/app/api/auth/sync-user/route.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_app_api_auth_sync-user_route.ts
+MODIFIED	/d/zeal/apps/web/actions/auth.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_actions_auth.ts
+MODIFIED	/d/zeal/apps/web/app/auth/callback/route.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_app_auth_callback_route.ts
+MODIFIED	/d/zeal/apps/web/middleware.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_middleware.ts
+MODIFIED	/d/zeal/apps/web/actions/consultant.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_actions_consultant.ts
+MODIFIED	/d/zeal/apps/web/app/api/admin/verification/route.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_app_api_admin_verification_route.ts
+MODIFIED	/d/zeal/apps/web/app/api/admin/users/route.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_app_api_admin_users_route.ts
+MODIFIED	/d/zeal/apps/admin/actions/auth.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_admin_actions_auth.ts
+MODIFIED	/d/zeal/apps/web/lib/auth/api-guard.ts	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_lib_auth_api-guard.ts
+
+# Phase 2.5 — Frontend
+MODIFIED	/d/zeal/apps/web/app/login/page.tsx	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_app_login_page.tsx
+MODIFIED	/d/zeal/apps/web/app/register/page.tsx	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_app_register_page.tsx
+MODIFIED	/d/zeal/apps/admin/app/login/page.tsx	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_admin_app_login_page.tsx
+MODIFIED	/d/zeal/apps/web/app/apply/page.tsx	/d/zeal/_archive/phase2-complete-20260917-160108/backup-apps_web_app_apply_page.tsx

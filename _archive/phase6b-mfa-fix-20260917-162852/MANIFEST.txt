@@ -1,0 +1,5 @@
+# ZEAL — PHASE 6b MFA FIX MANIFEST
+# Timestamp : 20260917-162852
+# Format    : ACTION<TAB>ORIGINAL<TAB>BACKUP
+MODIFIED	/d/zeal/apps/web/app/mfa-challenge/page.tsx	/d/zeal/_archive/phase6b-mfa-fix-20260917-162852/backup-apps_web_app_mfa-challenge_page.tsx
+MODIFIED	/d/zeal/apps/web/app/profile/page.tsx	/d/zeal/_archive/phase6b-mfa-fix-20260917-162852/backup-apps_web_app_profile_page.tsx

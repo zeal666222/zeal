@@ -1,0 +1,7 @@
+# ZEAL — FIX-ADMIN-PRERENDER MANIFEST
+# Timestamp : 20260917-004207
+MODIFIED	/d/zeal/packages/database/src/client.ts	/d/zeal/_archive/fix-admin-prerender-20260917-004207/backup-packages_database_src_client.ts
+CREATED	/d/zeal/apps/admin/app/not-found.tsx	
+MODIFIED	/d/zeal/apps/admin/app/layout.tsx	/d/zeal/_archive/fix-admin-prerender-20260917-004207/backup-apps_admin_app_layout.tsx
+MODIFIED	/d/zeal/apps/admin/components/providers/SupabaseAuthProvider.tsx	/d/zeal/_archive/fix-admin-prerender-20260917-004207/backup-apps_admin_components_providers_SupabaseAuthProvider.tsx
+MODIFIED	/d/zeal/apps/web/components/providers/SupabaseAuthProvider.tsx	/d/zeal/_archive/fix-admin-prerender-20260917-004207/backup-apps_web_components_providers_SupabaseAuthProvider.tsx

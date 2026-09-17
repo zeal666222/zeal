@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { usePathname } from "next/navigation";
 import { TopNavBar } from "./TopNavBar";
 import { BottomNavBar } from "./BottomNavBar";
 
@@ -14,6 +15,8 @@ export type Profile = {
 
 export function AppLayout({ children, user, profile }: { children: React.ReactNode, user: any, profile: Profile }) {
   const balance = profile?.wallet_balance || 0;
+  const pathname = usePathname();
+  const hideAppNav = pathname?.startsWith("/consultant");
 
   return (
     <div className="flex flex-col h-screen-app overflow-hidden bg-slate-950 w-full relative">
@@ -26,7 +29,7 @@ export function AppLayout({ children, user, profile }: { children: React.ReactNo
       </main>
 
       {/* 3. Fixed Bottom Bar */}
-      <BottomNavBar />
+      {!hideAppNav && <BottomNavBar />}
     </div>
   );
 }

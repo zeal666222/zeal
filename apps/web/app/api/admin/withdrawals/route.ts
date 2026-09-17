@@ -1,108 +1,130 @@
+// apps/web/app/api/admin/withdrawals/route.ts
 import { NextResponse } from "next/server";
-import { prisma, withTransaction } from "@zeal/database";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { requireSuperAdmin, logAdminAction } from "@/lib/auth/admin";
-import { z } from "zod";
+import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
 
-const ActionSchema = z.object({
-  transactionId: z.string(),
-  action: z.enum(["APPROVE", "REJECT"]),
-  reason: z.string().max(500).optional(),
-});
+export const dynamic = "force-dynamic";
 
-export const GET = withErrorHandler(async () => {
-  await requireSuperAdmin();
+interface TxRow {
+  id: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+  metadata: Record<string, unknown> | null;
+  walletId: string;
+}
 
-  const pending = await prisma.transaction.findMany({
-    where: {
-      type: "PAYOUT",
-      metadata: { path: ["pending"], equals: true },
-    },
-    include: {
+interface WalletRow {
+  id: string;
+  userId: string;
+}
+
+interface UserRow {
+  id: string;
+  name: string | null;
+  username: string | null;
+  email: string;
+}
+
+export async function GET() {
+  const guard = await requireAdminAPI("ADMIN");
+  if (!guard.ok) return guard.response;
+  const { admin } = guard;
+
+  // Find pending PAYOUT transactions
+  const { data: txs } = await admin
+    .from("Transaction")
+    .select("id, amount, description, createdAt, metadata, walletId")
+    .eq("type", "PAYOUT")
+    .order("createdAt", { ascending: false })
+    .limit(200);
+
+  const pending = ((txs ?? []) as TxRow[]).filter((t) => {
+    const meta = t.metadata ?? {};
+    return meta.pending === true;
+  });
+
+  if (pending.length === 0) {
+    return NextResponse.json({ withdrawals: [] });
+  }
+
+  // Fetch wallets + users
+  const walletIds = Array.from(new Set(pending.map((t) => t.walletId)));
+  const { data: walletsRaw } = await admin
+    .from("Wallet")
+    .select("id, userId")
+    .in("id", walletIds);
+
+  const wallets = (walletsRaw ?? []) as WalletRow[];
+  const userIds = Array.from(new Set(wallets.map((w) => w.userId)));
+
+  const { data: usersRaw } = userIds.length > 0
+    ? await admin.from("User").select("id, name, username, email").in("id", userIds)
+    : { data: [] };
+
+  const users = (usersRaw ?? []) as UserRow[];
+  const userById = new Map<string, UserRow>();
+  for (const u of users) userById.set(u.id, u);
+  const walletById = new Map<string, WalletRow>();
+  for (const w of wallets) walletById.set(w.id, w);
+
+  const withdrawals = pending.map((t) => {
+    const wallet = walletById.get(t.walletId);
+    const user = wallet ? userById.get(wallet.userId) : null;
+    return {
+      id: t.id,
+      amount: t.amount,
+      description: t.description,
+      createdAt: t.createdAt,
+      metadata: t.metadata,
       wallet: {
-        include: {
-          user: {
-            select: { id: true, name: true, email: true, username: true },
-          },
-        },
+        user: user
+          ? { id: user.id, name: user.name, username: user.username, email: user.email }
+          : { id: "unknown", name: null, username: "unknown", email: "" },
       },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
+    };
   });
 
-  return NextResponse.json({ withdrawals: pending });
-});
+  return NextResponse.json({ withdrawals });
+}
 
-export const POST = withErrorHandler(async (req: Request) => {
-  const adminId = await requireSuperAdmin();
+export async function POST(req: Request) {
+  const guard = await requireAdminAPI("ADMIN");
+  if (!guard.ok) return guard.response;
+  const { admin, userId: adminId } = guard;
 
-  const body = await req.json();
-  const { transactionId, action, reason } = ActionSchema.parse(body);
+  let body: { transactionId?: string; action?: string; reason?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
-  const tx = await prisma.transaction.findUnique({
-    where: { id: transactionId },
-    include: { wallet: { select: { id: true, userId: true } } },
+  const { transactionId, action, reason } = body;
+  if (!transactionId || !["APPROVE", "REJECT"].includes(action || "")) {
+    return NextResponse.json({ error: "Invalid transactionId or action" }, { status: 400 });
+  }
+
+  // Use RPC from 002_functions.sql
+  const { data: rpcData, error: rpcError } = await admin.rpc("process_withdrawal", {
+    p_tx_id: transactionId,
+    p_action: action,
+    p_reason: reason ?? null,
   });
-  if (!tx) {
-    throw new AppError("Transaction not found", 404, ErrorCode.TRANSACTION_NOT_FOUND);
+
+  if (rpcError) return NextResponse.json({ error: rpcError.message }, { status: 500 });
+
+  const rpcResult = rpcData as { success?: boolean; error?: string } | null;
+  if (rpcResult && rpcResult.success === false) {
+    return NextResponse.json({ error: rpcResult.error || "RPC failed" }, { status: 500 });
   }
 
-  const meta = (tx.metadata as Record<string, unknown>) ?? {};
-  if (meta.pending !== true) {
-    throw new AppError(
-      "Transaction is not pending",
-      400,
-      ErrorCode.BOOKING_CONFLICT,
-    );
-  }
-
-  if (action === "APPROVE") {
-    await withTransaction(async (t: any) => {
-      await t.transaction.update({
-        where: { id: transactionId },
-        data: {
-          metadata: { ...meta, pending: false, approvedAt: new Date().toISOString() },
-        },
-      });
-      await t.wallet.update({
-        where: { id: tx.wallet.id },
-        data: { pendingOut: { decrement: Math.abs(tx.amount) } },
-      });
-    });
-  } else {
-    // REJECT: restore balance
-    await withTransaction(async (t: any) => {
-      await t.transaction.update({
-        where: { id: transactionId },
-        data: {
-          metadata: {
-            ...meta,
-            pending: false,
-            rejectedAt: new Date().toISOString(),
-            reason: reason || "Not specified",
-          },
-        },
-      });
-      await t.wallet.update({
-        where: { id: tx.wallet.id },
-        data: {
-          balance: { increment: Math.abs(tx.amount) },
-          pendingOut: { decrement: Math.abs(tx.amount) },
-        },
-      });
-    });
-  }
-
-  await logAdminAction({
+  await logAdminAction(admin, {
     adminId,
-    action,
+    action: action === "APPROVE" ? "WITHDRAWAL_APPROVE" : "WITHDRAWAL_REJECT",
     targetType: "withdrawal",
     targetId: transactionId,
     metadata: { reason },
   });
 
   return NextResponse.json({ success: true, action });
-});
-
-// BATCH3_APPLIED
+}
