@@ -1,4 +1,3 @@
-cat > consultant-auth-flow.sh << 'ENDOFSCRIPT'
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
 # ZEAL — CONSULTANT AUTH FLOW
@@ -1636,7 +1635,3 @@ else
 fi
 
 exit 0
-ENDOFSCRIPT
-
-chmod +x consultant-auth-flow.sh
-bash consultant-auth-flow.sh
