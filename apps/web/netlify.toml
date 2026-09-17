@@ -1,13 +1,19 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# ZEAL WEB — Netlify Configuration (monorepo-safe)
+# ZEAL WEB — Netlify Configuration
 # ─────────────────────────────────────────────────────────────────────────────
-# CRITICAL: no `base =` key. Netlify UI must have:
-#   Base directory    : (empty/unset)
-#   Package directory : apps/web
+# ⚠️  CRITICAL: NO `base =` DIRECTIVE.
 #
-# This is required because the Next.js runtime v5 adapter cannot resolve
-# hoisted `next` from node_modules when base is set to a subdirectory in
-# an npm workspaces monorepo.
+# In the Netlify UI, set:
+#   Base directory    : (EMPTY — leave blank)
+#   Package directory : apps/web
+#   Build command     : (leave blank — this file provides it)
+#   Publish directory : (leave blank — this file provides it)
+#
+# WHY: `next` is hoisted to root /node_modules by npm workspaces.
+#      If base=apps/web, Netlify installs deps inside apps/web/node_modules
+#      (where `next` doesn't exist), so the Lambda function crashes with
+#      "Cannot find module 'next/dist/server/lib/start-server.js'".
+#      With base unset, Netlify installs at root → finds `next` → works.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 [build]
@@ -22,7 +28,7 @@
   NPM_FLAGS = "--legacy-peer-deps"
   NEXT_TELEMETRY_DISABLED = "1"
 
-# Cron functions live under apps/web/netlify/functions
+# ─── Scheduled cron functions ──────────────────────────────────────────────────
 [functions]
   directory = "apps/web/netlify/functions"
   node_bundler = "esbuild"

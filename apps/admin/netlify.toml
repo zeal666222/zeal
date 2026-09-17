@@ -1,9 +1,13 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# ZEAL ADMIN — Netlify Configuration (monorepo-safe)
+# ZEAL ADMIN — Netlify Configuration
 # ─────────────────────────────────────────────────────────────────────────────
-# CRITICAL: no `base =` key. Netlify UI must have:
-#   Base directory    : (empty/unset)
+# ⚠️  CRITICAL: NO `base =` DIRECTIVE.
+#
+# In the Netlify UI, set:
+#   Base directory    : (EMPTY — leave blank)
 #   Package directory : apps/admin
+#   Build command     : (leave blank)
+#   Publish directory : (leave blank)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 [build]
