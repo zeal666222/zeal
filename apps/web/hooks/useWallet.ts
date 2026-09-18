@@ -1,19 +1,23 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// useWallet — Real-time wallet + ledger
+// useWallet — Enterprise realtime wallet
 // ─────────────────────────────────────────────────────────────────────────────
-// Design invariants (enterprise-grade):
-//   • Subscribe to the FULL Wallet row, not just balance. Balance, escrow,
-//     pendingIn/pendingOut, blocked all update in the same transaction —
-//     partial subscription causes visible UI inconsistency.
-//   • Never accept optimistic balance — always refetch ledger from server.
-//   • Refetch on any wallet broadcast (single source of truth = DB).
-//   • Idempotency: the server-side RPC guarantees exactly-once mutation.
+// Invariants:
+//   • Full WalletState (balance, escrow, pendingIn, pendingOut, blocked)
+//   • State channel → refetch (never trust optimistic math)
+//   • Ledger channel → prepend entries (hint only)
+//   • Reconnect reconciliation
+//   • Idempotent refetch (in-flight guard)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useState } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useChannel,
+  useConnection,
+  channels,
+  type BroadcastChange,
+} from "@zeal/realtime";
 
 export interface WalletState {
   balance: number;
@@ -29,6 +33,7 @@ export interface LedgerEntry {
   amount: number;
   balance: number;
   description: string;
+  referenceId?: string | null;
   createdAt: string;
 }
 
@@ -45,16 +50,24 @@ const EMPTY_WALLET: WalletState = {
   balance: 0, escrow: 0, pendingIn: 0, pendingOut: 0, blocked: 0,
 };
 
+const LEDGER_PAGE_SIZE = 30;
+
 export function useWallet(userId: string | null) {
   const [wallet, setWallet] = useState<WalletState>(EMPTY_WALLET);
   const [transactions, setTransactions] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const connectionState = useConnection();
+  const wasDisconnectedRef = useRef(false);
+  const inFlightRef = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     try {
       const [balRes, txRes] = await Promise.all([
         fetch("/api/wallet/balance", { cache: "no-store" }),
-        fetch("/api/wallet/transactions?limit=20", { cache: "no-store" }),
+        fetch(`/api/wallet/transactions?limit=${LEDGER_PAGE_SIZE}`, { cache: "no-store" }),
       ]);
       if (balRes.ok) {
         const b = await balRes.json();
@@ -73,7 +86,12 @@ export function useWallet(userId: string | null) {
         const t = await txRes.json();
         if (Array.isArray(t?.transactions)) setTransactions(t.transactions);
       }
-    } catch { /* ignore */ }
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Wallet fetch failed");
+    } finally {
+      inFlightRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -84,20 +102,46 @@ export function useWallet(userId: string | null) {
     return () => { cancelled = true; };
   }, [userId, refresh]);
 
-  // Full-row subscription — any field change triggers a refetch
+  // Reconnect reconciliation
+  useEffect(() => {
+    if (!userId) return;
+    if (connectionState === "connected" && wasDisconnectedRef.current) {
+      void refresh();
+    }
+    wasDisconnectedRef.current = connectionState !== "connected";
+  }, [connectionState, userId, refresh]);
+
+  // State channel → full refetch
   useChannel<BroadcastChange<WalletRow>>({
     channel: userId ? channels.userWallet(userId) : null,
     event: "*",
     onMessage: () => { void refresh(); },
   });
 
+  // Ledger channel → prepend
+  useChannel<BroadcastChange<LedgerEntry>>({
+    channel: userId ? channels.userWalletLedger(userId) : null,
+    event: "*",
+    onMessage: (payload) => {
+      if (payload?.type !== "INSERT") return;
+      const entry = payload.record;
+      if (!entry?.id) return;
+      setTransactions((prev) => {
+        if (prev.some((t) => t.id === entry.id)) return prev;
+        return [entry, ...prev].slice(0, LEDGER_PAGE_SIZE * 2);
+      });
+    },
+  });
+
   return {
-    // Full state (preferred)
     wallet,
-    // Backward-compatible scalar
     balance: wallet.balance,
     transactions,
     loading,
+    error,
     refresh,
+    total: wallet.balance + wallet.escrow + wallet.pendingIn - wallet.pendingOut,
+    available: wallet.balance,
+    locked: wallet.escrow + wallet.pendingOut + wallet.blocked,
   };
 }

@@ -2,6 +2,7 @@
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // @zeal/realtime — Typed Channel Builders
+// ─────────────────────────────────────────────────────────────────────────────
 // Single source of truth for every realtime topic in the platform.
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -9,6 +10,7 @@ export const channels = {
   // ─── User-scoped ────────────────────────────────────────────────────────────
   userInbox:         (uid: string) => `user:${uid}:inbox`,
   userWallet:        (uid: string) => `user:${uid}:wallet`,
+  userWalletLedger:  (uid: string) => `user:${uid}:wallet:ledger`,
   userNotifications: (uid: string) => `user:${uid}:notifications`,
   userStatus:        (uid: string) => `user:${uid}:status`,
   userSparks:        (uid: string) => `user:${uid}:sparks`,
@@ -17,12 +19,12 @@ export const channels = {
   roomMessages:      (conversationId: string) => `room:${conversationId}:messages`,
   roomTyping:        (conversationId: string) => `room:${conversationId}:typing`,
 
-  // ─── Consultant (per-consultant) ────────────────────────────────────────────
+  // ─── Consultant ─────────────────────────────────────────────────────────────
   consultantIncoming:  (uid: string) => `consultant:${uid}:incoming`,
   consultantSparks:    (uid: string) => `consultant:${uid}:sparks`,
   consultantStatus:    (uid: string) => `consultant:${uid}:status`,
-  consultantAiUpdates: () => `consultant:ai:updates`,       // public
-  consultantsLive:     () => `consultants:live`,             // public directory
+  consultantAiUpdates: () => `consultant:ai:updates`,
+  consultantsLive:     () => `consultants:live`,
 
   // ─── Booking ────────────────────────────────────────────────────────────────
   bookingStatus:     (bookingId: string) => `booking:${bookingId}:status`,

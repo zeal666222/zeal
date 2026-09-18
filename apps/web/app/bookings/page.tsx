@@ -17,13 +17,8 @@ interface Booking {
   status: "Confirmed" | "Completed" | "Pending";
 }
 
-const FALLBACK_BOOKINGS: Booking[] = [
-  { id: "1", consultant_name: "Acharya Rajesh", specialty: "Vedic & Dasha Expert", date: "2026-03-25", time: "04:00 PM EST", status: "Confirmed" },
-  { id: "2", consultant_name: "Dr. Elena Vance", specialty: "Hellenistic Astrology", date: "2026-03-28", time: "06:30 PM EST", status: "Pending" }
-];
-
 export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>(FALLBACK_BOOKINGS);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";

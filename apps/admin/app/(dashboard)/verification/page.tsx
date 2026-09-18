@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { motion } from "framer-motion";
 import { Check, X, Loader2, Shield, ExternalLink } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -68,7 +69,17 @@ export default function AdminVerificationPage() {
     },
   });
 
-  const pending: PendingConsultant[] = data?.consultants || [];
+    const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["admin", "verification"] });
+  }, [queryClient]);
+
+  useChannel<BroadcastChange>({
+    channel: channels.adminVerification(),
+    event: "*",
+    onMessage: refresh,
+  });
+
+const pending: PendingConsultant[] = data?.consultants || [];
 
   return (
     <div className="space-y-6">

@@ -217,7 +217,6 @@ CREATE TRIGGER trg_broadcast_notification
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- Enable RLS on the realtime.messages catalog (required for private:true channels)
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
 DROP POLICY IF EXISTS "realtime_admin_all"     ON realtime.messages;

@@ -4,9 +4,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import {
-  LayoutDashboard, Users, UserCog, Calendar, Phone, Video,
+  LayoutDashboard, Users, UserCog, Calendar, Video,
   Wallet, CreditCard, Settings, LogOut, Shield, BarChart3,
-  Megaphone, Menu, X, UserPlus,
+  Megaphone, Menu, X, Flag, UserPlus,
 } from "lucide-react";
 import { cn } from "@zeal/ui";
 import { useAuth } from "@/components/providers/SupabaseAuthProvider";
@@ -33,8 +33,8 @@ const NAV: NavItem[] = [
   { icon: Users,           label: "Users",       href: "/users",        minRole: "ADMIN" },
   { icon: UserCog,         label: "Consultants", href: "/consultants",  minRole: "ADMIN" },
   { icon: Shield,          label: "Verification",href: "/verification", minRole: "ADMIN" },
+  { icon: Flag, label: "Content", href: "/content", minRole: "SUPPORT" },
   { icon: Calendar,        label: "Bookings",    href: "/bookings",     minRole: "SUPPORT" },
-  { icon: Phone,           label: "Calls",       href: "/calls",        minRole: "SUPPORT" },
   { icon: Video,           label: "Recordings",  href: "/recordings",   minRole: "SUPPORT" },
   { icon: Wallet,          label: "Wallet",      href: "/wallet",       minRole: "SUPPORT" },
   { icon: CreditCard,      label: "Withdrawals", href: "/withdrawals",  minRole: "ADMIN" },

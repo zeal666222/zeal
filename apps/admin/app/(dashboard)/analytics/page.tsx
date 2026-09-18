@@ -1,10 +1,44 @@
 "use client";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZEAL ADMIN — Analytics
+// ─────────────────────────────────────────────────────────────────────────────
+// • KPI cards (users / consultants / bookings / monthly revenue)
+// • Action-required banner (pending verifications + live sessions)
+// • 30-day revenue line chart
+// • 30-day bookings line chart
+//
+// Tooltips use the `content` prop with a locally-typed component — this avoids
+// Recharts' `formatter` intersection signature and lets us fully control the
+// rendered output. See: https://recharts.org/en-US/api/Tooltip#content
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Users, UserCog, Calendar, DollarSign, Radio, AlertCircle } from "lucide-react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Users,
+  UserCog,
+  Calendar,
+  DollarSign,
+  Radio,
+  AlertCircle,
+  TrendingUp,
+  BarChart3,
+  Loader2,
+  AlertTriangle,
+} from "lucide-react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Stats {
   users: number;
@@ -16,95 +50,378 @@ interface Stats {
   pendingVerifications: number;
 }
 
-export default function AnalyticsPage() {
-  const { data, isLoading } = useQuery<Stats>({
-    queryKey: ["admin", "stats"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/stats");
-      if (!res.ok) throw new Error("Failed");
-      return res.json();
-    },
-    refetchInterval: 30_000,
-  });
+interface TimeseriesPoint {
+  day: string;
+  revenue: number;
+  bookings: number;
+}
 
-  const stats = data || {
-    users: 0, consultants: 0, bookings: 0,
-    revenueToday: 0, revenueMonth: 0,
-    liveSessions: 0, pendingVerifications: 0,
-  };
+interface TimeseriesResponse {
+  series?: TimeseriesPoint[];
+  source?: string;
+}
 
-  // Derived chart series (last 7 days, placeholder until time-series endpoint lands)
-  const chart = [
-    { day: "Mon", revenue: Math.round(stats.revenueMonth / 30) },
-    { day: "Tue", revenue: Math.round(stats.revenueMonth / 30) },
-    { day: "Wed", revenue: Math.round(stats.revenueMonth / 30) },
-    { day: "Thu", revenue: Math.round(stats.revenueMonth / 30) },
-    { day: "Fri", revenue: Math.round(stats.revenueMonth / 30) },
-    { day: "Sat", revenue: Math.round(stats.revenueMonth / 30) },
-    { day: "Sun", revenue: Math.round(stats.revenueMonth / 30) },
-  ];
+interface ChartPoint {
+  day: string;
+  revenue: number;
+  bookings: number;
+}
 
-  const cards = [
-    { label: "Users",        value: stats.users,          icon: Users,         color: "text-blue-600" },
-    { label: "Consultants",  value: stats.consultants,    icon: UserCog,       color: "text-purple-600" },
-    { label: "Bookings",     value: stats.bookings,       icon: Calendar,      color: "text-green-600" },
-    { label: "Revenue (mo)", value: "₹" + stats.revenueMonth, icon: DollarSign, color: "text-yellow-600" },
-  ];
+// Recharts passes these to custom `content` components.
+interface RechartsTooltipPayload {
+  value?: number | string;
+  dataKey?: string | number;
+  name?: string | number;
+  color?: string;
+}
+
+interface RechartsTooltipProps {
+  active?: boolean;
+  payload?: RechartsTooltipPayload[];
+  label?: string | number;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const CHART_GRID_STROKE = "rgba(255,255,255,0.05)";
+const CHART_AXIS_STROKE = "#64748b";
+const CHART_AXIS_FONT_SIZE = 11;
+const REVENUE_COLOR = "#9D7DC5";
+const BOOKINGS_COLOR = "#10b981";
+
+const TOOLTIP_CONTAINER_CLASS =
+  "rounded-xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-2 shadow-2xl";
+
+const REFETCH_STATS_MS = 30_000;
+const REFETCH_SERIES_MS = 60_000;
+const SERIES_DAYS = 30;
+
+// ─── Custom Recharts tooltips ─────────────────────────────────────────────────
+
+function RevenueTooltip({ active, payload, label }: RechartsTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const raw = payload[0]?.value ?? 0;
+  const value = Number(raw);
+  const formatted = Number.isFinite(value)
+    ? `₹${value.toLocaleString("en-IN")}`
+    : "—";
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-[#5E4B8B] dark:text-white">Analytics</h1>
+    <div className={TOOLTIP_CONTAINER_CLASS}>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-0.5">
+        {label ?? ""}
+      </p>
+      <p className="text-sm font-mono font-bold" style={{ color: REVENUE_COLOR }}>
+        {formatted}
+      </p>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((c, idx) => (
-          <motion.div key={c.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.05 }} className="glass-card-3d p-4">
-            <div className="flex items-center justify-between mb-2">
-              <c.icon className={"w-5 h-5 " + c.color} />
-            </div>
-            <p className="text-xs text-[#B8A1D9]">{c.label}</p>
-            <p className="text-2xl font-bold text-[#5E4B8B] dark:text-white mt-1">
-              {isLoading ? "—" : c.value}
-            </p>
-          </motion.div>
-        ))}
+function BookingsTooltip({ active, payload, label }: RechartsTooltipProps) {
+  if (!active || !payload || payload.length === 0) return null;
+  const raw = payload[0]?.value ?? 0;
+  const value = Number(raw);
+  const formatted = Number.isFinite(value) ? value.toLocaleString("en-IN") : "—";
+
+  return (
+    <div className={TOOLTIP_CONTAINER_CLASS}>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-0.5">
+        {label ?? ""}
+      </p>
+      <p className="text-sm font-mono font-bold" style={{ color: BOOKINGS_COLOR }}>
+        {formatted} booking{value === 1 ? "" : "s"}
+      </p>
+    </div>
+  );
+}
+
+// ─── Subcomponents ────────────────────────────────────────────────────────────
+
+interface KpiCardProps {
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  accent: string;
+  bg: string;
+  index: number;
+  loading: boolean;
+}
+
+function KpiCard({ label, value, icon: Icon, accent, bg, index, loading }: KpiCardProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4"
+    >
+      <div className={`inline-flex p-2 rounded-lg ${bg} ${accent} mb-2`}>
+        <Icon className="w-4 h-4" />
       </div>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+        {label}
+      </p>
+      <p className="text-2xl font-black text-white mt-1 font-mono">
+        {loading ? "—" : value}
+      </p>
+    </motion.div>
+  );
+}
 
-      {(stats.pendingVerifications > 0 || stats.liveSessions > 0) && (
-        <div className="glass-card-3d p-4 space-y-2">
-          <h2 className="text-sm font-semibold text-[#5E4B8B] dark:text-white flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-500" /> Action Required
-          </h2>
-          {stats.pendingVerifications > 0 && (
-            <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20">
-              <span className="text-sm text-amber-700 dark:text-amber-400">{stats.pendingVerifications} verification(s) pending</span>
-              <a href="/verification" className="text-xs text-amber-700 hover:underline font-medium">Review →</a>
-            </div>
-          )}
-          {stats.liveSessions > 0 && (
-            <div className="flex items-center justify-between p-3 rounded-xl bg-green-50 dark:bg-green-900/20">
-              <span className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
-                <Radio className="w-3 h-3 animate-pulse" /> {stats.liveSessions} live session(s)
-              </span>
-            </div>
-          )}
+interface ActionRequiredProps {
+  pendingVerifications: number;
+  liveSessions: number;
+}
+
+function ActionRequired({ pendingVerifications, liveSessions }: ActionRequiredProps) {
+  if (pendingVerifications <= 0 && liveSessions <= 0) return null;
+
+  return (
+    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 space-y-2">
+      <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+        <AlertCircle className="w-4 h-4 text-amber-500" /> Action required
+      </h2>
+
+      {pendingVerifications > 0 && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+          <span className="text-sm text-amber-400">
+            {pendingVerifications} verification{pendingVerifications === 1 ? "" : "s"} pending
+          </span>
+          <a
+            href="/verification"
+            className="text-xs text-amber-400 hover:underline font-bold"
+          >
+            Review →
+          </a>
         </div>
       )}
 
-      <div className="glass-card-3d p-5">
-        <h2 className="text-base font-semibold text-[#5E4B8B] dark:text-white mb-4">Revenue Overview</h2>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E1C5E7" />
-              <XAxis dataKey="day" stroke="#B8A1D9" />
-              <YAxis stroke="#B8A1D9" />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E1C5E7" }} />
-              <Line type="monotone" dataKey="revenue" stroke="#9D7DC5" strokeWidth={2} dot={{ fill: "#9D7DC5" }} />
-            </LineChart>
-          </ResponsiveContainer>
+      {liveSessions > 0 && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+          <span className="text-sm text-emerald-400 flex items-center gap-2">
+            <Radio className="w-3 h-3 animate-pulse" />
+            {liveSessions} live session{liveSessions === 1 ? "" : "s"}
+          </span>
         </div>
+      )}
+    </div>
+  );
+}
+
+interface ChartCardProps {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconClass: string;
+  loading: boolean;
+  error: Error | null;
+  empty: boolean;
+  emptyMessage: string;
+  heightClass: string;
+  children: React.ReactNode;
+}
+
+function ChartCard({
+  title,
+  icon: Icon,
+  iconClass,
+  loading,
+  error,
+  empty,
+  emptyMessage,
+  heightClass,
+  children,
+}: ChartCardProps) {
+  return (
+    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-black text-white flex items-center gap-2">
+          <Icon className={`w-4 h-4 ${iconClass}`} /> {title}
+        </h2>
+        {loading && <Loader2 className="w-4 h-4 animate-spin text-[#9D7DC5]" />}
+      </div>
+
+      <div className={heightClass}>
+        {error ? (
+          <div className="h-full flex items-center justify-center text-rose-400 text-sm border-2 border-dashed border-rose-500/20 rounded-xl gap-2">
+            <AlertTriangle className="w-4 h-4" />
+            {error.message}
+          </div>
+        ) : empty && !loading ? (
+          <div className="h-full flex items-center justify-center text-slate-500 text-sm border-2 border-dashed border-white/5 rounded-xl gap-2">
+            <BarChart3 className="w-5 h-5" />
+            {emptyMessage}
+          </div>
+        ) : (
+          children
+        )}
       </div>
     </div>
   );
 }
 
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function AnalyticsPage() {
+  const statsQuery = useQuery<Stats>({
+    queryKey: ["admin", "stats"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/stats", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Stats unavailable (HTTP ${res.status})`);
+      return res.json();
+    },
+    refetchInterval: REFETCH_STATS_MS,
+  });
+
+  const seriesQuery = useQuery<TimeseriesResponse>({
+    queryKey: ["admin", "stats", "timeseries", SERIES_DAYS],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/admin/stats/timeseries?days=${SERIES_DAYS}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) throw new Error(`Timeseries unavailable (HTTP ${res.status})`);
+      return res.json();
+    },
+    refetchInterval: REFETCH_SERIES_MS,
+  });
+
+  const stats: Stats = statsQuery.data ?? {
+    users: 0,
+    consultants: 0,
+    bookings: 0,
+    revenueToday: 0,
+    revenueMonth: 0,
+    liveSessions: 0,
+    pendingVerifications: 0,
+  };
+
+  const chartData: ChartPoint[] = useMemo(
+    () =>
+      (seriesQuery.data?.series ?? []).map((p) => ({
+        day: new Date(p.day).toLocaleDateString([], { month: "short", day: "numeric" }),
+        revenue: Number(p.revenue) || 0,
+        bookings: Number(p.bookings) || 0,
+      })),
+    [seriesQuery.data],
+  );
+
+  const hasRevenue = chartData.some((p) => p.revenue > 0);
+  const hasBookings = chartData.some((p) => p.bookings > 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-black text-white">Analytics</h1>
+        <p className="text-sm text-slate-400 mt-1">
+          Platform metrics · refreshed every {REFETCH_STATS_MS / 1000}s
+        </p>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <KpiCard
+          index={0}
+          loading={statsQuery.isLoading}
+          label="Users"
+          value={stats.users.toLocaleString("en-IN")}
+          icon={Users}
+          accent="text-blue-400"
+          bg="bg-blue-500/10"
+        />
+        <KpiCard
+          index={1}
+          loading={statsQuery.isLoading}
+          label="Consultants"
+          value={stats.consultants.toLocaleString("en-IN")}
+          icon={UserCog}
+          accent="text-purple-400"
+          bg="bg-purple-500/10"
+        />
+        <KpiCard
+          index={2}
+          loading={statsQuery.isLoading}
+          label="Bookings"
+          value={stats.bookings.toLocaleString("en-IN")}
+          icon={Calendar}
+          accent="text-emerald-400"
+          bg="bg-emerald-500/10"
+        />
+        <KpiCard
+          index={3}
+          loading={statsQuery.isLoading}
+          label="Revenue (mo)"
+          value={`₹${stats.revenueMonth.toLocaleString("en-IN")}`}
+          icon={DollarSign}
+          accent="text-amber-400"
+          bg="bg-amber-500/10"
+        />
+      </div>
+
+      {/* Action required */}
+      <ActionRequired
+        pendingVerifications={stats.pendingVerifications}
+        liveSessions={stats.liveSessions}
+      />
+
+      {/* Revenue chart */}
+      <ChartCard
+        title={`Revenue — last ${SERIES_DAYS} days`}
+        icon={TrendingUp}
+        iconClass="text-[#9D7DC5]"
+        loading={seriesQuery.isLoading}
+        error={seriesQuery.error}
+        empty={!hasRevenue}
+        emptyMessage="No revenue recorded in this window"
+        heightClass="h-72"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+            <XAxis dataKey="day" stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
+            <YAxis stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
+            <Tooltip content={<RevenueTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="revenue"
+              stroke={REVENUE_COLOR}
+              strokeWidth={2}
+              dot={{ fill: REVENUE_COLOR, r: 3 }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+
+      {/* Bookings chart */}
+      <ChartCard
+        title={`Bookings — last ${SERIES_DAYS} days`}
+        icon={Calendar}
+        iconClass="text-emerald-400"
+        loading={seriesQuery.isLoading}
+        error={seriesQuery.error}
+        empty={!hasBookings}
+        emptyMessage="No bookings recorded in this window"
+        heightClass="h-64"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
+            <XAxis dataKey="day" stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
+            <YAxis stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
+            <Tooltip content={<BookingsTooltip />} />
+            <Line
+              type="monotone"
+              dataKey="bookings"
+              stroke={BOOKINGS_COLOR}
+              strokeWidth={2}
+              dot={{ fill: BOOKINGS_COLOR, r: 3 }}
+              activeDot={{ r: 5 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+    </div>
+  );
+}

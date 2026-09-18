@@ -7,7 +7,6 @@
 
 BEGIN;
 
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
 
 -- Drop everything and rebuild — idempotent
 DROP POLICY IF EXISTS "realtime_user_channels"     ON realtime.messages;
