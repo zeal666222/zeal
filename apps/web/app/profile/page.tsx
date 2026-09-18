@@ -55,14 +55,21 @@ export default function ProfileDashboardPage() {
   }, []);
 
   const loadData = async () => {
-    const res = await getProfileData();
-    if (!res) {
-      router.push("/login");
-      return;
+    try {
+      const res = await getProfileData();
+          if (!res) {
+            router.push("/login");
+            return;
+          }
+          setData(res);
+          setNewName(res.profile.full_name);
+          setLoading(false);
+    } catch (err) {
+      console.error('[profile] load failed:', err);
+      // Note: no dedicated profile-error state — loading cleared in finally below
+    } finally {
+      setLoading(false);
     }
-    setData(res);
-    setNewName(res.profile.full_name);
-    setLoading(false);
   };
 
   const loadMfaFactors = async () => {

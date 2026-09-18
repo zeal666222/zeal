@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: "default-src 'self'; img-src 'self' data: blob: https://*.r2.dev https://*.supabase.co https://ui-avatars.com https://images.unsplash.com https://picsum.photos https://lh3.googleusercontent.com; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.vercel.app https://api.groq.com https://apihub.agnes-ai.com https://vitals.vercel-insights.com; font-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
   { key: "X-Frame-Options", value: "SAMEORIGIN" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -9,7 +10,7 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@zeal/database", "@zeal/ui", "@zeal/types", "@zeal/utils"],
+  transpilePackages: ["@zeal/ui", "@zeal/types", "@zeal/database", "@zeal/utils", "@zeal/realtime"],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "ui-avatars.com" },
@@ -27,12 +28,8 @@ const nextConfig = {
       { source: "/auth/login",             destination: "/login",              permanent: true },
       { source: "/auth/register",          destination: "/register",           permanent: true },
       { source: "/ai-consultants",         destination: "/ai-astrologers",     permanent: true },
-      { source: "/services/palmistry",     destination: "/services",           permanent: false },
-      { source: "/services/matchmaking",   destination: "/services",           permanent: false },
-      { source: "/consultant/white-label", destination: "/consultant/settings", permanent: false },
-      { source: "/zeal",                   destination: "/",                   permanent: false },
       { source: "/quests",                 destination: "/sparks",             permanent: false },
-      { source: "/referral",              destination: "/sparks",             permanent: false },
+      { source: "/referral",               destination: "/sparks",             permanent: false },
       { source: "/bazaar",                 destination: "/explore",            permanent: false },
     ];
   },

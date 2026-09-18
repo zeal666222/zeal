@@ -48,3 +48,4 @@ zeal_full_repository_dump.txt
 *.bak
 *.bak-*
 _archive/
+tsconfig.tsbuildinfo

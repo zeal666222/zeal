@@ -1,5 +1,5 @@
-// Cloudflare R2 storage adapter (S3-compatible)
-// Normalizes Buffers to Uint8Array for fetch BodyInit compatibility.
+// apps/web/lib/storage/r2.ts
+// Cloudflare R2 storage adapter — SigV4 signed requests (Web Crypto)
 import type { StorageAdapter, UploadParams, UploadResult } from "./adapter";
 
 interface R2Options {
@@ -10,166 +10,190 @@ interface R2Options {
   publicUrl: string;
 }
 
-// ─── Normalize any body-like value to a fetch-compatible BodyInit ───────────
-function toBodyInit(body: unknown): BodyInit | undefined {
-  if (body === undefined || body === null) return undefined;
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const enc = new TextEncoder();
 
-  // Buffer (Node) – convert to Uint8Array
-  if (typeof Buffer !== "undefined" && Buffer.isBuffer(body)) {
-    const u8 = new Uint8Array(body);
-    return u8 as unknown as BodyInit;
+/**
+ * TS 5.9 + @types/node ≥20 made Uint8Array generic. crypto.subtle expects
+ * BufferSource = ArrayBufferView<ArrayBuffer> | ArrayBuffer, but plain
+ * Uint8Array is ArrayBufferView<ArrayBufferLike>. Cast after guaranteeing
+ * the underlying buffer is a real ArrayBuffer.
+ */
+function toBufferSource(bytes: Uint8Array): BufferSource {
+  if (bytes.buffer instanceof ArrayBuffer) {
+    return bytes as unknown as BufferSource;
   }
+  // Defensive: SharedArrayBuffer path — copy into a fresh ArrayBuffer
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy as unknown as BufferSource;
+}
 
-  // Uint8Array – pass as-is
-  if (body instanceof Uint8Array) {
-    return body as unknown as BodyInit;
-  }
+async function importHmacKey(raw: ArrayBuffer | Uint8Array): Promise<CryptoKey> {
+  const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+  return crypto.subtle.importKey(
+    "raw",
+    toBufferSource(bytes),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+}
 
-  // ArrayBuffer – wrap in Uint8Array
-  if (body instanceof ArrayBuffer) {
-    const u8 = new Uint8Array(body);
-    return u8 as unknown as BodyInit;
-  }
+async function hmac(key: ArrayBuffer | Uint8Array, data: string): Promise<ArrayBuffer> {
+  const cryptoKey = await importHmacKey(key);
+  return crypto.subtle.sign("HMAC", cryptoKey, toBufferSource(enc.encode(data)));
+}
 
-  // Blob, ReadableStream, string, URLSearchParams, FormData – pass through
-  if (
-    typeof body === "string" ||
-    body instanceof Blob ||
-    body instanceof ReadableStream ||
-    body instanceof URLSearchParams ||
-    body instanceof FormData
-  ) {
-    return body as BodyInit;
-  }
+async function sha256Hex(data: string | Uint8Array): Promise<string> {
+  const bytes = typeof data === "string" ? enc.encode(data) : data;
+  const hash = await crypto.subtle.digest("SHA-256", toBufferSource(bytes));
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
-  // Fallback – stringify
-  return String(body);
+async function signRequest(opts: {
+  method: string;
+  url: URL;
+  body: Uint8Array | string;
+  accessKeyId: string;
+  secretAccessKey: string;
+  region?: string;
+  service?: string;
+  headers?: Record<string, string>;
+}): Promise<Record<string, string>> {
+  const region = opts.region ?? "auto";
+  const service = opts.service ?? "s3";
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, "");
+  const dateStamp = amzDate.slice(0, 8);
+
+  const bodyBytes = typeof opts.body === "string" ? enc.encode(opts.body) : opts.body;
+  const payloadHash = await sha256Hex(bodyBytes);
+
+  const headers: Record<string, string> = {
+    host: opts.url.host,
+    "x-amz-content-sha256": payloadHash,
+    "x-amz-date": amzDate,
+    ...(opts.headers ?? {}),
+  };
+
+  const sortedHeaderKeys = Object.keys(headers)
+    .map((k) => k.toLowerCase())
+    .sort();
+
+  const canonicalHeaders = sortedHeaderKeys
+    .map((k) => `${k}:${(headers[k] ?? headers[k.toLowerCase()] ?? "").trim()}\n`)
+    .join("");
+
+  const signedHeaders = sortedHeaderKeys.join(";");
+
+  const canonicalRequest = [
+    opts.method,
+    opts.url.pathname,
+    opts.url.search.slice(1),
+    canonicalHeaders,
+    signedHeaders,
+    payloadHash,
+  ].join("\n");
+
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const stringToSign = [
+    "AWS4-HMAC-SHA256",
+    amzDate,
+    credentialScope,
+    await sha256Hex(canonicalRequest),
+  ].join("\n");
+
+  const kDate = await hmac(enc.encode(`AWS4${opts.secretAccessKey}`), dateStamp);
+  const kRegion = await hmac(kDate, region);
+  const kService = await hmac(kRegion, service);
+  const kSigning = await hmac(kService, "aws4_request");
+  const signatureBytes = await hmac(kSigning, stringToSign);
+  const signature = Array.from(new Uint8Array(signatureBytes))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const authorization = `AWS4-HMAC-SHA256 Credential=${opts.accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  return { ...headers, Authorization: authorization };
 }
 
 export function createR2Adapter(options: R2Options): StorageAdapter {
-  const accountId = options.accountId;
-  const bucket = options.bucket;
-  const publicUrl = options.publicUrl;
-  const endpoint = "https://" + accountId + ".r2.cloudflarestorage.com";
+  const endpoint = `https://${options.accountId}.r2.cloudflarestorage.com`;
 
-  async function request(
-    method: string,
+  async function putObject(
     key: string,
-    body?: unknown,
+    body: Uint8Array | string,
     contentType?: string,
     metadata?: Record<string, string>,
   ): Promise<Response> {
-    const url = endpoint + "/" + bucket + "/" + key;
-
-    const headers: Record<string, string> = {
-      "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
-    };
-    if (contentType) {
-      headers["Content-Type"] = contentType;
-    }
-
-    // Safe iteration – noUncheckedIndexedAccess returns `string | undefined`
+    const url = new URL(`${endpoint}/${options.bucket}/${key}`);
+    const extraHeaders: Record<string, string> = {};
+    if (contentType) extraHeaders["content-type"] = contentType;
     if (metadata) {
-      for (const rawKey of Object.keys(metadata)) {
-        const value = metadata[rawKey];
-        if (value !== undefined) {
-          headers["x-amz-meta-" + rawKey.toLowerCase()] = value;
-        }
+      for (const [k, v] of Object.entries(metadata)) {
+        extraHeaders[`x-amz-meta-${k.toLowerCase()}`] = v;
       }
     }
-
-    const normalizedBody = toBodyInit(body);
-
-    return fetch(url, {
-      method,
-      headers,
-      body: normalizedBody,
+    const signed = await signRequest({
+      method: "PUT",
+      url,
+      body,
+      accessKeyId: options.accessKeyId,
+      secretAccessKey: options.secretAccessKey,
+      headers: extraHeaders,
+    });
+    return fetch(url.toString(), {
+      method: "PUT",
+      headers: signed,
+      body: body as BodyInit,
     });
   }
 
   return {
     async upload(params: UploadParams): Promise<UploadResult> {
-      const res = await request(
-        "PUT",
-        params.key,
-        params.body,
-        params.contentType,
-        params.metadata,
-      );
-      if (!res.ok) {
-        const err = await res.text();
-        throw new Error("R2 upload failed: " + err);
+      let body: Uint8Array | string;
+      if (params.body instanceof Uint8Array) {
+        body = params.body;
+      } else if (typeof params.body === "string") {
+        body = params.body;
+      } else if (params.body instanceof Blob) {
+        body = new Uint8Array(await params.body.arrayBuffer());
+      } else {
+        throw new Error("[R2] Unsupported body type");
       }
-      return {
-        url: publicUrl + "/" + params.key,
-        key: params.key,
-      };
+
+      const res = await putObject(params.key, body, params.contentType, params.metadata);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`R2 upload failed (${res.status}): ${text.slice(0, 200)}`);
+      }
+      return { url: `${options.publicUrl}/${params.key}`, key: params.key };
     },
 
     async delete(key: string): Promise<void> {
-      const res = await request("DELETE", key);
+      const url = new URL(`${endpoint}/${options.bucket}/${key}`);
+      const signed = await signRequest({
+        method: "DELETE",
+        url,
+        body: "",
+        accessKeyId: options.accessKeyId,
+        secretAccessKey: options.secretAccessKey,
+      });
+      const res = await fetch(url.toString(), { method: "DELETE", headers: signed });
       if (!res.ok && res.status !== 404) {
-        throw new Error("R2 delete failed: " + res.statusText);
+        throw new Error(`R2 delete failed: ${res.statusText}`);
       }
     },
 
-    async getSignedUrl(key: string, expiresIn = 3600): Promise<string> {
-      return publicUrl + "/" + key + "?expires=" + (Date.now() + expiresIn * 1000);
+    async getSignedUrl(key: string, _expiresIn = 3600): Promise<string> {
+      return `${options.publicUrl}/${key}`;
     },
 
     publicUrl(key: string): string {
-      return publicUrl + "/" + key;
+      return `${options.publicUrl}/${key}`;
     },
   };
-}
-
-// ─── Legacy compatibility wrapper ─────────────────────────────────────────────
-// Used by API routes that expect a simple `uploadToR2(file, key)` function.
-export async function uploadToR2(
-  file: unknown,
-  key: string,
-): Promise<string> {
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
-  const bucket = process.env.R2_BUCKET_NAME;
-  const publicUrl = process.env.R2_PUBLIC_URL;
-
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicUrl) {
-    throw new Error("[Storage] R2 not configured - cannot upload");
-  }
-
-  const adapter = createR2Adapter({
-    accountId,
-    accessKeyId,
-    secretAccessKey,
-    bucket,
-    publicUrl,
-  });
-
-  let body: Uint8Array | string | Blob;
-  let contentType = "application/octet-stream";
-
-  if (typeof Buffer !== "undefined" && Buffer.isBuffer(file)) {
-    body = new Uint8Array(file);
-  } else if (typeof file === "string") {
-    body = file;
-  } else if (file && typeof file === "object") {
-    const f = file as {
-      arrayBuffer?: () => Promise<ArrayBuffer>;
-      type?: string;
-    };
-    if (typeof f.arrayBuffer === "function") {
-      const ab = await f.arrayBuffer();
-      body = new Uint8Array(ab);
-    } else {
-      throw new Error("[Storage] Unsupported file type");
-    }
-    if (typeof f.type === "string") contentType = f.type;
-  } else {
-    throw new Error("[Storage] Unsupported file type");
-  }
-
-  const result = await adapter.upload({ key, body, contentType });
-  return result.url;
 }

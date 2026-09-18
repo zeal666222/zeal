@@ -23,6 +23,11 @@ try {
 }
 
 // ─── No-op fallback when Redis is absent ─────────────────────────────────────
+// PRODUCTION FAIL-CLOSED — refuse to boot without Redis in prod
+if (process.env.NODE_ENV === 'production' && !process.env.UPSTASH_REDIS_REST_URL) {
+  throw new Error('[rate-limit] UPSTASH_REDIS_REST_URL is required in production');
+}
+
 const noopResult = {
   success: true,
   limit: 0,

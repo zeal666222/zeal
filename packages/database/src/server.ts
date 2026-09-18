@@ -242,14 +242,24 @@ export async function syncAppMetadata(
   } catch (err) { console.warn("[syncAppMetadata]", err); }
 }
 
-export function resolveDestination(params: { role: AppRole; hasConsultant: boolean }): string {
+
+export function resolveDestination(params: {
+  role: AppRole;
+  hasConsultant: boolean;
+  portal?: 'web' | 'admin';
+}): string {
   const { role, hasConsultant } = params;
+  const ADMIN_PORTAL_URL = (process.env.NEXT_PUBLIC_ADMIN_URL ?? '').replace(/\/$/, '');
+  const WEB_PORTAL_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '');
+  const ADMIN_ROLES: readonly AppRole[] = ['SUPPORT', 'ADMIN', 'SUPER_ADMIN', 'VIEWER'];
+
   if (ADMIN_ROLES.includes(role)) {
-    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL?.replace(/\/$/, "");
-    return adminUrl ? `${adminUrl}/dashboard` : "/";
+    return ADMIN_PORTAL_URL ? `${ADMIN_PORTAL_URL}/admin/dashboard` : '/';
   }
-  if (role === "CLIENT_ADMIN" || hasConsultant) return "/consultant/dashboard";
-  return "/explore";
+  if (role === 'CLIENT_ADMIN' || hasConsultant) {
+    return ADMIN_PORTAL_URL ? `${ADMIN_PORTAL_URL}/consultant/dashboard` : '/consultant/dashboard';
+  }
+  return WEB_PORTAL_URL ? `${WEB_PORTAL_URL}/explore` : '/explore';
 }
 
 export function isAdminRole(role: string | null | undefined): boolean {

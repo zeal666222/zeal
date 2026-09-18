@@ -26,23 +26,33 @@ export interface AuditParams {
   success?: boolean;
 }
 
+/**
+ * Row shape matching the AdminAuditLog table (post-migration 021).
+ * The `action` column keeps the legacy CHECK enum ('INSERT'|'UPDATE'|'DELETE');
+ * the semantic event name lives in `action_name`.
+ */
 interface AuditRow {
+  action: "INSERT" | "UPDATE" | "DELETE";
+  action_name: string;
   userId: string | null;
+  actor_id: string | null;
   email: string | null;
-  action: string;
+  actor_email: string | null;
+  actor_role: string | null;
   targetType: string | null;
+  target_type: string | null;
   targetId: string | null;
+  target_id: string | null;
   metadata: Record<string, unknown> | null;
   ip: string | null;
   userAgent: string | null;
+  user_agent: string | null;
   success: boolean;
 }
 
 /**
  * Write an audit entry to AdminAuditLog.
- *
- * Never throws — auditing must not break the caller. Failures are logged
- * to stderr and swallowed.
+ * Never throws — auditing must not break the caller.
  */
 export async function audit(params: AuditParams): Promise<void> {
   const sb = getAuditClient();
@@ -52,28 +62,29 @@ export async function audit(params: AuditParams): Promise<void> {
   }
 
   const row: AuditRow = {
+    action: "UPDATE",
+    action_name: params.action,
     userId: params.userId ?? null,
+    actor_id: params.userId ?? null,
     email: params.email ?? null,
-    action: params.action,
+    actor_email: params.email ?? null,
+    actor_role: null,
     targetType: params.targetType ?? null,
+    target_type: params.targetType ?? null,
     targetId: params.targetId ?? null,
+    target_id: params.targetId ?? null,
     metadata: params.metadata ?? null,
     ip: params.ip ?? null,
     userAgent: params.userAgent ?? null,
+    user_agent: params.userAgent ?? null,
     success: params.success ?? true,
   };
 
   try {
-    // Supabase v2 without a generated Database type collapses `.insert()`
-    // to `never[]`. The row shape is enforced by `AuditRow` above; the cast
-    // bridges the library's untyped default without losing type safety here.
     const { error } = await sb
       .from("AdminAuditLog")
       .insert([row] as unknown as never[]);
-
-    if (error) {
-      console.error("[audit] insert failed:", error.message);
-    }
+    if (error) console.error("[audit] insert failed:", error.message);
   } catch (err) {
     console.error("[audit] insert threw:", err);
   }
@@ -88,4 +99,3 @@ export function requestMeta(req: Request): {
     userAgent: req.headers.get("user-agent") ?? null,
   };
 }
-

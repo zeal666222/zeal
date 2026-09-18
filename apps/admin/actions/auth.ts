@@ -4,8 +4,9 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { ensureUserRow, resolveDestination, syncAppMetadata, type AppRole } from "@zeal/database/server";
 
-const ALLOWED_ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "VIEWER"];
+const ALLOWED_ADMIN_ROLES: AppRole[] = ["SUPER_ADMIN", "ADMIN", "SUPPORT", "VIEWER", "CLIENT_ADMIN"];
 
 // ─── Supabase clients ─────────────────────────────────────────────────────────
 async function getSupabase() {
@@ -15,17 +16,13 @@ async function getSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
+        getAll() { return cookieStore.getAll(); },
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             );
-          } catch {
-            /* RSC — safe */
-          }
+          } catch { /* RSC — safe */ }
         },
       },
     }
@@ -47,44 +44,7 @@ async function getClientIp(): Promise<string> {
     const xff = h.get("x-forwarded-for");
     if (xff) return xff.split(",")[0]?.trim() || "unknown";
     return h.get("x-real-ip") || "unknown";
-  } catch {
-    return "unknown";
-  }
-}
-
-// ─── Attempt logging + lockout + audit ────────────────────────────────────────
-async function recordAuthAttempt(params: {
-  email: string;
-  ip: string;
-  success: boolean;
-  reason?: string;
-}) {
-  const admin = getAdminSupabase();
-  if (!admin) return;
-  try {
-    await admin.from("auth_attempts").insert({
-      email: params.email.toLowerCase(),
-      ip: params.ip,
-      success: params.success,
-      reason: params.reason ?? null,
-    });
-  } catch (err) {
-    console.warn("[admin-auth-attempts] log failed:", err);
-  }
-}
-
-async function checkLockout(email: string): Promise<boolean> {
-  const admin = getAdminSupabase();
-  if (!admin) return false;
-  try {
-    const { data, error } = await admin.rpc("is_locked_out", {
-      p_email: email.toLowerCase(),
-    });
-    if (error) return false;
-    return data === true;
-  } catch {
-    return false;
-  }
+  } catch { return "unknown"; }
 }
 
 async function writeAudit(params: {
@@ -104,16 +64,23 @@ async function writeAudit(params: {
       params.ip && params.ip !== "unknown" && params.ip.length > 0
         ? params.ip
         : null;
-    await admin.from("audit_events").insert({
-      event_category: params.category,
-      event_action: params.action,
-      event_outcome: params.outcome,
+    // Matches migration 021 schema: action_name is the real event, action is legacy enum.
+    await admin.from("AdminAuditLog").insert({
+      action: "UPDATE",
+      action_name: params.action,
       actor_id: params.actorId ?? null,
+      userId: params.actorId ?? null,
       actor_email: params.actorEmail ?? null,
+      email: params.actorEmail ?? null,
       actor_role: params.actorRole ?? null,
-      ip_address: ipForDb,
+      target_type: params.category,
+      targetType: params.category,
+      target_id: null,
+      targetId: null,
+      ip: ipForDb,
       metadata: params.metadata ?? null,
-    });
+      success: params.outcome === "SUCCESS",
+    } as never);
   } catch (err) {
     console.warn("[admin-audit] write failed:", err);
   }
@@ -131,85 +98,47 @@ export async function adminLoginAction(formData: FormData) {
     return { success: false, error: "Credentials required." };
   }
 
-  // Rate limit — 5/min per email (local implementation)
-  // Note: admin app is separate; uses its own rate limiting path
-  const rlKey = `admin-auth:${email}`;
-  // Inline simple in-memory would not work across Lambda — rely on Supabase
-  // For now, use the is_locked_out RPC as the primary defense
-
-  // Lockout check
-  const locked = await checkLockout(email);
-  if (locked) {
-    await writeAudit({
-      category: "AUTHENTICATION",
-      action: "admin_login_locked",
-      outcome: "DENIED",
-      actorEmail: email,
-      ip,
-      metadata: { portal: "admin", reason: "lockout" },
-    });
-    return {
-      success: false,
-      error: "Account locked due to failed attempts. Try again in 15 minutes.",
-    };
-  }
-
   try {
     const supabase = await getSupabase();
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error || !data.user) {
-      const reason = error?.message || "invalid_credentials";
-      await recordAuthAttempt({ email, ip, success: false, reason });
       await writeAudit({
         category: "AUTHENTICATION",
         action: "admin_login",
         outcome: "FAILURE",
         actorEmail: email,
         ip,
-        metadata: { portal: "admin", reason },
+        metadata: { portal: "admin", reason: error?.message || "invalid_credentials" },
       });
       return { success: false, error: "Invalid credentials." };
     }
 
-    // Role check — from User table (authoritative)
-    const { data: profile } = await supabase
-      .from("User")
-      .select("role")
-      .eq("id", data.user.id)
+    const { role } = await ensureUserRow(data.user);
+    await syncAppMetadata(data.user.id, role, data.user.app_metadata);
+
+    const { data: consultant } = await supabase
+      .from("Consultant")
+      .select("id")
+      .eq("userId", data.user.id)
       .maybeSingle();
 
-    const role = (profile?.role as string) || "USER";
+    const hasConsultant = Boolean(consultant?.id);
+    const effectiveRole: AppRole = hasConsultant ? "CLIENT_ADMIN" : role;
 
-    if (!ALLOWED_ADMIN_ROLES.includes(role)) {
+    if (!ALLOWED_ADMIN_ROLES.includes(effectiveRole)) {
       await supabase.auth.signOut();
-      await recordAuthAttempt({ email, ip, success: false, reason: "not_admin" });
       await writeAudit({
         category: "AUTHORIZATION",
         action: "admin_login_denied",
         outcome: "DENIED",
         actorId: data.user.id,
         actorEmail: email,
-        actorRole: role,
+        actorRole: effectiveRole,
         ip,
         metadata: { portal: "admin", reason: "role_not_allowed" },
       });
-      return { success: false, error: "Unauthorized. Admin access only." };
-    }
-
-    // Success
-    await recordAuthAttempt({ email, ip, success: true });
-
-    // Sync app_metadata for JWT claim consistency
-    try {
-      const admin = getAdminSupabase();
-      if (admin && data.user.app_metadata?.role !== role) {
-        await admin.auth.admin.updateUserById(data.user.id, {
-          app_metadata: { ...(data.user.app_metadata ?? {}), role },
-        });
-      }
-    } catch (syncErr) {
-      console.warn("[adminLoginAction] meta sync failed:", syncErr);
+      return { success: false, error: "This account does not have access to the admin portal." };
     }
 
     await writeAudit({
@@ -218,15 +147,20 @@ export async function adminLoginAction(formData: FormData) {
       outcome: "SUCCESS",
       actorId: data.user.id,
       actorEmail: email,
-      actorRole: role,
+      actorRole: effectiveRole,
       ip,
       metadata: { portal: "admin" },
     });
 
-    return { success: true, destination: "/" };
+    const destination = resolveDestination({
+      role: effectiveRole,
+      hasConsultant,
+      portal: "admin",
+    });
+
+    return { success: true, destination };
   } catch (err) {
     const message = err instanceof Error ? err.message : "login failed";
-    await recordAuthAttempt({ email, ip, success: false, reason: message });
     await writeAudit({
       category: "AUTHENTICATION",
       action: "admin_login",
