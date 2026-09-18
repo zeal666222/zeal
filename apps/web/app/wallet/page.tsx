@@ -1,4 +1,5 @@
 "use client";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Wallet Page — Real-time balance + top-up
@@ -27,6 +28,12 @@ export default function WalletPage() {
   }, []);
 
   const { balance, transactions, loading, refresh } = useWallet(userId);
+
+  useChannel<BroadcastChange<{ record?: { balance?: number } }>>({
+    channel: userId ? channels.userWallet(userId) : null,
+    event: "*", 
+    onMessage: () => { void refresh(); },
+  });
 
   const handleTopUp = async (amount: number) => {
     if (!Number.isFinite(amount) || amount <= 0) {

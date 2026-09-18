@@ -22,6 +22,7 @@ export const channels = {
   // ─── Consultant ─────────────────────────────────────────────────────────────
   consultantIncoming:  (uid: string) => `consultant:${uid}:incoming`,
   consultantSparks:    (uid: string) => `consultant:${uid}:sparks`,
+  consultantBookings:  (uid: string) => `consultant:${uid}:bookings`,
   consultantStatus:    (uid: string) => `consultant:${uid}:status`,
   consultantAiUpdates: () => `consultant:ai:updates`,
   consultantsLive:     () => `consultants:live`,
