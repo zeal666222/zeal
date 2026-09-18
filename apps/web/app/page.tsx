@@ -90,18 +90,7 @@ export default function HomePage() {
 
     loadData();
 
-    const channel = supabase.channel("live-feed")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "consultant_posts" }, async (payload) => {
-        try {
-          const { data: profileData } = await supabase.from("profiles").select("full_name").eq("id", payload.new.consultant_id).single();
-          const newPost: Post = { 
-            id: payload.new.id, content: payload.new.content, created_at: payload.new.created_at,
-            profiles: { full_name: profileData?.full_name || "Verified Consultant" } 
-          };
-          setPosts((current) => [newPost, ...current].slice(0, 8));
-        } catch (err) {}
-      })
-      .subscribe((status) => {
+    const channel = supabase.channel("live-feed")      .subscribe((status) => {
         if (status === "SUBSCRIBED" && dbStatus !== "fallback") setDbStatus("live");
       });
 

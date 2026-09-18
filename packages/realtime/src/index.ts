@@ -9,6 +9,8 @@ export {
   publish,
   disconnectAll,
   type ConnectionState,
+  type BroadcastChange,
+  type PresenceHandle,
 } from "./client";
 
 export { channels, type ChannelName } from "./channels";
@@ -19,4 +21,5 @@ export {
   usePresence,
   type UseChannelOptions,
   type UseChannelResult,
+  type UsePresenceResult,
 } from "./hooks";

@@ -1,33 +1,23 @@
-export {
-  subscribeToChannel,
-  publishToChannel,
-  subscribeToPostgresChanges,
-  subscribeToPresence,
-  disconnectAllChannels,
-  getSupabaseRealtimeClient,
-  onConnectionStateChange,
-  getConnectionState,
-  getConnectionMetrics,
-} from "./supabase-realtime";
+// apps/web/lib/realtime/index.ts
+// ═══════════════════════════════════════════════════════════════════════════════
+// Compatibility barrel — re-exports @zeal/realtime and keeps serverPublish
+// ═══════════════════════════════════════════════════════════════════════════════
 
-export type { RealtimeHandler, ConnectionState } from "./supabase-realtime";
+export {
+  getRealtimeClient,
+  getConnectionState,
+  onConnectionStateChange,
+  subscribe,
+  subscribePresence,
+  publish,
+  disconnectAll,
+  channels,
+} from "@zeal/realtime";
+
+export type {
+  ConnectionState,
+  BroadcastChange,
+  ChannelName,
+} from "@zeal/realtime";
 
 export { serverPublish } from "./server";
-
-export interface RealtimeAdapter {
-  publish(channel: string, event: string, data: unknown): Promise<void>;
-}
-
-export function getRealtimeAdapter(): RealtimeAdapter {
-  return {
-    async publish(channel: string, event: string, data: unknown): Promise<void> {
-      if (typeof window === "undefined") {
-        const { serverPublish } = await import("./server");
-        await serverPublish(channel, event, data);
-        return;
-      }
-      const { publishToChannel } = await import("./supabase-realtime");
-      await publishToChannel(channel, event, data);
-    },
-  };
-}

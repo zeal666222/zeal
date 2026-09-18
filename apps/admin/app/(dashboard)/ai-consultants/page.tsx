@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+// ═══════════════════════════════════════════════════════════════════════════════
+// Admin AI Consultants — realtime grid via @zeal/realtime
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Loader2, Wifi, Search } from "lucide-react";
-import { getSupabaseRealtimeClient } from "@/lib/realtime/supabase-realtime";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 interface AiConsultant {
   id: string;
@@ -22,7 +26,6 @@ export default function AdminAiConsultantsPage() {
   const [items, setItems] = useState<AiConsultant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isRealtime, setIsRealtime] = useState(false);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
@@ -39,43 +42,30 @@ export default function AdminAiConsultantsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  // Realtime subscription
-  useEffect(() => {
-    const sb = getSupabaseRealtimeClient();
-    if (!sb) return;
+  const { isLive } = useChannel<BroadcastChange<AiConsultant>>({
+    channel: channels.consultantAiUpdates(),
+    event: "*",
+    onMessage: (payload) => {
+      const type = payload?.type;
+      const record = payload?.record;
+      const old = payload?.old_record;
 
-    setIsRealtime(true);
-
-    const channel = sb
-      .channel("admin-ai-consultants-live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "AIConsultant" },
-        (payload) => {
-          const { eventType, new: newRow, old: oldRow } = payload;
-          if (eventType === "INSERT") {
-            setItems((prev) => [newRow as AiConsultant, ...prev]);
-          } else if (eventType === "UPDATE") {
-            setItems((prev) =>
-              prev.map((x) => (x.id === (newRow as AiConsultant).id ? (newRow as AiConsultant) : x)),
-            );
-          } else if (eventType === "DELETE") {
-            setItems((prev) => prev.filter((x) => x.id !== (oldRow as AiConsultant).id));
-          }
-        },
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR") setIsRealtime(false);
-      });
-
-    return () => {
-      try { sb.removeChannel(channel); } catch { /* ignore */ }
-    };
-  }, []);
+      if (type === "INSERT" && record) {
+        setItems((prev) => prev.some((x) => x.id === record.id) ? prev : [record, ...prev]);
+      } else if (type === "UPDATE" && record) {
+        setItems((prev) => {
+          const exists = prev.some((x) => x.id === record.id);
+          if (record.isActive && !exists) return [record, ...prev];
+          if (!record.isActive && exists) return prev.filter((x) => x.id !== record.id);
+          return prev.map((x) => (x.id === record.id ? record : x));
+        });
+      } else if (type === "DELETE" && old?.id) {
+        setItems((prev) => prev.filter((x) => x.id !== old.id));
+      }
+    },
+  });
 
   const filtered = items.filter(
     (c) =>
@@ -109,7 +99,7 @@ export default function AdminAiConsultantsPage() {
           <Sparkles className="w-6 h-6 text-[#9D7DC5]" /> AI Consultants
         </h1>
         <div className="flex items-center gap-3">
-          {isRealtime && (
+          {isLive && (
             <span className="flex items-center gap-1 text-xs text-green-500">
               <Wifi className="w-3 h-3" /> Live
             </span>
@@ -118,7 +108,6 @@ export default function AdminAiConsultantsPage() {
         </div>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#B8A1D9]" />
         <input
@@ -178,16 +167,13 @@ export default function AdminAiConsultantsPage() {
 
       {filtered.length === 0 && items.length > 0 && (
         <p className="text-center py-8 text-[#B8A1D9]">
-          No consultants match "{search}"
+          No consultants match &quot;{search}&quot;
         </p>
       )}
 
       {items.length === 0 && (
         <div className="text-center py-12 text-[#B8A1D9]">
           <p>No AI consultants found in the database.</p>
-          <p className="text-xs mt-2">
-            Run the seed SQL to populate AI consultants.
-          </p>
         </div>
       )}
     </div>

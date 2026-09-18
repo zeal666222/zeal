@@ -2,6 +2,7 @@
 import { useTheme } from "next-themes";
 import { Sun, Moon } from "lucide-react";
 import { useAdminStore } from "@/lib/store/adminStore";
+import { ConnectionBadge } from "@/components/dev/ConnectionBadge";
 
 export function AdminTopBar() {
   const { theme, setTheme } = useTheme();
@@ -15,6 +16,7 @@ export function AdminTopBar() {
           {profile?.role ? profile.role.replace("_", " ") + " Console" : "Console"}
         </h1>
         <div className="flex items-center gap-2">
+          <ConnectionBadge />
           <span
             className={cn(
               "flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full",

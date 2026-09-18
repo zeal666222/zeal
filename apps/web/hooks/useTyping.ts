@@ -2,64 +2,57 @@
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // useTyping — Presence-based typing indicator
-// No DB writes. Uses Supabase Presence (CRDT-backed, ephemeral).
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getBrowserClient } from "@zeal/database";
+import { usePresence, channels } from "@zeal/realtime";
+
+interface TypingState extends Record<string, unknown> {
+  typing?: boolean;
+  online_at?: string;
+}
 
 export function useTyping(conversationId: string | null, currentUserId: string) {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
-  const supabaseRef = useRef<ReturnType<typeof getBrowserClient> | null>(null);
-  const channelRef = useRef<ReturnType<ReturnType<typeof getBrowserClient>["channel"]> | null>(null);
   const timeoutRef = useRef<number | null>(null);
 
-  if (!supabaseRef.current && typeof window !== "undefined") {
-    try { supabaseRef.current = getBrowserClient(); } catch { /* ignore */ }
-  }
+  const topic = conversationId ? channels.roomTyping(conversationId) : null;
 
-  useEffect(() => {
-    const supabase = supabaseRef.current;
-    if (!supabase || !conversationId) return;
+  const { track, untrack } = usePresence<TypingState>(
+    topic,
+    currentUserId,
+    (state) => {
+      const next = new Set<string>();
+      for (const [key, entries] of Object.entries(state)) {
+        if (key === currentUserId) continue;
+        if (entries.some((e) => e.typing)) next.add(key);
+      }
+      setTypingUsers(next);
+    },
+  );
 
-    const channel = supabase.channel(`room:${conversationId}:typing`, {
-      config: { presence: { key: currentUserId } },
-    });
-
-    channel
-      .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState() as Record<string, Array<{ typing?: boolean }>>;
-        const next = new Set<string>();
-        for (const key of Object.keys(state)) {
-          if (key === currentUserId) continue;
-          const entries = state[key];
-          if (entries && entries.length > 0 && entries[0]?.typing) {
-            next.add(key);
-          }
-        }
-        setTypingUsers(next);
-      })
-      .subscribe();
-
-    channelRef.current = channel;
-
-    return () => {
+  const setTyping = useCallback(
+    (isTyping: boolean) => {
+      if (!topic) return;
+      if (isTyping) {
+        track({ typing: true });
+      } else {
+        track({ typing: false });
+      }
       if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-      try { supabase.removeChannel(channel); } catch { /* ignore */ }
-    };
-  }, [conversationId, currentUserId]);
+      if (isTyping) {
+        timeoutRef.current = window.setTimeout(() => {
+          track({ typing: false });
+        }, 2500);
+      }
+    },
+    [topic, track],
+  );
 
-  const setTyping = useCallback((isTyping: boolean) => {
-    const channel = channelRef.current;
-    if (!channel) return;
-    try { channel.track({ typing: isTyping }); } catch { /* ignore */ }
+  useEffect(() => () => {
     if (timeoutRef.current) window.clearTimeout(timeoutRef.current);
-    if (isTyping) {
-      timeoutRef.current = window.setTimeout(() => {
-        try { channelRef.current?.track({ typing: false }); } catch { /* ignore */ }
-      }, 2000);
-    }
-  }, []);
+    untrack();
+  }, [untrack]);
 
   return { typingUsers, setTyping };
 }

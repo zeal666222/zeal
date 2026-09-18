@@ -1,7 +1,12 @@
 "use client";
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// useConsultants — Human consultant list with realtime updates
+// Subscribes to consultants:live via @zeal/realtime
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getSupabaseRealtimeClient } from "@/lib/realtime/supabase-realtime";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 export interface Consultant {
   id: string;
@@ -20,19 +25,15 @@ export interface Consultant {
   specialties: string[];
   faith: string;
   subdomain: string | null;
-  chatRate: number | null;
-  audioRate: number | null;
-  videoRate: number | null;
 }
 
-interface UseConsultantsResult {
-  consultants: Consultant[];
-  isLoading: boolean;
-  error: string | null;
-  refresh: () => Promise<void>;
+interface ConsultantRow {
+  id?: string;
+  status?: string;
+  isActive?: boolean;
 }
 
-export function useConsultants(category?: string): UseConsultantsResult {
+export function useConsultants(category?: string) {
   const [consultants, setConsultants] = useState<Consultant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,22 +45,14 @@ export function useConsultants(category?: string): UseConsultantsResult {
       const url = category
         ? `/api/explore/consultants?category=${encodeURIComponent(category)}`
         : "/api/explore/consultants";
-
       const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
       const data = await res.json();
-      const items: Consultant[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.items)
-        ? data.items
-        : [];
-
+      const items: Consultant[] = Array.isArray(data) ? data
+        : Array.isArray(data?.items) ? data.items : [];
       if (mountedRef.current) setConsultants(items);
     } catch (err) {
-      if (mountedRef.current) {
-        setError(err instanceof Error ? err.message : "Failed to load consultants");
-      }
+      if (mountedRef.current) setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
       if (mountedRef.current) setIsLoading(false);
     }
@@ -68,36 +61,17 @@ export function useConsultants(category?: string): UseConsultantsResult {
   useEffect(() => {
     mountedRef.current = true;
     load();
-    return () => {
-      mountedRef.current = false;
-    };
+    return () => { mountedRef.current = false; };
   }, [load]);
 
-  // Realtime: refresh on any Consultant table change
-  useEffect(() => {
-    const sb = getSupabaseRealtimeClient();
-    if (!sb) return;
-
-    const channel = sb
-      .channel(`consultants-live:${category || "all"}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "Consultant",
-        },
-        () => {
-          // Simplest correct behavior: refetch the list on any change
-          load();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      try { sb.removeChannel(channel); } catch { /* ignore */ }
-    };
-  }, [load, category]);
+  useChannel<BroadcastChange<ConsultantRow>>({
+    channel: channels.consultantsLive(),
+    event: "*",
+    onMessage: () => {
+      // Any change → refetch (simplest correct behavior for list view)
+      void load();
+    },
+  });
 
   return { consultants, isLoading, error, refresh: load };
 }

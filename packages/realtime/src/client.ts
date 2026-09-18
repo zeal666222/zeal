@@ -3,22 +3,33 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // @zeal/realtime — Singleton Supabase Realtime Client
 // ─────────────────────────────────────────────────────────────────────────────
-// Responsibilities:
-//   • One client instance per browser tab (never duplicate connections)
-//   • One channel per topic (multiplex subscriptions on the same channel)
-//   • Connection state with exponential-backoff reconnect + jitter
-//   • Listener registry (no leaked listeners after unmount)
-//   • Deduplication of inbound events by channel + event + payload id
+// • One WebSocket per tab
+// • One channel per topic (multiplexed listeners)
+// • Exponential-backoff reconnect with jitter
+// • Payload-aware broadcast subscription (handles realtime.broadcast_changes)
+// • Presence with explicit track/untrack handle
+// • Event dedupe with LRU trim
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {
   createClient,
   type SupabaseClient,
   type RealtimeChannel,
-  type RealtimePostgresChangesPayload,
 } from "@supabase/supabase-js";
 
 export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
+
+/**
+ * Broadcast payload shape emitted by realtime.broadcast_changes().
+ * `record` is the row for INSERT/UPDATE, `old_record` is the row for DELETE/UPDATE.
+ */
+export interface BroadcastChange<T = unknown> {
+  type?: "INSERT" | "UPDATE" | "DELETE";
+  table?: string;
+  schema?: string;
+  record?: T;
+  old_record?: T | null;
+}
 
 interface Listener<T = unknown> {
   id: string;
@@ -27,7 +38,7 @@ interface Listener<T = unknown> {
 
 interface ChannelEntry {
   channel: RealtimeChannel;
-  listeners: Map<string, Map<string, Listener>>;   // event → (listenerId → listener)
+  listeners: Map<string, Map<string, Listener>>;
   subscribePromise?: Promise<void>;
   status: "pending" | "subscribed" | "error";
 }
@@ -50,9 +61,9 @@ const JITTER_FACTOR = 0.3;
 const MAX_ATTEMPTS = 10;
 
 let listenerCounter = 0;
-const nextListenerId = () => `l-${++listenerCounter}-${Date.now()}`;
+const nextId = () => `l-${++listenerCounter}-${Date.now()}`;
 
-// ─── State emitters ───────────────────────────────────────────────────────────
+// ─── State ────────────────────────────────────────────────────────────────────
 function setState(next: ConnectionState) {
   if (next === currentState) return;
   currentState = next;
@@ -69,7 +80,7 @@ export function onConnectionStateChange(fn: (s: ConnectionState) => void): () =>
 
 export function getConnectionState(): ConnectionState { return currentState; }
 
-// ─── Client factory ───────────────────────────────────────────────────────────
+// ─── Client ───────────────────────────────────────────────────────────────────
 export function getRealtimeClient(): SupabaseClient | null {
   if (client) return client;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -87,11 +98,11 @@ export function getRealtimeClient(): SupabaseClient | null {
   return client;
 }
 
-// ─── Reconnect with exponential backoff + jitter ──────────────────────────────
+// ─── Reconnect ────────────────────────────────────────────────────────────────
 function scheduleReconnect() {
   if (reconnectTimer) return;
   if (reconnectAttempt >= MAX_ATTEMPTS) {
-    console.warn("[realtime] Max reconnect attempts reached");
+    console.warn("[realtime] max reconnect attempts reached");
     setState("disconnected");
     return;
   }
@@ -110,27 +121,22 @@ function scheduleReconnect() {
   }, delay);
 }
 
-// ─── Channel acquisition ──────────────────────────────────────────────────────
+// ─── Channel registry ─────────────────────────────────────────────────────────
 function getOrCreateChannel(topic: string): ChannelEntry | null {
   const sb = getRealtimeClient();
   if (!sb) return null;
-
   const existing = channels.get(topic);
   if (existing) return existing;
 
   const channel = sb.channel(topic, {
     config: { broadcast: { self: false, ack: false }, presence: { key: "" } },
   });
-  const entry: ChannelEntry = {
-    channel,
-    listeners: new Map(),
-    status: "pending",
-  };
+  const entry: ChannelEntry = { channel, listeners: new Map(), status: "pending" };
   channels.set(topic, entry);
   return entry;
 }
 
-// ─── Public: Broadcast subscription ───────────────────────────────────────────
+// ─── Broadcast subscription ───────────────────────────────────────────────────
 export function subscribe<T = unknown>(
   topic: string,
   event: string,
@@ -139,16 +145,14 @@ export function subscribe<T = unknown>(
   const entry = getOrCreateChannel(topic);
   if (!entry) return () => {};
 
-  // Register listener
   let eventMap = entry.listeners.get(event);
   if (!eventMap) {
     eventMap = new Map();
     entry.listeners.set(event, eventMap);
 
     // One physical .on per (channel, event) — dispatches to all listeners
-    entry.channel.on("broadcast", { event }, (message) => {
+    entry.channel.on("broadcast", { event }, (message: unknown) => {
       const payload = (message as { payload?: unknown })?.payload;
-      // Dedupe by id if present
       const id = (payload as { id?: string } | null)?.id;
       if (id) {
         if (seenEventIds.has(id)) return;
@@ -162,14 +166,15 @@ export function subscribe<T = unknown>(
       const listeners = entry!.listeners.get(event);
       if (!listeners) return;
       for (const l of listeners.values()) {
-        try { l.handler(payload); } catch (e) { console.error(`[realtime] handler error ${topic}:${event}`, e); }
+        try { l.handler(payload); }
+        catch (e) { console.error(`[realtime] handler error ${topic}:${event}`, e); }
       }
     });
   }
-  const listener: Listener<T> = { id: nextListenerId(), handler };
+
+  const listener: Listener<T> = { id: nextId(), handler };
   eventMap.set(listener.id, listener as Listener);
 
-  // Subscribe once
   if (!entry.subscribePromise) {
     entry.subscribePromise = new Promise<void>((resolve) => {
       entry!.channel.subscribe((status) => {
@@ -202,17 +207,24 @@ export function subscribe<T = unknown>(
   };
 }
 
-// ─── Public: Presence ─────────────────────────────────────────────────────────
-export function subscribePresence<T = unknown>(
+// ─── Presence handle ──────────────────────────────────────────────────────────
+export interface PresenceHandle<T> {
+  unsubscribe: () => void;
+  track: (state: T) => void;
+  untrack: () => void;
+}
+
+export function subscribePresence<T extends Record<string, unknown>>(
   topic: string,
   key: string,
   onSync: (state: Record<string, T[]>) => void,
-): () => void {
+): PresenceHandle<T> {
   const sb = getRealtimeClient();
-  if (!sb) return () => {};
+  if (!sb) {
+    return { unsubscribe: () => {}, track: () => {}, untrack: () => {} };
+  }
 
-  const presenceTopic = `${topic}#presence`;
-  const channel = sb.channel(presenceTopic, { config: { presence: { key } } });
+  const channel = sb.channel(`presence:${topic}`, { config: { presence: { key } } });
   let tracked = false;
 
   channel
@@ -224,17 +236,21 @@ export function subscribePresence<T = unknown>(
       if (status === "SUBSCRIBED" && !tracked) {
         tracked = true;
         try { channel.track({ online_at: new Date().toISOString() }); }
-        catch (e) { console.warn("[realtime] track failed", e); }
+        catch (e) { console.warn("[realtime] presence initial track failed", e); }
       }
     });
 
-  return () => {
-    try { channel.untrack(); } catch { /* ignore */ }
-    try { sb.removeChannel(channel); } catch { /* ignore */ }
+  return {
+    track: (state: T) => { try { channel.track(state); } catch (e) { console.warn("[realtime] track failed", e); } },
+    untrack: () => { try { channel.untrack(); } catch { /* ignore */ } },
+    unsubscribe: () => {
+      try { channel.untrack(); } catch { /* ignore */ }
+      try { sb.removeChannel(channel); } catch { /* ignore */ }
+    },
   };
 }
 
-// ─── Public: Publish (client-side) ────────────────────────────────────────────
+// ─── Client-side publish ──────────────────────────────────────────────────────
 export async function publish<T = unknown>(topic: string, event: string, payload: T): Promise<boolean> {
   const sb = getRealtimeClient();
   if (!sb) return false;
@@ -251,7 +267,7 @@ export async function publish<T = unknown>(topic: string, event: string, payload
   }
 }
 
-// ─── Public: Teardown ─────────────────────────────────────────────────────────
+// ─── Teardown ─────────────────────────────────────────────────────────────────
 export function disconnectAll() {
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   for (const [topic, entry] of channels.entries()) {

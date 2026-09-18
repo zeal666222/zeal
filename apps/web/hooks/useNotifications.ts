@@ -1,15 +1,15 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// useNotifications — Supabase Realtime based
-// Uses `useRealtime` (from RealtimeProvider) instead of a socket.
+// useNotifications — Realtime notifications
+// Subscribes to user:{id}:notifications via @zeal/realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 import { useAppStore } from "@/lib/store/appStore";
-import { useRealtime } from "./useRealtime";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
-interface NotificationPayload {
+interface NotificationRow {
   id?: string;
   type?: string;
   message?: string;
@@ -25,29 +25,30 @@ export function useNotifications() {
   const markAllRead = useAppStore((s) => s.markAllRead);
   const unreadCount = useAppStore((s) => s.unreadCount);
 
-  useRealtime<NotificationPayload>(
-    user?.id ? `user:${user.id}:notifications` : null,
-    "notification",
-    (payload) => {
-      if (!payload?.message) return;
+  useChannel<BroadcastChange<NotificationRow>>({
+    channel: user?.id ? channels.userNotifications(user.id) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const row = payload?.record;
+      if (!row?.message) return;
       addNotification({
-        id: payload.id || `notif-${Date.now()}`,
-        type: (payload.type as never) || "system",
-        message: payload.message,
-        redirectUrl: payload.redirectUrl ?? null,
+        id: row.id || `notif-${Date.now()}`,
+        type: (row.type as never) || "system",
+        message: row.message,
+        redirectUrl: row.redirectUrl ?? null,
         read: false,
-        actorId: payload.actorId || "system",
-        actorName: payload.actorName ?? undefined,
-        actorAvatar: payload.actorAvatar ?? undefined,
+        actorId: row.actorId || "system",
+        actorName: row.actorName ?? undefined,
+        actorAvatar: row.actorAvatar ?? undefined,
       });
-    }
-  );
+    },
+  });
 
   const markAsRead = useCallback(async (id: string) => {
     try {
       await fetch(`/api/notifications/${id}/read`, { method: "POST" });
     } catch (err) {
-      console.warn("Failed to mark notification as read:", err);
+      console.warn("[notifications] markAsRead failed", err);
     }
   }, []);
 

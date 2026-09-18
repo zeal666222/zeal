@@ -1,15 +1,16 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Notifications — Realtime via Phase 1 useChannel
+// Notifications — realtime via @zeal/realtime
+// Subscribes to user:{uid}:notifications; server broadcasts TG_OP events.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Check, CheckCheck, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { channels, useChannel } from "@/lib/realtime/universal";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 interface NotificationItem {
   id: string;
@@ -20,7 +21,7 @@ interface NotificationItem {
   createdAt: string;
 }
 
-interface NotificationPayload {
+interface NotificationRow {
   id?: string;
   type?: string;
   message?: string;
@@ -40,7 +41,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
 
-  // Initial fetch
+  // ─── Initial fetch (identity + notifications) ─────────────────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -50,7 +51,6 @@ export default function NotificationsPage() {
           const me = (await meRes.json()) as MeResponse;
           if (me.user?.id) setUserId(me.user.id);
         }
-
         const res = await fetch("/api/notifications?limit=50", { cache: "no-store" });
         if (!cancelled && res.ok) {
           const data = (await res.json()) as { items?: NotificationItem[] };
@@ -63,47 +63,58 @@ export default function NotificationsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Realtime
-  useChannel<NotificationPayload>({
+  // ─── Realtime ─────────────────────────────────────────────────────────────
+  useChannel<BroadcastChange<NotificationRow>>({
     channel: userId ? channels.userNotifications(userId) : null,
-    event: "notification",
+    event: "*",
     onMessage: (payload) => {
-      if (!payload?.message) return;
-      const id = payload.id ?? `notif-${Date.now()}`;
+      const row = payload?.record;
+      if (!row?.message) return;
+
+      // Narrow once, outside the state updater closure.
+      const message: string = row.message;
+      const id: string = row.id ?? `notif-${Date.now()}`;
+      const type: string = row.type ?? "system";
+      const redirectUrl: string | null = row.redirectUrl ?? null;
+      const createdAt: string = row.createdAt ?? new Date().toISOString();
+
       setItems((prev) => {
         if (prev.some((n) => n.id === id)) return prev;
-        return [
-          {
-            id,
-            type: payload.type ?? "system",
-            message: payload.message as string,
-            redirectUrl: payload.redirectUrl ?? null,
-            read: false,
-            createdAt: payload.createdAt ?? new Date().toISOString(),
-          },
-          ...prev,
-        ];
+        const next: NotificationItem = {
+          id,
+          type,
+          message,
+          redirectUrl,
+          read: false,
+          createdAt,
+        };
+        return [next, ...prev];
       });
     },
   });
 
+  // ─── Actions ──────────────────────────────────────────────────────────────
   const markAsRead = useCallback(async (id: string) => {
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    try { await fetch(`/api/notifications/${id}/read`, { method: "POST" }); } catch {}
+    try { await fetch(`/api/notifications/${id}/read`, { method: "POST" }); } catch { /* ignore */ }
   }, []);
 
   const markAllAsRead = useCallback(async () => {
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
-    try { await fetch("/api/notifications", { method: "PUT" }); } catch {}
+    try { await fetch("/api/notifications", { method: "PUT" }); } catch { /* ignore */ }
   }, []);
 
-  const filtered = items.filter((n) => {
-    if (filter === "unread") return !n.read;
-    if (filter === "read") return n.read;
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      items.filter((n) => {
+        if (filter === "unread") return !n.read;
+        if (filter === "read") return n.read;
+        return true;
+      }),
+    [items, filter],
+  );
 
-  const unreadCount = items.filter((n) => !n.read).length;
+  const unreadCount = useMemo(() => items.filter((n) => !n.read).length, [items]);
 
   return (
     <motion.div

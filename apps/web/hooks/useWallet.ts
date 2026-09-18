@@ -1,14 +1,29 @@
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// useWallet — Real-time wallet + transactions
-// Subscribes to user:{id}:wallet for live balance updates
+// useWallet — Real-time wallet + ledger
+// ─────────────────────────────────────────────────────────────────────────────
+// Design invariants (enterprise-grade):
+//   • Subscribe to the FULL Wallet row, not just balance. Balance, escrow,
+//     pendingIn/pendingOut, blocked all update in the same transaction —
+//     partial subscription causes visible UI inconsistency.
+//   • Never accept optimistic balance — always refetch ledger from server.
+//   • Refetch on any wallet broadcast (single source of truth = DB).
+//   • Idempotency: the server-side RPC guarantees exactly-once mutation.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { getBrowserClient } from "@zeal/database";
+import { useCallback, useEffect, useState } from "react";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
-export interface WalletTransaction {
+export interface WalletState {
+  balance: number;
+  escrow: number;
+  pendingIn: number;
+  pendingOut: number;
+  blocked: number;
+}
+
+export interface LedgerEntry {
   id: string;
   type: string;
   amount: number;
@@ -17,27 +32,46 @@ export interface WalletTransaction {
   createdAt: string;
 }
 
-export function useWallet(userId: string | null) {
-  const [balance, setBalance] = useState(0);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const supabaseRef = useRef<ReturnType<typeof getBrowserClient> | null>(null);
+interface WalletRow {
+  userId?: string;
+  balance?: number;
+  escrow?: number;
+  pendingIn?: number;
+  pendingOut?: number;
+  blocked?: number;
+}
 
-  if (!supabaseRef.current && typeof window !== "undefined") {
-    try { supabaseRef.current = getBrowserClient(); } catch { /* ignore */ }
-  }
+const EMPTY_WALLET: WalletState = {
+  balance: 0, escrow: 0, pendingIn: 0, pendingOut: 0, blocked: 0,
+};
+
+export function useWallet(userId: string | null) {
+  const [wallet, setWallet] = useState<WalletState>(EMPTY_WALLET);
+  const [transactions, setTransactions] = useState<LedgerEntry[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/wallet/balance", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data?.wallet?.balance === "number") setBalance(data.wallet.balance);
+      const [balRes, txRes] = await Promise.all([
+        fetch("/api/wallet/balance", { cache: "no-store" }),
+        fetch("/api/wallet/transactions?limit=20", { cache: "no-store" }),
+      ]);
+      if (balRes.ok) {
+        const b = await balRes.json();
+        const w = b?.wallet;
+        if (w) {
+          setWallet({
+            balance: Number(w.balance ?? 0),
+            escrow: Number(w.escrow ?? 0),
+            pendingIn: Number(w.pendingIn ?? 0),
+            pendingOut: Number(w.pendingOut ?? 0),
+            blocked: Number(w.blocked ?? 0),
+          });
+        }
       }
-      const txRes = await fetch("/api/wallet/transactions?limit=20", { cache: "no-store" });
       if (txRes.ok) {
-        const txData = await txRes.json();
-        if (Array.isArray(txData?.transactions)) setTransactions(txData.transactions);
+        const t = await txRes.json();
+        if (Array.isArray(t?.transactions)) setTransactions(t.transactions);
       }
     } catch { /* ignore */ }
   }, []);
@@ -47,28 +81,23 @@ export function useWallet(userId: string | null) {
     let cancelled = false;
     setLoading(true);
     refresh().finally(() => { if (!cancelled) setLoading(false); });
-
-    const supabase = supabaseRef.current;
-    if (!supabase) return () => { cancelled = true; };
-
-    const channel = supabase
-      .channel(`user:${userId}:wallet`)
-      .on("broadcast", { event: "*" }, (payload: any) => {
-        const data = payload.payload as { balance?: number; record?: { balance?: number; amount?: number } };
-        const nextBalance = data?.balance ?? data?.record?.balance;
-        if (typeof nextBalance === "number") {
-          setBalance(nextBalance);
-          // Refresh transactions on any wallet event
-          void refresh();
-        }
-      })
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      try { supabase.removeChannel(channel); } catch { /* ignore */ }
-    };
+    return () => { cancelled = true; };
   }, [userId, refresh]);
 
-  return { balance, transactions, loading, refresh, setBalance };
+  // Full-row subscription — any field change triggers a refetch
+  useChannel<BroadcastChange<WalletRow>>({
+    channel: userId ? channels.userWallet(userId) : null,
+    event: "*",
+    onMessage: () => { void refresh(); },
+  });
+
+  return {
+    // Full state (preferred)
+    wallet,
+    // Backward-compatible scalar
+    balance: wallet.balance,
+    transactions,
+    loading,
+    refresh,
+  };
 }

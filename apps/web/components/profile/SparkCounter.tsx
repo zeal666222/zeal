@@ -1,6 +1,6 @@
 "use client";
 
-import { useRealtimeSparks } from "@/hooks/useRealtimeSparks";
+import { useSparks } from "@/hooks/useSparks";
 import { Flame } from "lucide-react";
 
 interface SparkCounterProps {
@@ -9,7 +9,7 @@ interface SparkCounterProps {
 }
 
 export function SparkCounter({ userId, initialSparks }: SparkCounterProps) {
-  const liveSparks = useRealtimeSparks(userId, initialSparks);
+  const { sparks } = useSparks(userId, initialSparks);
 
   return (
     <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-50 to-amber-50 rounded-full border border-orange-100 shadow-sm transition-all duration-300 hover:scale-105">
@@ -19,7 +19,7 @@ export function SparkCounter({ userId, initialSparks }: SparkCounterProps) {
           Social Sparks
         </span>
         <span className="text-lg font-bold text-gray-900 leading-none mt-1">
-          {liveSparks.toLocaleString()}
+          {sparks.toLocaleString()}
         </span>
       </div>
     </div>

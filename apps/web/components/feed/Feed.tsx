@@ -5,7 +5,6 @@ import { useInView } from "react-intersection-observer";
 import { Loader2, Newspaper } from "lucide-react";
 import { PostCard, type PostCardData } from "./PostCard";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { useRealtime } from "@/hooks/useRealtime";
 
 interface FeedPage {
   posts: PostCardData[];
@@ -39,12 +38,6 @@ export function Feed() {
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
-
-  useRealtime<{ id?: string }>(
-    "feed:global",
-    "post:created",
-    useCallback(() => { qc.invalidateQueries({ queryKey: ["feed"] }); }, [qc]),
-  );
 
   useEffect(() => {
     if (inView && query.hasNextPage && !query.isFetchingNextPage) {

@@ -17,11 +17,12 @@ export const channels = {
   roomMessages:      (conversationId: string) => `room:${conversationId}:messages`,
   roomTyping:        (conversationId: string) => `room:${conversationId}:typing`,
 
-  // ─── Consultant ─────────────────────────────────────────────────────────────
-  consultantIncoming: (uid: string) => `consultant:${uid}:incoming`,
-  consultantSparks:   (uid: string) => `consultant:${uid}:sparks`,
-  consultantStatus:   (uid: string) => `consultant:${uid}:status`,
-  consultantAiUpdates: () => `consultant:ai:updates`,
+  // ─── Consultant (per-consultant) ────────────────────────────────────────────
+  consultantIncoming:  (uid: string) => `consultant:${uid}:incoming`,
+  consultantSparks:    (uid: string) => `consultant:${uid}:sparks`,
+  consultantStatus:    (uid: string) => `consultant:${uid}:status`,
+  consultantAiUpdates: () => `consultant:ai:updates`,       // public
+  consultantsLive:     () => `consultants:live`,             // public directory
 
   // ─── Booking ────────────────────────────────────────────────────────────────
   bookingStatus:     (bookingId: string) => `booking:${bookingId}:status`,

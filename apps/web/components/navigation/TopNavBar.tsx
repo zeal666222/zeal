@@ -3,38 +3,40 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sun, Moon, Bell, IndianRupee, Sparkles, UserCircle } from "lucide-react";
-import { createBrowserClient } from "@supabase/ssr";
 import { usePathname } from "next/navigation";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
-export function TopNavBar({ userId, initialBalance }: { userId: string | null; initialBalance: number }) {
+interface WalletRow {
+  userId?: string;
+  balance?: number;
+}
+
+export function TopNavBar({
+  userId,
+  initialBalance,
+}: {
+  userId: string | null;
+  initialBalance: number;
+}) {
   const [balance, setBalance] = useState(initialBalance);
   const [isDark, setIsDark] = useState(true);
   const pathname = usePathname();
 
-  useEffect(() => {
-    if (!userId) return;
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+  useEffect(() => { setBalance(initialBalance); }, [initialBalance]);
 
-    const channel = supabase
-      .channel('wallet_sync')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, 
-        (payload) => {
-          if (payload.new && payload.new.wallet_balance !== undefined) setBalance(payload.new.wallet_balance);
-        }
-      ).subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [userId]);
+  useChannel<BroadcastChange<WalletRow>>({
+    channel: userId ? channels.userWallet(userId) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const next = payload?.record?.balance;
+      if (typeof next === "number") setBalance(next);
+    },
+  });
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 sm:h-20 bg-slate-950/80 backdrop-blur-3xl border-b border-white/5 flex items-center justify-between px-3 sm:px-8 shadow-sm transition-all">
-      
-      {/* LEFT: 3D Theme Toggle */}
       <div className="flex-1 flex items-center">
-        <button 
+        <button
           onClick={() => setIsDark(!isDark)}
           className="btn-3d w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-slate-600 flex items-center justify-center text-slate-300 relative overflow-hidden active:scale-90 transition-transform"
           title="Toggle Theme"
@@ -44,7 +46,6 @@ export function TopNavBar({ userId, initialBalance }: { userId: string | null; i
         </button>
       </div>
 
-      {/* CENTER: Premium 3D Logo */}
       <div className="flex-1 flex justify-center">
         <Link href="/" className="relative flex items-center justify-center group no-tap-highlight hover:scale-105 transition-transform duration-300">
           <div className="absolute w-12 h-12 sm:w-16 sm:h-16 bg-purple-500/20 blur-xl rounded-full group-hover:bg-purple-500/40 transition-all duration-500 pointer-events-none" />
@@ -54,7 +55,6 @@ export function TopNavBar({ userId, initialBalance }: { userId: string | null; i
         </Link>
       </div>
 
-      {/* RIGHT: Real-Time Wallet / Auth Gateway */}
       <div className="flex-1 flex items-center justify-end gap-2 sm:gap-4">
         {userId ? (
           <>
@@ -63,7 +63,6 @@ export function TopNavBar({ userId, initialBalance }: { userId: string | null; i
               <IndianRupee size={16} className="drop-shadow-md" />
               <span className="font-black text-sm tracking-wide drop-shadow-md">{Number(balance).toFixed(2)}</span>
             </Link>
-            
             <button className="btn-3d w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-slate-600 flex items-center justify-center text-slate-300 relative active:scale-90 transition-transform">
               <Bell size={18} className="drop-shadow-lg" />
               <span className="absolute top-2 right-2 sm:top-3 sm:right-3 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-slate-900 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />

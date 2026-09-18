@@ -11,6 +11,7 @@ import {
   subscribe,
   subscribePresence,
   type ConnectionState,
+  type PresenceHandle,
 } from "./client";
 
 // ─── useConnection ────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ export function useConnection(): ConnectionState {
 // ─── useChannel ───────────────────────────────────────────────────────────────
 export interface UseChannelOptions<T> {
   channel: string | null;
-  event: string;
+  event?: string;
   onMessage: (payload: T) => void;
   enabled?: boolean;
 }
@@ -33,13 +34,16 @@ export interface UseChannelResult {
 }
 
 export function useChannel<T = unknown>(opts: UseChannelOptions<T>): UseChannelResult {
-  const { channel, event, onMessage, enabled = true } = opts;
+  const { channel, event = "*", onMessage, enabled = true } = opts;
   const [isLive, setIsLive] = useState(false);
   const handlerRef = useRef(onMessage);
   handlerRef.current = onMessage;
 
   useEffect(() => {
-    if (!channel || !enabled) return;
+    if (!channel || !enabled) {
+      setIsLive(false);
+      return;
+    }
     const unsub = subscribe<T>(channel, event, (p) => handlerRef.current(p));
     setIsLive(true);
     return () => {
@@ -52,38 +56,32 @@ export function useChannel<T = unknown>(opts: UseChannelOptions<T>): UseChannelR
 }
 
 // ─── usePresence ──────────────────────────────────────────────────────────────
-export function usePresence<T = unknown>(
+export interface UsePresenceResult<T extends Record<string, unknown>> {
+  track: (state: T) => void;
+  untrack: () => void;
+}
+
+export function usePresence<T extends Record<string, unknown>>(
   topic: string | null,
   key: string,
   onSync: (state: Record<string, T[]>) => void,
-): void {
+): UsePresenceResult<T> {
+  const handleRef = useRef<PresenceHandle<T> | null>(null);
   const handlerRef = useRef(onSync);
   handlerRef.current = onSync;
 
   useEffect(() => {
     if (!topic) return;
-    const unsub = subscribePresence<T>(topic, key, (s) => handlerRef.current(s));
-    return unsub;
-  }, [topic, key]);
-}
-
-// ─── usePresenceTracker ───────────────────────────────────────────────────────
-export function usePresenceTracker<T extends Record<string, unknown>>(
-  topic: string | null,
-  key: string,
-): { track: (s: T) => void; untrack: () => void } {
-  const [ready, setReady] = useState(false);
-  const channelRef = useRef<ReturnType<typeof subscribePresence> | null>(null);
-
-  useEffect(() => {
-    if (!topic) return;
-    const unsub = subscribePresence(topic, key, () => setReady(true));
-    channelRef.current = unsub;
-    return () => { unsub(); setReady(false); };
+    const handle = subscribePresence<T>(topic, key, (s) => handlerRef.current(s));
+    handleRef.current = handle;
+    return () => {
+      handle.unsubscribe();
+      handleRef.current = null;
+    };
   }, [topic, key]);
 
   return {
-    track: () => {},
-    untrack: () => {},
+    track: (s: T) => handleRef.current?.track(s),
+    untrack: () => handleRef.current?.untrack(),
   };
 }

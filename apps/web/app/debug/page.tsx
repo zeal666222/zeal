@@ -50,8 +50,8 @@ export default function DebugPage() {
   // Realtime indicator
   useEffect(() => {
     try {
-      import("@/lib/realtime/supabase-realtime").then(({ getSupabaseRealtimeClient }) => {
-        const sb = getSupabaseRealtimeClient();
+      import("@zeal/realtime").then(({ getRealtimeClient }) => {
+        const sb = getRealtimeClient();
         setRealtime(!!sb);
       });
     } catch {

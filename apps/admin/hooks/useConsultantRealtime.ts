@@ -2,11 +2,10 @@
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // useConsultantRealtime — admin-side realtime for a specific consultant
-// Subscribes to sparks + incoming + wallet channels (private)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useCallback, useEffect, useState } from "react";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import type { PulseStats } from "@/components/shared/PulseGrid";
 
 interface IncomingAlert {
@@ -15,16 +14,6 @@ interface IncomingAlert {
   message: string;
   redirectUrl?: string;
   createdAt: string;
-}
-
-interface SparkRecord {
-  sparkScore?: number;
-  record?: { sparkScore?: number };
-}
-
-interface WalletRecord {
-  balance?: number;
-  record?: { balance?: number };
 }
 
 interface StatsPayload {
@@ -36,114 +25,91 @@ interface StatsPayload {
   pendingBookings?: number;
 }
 
+interface SparksRow { sparkScore?: number; sparks?: number }
+interface WalletRow { balance?: number }
+
 export function useConsultantRealtime(consultantId: string | null) {
   const [pulse, setPulse] = useState<PulseStats | null>(null);
   const [alerts, setAlerts] = useState<IncomingAlert[]>([]);
   const [isLive, setIsLive] = useState(false);
-  const clientRef = useRef<ReturnType<typeof createBrowserClient> | null>(null);
 
-  if (!clientRef.current && typeof window !== "undefined") {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (url && key) {
-      try { clientRef.current = createBrowserClient(url, key); } catch { /* noop */ }
-    }
-  }
-
-  // Initial fetch
   useEffect(() => {
     if (!consultantId) return;
     let cancelled = false;
-
     (async () => {
       try {
         const r = await fetch(`/api/admin/consultants/${consultantId}/stats`, { cache: "no-store" });
         if (!r.ok) return;
-        const data = (await r.json()) as StatsPayload;
+        const d = (await r.json()) as StatsPayload;
         if (cancelled) return;
         setPulse({
-          sessions: data.totalBookings ?? 0,
-          earnings: data.totalEarnings ?? 0,
-          rating: data.rating ?? 0,
-          sparkScore: data.sparkScore ?? 0,
-          liveSessions: data.liveSessions ?? 0,
-          pendingBookings: data.pendingBookings ?? 0,
+          sessions: d.totalBookings ?? 0,
+          earnings: d.totalEarnings ?? 0,
+          rating: d.rating ?? 0,
+          sparkScore: d.sparkScore ?? 0,
+          liveSessions: d.liveSessions ?? 0,
+          pendingBookings: d.pendingBookings ?? 0,
         });
-      } catch { /* noop */ }
+      } catch { /* ignore */ }
     })();
-
     return () => { cancelled = true; };
   }, [consultantId]);
 
-  // Realtime subscriptions
-  useEffect(() => {
-    const client = clientRef.current;
-    if (!client || !consultantId) return;
+  // Sparks channel
+  useChannel<BroadcastChange<SparksRow>>({
+    channel: consultantId ? channels.consultantSparks(consultantId) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const next = payload?.record?.sparkScore ?? payload?.record?.sparks;
+      if (typeof next === "number") {
+        setPulse((p) => (p ? { ...p, sparkScore: next } : p));
+      }
+    },
+  });
 
-    const channels: Array<ReturnType<typeof client.channel>> = [];
-
-    // Sparks
-    const sparkCh = client
-      .channel(`consultant:${consultantId}:sparks`, { config: { private: true } })
-      .on("broadcast", { event: "*" }, (payload: unknown) => {
-        const data = payload as SparkRecord;
-        const next = data?.sparkScore ?? data?.record?.sparkScore;
-        if (typeof next === "number") {
-          setPulse((p) => (p ? { ...p, sparkScore: next } : p));
+  // Incoming channel
+  useChannel<IncomingAlert>({
+    channel: consultantId ? channels.consultantIncoming(consultantId) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const req = payload as IncomingAlert | null;
+      if (req?.id) {
+        setAlerts((prev) => [req, ...prev].slice(0, 10));
+        setIsLive(true);
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          try { navigator.vibrate?.([100, 50, 100]); } catch { /* ignore */ }
         }
-      })
-      .subscribe((s: string) => { if (s === "SUBSCRIBED") setIsLive(true); });
-    channels.push(sparkCh);
+      }
+    },
+  });
 
-    // Incoming requests
-    const incomingCh = client
-      .channel(`consultant:${consultantId}:incoming`, { config: { private: true } })
-      .on("broadcast", { event: "incoming_request" }, (payload: unknown) => {
-        const req = (payload as { payload?: IncomingAlert })?.payload;
-        if (req?.id) {
-          setAlerts((prev) => [req, ...prev].slice(0, 10));
-          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-            navigator.vibrate?.([100, 50, 100]);
-          }
-        }
-      })
-      .subscribe();
-    channels.push(incomingCh);
-
-    // Wallet
-    const walletCh = client
-      .channel(`user:${consultantId}:wallet`, { config: { private: true } })
-      .on("broadcast", { event: "*" }, (payload: unknown) => {
-        const data = payload as WalletRecord;
-        const next = data?.balance ?? data?.record?.balance;
-        if (typeof next === "number") {
-          setPulse((p) => (p ? { ...p, earnings: next } : p));
-        }
-      })
-      .subscribe();
-    channels.push(walletCh);
-
-    return () => {
-      channels.forEach((ch) => { try { client.removeChannel(ch); } catch { /* noop */ } });
-      setIsLive(false);
-    };
-  }, [consultantId]);
+  // Wallet channel (earnings)
+  useChannel<BroadcastChange<WalletRow>>({
+    channel: consultantId ? channels.userWallet(consultantId) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const next = payload?.record?.balance;
+      if (typeof next === "number") {
+        setPulse((p) => (p ? { ...p, earnings: next } : p));
+      }
+    },
+  });
 
   const refresh = useCallback(async () => {
     if (!consultantId) return;
     try {
       const r = await fetch(`/api/admin/consultants/${consultantId}/stats`, { cache: "no-store" });
       if (!r.ok) return;
-      const data = (await r.json()) as StatsPayload;
+      const d = (await r.json()) as StatsPayload;
       setPulse({
-        sessions: data.totalBookings ?? 0,
-        earnings: data.totalEarnings ?? 0,
-        rating: data.rating ?? 0,
-        sparkScore: data.sparkScore ?? 0,
-        liveSessions: data.liveSessions ?? 0,
-        pendingBookings: data.pendingBookings ?? 0,
+        sessions: d.totalBookings ?? 0,
+        earnings: d.totalEarnings ?? 0,
+        rating: d.rating ?? 0,
+        sparkScore: d.sparkScore ?? 0,
+        liveSessions: d.liveSessions ?? 0,
+        pendingBookings: d.pendingBookings ?? 0,
       });
-    } catch { /* noop */ }
+    } catch { /* ignore */ }
   }, [consultantId]);
 
   return { pulse, alerts, isLive, refresh };

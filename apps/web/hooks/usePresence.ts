@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { subscribeToPresence } from "@/lib/realtime/supabase-realtime";
+// ═══════════════════════════════════════════════════════════════════════════════
+// usePresence — Room presence
+// ═══════════════════════════════════════════════════════════════════════════════
 
-interface PresenceState {
-  [key: string]: Array<{ online_at: string }>;
+import { useState } from "react";
+import { usePresence as useZealPresence } from "@zeal/realtime";
+
+interface PresenceEntry {
+  online_at: string;
 }
 
 export interface PresenceInfo {
@@ -13,30 +17,17 @@ export interface PresenceInfo {
   count: number;
 }
 
-export function usePresence(
-  roomId: string | null,
-  userId: string | undefined,
-): PresenceInfo {
+export function usePresence(roomId: string | null, userId: string | undefined): PresenceInfo {
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (!roomId || !userId) return;
-
-    const unsub = subscribeToPresence<PresenceState>(
-      `presence:${roomId}`,
-      userId,
-      (state) => {
-        try {
-          const ids = new Set(Object.keys(state || {}));
-          setOnlineUsers(ids);
-        } catch (e) {
-          console.warn("[Presence] state parse failed", e);
-        }
-      },
-    );
-
-    return unsub;
-  }, [roomId, userId]);
+  useZealPresence<PresenceEntry & Record<string, unknown>>(
+    roomId && userId ? `presence:${roomId}` : null,
+    userId ?? "",
+    (state) => {
+      const ids = new Set(Object.keys(state || {}));
+      setOnlineUsers(ids);
+    },
+  );
 
   return {
     onlineUsers,

@@ -11,7 +11,7 @@ import {
   Flame, Sparkles, Activity, ArrowLeft, Loader2, Heart,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { channels, useChannel } from "@/lib/realtime/universal";
+import { channels, useChannel } from "@zeal/realtime";
 
 interface SparkActivity {
   id: string;
@@ -83,12 +83,11 @@ export default function SparksPage() {
   }, []);
 
   // Realtime spark updates
-  useChannel<SparkBroadcast>({
+  useChannel<{ record?: { sparks?: number; sparkScore?: number } }>({
     channel: userId ? channels.consultantSparks(userId) : null,
     event: "*",
-    onMessage: (data) => {
-      const next = data?.sparks ?? data?.sparkScore
-        ?? data?.record?.sparks ?? data?.record?.sparkScore;
+    onMessage: (payload) => {
+      const next = payload?.record?.sparks ?? payload?.record?.sparkScore;
       if (typeof next === "number") {
         setSparks((prev) => {
           const delta = next - prev;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createBrowserClient } from "@supabase/ssr";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { initiateSessionAction } from "@/actions/signaling";
 import { useRouter, usePathname } from "next/navigation";
 import { Star, Shield, Phone, MessageSquare, Sparkles, Image as ImageIcon } from "lucide-react";
@@ -16,15 +16,16 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
   const router = useRouter();
   const pathname = usePathname();
 
-  const supabase = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-
-  useEffect(() => {
-    const channel = supabase.channel(`public:profile:${profile.id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profile.id}` },
-        (payload) => { if (payload.new && typeof payload.new.is_online === 'boolean') setProfile(prev => ({ ...prev, is_online: payload.new.is_online })); }
-      ).subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [profile.id, supabase]);
+  useChannel<BroadcastChange<{ is_online?: boolean }>>({
+    channel: channels.consultantStatus(profile.id),
+    event: "*",
+    onMessage: (payload) => {
+      const next = payload?.record?.is_online;
+      if (typeof next === "boolean") {
+        setProfile((prev) => ({ ...prev, is_online: next }));
+      }
+    },
+  });
 
   const handleInitiateSession = async () => {
     setCallState('calling');
@@ -45,18 +46,6 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
       router.push(`/chat/${res.sessionId}`);
       return;
     }
-
-    const ringChannel = supabase.channel(`ringing:${res.sessionId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'session_requests', filter: `id=eq.${res.sessionId}` },
-        (payload) => {
-          if (payload.new.status === 'active') {
-            router.push(`/chat/${payload.new.id}`);
-          } else if (payload.new.status === 'declined') {
-            setCallState('declined');
-            setTimeout(() => setCallState('idle'), 3000);
-          }
-        }
-      ).subscribe();
   };
 
   const fallbackCover = "bg-gradient-to-tr from-slate-900 via-indigo-950 to-purple-900";
