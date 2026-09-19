@@ -1,28 +1,20 @@
-# Manual Patches — Auth Rewrite
+# Manual Patches — Consultant Flow + Realtime
 
-The setup.sh script writes all files automatically. The patches below
-must be applied manually because they modify existing code that may
-have user customizations.
+The setup.sh script writes all files automatically EXCEPT these that
+must be edited manually (to avoid overwriting your customizations).
 
-────────────────────────────────────────────────────────────────────────────
-PATCH 1 — apps/admin/actions/auth.ts (role-aware login destination)
-────────────────────────────────────────────────────────────────────────────
+---
 
-Inside `adminLoginAction()`, replace the final block (after
-`writeAudit({...})` and before `const destination = resolveDestination(...)`)
-with:
+## PATCH 1 — apps/web/middleware.ts
+
+Insert AFTER the `isPublic(pathname)` check and BEFORE `requiresAuth`:
 
 ```ts
-  // Self-heal: ensure Consultant row exists
-  if (effectiveRole === "CLIENT_ADMIN") {
-    try {
-      const { ensureConsultantRow } = await import("@zeal/database/server");
-      await ensureConsultantRow(data.user, { category: "ASTROLOGER", rate: 50 });
-    } catch (err) {
-      console.warn("[adminLogin] consultant self-heal failed:", err);
-    }
-    return { success: true, destination: "/consultant/dashboard" };
+// Bounce CLIENT_ADMIN users to the admin portal
+if (user && !isPublic(pathname) && requiresAuth(pathname)) {
+  const role = (user.app_metadata?.role as string) ?? "USER";
+  if (role === "CLIENT_ADMIN") {
+    const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
+    if (adminUrl) return NextResponse.redirect(`${adminUrl}/consultant/dashboard`);
   }
-
-  // Admin roles → admin console
-  return { success: true, destination: "/dashboard" };
+}

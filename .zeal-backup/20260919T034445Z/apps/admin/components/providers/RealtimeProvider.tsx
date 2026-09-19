@@ -1,19 +1,39 @@
 "use client";
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Admin RealtimeProvider — global channels + connection state
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import {
-  useChannel, useConnection, channels,
-  type BroadcastChange, type ConnectionState,
+  useChannel,
+  useConnection,
+  channels,
+  type BroadcastChange,
+  type ConnectionState,
 } from "@zeal/realtime";
 import { useAdminStore } from "@/lib/store/adminStore";
 
-interface Ctx { connectionState: ConnectionState; isConnected: boolean; }
-const RealtimeContext = createContext<Ctx>({ connectionState: "disconnected", isConnected: false });
+interface Ctx {
+  connectionState: ConnectionState;
+  isConnected: boolean;
+}
+
+const RealtimeContext = createContext<Ctx>({
+  connectionState: "disconnected",
+  isConnected: false,
+});
+
 export const useAdminRealtimeCtx = () => useContext(RealtimeContext);
 
 interface NotificationRow {
-  id?: string; type?: string; message?: string; redirectUrl?: string | null;
-  actorId?: string; actorName?: string | null; actorAvatar?: string | null;
+  id?: string;
+  type?: string;
+  message?: string;
+  redirectUrl?: string | null;
+  actorId?: string;
+  actorName?: string | null;
+  actorAvatar?: string | null;
 }
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
@@ -46,7 +66,9 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   });
 
   return (
-    <RealtimeContext.Provider value={{ connectionState, isConnected: connectionState === "connected" }}>
+    <RealtimeContext.Provider
+      value={{ connectionState, isConnected: connectionState === "connected" }}
+    >
       {children}
     </RealtimeContext.Provider>
   );

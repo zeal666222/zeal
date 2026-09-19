@@ -1,27 +1,20 @@
-// apps/admin/app/auth/handoff/route.ts
-// ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL ADMIN — Cross-Domain Auth Handoff Receiver
-// ─────────────────────────────────────────────────────────────────────────────
-// apps/web generates a Supabase magic-link token via generateLink() and redirects
-// the browser here with ?token_hash=...&type=magiclink.
-//
-// We consume the token with verifyOtp() — which creates a session cookie on
-// THIS domain (zeal-admin-rose.vercel.app). Then we role-gate and redirect.
-// ═══════════════════════════════════════════════════════════════════════════════
-
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import {
+  ensureUserRow,
+  ensureConsultantRow,
+  syncAppMetadata,
+} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 
-const ADMIN_ROLES = ["SUPPORT", "ADMIN", "SUPER_ADMIN", "VIEWER"];
+const ADMIN_ROLES = ["SUPPORT","ADMIN","SUPER_ADMIN","VIEWER"];
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type") ?? "magiclink";
-
   const loginUrl = new URL("/login", req.url);
 
   if (!tokenHash) {
@@ -37,18 +30,14 @@ export async function GET(req: Request) {
       cookies: {
         getAll() { return cookieStore.getAll(); },
         setAll(toSet) {
-          try {
-            toSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch { /* RSC — safe */ }
+          try { toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); }
+          catch { /* RSC */ }
         },
       },
-    }
+    },
   );
 
   const { data, error } = await supabase.auth.verifyOtp({
-    // Supabase expects the raw token hash
     token_hash: tokenHash,
     type: type as "magiclink",
   });
@@ -59,23 +48,20 @@ export async function GET(req: Request) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Resolve canonical role from User table
-  const { data: profile } = await supabase
-    .from("User")
-    .select("role")
-    .eq("id", data.user.id)
-    .maybeSingle();
+  // Self-heal provisioning
+  const { role } = await ensureUserRow(data.user);
+  await syncAppMetadata(data.user.id, role, data.user.app_metadata);
 
-  const role = (profile?.role as string) ?? "USER";
-
-  if (ADMIN_ROLES.includes(role)) {
-    return NextResponse.redirect(new URL("/admin/dashboard", req.url));
-  }
   if (role === "CLIENT_ADMIN") {
+    try { await ensureConsultantRow(data.user, { category: "ASTROLOGER", rate: 50 }); }
+    catch (err) { console.warn("[handoff] consultant provisioning:", err); }
     return NextResponse.redirect(new URL("/consultant/dashboard", req.url));
   }
+  if (ADMIN_ROLES.includes(role)) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
 
-  // Not authorized — clear session and bounce
+  // Not authorized for admin portal → clear session + bounce
   await supabase.auth.signOut();
   loginUrl.searchParams.set("error", "not_authorized");
   return NextResponse.redirect(loginUrl);

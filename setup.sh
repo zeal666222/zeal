@@ -1,1325 +1,628 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════════════
-# ZEAL — COMPLETE AUTH REWRITE (idempotent, self-locating, cross-platform)
-# ─────────────────────────────────────────────────────────────────────────────
-# USAGE
-#   ./setup.sh                    # full rewrite + SQL apply
-#   ./setup.sh --no-sql           # frontend only
-#   ./setup.sh --verify-only      # audit only, no writes
-#   ./setup.sh --dry-run          # show what would happen
-#   ./setup.sh --rollback         # restore from .zeal-backup/
-#
-# GUARANTEES
-#   • Detects repo root regardless of CWD or script location
-#   • Never writes outside repo root
-#   • Backs up every modified file to .zeal-backup/<timestamp>/
-#   • Compares SHA-256 hashes; skips unchanged files
-#   • Windows Git Bash safe (fixes HOME, paths)
-#   • Idempotent — run as many times as you want
-# ═══════════════════════════════════════════════════════════════════════════════
-
-set -uo pipefail
-
-# ─── Colors ─────────────────────────────────────────────────────────────────
-if [[ -t 1 ]]; then
-  RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-  BLUE='\033[0;34m'; CYAN='\033[0;36m'; MAGENTA='\033[0;35m'
-  BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
-else
-  RED=''; GREEN=''; YELLOW=''; BLUE=''; CYAN=''; MAGENTA=''; BOLD=''; DIM=''; NC=''
+# CRLF self-heal
+if [[ -f "$0" ]] && [[ "$(head -c 2048 "$0" | tr -cd '\r' | wc -c)" -gt 0 ]]; then
+  _tmp="$(mktemp)"; tr -d '\r' < "$0" > "$_tmp"; chmod +x "$_tmp"; exec bash "$_tmp" "$@"
 fi
 
-# ─── Output helpers ─────────────────────────────────────────────────────────
-ok()      { echo -e "${GREEN}✓${NC} $1"; }
-skip()    { echo -e "${DIM}○ $1 (unchanged)${NC}"; }
-warn()    { echo -e "${YELLOW}⚠${NC} $1"; }
-err()     { echo -e "${RED}✗${NC} $1"; }
-info()    { echo -e "${BLUE}→${NC} $1"; }
-section() { echo ""; echo -e "${MAGENTA}${BOLD}▶ $1${NC}"; echo ""; }
-step()    { echo -e "${CYAN}  $1${NC}"; }
-header() {
-  echo ""
-  echo -e "${BOLD}╔════════════════════════════════════════════════════════════════╗${NC}"
-  printf "${BOLD}║  %-62s ║${NC}\n" "$1"
-  echo -e "${BOLD}╚════════════════════════════════════════════════════════════════╝${NC}"
-  echo ""
-}
+# NOTE: deliberately NO `set -u` — partial pastes break it
+set -o pipefail
+IFS=$'\n\t'
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ARG PARSING
-# ═══════════════════════════════════════════════════════════════════════════════
-MODE="full"
-DRY_RUN=false
-NO_SQL=false
-for arg in "$@"; do
-  case "$arg" in
-    --no-sql)       NO_SQL=true ;;
-    --verify-only)  MODE="verify" ;;
-    --dry-run)      DRY_RUN=true ;;
-    --rollback)     MODE="rollback" ;;
-    --help|-h)
-      echo "Usage: ./setup.sh [--no-sql] [--verify-only] [--dry-run] [--rollback]"
-      exit 0 ;;
-  esac
+# HOME fix
+if [[ "${HOME:-}" == *"Program Files"* ]]; then HOME="/c/Users/${USERNAME:-$USER}"; export HOME; fi
+
+# Colors
+G='\033[0;32m'; Y='\033[1;33m'; R='\033[0;31m'; C='\033[0;36m'; B='\033[1m'; N='\033[0m'
+ok()   { printf "${G}✓${N} %s\n" "$1"; }
+warn() { printf "${Y}⚠${N} %s\n" "$1"; }
+err()  { printf "${R}✗${N} %s\n" "$1"; }
+sec()  { printf "\n${C}${B}▶ %s${N}\n\n" "$1"; }
+
+# Find repo root
+d="$PWD"
+while [[ "$d" != "/" && "$d" != "." ]]; do
+  [[ -f "$d/package.json" && -d "$d/apps" && -d "$d/packages" ]] && break
+  p="$(cd "$d/.." 2>/dev/null && pwd || echo "/")"
+  [[ "$p" == "$d" ]] && break
+  d="$p"
 done
+[[ -f "$d/package.json" && -d "$d/apps" ]] || { err "Not in zeal repo"; exit 1; }
+cd "$d"
+echo "Repo: $PWD"
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# BOOTSTRAP — HOME, CWD, REPO ROOT DETECTION
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# Fix Windows Git Bash HOME (points to Program Files)
-if [[ "${HOME:-}" == *"Program Files"* ]]; then
-  export HOME="/c/Users/${USERNAME:-$USER}"
-  warn "HOME corrected: $HOME"
-fi
-
-# Ensure HOME is writable
-if [[ ! -w "$HOME" ]]; then
-  export HOME="/tmp"
-  warn "HOME not writable, using /tmp"
-fi
-
-# Repo root detection: walk up from CWD looking for marker files
-find_repo_root() {
-  local dir="$PWD"
-  while [[ -n "$dir" && "$dir" != "/" && "$dir" != "." ]]; do
-    if [[ -f "$dir/package.json" ]] \
-       && [[ -d "$dir/apps" ]] \
-       && [[ -d "$dir/packages" ]]; then
-      echo "$dir"
-      return 0
-    fi
-    local parent
-    parent="$(cd "$dir/.." 2>/dev/null && pwd)" || break
-    [[ "$parent" == "$dir" ]] && break
-    dir="$parent"
-  done
-  return 1
-}
-
-REPO_ROOT="$(find_repo_root)" || {
-  err "Cannot find repo root. Expected to run from inside the zeal repo."
-  err "Looking for: package.json + apps/ + packages/"
-  err "Current directory: $PWD"
-  exit 1
-}
-
-cd "$REPO_ROOT" || { err "Cannot cd to $REPO_ROOT"; exit 1; }
-
-# Writability check
-if ! touch "$REPO_ROOT/.zeal-write-test" 2>/dev/null; then
-  err "Repo root not writable: $REPO_ROOT"
-  exit 1
-fi
-rm -f "$REPO_ROOT/.zeal-write-test"
-
-TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-BACKUP_DIR="$REPO_ROOT/.zeal-backup/$TIMESTAMP"
-LOG_FILE="$REPO_ROOT/.zeal-backup/rewrite-$TIMESTAMP.log"
-
-mkdir -p "$BACKUP_DIR" "$REPO_ROOT/.zeal-backup"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# BANNER
-# ═══════════════════════════════════════════════════════════════════════════════
-header "ZEAL — COMPLETE AUTH REWRITE"
-echo "  Repo root   : $REPO_ROOT"
-echo "  Backup dir  : $BACKUP_DIR"
-echo "  Timestamp   : $TIMESTAMP"
-echo "  Mode        : $MODE"
-echo "  Dry run     : $DRY_RUN"
-echo "  No SQL      : $NO_SQL"
-echo "  HOME        : $HOME"
-echo "  Platform    : $(uname -s) $(uname -r)"
+TS="$(date -u +%Y%m%dT%H%M%SZ)"
+BK=".zeal-backup/fix-$TS"
+mkdir -p "$BK"
+echo "Backup: $BK"
 echo ""
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ROLLBACK MODE
-# ═══════════════════════════════════════════════════════════════════════════════
-if [[ "$MODE" == "rollback" ]]; then
-  header "ROLLBACK MODE"
-  LATEST="$(ls -1 "$REPO_ROOT/.zeal-backup" 2>/dev/null | grep '^[0-9]' | sort | tail -1)"
-  if [[ -z "$LATEST" ]]; then
-    err "No backups found in $REPO_ROOT/.zeal-backup"
-    exit 1
+# Helper: write file from stdin
+w() {
+  local p="$1"
+  mkdir -p "$(dirname "$p")"
+  if [[ -f "$p" ]]; then
+    cp "$p" "$BK/$(echo "$p" | tr '/' '_')"
   fi
-  BACKUP_ROOT="$REPO_ROOT/.zeal-backup/$LATEST"
-  info "Restoring from: $BACKUP_ROOT"
-  find "$BACKUP_ROOT" -type f | while read -r f; do
-    REL="${f#$BACKUP_ROOT/}"
-    TARGET="$REPO_ROOT/$REL"
-    mkdir -p "$(dirname "$TARGET")"
-    cp "$f" "$TARGET"
-    ok "Restored: $REL"
-  done
-  exit 0
+  cat > "$p"
+  ok "$p"
+}
+
+# ═════════════════════════════════════════════════════════════════
+sec "FIX 1 — packages/database exports (add ./auth-handoff)"
+
+if [[ -f "packages/database/package.json" ]]; then
+  node -e "
+    const fs = require('fs');
+    const path = 'packages/database/package.json';
+    const p = JSON.parse(fs.readFileSync(path, 'utf8'));
+    p.exports = p.exports || { '.': './src/index.ts' };
+    p.exports['./auth-handoff'] = './src/auth-handoff.ts';
+    p.exports['./client'] = p.exports['./client'] || './src/client.ts';
+    p.exports['./server'] = p.exports['./server'] || './src/server.ts';
+    p.exports['./rpc']    = p.exports['./rpc']    || './src/rpc/index.ts';
+    fs.writeFileSync(path, JSON.stringify(p, null, 2) + '\n');
+  "
+  ok "packages/database/package.json — ./auth-handoff added"
+else
+  err "packages/database/package.json missing"
 fi
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ENV LOADER
-# ═══════════════════════════════════════════════════════════════════════════════
-load_env() {
-  local f
-  for f in ".env.phase1" ".env.local" ".env.production.local" ".env" \
-           "apps/web/.env.local" "apps/web/.env.production.local" \
-           "apps/admin/.env.local" "apps/admin/.env.production.local"; do
-    [[ -f "$f" ]] || continue
-    while IFS='=' read -r key value || [[ -n "$key" ]]; do
-      [[ "$key" =~ ^[[:space:]]*# ]] && continue
-      [[ -z "${key// }" ]] && continue
-      key="${key#"${key%%[![:space:]]*}"}"
-      key="${key%"${key##*[![:space:]]}"}"
-      value="${value:-}"
-      value="${value#"${value%%[![:space:]]*}"}"
-      value="${value%"${value##*[![:space:]]}"}"
-      value="${value%\"}"; value="${value#\"}"
-      value="${value%\'}"; value="${value#\'}"
-      if [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] && [[ -z "${!key:-}" ]]; then
-        export "$key=$value" 2>/dev/null || true
-      fi
-    done < "$f"
-  done
-}
-
-load_env
-[[ -z "${SUPABASE_URL:-}" && -n "${NEXT_PUBLIC_SUPABASE_URL:-}" ]] && \
-  export SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL"
-PROJECT_REF=""
-[[ -n "${SUPABASE_URL:-}" ]] && \
-  PROJECT_REF="$(echo "$SUPABASE_URL" | sed -n 's|https://\([a-z0-9]*\)\.supabase\.co.*|\1|p')"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# WRITE HELPERS — content-hash based, idempotent, backed up
-# ═══════════════════════════════════════════════════════════════════════════════
-
-sha256_of() {
-  # Cross-platform SHA-256 (Git Bash, macOS, Linux)
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" 2>/dev/null | awk '{print $1}'
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'
-  else
-    # Fallback: use file size + mtime
-    stat -c "%s-%Y" "$1" 2>/dev/null || echo "unknown"
-  fi
-}
-
-sha256_of_stdin() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum | awk '{print $1}'
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 | awk '{print $1}'
-  else
-    cat | wc -c
-  fi
-}
-
-# ─── write_file <relpath> <<'EOF' ... EOF ───────────────────────────────────
-# Writes content to <relpath>. Behavior:
-#   • Backs up existing file to $BACKUP_DIR/<relpath>
-#   • Compares hashes → skips if unchanged
-#   • Dry-run → prints action only
-#   • Idempotent → safe to run 100x
-write_file() {
-  local relpath="$1"
-  local fullpath="$REPO_ROOT/$relpath"
-  local dir
-  dir="$(dirname "$fullpath")"
-
-  # Read content from stdin into a temp file (avoids in-memory bloat)
-  local tmp
-  tmp="$(mktemp)"
-  cat > "$tmp"
-
-  local new_hash
-  new_hash="$(sha256_of "$tmp")"
-
-  # Ensure directory exists
-  if [[ ! -d "$dir" ]]; then
-    if [[ "$DRY_RUN" == "true" ]]; then
-      info "[dry-run] would mkdir -p $dir"
-    else
-      if ! mkdir -p "$dir" 2>/dev/null; then
-        err "Cannot create $dir"
-        rm -f "$tmp"
-        return 1
-      fi
-    fi
-  fi
-
-  # Skip if identical
-  if [[ -f "$fullpath" ]]; then
-    local old_hash
-    old_hash="$(sha256_of "$fullpath")"
-    if [[ "$old_hash" == "$new_hash" ]]; then
-      skip "$relpath"
-      rm -f "$tmp"
-      return 0
-    fi
-
-    # Backup before overwrite
-    if [[ "$DRY_RUN" != "true" ]]; then
-      local backup_path="$BACKUP_DIR/$relpath"
-      mkdir -p "$(dirname "$backup_path")"
-      cp "$fullpath" "$backup_path"
-    fi
-  fi
-
-  if [[ "$DRY_RUN" == "true" ]]; then
-    info "[dry-run] would write $relpath"
-    rm -f "$tmp"
-    return 0
-  fi
-
-  # Write
-  if cp "$tmp" "$fullpath" 2>/dev/null; then
-    ok "$relpath"
-  else
-    err "Failed to write $relpath"
-    rm -f "$tmp"
-    return 1
-  fi
-  rm -f "$tmp"
-  return 0
-}
-
-# ─── write_note <relpath> <<'EOF' ... EOF ───────────────────────────────────
-# Same as write_file but marked as a "note" (manual patch doc)
-write_note() {
-  write_file "$1"
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 1 — SQL REPAIR
-# ═══════════════════════════════════════════════════════════════════════════════
-SQL_FILE="$REPO_ROOT/supabase/migrations/090_auth_repair.sql"
-
-section "PHASE 1 — SQL REPAIR"
-step "Writing $SQL_FILE..."
-
-write_file "supabase/migrations/090_auth_repair.sql" << 'SQL_EOF'
--- ═══════════════════════════════════════════════════════════════════════════════
--- 090_auth_repair.sql — idempotent repair of the auth chain
--- ─────────────────────────────────────────────────────────────────────────────
--- 1. Backfill Consultant for every CLIENT_ADMIN user
--- 2. Promote users with Consultant rows to CLIENT_ADMIN
--- 3. Sync app_metadata.role from User.role (JWT carries correct role)
--- 4. Create self_heal_user() RPC — callable from frontend
--- ═══════════════════════════════════════════════════════════════════════════════
-
-BEGIN;
-
--- ─── 1. Backfill Consultant for CLIENT_ADMIN users without one ─────────────
-INSERT INTO public."Consultant" (
-  "userId", category, specialties, languages, "perMinuteRate",
-  status, "isVerified", "isActive",
-  subdomain, "subdomainActive", "whiteLabelEnabled",
-  rating, "totalConsultations", "sparkScore", "bufferMinutes"
-)
-SELECT
-  u.id, 'ASTROLOGER', '{}', '{English}', 50,
-  'VERIFIED', true, true,
-  COALESCE(
-    NULLIF(TRIM(BOTH '-' FROM LOWER(REGEXP_REPLACE(
-      COALESCE(u.name, SPLIT_PART(u.email,'@',1), 'guide'),
-      '[^a-zA-Z0-9]+','-','g'))), ''),
-    'guide'
-  ) || '-' || SUBSTRING(REPLACE(u.id::text, '-', ''), 1, 4),
-  true, true,
-  5.0, 0, 0, 10
-FROM public."User" u
-LEFT JOIN public."Consultant" c ON c."userId"::text = u.id::text
-WHERE c.id IS NULL
-  AND u.role::text IN ('CLIENT_ADMIN','ADMIN','SUPER_ADMIN','SUPPORT')
-ON CONFLICT DO NOTHING;
-
--- ─── 2. Promote users with Consultant rows ──────────────────────────────────
-UPDATE public."User" u
-SET role = 'CLIENT_ADMIN'::"AppRole"
-WHERE u.role::text = 'USER'
-  AND EXISTS (
-    SELECT 1 FROM public."Consultant" c
-    WHERE c."userId"::text = u.id::text AND c.status = 'VERIFIED'
-  );
-
--- ─── 3. Sync app_metadata.role from User.role ───────────────────────────────
-UPDATE auth.users au
-SET raw_app_meta_data =
-  COALESCE(au.raw_app_meta_data, '{}'::jsonb)
-  || jsonb_build_object('role', u.role::text)
-FROM public."User" u
-WHERE au.id::text = u.id::text
-  AND COALESCE(au.raw_app_meta_data->>'role', 'USER') <> u.role::text;
-
--- ─── 4. self_heal_user() RPC — called from client after auth ───────────────
-CREATE OR REPLACE FUNCTION public.self_heal_user()
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_uid uuid := auth.uid();
-  v_role text;
-  v_has_consultant boolean := false;
-  v_created boolean := false;
-  v_slug text;
-  v_subdomain text;
-BEGIN
-  IF v_uid IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'not_authenticated');
-  END IF;
-
-  SELECT role::text INTO v_role
-  FROM public."User" WHERE id = v_uid;
-
-  IF v_role IS NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'no_user_row');
-  END IF;
-
-  SELECT EXISTS(
-    SELECT 1 FROM public."Consultant" WHERE "userId"::text = v_uid::text
-  ) INTO v_has_consultant;
-
-  IF v_role IN ('CLIENT_ADMIN','ADMIN','SUPER_ADMIN','SUPPORT') AND NOT v_has_consultant THEN
-    SELECT LOWER(REGEXP_REPLACE(
-      COALESCE(name, 'guide'), '[^a-zA-Z0-9]+','-','g'))
-    INTO v_slug FROM public."User" WHERE id = v_uid;
-
-    v_slug := TRIM(BOTH '-' FROM COALESCE(v_slug, 'guide'));
-    IF LENGTH(v_slug) < 3  THEN v_slug := 'guide'; END IF;
-    IF LENGTH(v_slug) > 20 THEN v_slug := SUBSTRING(v_slug, 1, 20); END IF;
-    v_subdomain := v_slug || '-' || SUBSTRING(REPLACE(v_uid::text, '-', ''), 1, 4);
-
-    INSERT INTO public."Consultant" (
-      "userId", category, specialties, languages, "perMinuteRate",
-      status, "isVerified", "isActive",
-      subdomain, "subdomainActive", "whiteLabelEnabled",
-      rating, "totalConsultations", "sparkScore", "bufferMinutes"
-    ) VALUES (
-      v_uid, 'ASTROLOGER', '{}', '{English}', 50,
-      'VERIFIED', true, true,
-      v_subdomain, true, true,
-      5.0, 0, 0, 10
-    )
-    ON CONFLICT DO NOTHING;
-
-    v_created := true;
-    v_has_consultant := true;
-  END IF;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'role', v_role,
-    'has_consultant', v_has_consultant,
-    'created', v_created
-  );
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.self_heal_user() TO authenticated;
-
-NOTIFY pgrst, 'reload schema';
-
-DO $$
-BEGIN
-  RAISE NOTICE '════════════════════════════════════════════════';
-  RAISE NOTICE '  090_auth_repair.sql — APPLIED';
-  RAISE NOTICE '  Consultant rows : %', (SELECT COUNT(*) FROM public."Consultant");
-  RAISE NOTICE '  CLIENT_ADMINs   : %', (SELECT COUNT(*) FROM public."User" WHERE role::text = 'CLIENT_ADMIN');
-  RAISE NOTICE '  Synced metadata : OK';
-  RAISE NOTICE '════════════════════════════════════════════════';
-END $$;
-
-COMMIT;
-SQL_EOF
-
-# ─── Apply SQL via Supabase CLI ─────────────────────────────────────────────
-if [[ "$NO_SQL" == "false" && "$MODE" != "verify" && "$DRY_RUN" != "true" ]]; then
-  section "PHASE 1B — APPLYING SQL"
-  if ! command -v supabase >/dev/null 2>&1; then
-    warn "supabase CLI not found — skipping SQL apply"
-    warn "Run manually: supabase db push --include-all"
-  elif [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then
-    warn "SUPABASE_ACCESS_TOKEN not set — skipping SQL apply"
-    warn "Add it to .env.phase1 or run: supabase login"
-  else
-    step "Linking project $PROJECT_REF..."
-    mkdir -p "$REPO_ROOT/supabase/.temp"
-    if supabase link --project-ref "$PROJECT_REF" 2>&1 | sed 's/^/    /'; then
-      ok "Linked"
-    else
-      warn "Link failed — continuing"
-    fi
-
-    step "Running migration (this may take 10-30s)..."
-    if supabase db push --include-all 2>&1 | tee -a "$LOG_FILE" | sed 's/^/    /'; then
-      ok "SQL applied"
-    else
-      warn "supabase db push failed — check log"
-      warn "Log: $LOG_FILE"
-      warn "Fallback: paste supabase/migrations/090_auth_repair.sql in Supabase SQL Editor"
-    fi
-  fi
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 2 — SHARED GOTRUE CLIENT (fix Multiple GoTrueClient)
-# ═══════════════════════════════════════════════════════════════════════════════
-section "PHASE 2 — SHARED GOTRUE CLIENT"
-
-step "Writing packages/database/src/client.ts ..."
-write_file "packages/database/src/client.ts" << 'EOF'
-// packages/database/src/client.ts
-// ═══════════════════════════════════════════════════════════════════════════════
-// Shared browser client — singleton via globalThis to prevent duplicate
-// GoTrueClient instances across @zeal/database + @zeal/realtime.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-import { createBrowserClient } from "@supabase/ssr";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@zeal/types";
-
-export * from "@zeal/types";
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __ZEAL_SUPABASE_BROWSER__: ReturnType<typeof createBrowserClient<Database>> | undefined;
-}
-
-// ─── Anon client (server-safe, no persistence) ──────────────────────────────
-export function createAnonClient(): any {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "build-dummy-key";
-  return createSupabaseClient(url, key);
-}
-
-// ─── Singleton browser client ───────────────────────────────────────────────
-let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null;
-
-export function getBrowserClient(): any {
-  // Reuse shared slot (prevents duplicate GoTrueClient warning)
-  if (typeof window !== "undefined" && globalThis.__ZEAL_SUPABASE_BROWSER__) {
-    return globalThis.__ZEAL_SUPABASE_BROWSER__;
-  }
-  if (browserClient) {
-    if (typeof window !== "undefined") {
-      globalThis.__ZEAL_SUPABASE_BROWSER__ = browserClient;
-    }
-    return browserClient;
-  }
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // SSR/prerender without env → dummy client
-  if (!url || !key) {
-    if (typeof window === "undefined") {
-      return createSupabaseClient("http://127.0.0.1:54321", "build-dummy-key");
-    }
-    throw new Error("[@zeal/database] Missing NEXT_PUBLIC_SUPABASE_URL / ANON_KEY");
-  }
-
-  browserClient = createBrowserClient<Database>(url, key);
-  if (typeof window !== "undefined") {
-    globalThis.__ZEAL_SUPABASE_BROWSER__ = browserClient;
-  }
-  return browserClient;
-}
-
-export function createClient(): any {
-  return getBrowserClient();
-}
-
-// ─── Prisma shim (legacy compat) ────────────────────────────────────────────
-export const prisma = new Proxy({}, {
-  get: () => new Proxy({}, { get: () => () => Promise.resolve(null) }),
-}) as any;
-
-export const withTransaction = async <T>(cb: (tx: any) => Promise<T>): Promise<T> =>
-  cb(prisma);
-EOF
-
-step "Writing packages/realtime/src/client.ts ..."
-write_file "packages/realtime/src/client.ts" << 'EOF'
-"use client";
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// @zeal/realtime — Shared Supabase Realtime Client
-// Reuses the browser client from @zeal/database to avoid duplicate GoTrueClient.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-import type { SupabaseClient, RealtimeChannel } from "@supabase/supabase-js";
-
-export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
-
-export interface BroadcastChange<T = unknown> {
-  type?: "INSERT" | "UPDATE" | "DELETE";
-  table?: string;
-  schema?: string;
-  record?: T;
-  old_record?: T | null;
-}
-
-interface Listener<T = unknown> { id: string; handler: (payload: T) => void; }
-
-interface ChannelEntry {
-  channel: RealtimeChannel;
-  listeners: Map<string, Map<string, Listener>>;
-  subscribePromise?: Promise<void>;
-  status: "pending" | "subscribed" | "error";
-}
-
-let client: SupabaseClient | null = null;
-const channels = new Map<string, ChannelEntry>();
-const stateListeners = new Set<(s: ConnectionState) => void>();
-const seenEventIds = new Set<string>();
-const MAX_SEEN = 500;
-const TRIM_TO = 250;
-
-let currentState: ConnectionState = "disconnected";
-let reconnectAttempt = 0;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-
-const BASE_BACKOFF_MS = 500;
-const MAX_BACKOFF_MS = 30_000;
-const MAX_ATTEMPTS = 10;
-
-let listenerCounter = 0;
-const nextId = () => `l-${++listenerCounter}-${Date.now()}`;
-
-function setState(next: ConnectionState) {
-  if (next === currentState) return;
-  currentState = next;
-  for (const fn of stateListeners) {
-    try { fn(next); } catch (e) { console.warn("[realtime] state listener error", e); }
-  }
-}
-
-export function onConnectionStateChange(fn: (s: ConnectionState) => void): () => void {
-  stateListeners.add(fn);
-  fn(currentState);
-  return () => { stateListeners.delete(fn); };
-}
-
-export function getConnectionState(): ConnectionState { return currentState; }
-
-export function getRealtimeClient(): SupabaseClient | null {
-  if (client) return client;
-
-  // Reuse the shared browser client
-  if (typeof window !== "undefined") {
-    const shared = (globalThis as { __ZEAL_SUPABASE_BROWSER__?: SupabaseClient })
-      .__ZEAL_SUPABASE_BROWSER__;
-    if (shared) {
-      client = shared;
-      setState("connecting");
-      return client;
-    }
-  }
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    console.warn("[realtime] Missing Supabase env — realtime disabled");
+# ═════════════════════════════════════════════════════════════════
+sec "FIX 2 — packages/database auth-handoff.ts (create if missing)"
+
+if [[ -f "packages/database/src/auth-handoff.ts" ]]; then
+  ok "auth-handoff.ts already exists"
+else
+  w "packages/database/src/auth-handoff.ts" << 'ZEALEOF_HANDOFF'
+import "server-only";
+import { createAdminClient } from "./server";
+
+export async function generateAdminHandoff(email: string): Promise<string | null> {
+  const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
+  if (!adminUrl) return null;
+
+  const admin = createAdminClient();
+  if (!admin) return null;
+
+  try {
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: "magiclink",
+      email,
+      options: { redirectTo: `${adminUrl}/auth/handoff` },
+    });
+    if (error || !data?.properties?.hashed_token) return null;
+
+    const url = new URL(`${adminUrl}/auth/handoff`);
+    url.searchParams.set("token_hash", data.properties.hashed_token);
+    url.searchParams.set("type", "magiclink");
+    return url.toString();
+  } catch {
     return null;
   }
+}
+ZEALEOF_HANDOFF
+fi
 
-  // Lazy-create if no shared client exists yet
-  const { createClient } = require("@supabase/supabase-js");
-  client = createClient(url, key, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
-    realtime: { params: { eventsPerSecond: 20 }, timeout: 20_000 },
-  });
+# ═════════════════════════════════════════════════════════════════
+sec "FIX 3 — apps/admin/lib/rate-limit/index.ts (create)"
 
-  if (typeof window !== "undefined") {
-    (globalThis as { __ZEAL_SUPABASE_BROWSER__?: SupabaseClient })
-      .__ZEAL_SUPABASE_BROWSER__ = client!;
-  }
+w "apps/admin/lib/rate-limit/index.ts" << 'ZEALEOF_RATELIMIT'
+// apps/admin/lib/rate-limit/index.ts
+// Postgres-backed rate limiter via check_rate_limit RPC.
+// Fails open in dev, fails closed in prod (unless bypass env is set).
 
-  setState("connecting");
-  return client;
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+let _client: SupabaseClient | null = null;
+function getClient(): SupabaseClient | null {
+  if (_client) return _client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  _client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return _client;
 }
 
-function scheduleReconnect() {
-  if (reconnectTimer) return;
-  if (reconnectAttempt >= MAX_ATTEMPTS) { setState("disconnected"); return; }
-  reconnectAttempt++;
-  const base = Math.min(BASE_BACKOFF_MS * Math.pow(2, reconnectAttempt - 1), MAX_BACKOFF_MS);
-  const jitter = base * 0.3 * (Math.random() * 2 - 1);
-  const delay = Math.max(100, Math.round(base + jitter));
-  setState("reconnecting");
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    if (!client) return;
-    for (const entry of channels.values()) {
-      try { entry.channel.subscribe(); } catch { /* ignore */ }
-    }
-  }, delay);
+export interface RateLimitResult {
+  success: boolean; limit: number; remaining: number; reset: number; count: number;
 }
-
-function getOrCreateChannel(topic: string): ChannelEntry | null {
-  const sb = getRealtimeClient();
-  if (!sb) return null;
-  const existing = channels.get(topic);
-  if (existing) return existing;
-  const channel = sb.channel(topic, {
-    config: { broadcast: { self: false, ack: false }, presence: { key: "" } },
-  });
-  const entry: ChannelEntry = { channel, listeners: new Map(), status: "pending" };
-  channels.set(topic, entry);
-  return entry;
+export interface RateLimitCheck {
+  ok: boolean; headers?: Record<string, string>; retryAfter?: number;
 }
+interface LimiterConfig { tokens: number; windowSeconds: number; prefix: string; }
 
-export function subscribe<T = unknown>(
-  topic: string, event: string, handler: (payload: T) => void,
-): () => void {
-  const entry = getOrCreateChannel(topic);
-  if (!entry) return () => {};
+async function checkLimit(c: LimiterConfig, id: string): Promise<RateLimitResult> {
+  const sb = getClient();
+  const allowBypass = process.env.ALLOW_RATE_LIMIT_BYPASS === "true";
+  const failOpen = process.env.NODE_ENV !== "production" || allowBypass;
 
-  let eventMap = entry.listeners.get(event);
-  if (!eventMap) {
-    eventMap = new Map();
-    entry.listeners.set(event, eventMap);
+  const failed: RateLimitResult = failOpen
+    ? { success: true,  limit: c.tokens, remaining: c.tokens, reset: Date.now() + c.windowSeconds * 1000, count: 0 }
+    : { success: false, limit: c.tokens, remaining: 0,       reset: Date.now() + c.windowSeconds * 1000, count: c.tokens };
 
-    entry.channel.on("broadcast", { event }, (message: unknown) => {
-      const payload = (message as { payload?: unknown })?.payload;
-      const id = (payload as { id?: string } | null)?.id;
-      if (id) {
-        if (seenEventIds.has(id)) return;
-        seenEventIds.add(id);
-        if (seenEventIds.size > MAX_SEEN) {
-          const arr = Array.from(seenEventIds);
-          seenEventIds.clear();
-          for (const k of arr.slice(-TRIM_TO)) seenEventIds.add(k);
-        }
-      }
-      const listeners = entry!.listeners.get(event);
-      if (!listeners) return;
-      for (const l of listeners.values()) {
-        try { l.handler(payload); }
-        catch (e) { console.error(`[realtime] handler error ${topic}:${event}`, e); }
-      }
+  if (!sb) return failed;
+  try {
+    const { data, error } = await (sb as unknown as {
+      rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+    }).rpc("check_rate_limit", {
+      p_key: `zeal:rl:${c.prefix}:${id}`,
+      p_limit: c.tokens,
+      p_window_sec: c.windowSeconds,
     });
+    if (error || !data) return failed;
+    return data as RateLimitResult;
+  } catch {
+    return failed;
   }
+}
 
-  const listener: Listener<T> = { id: nextId(), handler };
-  eventMap.set(listener.id, listener as Listener);
+function createLimiter(tokens: number, windowSeconds: number, prefix: string) {
+  const c: LimiterConfig = { tokens, windowSeconds, prefix };
+  return { limit: (id: string) => checkLimit(c, id) };
+}
 
-  if (!entry.subscribePromise) {
-    entry.subscribePromise = new Promise<void>((resolve) => {
-      entry!.channel.subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          entry!.status = "subscribed";
-          reconnectAttempt = 0;
-          setState("connected");
-          resolve();
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          entry!.status = "error";
-          setState("reconnecting");
-          scheduleReconnect();
-        }
-      });
-    });
-  }
+export const generalLimiter  = createLimiter(60, 60, "general");
+export const authLimiter     = createLimiter(5,  60, "auth");
+export const aiRateLimiter   = createLimiter(10, 60, "ai");
+export const aiStrictLimiter = createLimiter(3,  60, "ai-strict");
 
-  return () => {
-    const e = channels.get(topic);
-    if (!e) return;
-    const map = e.listeners.get(event);
-    if (map) {
-      map.delete(listener.id);
-      if (map.size === 0) e.listeners.delete(event);
-    }
-    if (e.listeners.size === 0) {
-      try { e.channel.unsubscribe(); } catch { /* ignore */ }
-      channels.delete(topic);
-    }
+export async function checkRateLimit(
+  limiter: { limit: (id: string) => Promise<RateLimitResult> },
+  id: string,
+): Promise<RateLimitCheck> {
+  const r = await limiter.limit(id);
+  const headers: Record<string, string> = {
+    "X-RateLimit-Limit":     String(r.limit),
+    "X-RateLimit-Remaining": String(r.remaining),
+    "X-RateLimit-Reset":     String(r.reset),
   };
+  if (!r.success) {
+    const ra = Math.max(1, Math.ceil((r.reset - Date.now()) / 1000));
+    return { ok: false, headers: { ...headers, "Retry-After": String(ra) }, retryAfter: ra };
+  }
+  return { ok: true, headers };
+}
+ZEALEOF_RATELIMIT
+
+# Mirror to web if missing
+if [[ ! -f "apps/web/lib/rate-limit/index.ts" ]]; then
+  w "apps/web/lib/rate-limit/index.ts" << 'ZEALEOF_RATELIMIT_WEB'
+export {
+  checkRateLimit, generalLimiter, authLimiter, aiRateLimiter, aiStrictLimiter,
+} from "../../../../packages/database/src/rate-limit";
+ZEALEOF_RATELIMIT_WEB
+  warn "apps/web/lib/rate-limit/index.ts may need adjustment"
+fi
+
+# ═════════════════════════════════════════════════════════════════
+sec "FIX 4 — Homepage → Server Component (real data)"
+
+# 4a. page.tsx — Server Component
+w "apps/web/app/page.tsx" << 'ZEALEOF_PAGE'
+import { createAdminClient } from "@zeal/database/server";
+import { HomeClient } from "./HomeClient";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+interface ConsultantRow {
+  id: string;
+  category: string;
+  rating: number | null;
+  sparkScore: number | null;
+  perMinuteRate: number | null;
+  specialties: string[] | null;
+  user: { id: string; name: string | null; username: string; avatar: string | null; is_online: boolean | null } | null;
 }
 
-export interface PresenceHandle<T> {
-  unsubscribe: () => void;
-  track: (state: T) => void;
-  untrack: () => void;
+interface AIConsultantRow {
+  id: string;
+  name: string;
+  username: string;
+  avatar: string;
+  category: string;
+  bio: string;
+  rating: number;
+  isPaid: boolean;
+  perMinuteRate: number;
+  specialties: string[] | null;
+  isFeatured: boolean;
 }
 
-export function subscribePresence<T extends Record<string, unknown>>(
-  topic: string, key: string, onSync: (state: Record<string, T[]>) => void,
-): PresenceHandle<T> {
-  const sb = getRealtimeClient();
-  if (!sb) return { unsubscribe: () => {}, track: () => {}, untrack: () => {} };
+interface PostRow {
+  id: string;
+  content: string;
+  created_at: string;
+  author: { name: string | null; avatar: string | null } | null;
+}
 
-  const channel = sb.channel(`presence:${topic}`, { config: { presence: { key } } });
-  let tracked = false;
+async function fetchHomeData() {
+  const admin = createAdminClient();
 
-  channel
-    .on("presence", { event: "sync" }, () => {
-      try { onSync(channel.presenceState() as Record<string, T[]>); }
-      catch (e) { console.error("[realtime] presence sync error", e); }
-    })
-    .subscribe((status) => {
-      if (status === "SUBSCRIBED" && !tracked) {
-        tracked = true;
-        try { channel.track({ online_at: new Date().toISOString() }); }
-        catch { /* ignore */ }
-      }
-    });
+  const [consultantsRes, aiRes, postsRes] = await Promise.all([
+    admin
+      .from("Consultant")
+      .select(`
+        id, category, rating, "sparkScore", "perMinuteRate", specialties,
+        user:User!Consultant_userId_fkey(id, name, username, avatar, is_online)
+      `)
+      .eq("status", "VERIFIED")
+      .eq("isActive", true)
+      .order("sparkScore", { ascending: false })
+      .limit(4),
+    admin
+      .from("AIConsultant")
+      .select("*")
+      .eq("isActive", true)
+      .order("isFeatured", { ascending: false })
+      .order("rating", { ascending: false })
+      .limit(6),
+    admin
+      .from("Post")
+      .select(`
+        id, content, created_at,
+        author:User!Post_authorId_fkey(name, avatar)
+      `)
+      .eq("isFlagged", false)
+      .order("created_at", { ascending: false })
+      .limit(4),
+  ]);
 
   return {
-    track: (state: T) => { try { channel.track(state); } catch { /* ignore */ } },
-    untrack: () => { try { channel.untrack(); } catch { /* ignore */ } },
-    unsubscribe: () => {
-      try { channel.untrack(); } catch { /* ignore */ }
-      try { sb.removeChannel(channel); } catch { /* ignore */ }
-    },
+    consultants: (consultantsRes.data ?? []) as unknown as ConsultantRow[],
+    aiConsultants: (aiRes.data ?? []) as AIConsultantRow[],
+    posts: (postsRes.data ?? []) as unknown as PostRow[],
   };
 }
 
-export async function publish<T = unknown>(
-  topic: string, event: string, payload: T,
-): Promise<boolean> {
-  const sb = getRealtimeClient();
-  if (!sb) return false;
-  const ch = sb.channel(topic);
-  await ch.subscribe();
-  try {
-    const res = await ch.send({ type: "broadcast", event, payload });
-    return res === "ok";
-  } catch { return false; }
-  finally { try { await sb.removeChannel(ch); } catch { /* ignore */ } }
+export default async function HomePage() {
+  const data = await fetchHomeData();
+  return <HomeClient {...data} />;
 }
+ZEALEOF_PAGE
 
-export function disconnectAll() {
-  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-  for (const [topic, entry] of channels.entries()) {
-    try { entry.channel.unsubscribe(); } catch { /* ignore */ }
-  }
-  channels.clear();
-  seenEventIds.clear();
-  setState("disconnected");
-}
-EOF
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 3 — ADMIN REGISTER + CALLBACK + LOGIN
-# ═══════════════════════════════════════════════════════════════════════════════
-section "PHASE 3 — ADMIN PORTAL"
-
-step "apps/admin/app/register/page.tsx"
-write_file "apps/admin/app/register/page.tsx" << 'EOF'
+# 4b. HomeClient.tsx — interactive client
+w "apps/web/app/HomeClient.tsx" << 'ZEALEOF_HOMECLIENT'
 "use client";
 
-import { Suspense, useState } from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import {
-  AlertCircle, ArrowRight, Briefcase, Loader2, Lock, Mail,
-  MailCheck, Sparkles, User as UserIcon,
+  ArrowRight, Sparkles, Orbit, Brain, Compass, Heart, Layers,
+  MessageSquare, Clock, Zap, Star, Hash, Hand, Bot,
 } from "lucide-react";
-import { registerConsultantAction } from "@/actions/register";
 
-function Content() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [needsConfirm, setNeedsConfirm] = useState(false);
-  const [email, setEmail] = useState("");
-
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const fd = new FormData(e.currentTarget);
-    setEmail(String(fd.get("email") ?? ""));
-    const res = await registerConsultantAction(fd);
-    if (res.ok) {
-      if (res.needsConfirmation) {
-        setNeedsConfirm(true);
-        setLoading(false);
-        return;
-      }
-      router.push(res.destination ?? "/consultant/dashboard");
-      return;
-    }
-    setError(res.error ?? "Registration failed");
-    setLoading(false);
-  };
-
-  if (needsConfirm) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
-        <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-6">
-            <MailCheck size={32} className="text-emerald-400" />
-          </div>
-          <h1 className="text-2xl font-black text-white mb-2">Check your inbox</h1>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            We sent a confirmation link to{" "}
-            <strong className="text-white">{email}</strong>.
-          </p>
-          <a
-            href="/login"
-            className="inline-flex items-center gap-2 mt-8 px-6 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-sm"
-          >
-            Go to Sign In <ArrowRight size={15} />
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-1/3 left-1/4 w-[600px] h-[600px] bg-indigo-600/10 blur-[180px] rounded-full pointer-events-none" />
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-500 to-indigo-600 shadow-2xl mb-5">
-            <Briefcase size={22} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">
-            Join the Consultant Studio
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Instant activation · 90% revenue share
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-5 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-start gap-2.5">
-            <AlertCircle size={14} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={submit} className="space-y-4">
-          <Field name="fullName" icon={UserIcon} label="Full Name"
-            placeholder="Your full name" autoComplete="name" />
-          <Field name="email" type="email" icon={Mail} label="Email"
-            placeholder="you@example.com" autoComplete="email" />
-          <Field name="password" type="password" icon={Lock}
-            label="Password (min 12 chars)" placeholder="••••••••••••"
-            autoComplete="new-password" minLength={12} />
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-2xl font-black text-sm shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            {loading ? (
-              <><Loader2 size={16} className="animate-spin" /> Creating...</>
-            ) : (
-              <>Create Consultant Account <ArrowRight size={15} /></>
-            )}
-          </button>
-        </form>
-
-        <p className="text-center text-xs text-slate-500 mt-7">
-          Already have a consultant account?{" "}
-          <a href="/login" className="text-purple-400 font-bold">Sign in</a>
-        </p>
-
-        <p className="text-center text-xs text-slate-500 mt-4 pt-4 border-t border-white/5">
-          <Sparkles size={11} className="inline mr-1.5 text-purple-400" />
-          Just looking for guidance?{" "}
-          <a
-            href={`${process.env.NEXT_PUBLIC_APP_URL}/register`}
-            className="text-purple-400 font-bold"
-          >
-            Join as a Seeker
-          </a>
-        </p>
-      </motion.div>
-    </div>
-  );
+interface Consultant {
+  id: string;
+  category: string;
+  rating: number | null;
+  sparkScore: number | null;
+  perMinuteRate: number | null;
+  specialties: string[] | null;
+  user: { id: string; name: string | null; username: string; avatar: string | null; is_online: boolean | null } | null;
 }
 
-function Field({
-  name, icon: Icon, label, placeholder,
-  type = "text", autoComplete, minLength,
-}: {
+interface AIConsultant {
+  id: string;
   name: string;
-  icon: typeof Mail;
-  label: string;
-  placeholder: string;
-  type?: string;
-  autoComplete?: string;
-  minLength?: number;
-}) {
-  return (
-    <div>
-      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-        {label}
-      </label>
-      <div className="relative">
-        <Icon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
-        <input
-          name={name}
-          type={type}
-          required
-          minLength={minLength}
-          autoComplete={autoComplete}
-          placeholder={placeholder}
-          className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500"
-        />
-      </div>
-    </div>
-  );
+  username: string;
+  avatar: string;
+  category: string;
+  bio: string;
+  rating: number;
+  isPaid: boolean;
+  perMinuteRate: number;
+  specialties: string[] | null;
+  isFeatured: boolean;
 }
 
-export default function RegisterPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-950" />}>
-      <Content />
-    </Suspense>
-  );
+interface Post {
+  id: string;
+  content: string;
+  created_at: string;
+  author: { name: string | null; avatar: string | null } | null;
 }
-EOF
 
-step "apps/admin/actions/register.ts"
-write_file "apps/admin/actions/register.ts" << 'EOF'
-"use server";
-
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import {
-  ensureUserRow,
-  ensureConsultantRow,
-  syncAppMetadata,
-} from "@zeal/database/server";
-
-export type RegisterResult =
-  | { ok: true; destination?: string; needsConfirmation?: false }
-  | { ok: true; needsConfirmation: true }
-  | { ok: false; error: string };
-
-export async function registerConsultantAction(
-  formData: FormData,
-): Promise<RegisterResult> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
-  const fullName = String(formData.get("fullName") ?? "").trim();
-
-  if (!email || !password || !fullName) {
-    return { ok: false, error: "All fields required." };
-  }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, error: "Invalid email." };
-  }
-  if (password.length < 12) {
-    return { ok: false, error: "Password must be 12+ chars." };
-  }
-
-  const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(toSet) {
-          try {
-            toSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch { /* RSC context */ }
-        },
-      },
-    },
-  );
-
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { full_name: fullName, account_type: "consultant" },
-      emailRedirectTo: `${adminUrl}/auth/callback`,
-    },
-  });
-
-  if (error) {
-    if (/already|exist/i.test(error.message)) {
-      return { ok: false, error: "An account with this email already exists." };
-    }
-    return { ok: false, error: error.message };
-  }
-  if (!data.user) return { ok: false, error: "Signup failed." };
-
-  // Provision User + Wallet + Consultant (idempotent)
-  await ensureUserRow(data.user);
-  await ensureConsultantRow(data.user, { category: "ASTROLOGER", rate: 50 });
-  await syncAppMetadata(data.user.id, "CLIENT_ADMIN", data.user.app_metadata);
-
-  if (!data.session) return { ok: true, needsConfirmation: true };
-  return { ok: true, destination: "/consultant/dashboard" };
+interface Props {
+  consultants: Consultant[];
+  aiConsultants: AIConsultant[];
+  posts: Post[];
 }
-EOF
 
-step "apps/admin/app/auth/callback/route.ts"
-write_file "apps/admin/app/auth/callback/route.ts" << 'EOF'
-import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import {
-  ensureUserRow,
-  ensureConsultantRow,
-  syncAppMetadata,
-} from "@zeal/database/server";
-
-export const dynamic = "force-dynamic";
-
-export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
-  const code = searchParams.get("code");
-  if (!code) return NextResponse.redirect(`${origin}/login?error=missing_code`);
-
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(toSet) {
-          try {
-            toSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch { /* RSC context */ }
-        },
-      },
-    },
-  );
-
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error || !data.user) {
-    return NextResponse.redirect(`${origin}/login?error=exchange_failed`);
-  }
-
-  const { role } = await ensureUserRow(data.user);
-
-  if (role === "CLIENT_ADMIN" || data.user.user_metadata?.account_type === "consultant") {
-    await ensureConsultantRow(data.user, { category: "ASTROLOGER", rate: 50 });
-    await syncAppMetadata(data.user.id, "CLIENT_ADMIN", data.user.app_metadata);
-    return NextResponse.redirect(`${origin}/consultant/dashboard`);
-  }
-
-  if (["SUPPORT", "ADMIN", "SUPER_ADMIN", "VIEWER"].includes(role)) {
-    return NextResponse.redirect(`${origin}/dashboard`);
-  }
-
-  const webUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-  if (webUrl) return NextResponse.redirect(`${webUrl}/explore`);
-  return NextResponse.redirect(`${origin}/login?error=not_authorized`);
-}
-EOF
-
-step "apps/admin/middleware.ts"
-write_file "apps/admin/middleware.ts" << 'EOF'
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-
-const PUBLIC_ROUTES = [
-  "/login", "/register", "/auth/callback", "/auth/handoff", "/not-found",
+const SLIDES = [
+  {
+    video: "https://assets.mixkit.co/videos/preview/mixkit-spinning-earth-in-space-from-a-satellite-39525-large.mp4",
+    title: "Welcome to Zeal",
+    subtitle: "Ancient metaphysics meets Groq-accelerated AI.",
+    cta: "Explore Free Tools",
+    href: "#services",
+  },
+  {
+    video: "https://assets.mixkit.co/videos/preview/mixkit-hud-interface-with-neon-lines-and-geometric-shapes-31293-large.mp4",
+    title: "Neural Astrologers",
+    subtitle: "Sub-second planetary ephemeris mapped to digital sentience.",
+    cta: "Consult the Engine",
+    href: "/ai-astrologers",
+  },
+  {
+    video: "https://assets.mixkit.co/videos/preview/mixkit-ink-swirling-in-water-438-large.mp4",
+    title: "Human Masters",
+    subtitle: "Connect instantly with verified practitioners worldwide.",
+    cta: "View Directory",
+    href: "/explore",
+  },
 ];
 
-const ADMIN_CONSOLE_PREFIXES = [
-  "/dashboard", "/users", "/consultants", "/verification", "/bookings",
-  "/withdrawals", "/analytics", "/broadcast", "/content", "/ai-consultants",
-  "/recordings", "/wallet", "/settings",
+const SERVICES = [
+  { title: "Daily Horoscope",    desc: "Planetary alignments mapped to your sign.",     icon: Star,      href: "/services/horoscope",   color: "text-blue-400" },
+  { title: "Janam Kundali",      desc: "Precise birth charts & house allocations.",     icon: Orbit,     href: "/services/kundali",     color: "text-purple-400" },
+  { title: "Synastry Matching",  desc: "Guna Milan compatibility analysis.",            icon: Heart,     href: "/services/matchmaking", color: "text-rose-400" },
+  { title: "Arcane Tarot",       desc: "Neural-mapped 3-card temporal spreads.",        icon: Layers,    href: "/services/tarot",       color: "text-indigo-400" },
+  { title: "Destiny Numerology", desc: "Life path & soul frequency calculation.",       icon: Hash,      href: "/services/numerology",  color: "text-amber-400" },
+  { title: "Palmistry Vision",   desc: "AI line extraction & life-energy readings.",    icon: Hand,      href: "/services/palmistry",   color: "text-emerald-400" },
 ];
 
-const CONSULTANT_PREFIX = "/consultant";
-const ADMIN_ROLES = ["SUPPORT", "ADMIN", "SUPER_ADMIN", "VIEWER"];
+export function HomeClient({ consultants, aiConsultants, posts }: Props) {
+  const [slide, setSlide] = useState(0);
 
-function isPublic(pathname: string): boolean {
-  return PUBLIC_ROUTES.some(
-    (p) => pathname === p || pathname.startsWith(p + "/"),
-  );
-}
-
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll(); },
-        setAll(toSet) {
-          toSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          toSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
-
-  // API proxy: attach bearer token
-  if (pathname.startsWith("/api/")) {
-    if (user) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        const requestHeaders = new Headers(request.headers);
-        requestHeaders.set("Authorization", `Bearer ${session.access_token}`);
-        requestHeaders.set("X-Admin-Proxy", "1");
-        const apiResponse = NextResponse.next({ request: { headers: requestHeaders } });
-        response.cookies.getAll().forEach((c) => apiResponse.cookies.set(c));
-        return apiResponse;
-      }
-    }
-    return response;
-  }
-
-  if (isPublic(pathname)) return response;
-
-  if (!user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  const role = (user.app_metadata?.role as string) ?? "USER";
-  const isAdmin = ADMIN_ROLES.includes(role);
-  const isConsultant = role === "CLIENT_ADMIN";
-
-  // Consultant → admin console: bounce to studio
-  if (isConsultant && ADMIN_CONSOLE_PREFIXES.some((p) => pathname.startsWith(p))) {
-    return NextResponse.redirect(new URL("/consultant/dashboard", request.url));
-  }
-  // Admin → consultant studio: bounce to console
-  if (isAdmin && pathname.startsWith(CONSULTANT_PREFIX)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-  // Plain USER → bounce to web
-  if (!isAdmin && !isConsultant) {
-    const webUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
-    if (webUrl) return NextResponse.redirect(`${webUrl}/explore`);
-  }
-
-  return response;
-}
-
-export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
-  ],
-};
-EOF
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 4 — WEB PORTAL
-# ═══════════════════════════════════════════════════════════════════════════════
-section "PHASE 4 — WEB PORTAL"
-
-step "apps/web/app/apply/page.tsx (redirect)"
-write_file "apps/web/app/apply/page.tsx" << 'EOF'
-// apps/web/app/apply/page.tsx
-// Consultants build their profile on the admin portal.
-// Web /apply is a redirect to the consultant studio.
-import { redirect } from "next/navigation";
-
-export const dynamic = "force-dynamic";
-
-export default function ApplyRedirect() {
-  const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
-  redirect(adminUrl ? `${adminUrl}/consultant/dashboard` : "/explore");
-}
-EOF
-
-step "apps/web/components/auth/RoleRedirectGuard.tsx (new)"
-write_file "apps/web/components/auth/RoleRedirectGuard.tsx" << 'EOF'
-"use client";
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// RoleRedirectGuard
-// - Calls self_heal_user() on mount (backfills Consultant row if missing)
-// - Redirects CLIENT_ADMIN users to the admin portal
-// - Silent no-op for regular users
-// ═══════════════════════════════════════════════════════════════════════════════
-
-import { useEffect } from "react";
-
-export function RoleRedirectGuard() {
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { createClient } = await import("@zeal/database");
-        const sb = createClient();
-        const { data: { user } } = await sb.auth.getUser();
-        if (!user || cancelled) return;
-
-        // Self-heal: provision Consultant row + sync role
-        try {
-          await sb.rpc("self_heal_user");
-        } catch (err) {
-          console.warn("[RoleRedirectGuard] self_heal_user failed:", err);
-        }
-
-        const role = (user.app_metadata?.role as string | undefined) ?? "USER";
-        if (role === "CLIENT_ADMIN") {
-          const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
-          if (adminUrl) {
-            window.location.href = `${adminUrl}/consultant/dashboard`;
-          }
-        }
-      } catch {
-        /* silent */
-      }
-    })();
-    return () => { cancelled = true; };
+    const t = setInterval(() => setSlide((s) => (s + 1) % SLIDES.length), 8000);
+    return () => clearInterval(t);
   }, []);
 
-  return null;
+  const active = SLIDES[slide] ?? SLIDES[0]!;
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-50 overflow-hidden">
+      {/* HERO */}
+      <section className="relative w-full h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-slate-950 to-slate-950 z-0" />
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={slide}
+            initial={{ opacity: 0, scale: 1.02 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1.5 }}
+            className="absolute inset-0 z-0"
+          >
+            <video src={active.video} autoPlay loop muted playsInline
+              className="absolute inset-0 w-full h-full object-cover opacity-20 mix-blend-screen" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+          </motion.div>
+        </AnimatePresence>
+
+        <div className="relative z-10 text-center px-4 max-w-5xl mt-16">
+          <AnimatePresence mode="wait">
+            <motion.div key={slide}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-medium uppercase tracking-[0.15em] backdrop-blur-md mb-8">
+                <Sparkles size={14} /> 6 Free AI Cosmic Suites
+              </div>
+              <h1 className="text-5xl sm:text-7xl md:text-[5.5rem] font-medium tracking-tight mb-6 leading-[1.1] text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400">
+                {active.title}
+              </h1>
+              <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10">
+                {active.subtitle}
+              </p>
+              <Link href={active.href}
+                className="inline-flex items-center gap-3 px-8 py-4 bg-white text-slate-950 rounded-full font-medium hover:bg-purple-500 hover:text-white transition-all shadow-lg">
+                {active.cta} <ArrowRight size={18} />
+              </Link>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </section>
+
+      {/* SERVICES */}
+      <section id="services" className="py-32 px-4 sm:px-6 lg:px-8 max-w-[84rem] mx-auto">
+        <div className="mb-20 text-center max-w-2xl mx-auto">
+          <span className="text-xs font-bold uppercase tracking-widest text-purple-400">Public Free Tier</span>
+          <h2 className="text-4xl sm:text-5xl font-medium tracking-tight text-white mt-2 mb-4">
+            6 Free AI Cosmic Services
+          </h2>
+          <p className="text-slate-400 text-lg font-light">
+            Zero login required. High-speed models mapped to ancient traditions.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {SERVICES.map((s, idx) => {
+            const Icon = s.icon;
+            return (
+              <motion.div key={s.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.08 }}
+              >
+                <Link href={s.href}
+                  className="block bg-slate-900/40 backdrop-blur-xl border border-white/5 p-10 rounded-[2.5rem] hover:bg-slate-800/40 hover:border-purple-500/30 transition-all group h-full">
+                  <div className={`w-16 h-16 rounded-2xl bg-white/5 ${s.color} flex items-center justify-center mb-8 group-hover:scale-110 transition-transform`}>
+                    <Icon size={28} strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-2xl font-medium mb-3 text-white">{s.title}</h3>
+                  <p className="text-slate-400 font-light leading-relaxed mb-8">{s.desc}</p>
+                  <div className="inline-flex items-center gap-2 text-sm font-medium text-purple-400 group-hover:gap-3 transition-all">
+                    Launch Analysis <ArrowRight size={16} />
+                  </div>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* AI CONSULTANTS */}
+      {aiConsultants.length > 0 && (
+        <section className="py-32 px-4 sm:px-6 lg:px-8 max-w-[84rem] mx-auto border-t border-white/5">
+          <div className="mb-16 flex items-end justify-between gap-6">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-indigo-400">24/7 Digital Sentience</span>
+              <h2 className="text-4xl sm:text-5xl font-medium tracking-tight text-white mt-2">AI Astrologers</h2>
+              <p className="text-slate-400 font-light mt-2 text-lg">Instant guidance from neural personas trained on ancient systems.</p>
+            </div>
+            <Link href="/ai-astrologers"
+              className="text-sm font-medium bg-slate-800 text-white px-6 py-3 rounded-full hover:bg-indigo-600 transition-colors">
+              View All
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {aiConsultants.map((ai, idx) => (
+              <motion.div key={ai.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.08 }}
+              >
+                <Link href={`/ai-astrologers/${ai.id}`}
+                  className="block bg-slate-900/60 border border-white/5 p-6 rounded-3xl hover:border-indigo-500/40 hover:bg-slate-800/40 transition-all group">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 overflow-hidden shrink-0">
+                      {ai.avatar
+                        ? <img src={ai.avatar} alt={ai.name} className="w-full h-full object-cover" />
+                        : <Bot className="w-7 h-7 m-auto text-white" />}
+                      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-[8px] font-bold rounded-full">
+                        AI
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-white text-base truncate">{ai.name}</h3>
+                      <p className="text-xs text-indigo-300 capitalize">{ai.category.toLowerCase()}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 line-clamp-2 mb-3">{ai.bio}</p>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1 text-amber-400">
+                      <Star size={11} className="fill-amber-400" /> {ai.rating.toFixed(1)}
+                    </span>
+                    <span className="text-indigo-300 font-mono">
+                      {ai.isPaid ? `₹${ai.perMinuteRate}/min` : "Free"}
+                    </span>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* HUMAN CONSULTANTS */}
+      {consultants.length > 0 && (
+        <section className="py-32 px-4 sm:px-6 lg:px-8 max-w-[84rem] mx-auto border-t border-white/5">
+          <div className="mb-16 flex items-end justify-between gap-6">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-purple-400">Engagement & Clout</span>
+              <h2 className="text-4xl sm:text-5xl font-medium tracking-tight text-white mt-2">Verified Master Roster</h2>
+              <p className="text-slate-400 font-light mt-2 text-lg">Ranked by real-time community Sparks and impressions.</p>
+            </div>
+            <Link href="/explore"
+              className="text-sm font-medium bg-slate-800 text-white px-6 py-3 rounded-full hover:bg-purple-600 transition-colors">
+              View Directory
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {consultants.map((c, idx) => {
+              const name = c.user?.name || c.user?.username || "Guide";
+              return (
+                <motion.div key={c.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }}
+                >
+                  <Link href={`/consultant/${c.id}`}
+                    className="block bg-gradient-to-b from-slate-900/80 to-slate-900/20 border border-white/5 p-8 rounded-[2.5rem] hover:border-purple-500/40 transition-all text-center group">
+                    <div className="relative w-24 h-24 mx-auto rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-3xl font-light text-slate-300 mb-6 group-hover:border-purple-400 transition-colors overflow-hidden">
+                      {c.user?.avatar
+                        ? <img src={c.user.avatar} alt={name} className="w-full h-full object-cover" />
+                        : name.charAt(0)}
+                      {c.user?.is_online && (
+                        <span className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+                      )}
+                    </div>
+                    <h4 className="font-medium text-lg text-white mb-1 truncate">{name}</h4>
+                    <p className="text-purple-400/80 text-xs font-medium uppercase tracking-widest mb-4">
+                      {c.category.replace(/_/g, " ").toLowerCase()}
+                    </p>
+                    <div className="mb-6 inline-flex items-center gap-1.5 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded-full text-xs font-bold text-purple-300">
+                      <Sparkles size={13} /> {(c.sparkScore ?? 0).toLocaleString()} Sparks
+                    </div>
+                    <div className="block w-full py-3 bg-slate-800 hover:bg-purple-600 text-slate-300 hover:text-white rounded-xl text-sm font-medium transition-all">
+                      Consult Now
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* LIVE FEED */}
+      {posts.length > 0 && (
+        <section className="py-32 px-4 sm:px-6 lg:px-8 max-w-[84rem] mx-auto border-t border-white/5 mb-20">
+          <div className="mb-16 flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-purple-500" />
+                </span>
+                <h2 className="text-3xl font-medium tracking-tight text-white">Live Cosmos Feed</h2>
+              </div>
+              <p className="text-slate-400 font-light">Real-time planetary updates from the verified network.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {posts.map((p, i) => (
+              <motion.div key={p.id}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="bg-slate-900/60 backdrop-blur-md border border-white/5 p-8 rounded-3xl hover:bg-slate-800/60 transition-all"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-300 font-medium text-lg overflow-hidden">
+                      {p.author?.avatar
+                        ? <img src={p.author.avatar} alt="" className="w-full h-full object-cover" />
+                        : (p.author?.name?.charAt(0) || "C")}
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-sm text-white">{p.author?.name || "Verified Consultant"}</h5>
+                      <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1">
+                        <Clock size={12} /> {new Date(p.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                  <MessageSquare size={18} className="text-slate-600" />
+                </div>
+                <p className="text-slate-300 text-sm leading-relaxed font-light">{p.content}</p>
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }
-EOF
+ZEALEOF_HOMECLIENT
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 5 — MANUAL PATCH NOTES
-# ═══════════════════════════════════════════════════════════════════════════════
-section "PHASE 5 — MANUAL PATCH NOTES"
-
-step ".zeal-backup/PATCHES.md"
-write_file ".zeal-backup/PATCHES.md" << 'EOF'
-# Manual Patches — Auth Rewrite
-
-The setup.sh script writes all files automatically. The patches below
-must be applied manually because they modify existing code that may
-have user customizations.
-
-────────────────────────────────────────────────────────────────────────────
-PATCH 1 — apps/admin/actions/auth.ts (role-aware login destination)
-────────────────────────────────────────────────────────────────────────────
-
-Inside `adminLoginAction()`, replace the final block (after
-`writeAudit({...})` and before `const destination = resolveDestination(...)`)
-with:
-
-```ts
-  // Self-heal: ensure Consultant row exists
-  if (effectiveRole === "CLIENT_ADMIN") {
-    try {
-      const { ensureConsultantRow } = await import("@zeal/database/server");
-      await ensureConsultantRow(data.user, { category: "ASTROLOGER", rate: 50 });
-    } catch (err) {
-      console.warn("[adminLogin] consultant self-heal failed:", err);
-    }
-    return { success: true, destination: "/consultant/dashboard" };
-  }
-
-  // Admin roles → admin console
-  return { success: true, destination: "/dashboard" };
+# ═════════════════════════════════════════════════════════════════
+sec "DONE"
+echo ""
+echo "  Backup: $BK"
+echo ""
+echo "  Next:"
+echo "    rm -rf node_modules/.cache .next apps/*/.next"
+echo "    npm install"
+echo "    npm run build"
+echo ""
+echo "  If build still fails, paste the exact error and I will target it."
+echo ""
