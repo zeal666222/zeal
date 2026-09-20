@@ -3,33 +3,9 @@
 // ZEAL Admin — Next.js 16 config
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin CSP is stricter: no camera/mic (chat-only), frame-ancestors DENY.
-// reactCompiler  : React Compiler stable — automatic memoization.
-//                  Guarded by require.resolve so a missing workspace dep
-//                  does NOT hard-fail the Vercel build.
+// reactCompiler: React Compiler stable — automatic memoization.
 // cacheComponents: NOT enabled — requires route config migration (Phase 4).
-//
-// Monorepo root alignment:
-//   Next.js 16 requires `outputFileTracingRoot` and `turbopack.root` to match.
-//   Both point at the monorepo root so hoisted workspace deps (@zeal/*,
-//   babel-plugin-react-compiler) resolve correctly on Vercel.
 // ═══════════════════════════════════════════════════════════════════════════════
-
-const path = require("path");
-
-// ─── React Compiler guard ─────────────────────────────────────────────────────
-let reactCompiler = false;
-try {
-  require.resolve("babel-plugin-react-compiler");
-  reactCompiler = true;
-} catch {
-  console.warn(
-    "[next.config] babel-plugin-react-compiler not resolvable — " +
-    "React Compiler disabled for this build. " +
-    "Run `npm install` at the repo root.",
-  );
-}
-
-const MONOREPO_ROOT = path.join(__dirname, "..", "..");
 
 const CSP = [
   "default-src 'self'",
@@ -58,7 +34,7 @@ const securityHeaders = [
 const nextConfig = {
   serverExternalPackages: ["server-only"],
   reactStrictMode: true,
-  reactCompiler,
+  reactCompiler: true,
   transpilePackages: ["@zeal/ui", "@zeal/types", "@zeal/database", "@zeal/utils", "@zeal/realtime"],
   images: {
     remotePatterns: [
@@ -77,10 +53,7 @@ const nextConfig = {
       { source: "/api/:path*", destination: "https://zeal-web-red.vercel.app/api/:path*" },
     ];
   },
-  // Monorepo root — must match outputFileTracingRoot so Next can resolve
-  // hoisted workspace deps (@zeal/*, babel-plugin-react-compiler).
-  outputFileTracingRoot: MONOREPO_ROOT,
-  turbopack: { root: MONOREPO_ROOT },
+  turbopack: { root: __dirname },
 };
 
 nextConfig.headers = async () => [

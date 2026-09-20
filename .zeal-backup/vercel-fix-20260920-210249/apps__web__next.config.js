@@ -2,36 +2,10 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // ZEAL Web — Next.js 16 config
 // ─────────────────────────────────────────────────────────────────────────────
-// reactCompiler  : React Compiler stable — automatic memoization.
-//                  Guarded by require.resolve so a missing workspace dep
-//                  does NOT hard-fail the Vercel build.
+// reactCompiler  : React Compiler stable — automatic memoization
 // cacheComponents: NOT enabled yet — requires removing all `export const dynamic`
 //                  route configs across every page. Track as Phase 4.
-//
-// Monorepo root alignment:
-//   Next.js 16 requires `outputFileTracingRoot` and `turbopack.root` to match.
-//   Both point at the monorepo root so hoisted workspace deps (@zeal/*,
-//   babel-plugin-react-compiler) resolve correctly on Vercel.
 // ═══════════════════════════════════════════════════════════════════════════════
-
-const path = require("path");
-
-// ─── React Compiler guard ─────────────────────────────────────────────────────
-// Enabled when the plugin resolves from this workspace; silently skipped
-// otherwise (with a warning). Runtime behavior is identical when present.
-let reactCompiler = false;
-try {
-  require.resolve("babel-plugin-react-compiler");
-  reactCompiler = true;
-} catch {
-  console.warn(
-    "[next.config] babel-plugin-react-compiler not resolvable — " +
-    "React Compiler disabled for this build. " +
-    "Run `npm install` at the repo root.",
-  );
-}
-
-const MONOREPO_ROOT = path.join(__dirname, "..", "..");
 
 const CSP = [
   "default-src 'self'",
@@ -59,7 +33,7 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
-  reactCompiler,
+  reactCompiler: true,
   transpilePackages: ["@zeal/ui", "@zeal/types", "@zeal/database", "@zeal/utils", "@zeal/realtime"],
   images: {
     remotePatterns: [
@@ -78,18 +52,15 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      { source: "/auth/login",     destination: "/login",          permanent: true },
-      { source: "/auth/register",  destination: "/register",       permanent: true },
+      { source: "/auth/login",     destination: "/login",         permanent: true },
+      { source: "/auth/register",  destination: "/register",      permanent: true },
       { source: "/ai-consultants", destination: "/ai-astrologers", permanent: true },
-      { source: "/quests",         destination: "/sparks",         permanent: false },
-      { source: "/referral",       destination: "/sparks",         permanent: false },
-      { source: "/bazaar",         destination: "/explore",        permanent: false },
+      { source: "/quests",         destination: "/sparks",        permanent: false },
+      { source: "/referral",       destination: "/sparks",        permanent: false },
+      { source: "/bazaar",         destination: "/explore",       permanent: false },
     ];
   },
-  // Monorepo root — must match outputFileTracingRoot so Next can resolve
-  // hoisted workspace deps (@zeal/*, babel-plugin-react-compiler).
-  outputFileTracingRoot: MONOREPO_ROOT,
-  turbopack: { root: MONOREPO_ROOT },
+  turbopack: { root: __dirname },
 };
 
 module.exports = nextConfig;
