@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import {getUserId} from "@/lib/auth";
-import {createServerClientFromCookies} from "@zeal/database/server"; // ZEAL_PROFILE_FIX
+import {createServerClientFromCookies} from "@zeal/database/server";
 import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
 import {getStorageAdapter} from "@/lib/storage";
 import {z} from "zod";
@@ -66,7 +66,7 @@ export const PUT = withErrorHandler(
 
     const { data: user, error } = await supabase
       .from("User")
-      .update({ name: data.name, username: data.username })
+      .update({ name: data.name, avatar: data.avatar, username: data.username })
       .eq("id", targetId)
       .select("*")
       .single();

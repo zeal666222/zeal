@@ -118,7 +118,7 @@ export async function syncAuthUser(): Promise<SyncResult> {
       await admin.from("User").update({
         email: email || undefined,
         name: name ?? undefined,
-
+        avatar: avatar ?? undefined,
       }).eq("id", user.id);
       role = (existingUser.role as AuthRole) ?? "USER";
     }

@@ -8,18 +8,6 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse, type NextRequest } from "next/server";
-
-
-// ZEAL_CORS_FIX — detect Next.js RSC prefetches so we never redirect them
-// to another origin (browsers block cross-origin 307s inside fetch()).
-function isPrefetchOrRsc(request: NextRequest): boolean {
-  const h = request.headers;
-  return (
-    h.get("next-router-prefetch") === "1" ||
-    h.get("purpose") === "prefetch" ||
-    h.get("rsc") === "1"
-  );
-}
 import {createServerClient} from "@supabase/ssr";
 
 const PUBLIC_ROUTES = [
@@ -87,16 +75,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   // Consultant pages → redirect to admin portal
-  // ZEAL_CORS_FIX — skip cross-domain redirect for prefetches
-
   if (requiresConsultantRedirect(pathname)) {
-
-    if (isPrefetchOrRsc(request)) {
-
-      return new NextResponse(null, { status: 204 });
-
-    }
-
     const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
     if (adminUrl) {
       const suffix = pathname.replace(/^\/consultant/, "");

@@ -197,7 +197,7 @@ export async function ensureUserRow(u: SupaUserShape): Promise<EnsureUserResult>
       patch.full_name = fullName;
     }
     if (avatar) {
-
+      patch.avatar = avatar;
       patch.avatar_url = avatar;
     }
     if (Object.keys(patch).length > 0) {
@@ -230,7 +230,7 @@ export async function ensureUserRow(u: SupaUserShape): Promise<EnsureUserResult>
         username: uname,
         name: fullName,
         full_name: fullName,
-        
+        avatar,
         avatar_url: avatar,
         role: seedRole,
         sparks: 100,
