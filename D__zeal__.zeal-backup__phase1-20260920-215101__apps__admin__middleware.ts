@@ -1,32 +1,16 @@
-// ZEAL_FIX_PHASE1_MW_ADMIN
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import {createServerClient} from "@supabase/ssr";
 
-// ZEAL_FIX_CORS — legal pages linked from /register are public.
 const PUBLIC_ROUTES = [
-  "/login",
-  "/register",
-  "/auth/callback",
-  "/auth/handoff",
-  "/not-found",
-  "/terms",
-  "/privacy",
+  "/login", "/register", "/auth/callback", "/auth/handoff", "/not-found",
+  // ZEAL_CORS_FIX — legal pages linked from /register; no auth required
+  "/terms", "/privacy",
 ];
 
 const ADMIN_CONSOLE_PREFIXES = [
-  "/dashboard",
-  "/users",
-  "/consultants",
-  "/verification",
-  "/bookings",
-  "/withdrawals",
-  "/analytics",
-  "/broadcast",
-  "/content",
-  "/ai-consultants",
-  "/recordings",
-  "/wallet",
-  "/settings",
+  "/dashboard", "/users", "/consultants", "/verification", "/bookings",
+  "/withdrawals", "/analytics", "/broadcast", "/content", "/ai-consultants",
+  "/recordings", "/wallet", "/settings",
 ];
 
 const CONSULTANT_PREFIX = "/consultant";
@@ -38,9 +22,11 @@ function isPublic(pathname: string): boolean {
   );
 }
 
-// ZEAL_FIX_CORS — a Next.js RSC prefetch must never be redirected to another
-// origin: the browser refuses to follow a cross-origin 307 inside fetch(),
-// producing a CORS error. Return 204 so the prefetch quietly no-ops.
+export async function middleware(request: NextRequest) {
+
+// ZEAL_CORS_FIX — detect Next.js RSC prefetches / speculative fetches.
+// Cross-domain redirects on these cause CORS errors because the browser
+// refuses to follow a 307 to another origin inside a fetch().
 function isPrefetchOrRsc(request: NextRequest): boolean {
   const h = request.headers;
   return (
@@ -50,7 +36,6 @@ function isPrefetchOrRsc(request: NextRequest): boolean {
   );
 }
 
-export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -58,13 +43,9 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
+        getAll() { return request.cookies.getAll(); },
         setAll(toSet) {
-          toSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
+          toSet.forEach(({ name, value }) => request.cookies.set(name, value));
           response = NextResponse.next({ request });
           toSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options),
@@ -74,24 +55,18 @@ export async function middleware(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
   // API proxy: attach bearer token
   if (pathname.startsWith("/api/")) {
     if (user) {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         const requestHeaders = new Headers(request.headers);
         requestHeaders.set("Authorization", `Bearer ${session.access_token}`);
         requestHeaders.set("X-Admin-Proxy", "1");
-        const apiResponse = NextResponse.next({
-          request: { headers: requestHeaders },
-        });
+        const apiResponse = NextResponse.next({ request: { headers: requestHeaders } });
         response.cookies.getAll().forEach((c) => apiResponse.cookies.set(c));
         return apiResponse;
       }
@@ -113,25 +88,27 @@ export async function middleware(request: NextRequest) {
   const isConsultant = role === "CLIENT_ADMIN";
 
   // Consultant → admin console: bounce to studio
-  if (
-    isConsultant &&
-    ADMIN_CONSOLE_PREFIXES.some((p) => pathname.startsWith(p))
-  ) {
-    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
+  if (isConsultant && ADMIN_CONSOLE_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.redirect(new URL("/consultant/dashboard", request.url));
   }
-
   // Admin → consultant studio: bounce to console
   if (isAdmin && pathname.startsWith(CONSULTANT_PREFIX)) {
-    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
+  // Plain USER → bounce to web
+  // ZEAL_CORS_FIX — never redirect a prefetch off-domain
 
-  // Plain USER → bounce to web (this is where the CORS error originated)
   if (!isAdmin && !isConsultant) {
-    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
+
+    if (isPrefetchOrRsc(request)) {
+
+      return new NextResponse(null, { status: 204 });
+
+    }
+
     const webUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
     if (webUrl) return NextResponse.redirect(`${webUrl}/explore`);
+  
   }
 
   return response;

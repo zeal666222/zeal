@@ -90,14 +90,7 @@ const ConsultantCard = memo(function ConsultantCard({
         isCompact ? "p-3" : "p-4",
       )}
     >
-      {/* ZEAL_FIX_PHASE2_LIVE_BADGE */}
-        {consultant.isOnline && (
-          <span className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Live
-          </span>
-        )}
-        {consultant.isOnline && (
+      {consultant.isOnline && (
         <div className="absolute top-2 right-2 z-10">
           <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30">
             <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />

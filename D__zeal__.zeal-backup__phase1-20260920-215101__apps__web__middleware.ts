@@ -1,37 +1,39 @@
-// ZEAL_FIX_PHASE1_MW_WEB
+// apps/web/middleware.ts
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZEAL WEB — Middleware
+//   • Refreshes Supabase session
+//   • Bearer-authed /api/* requests bypass (handled by api-guard)
+//   • Route guards: /chat, /wallet, /bookings, /profile, etc.
+//   • Consultant pages redirect to admin portal
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+
+
+// ZEAL_CORS_FIX — detect Next.js RSC prefetches so we never redirect them
+// to another origin (browsers block cross-origin 307s inside fetch()).
+function isPrefetchOrRsc(request: NextRequest): boolean {
+  const h = request.headers;
+  return (
+    h.get("next-router-prefetch") === "1" ||
+    h.get("purpose") === "prefetch" ||
+    h.get("rsc") === "1"
+  );
+}
+import {createServerClient} from "@supabase/ssr";
 
 const PUBLIC_ROUTES = [
-  "/",
-  "/explore",
-  "/services",
-  "/ai-astrologers",
-  "/consultant",
-  "/white-label",
-  "/login",
-  "/register",
-  "/auth/callback",
-  "/auth/verify-invite",
-  "/payment/success",
-  "/payment/failure",
-  "/not-found",
+  "/", "/explore", "/services", "/ai-astrologers", "/consultant", "/white-label",
+  "/login", "/register", "/auth/callback", "/auth/verify-invite",
+  "/payment/success", "/payment/failure", "/not-found",
 ];
 
 const AUTH_REQUIRED_PREFIXES = [
-  "/chat",
-  "/wallet",
-  "/bookings",
-  "/booking",
-  "/profile",
-  "/notifications",
-  "/sparks",
-  "/create",
-  "/post",
-  "/debug",
-  "/session",
+  "/chat", "/wallet", "/bookings", "/booking", "/profile",
+  "/notifications", "/sparks", "/create", "/post", "/debug", "/session",
 ];
 
+// Consultant-facing pages no longer live in apps/web
 const CONSULTANT_REDIRECT_PREFIXES = [
   "/consultant/dashboard",
   "/consultant/bookings",
@@ -49,16 +51,6 @@ const requiresAuth = (p: string) =>
   AUTH_REQUIRED_PREFIXES.some((r) => p === r || p.startsWith(r + "/"));
 const requiresConsultantRedirect = (p: string) =>
   CONSULTANT_REDIRECT_PREFIXES.some((r) => p === r || p.startsWith(r + "/"));
-
-// ZEAL_FIX_CORS — see admin middleware for rationale.
-function isPrefetchOrRsc(request: NextRequest): boolean {
-  const h = request.headers;
-  return (
-    h.get("next-router-prefetch") === "1" ||
-    h.get("purpose") === "prefetch" ||
-    h.get("rsc") === "1"
-  );
-}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -78,29 +70,33 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
+        getAll() { return request.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
+            request.cookies.set(name, value)
           );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
+            response.cookies.set(name, value, options)
           );
         },
       },
-    },
+    }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
 
   // Consultant pages → redirect to admin portal
+  // ZEAL_CORS_FIX — skip cross-domain redirect for prefetches
+
   if (requiresConsultantRedirect(pathname)) {
-    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
+
+    if (isPrefetchOrRsc(request)) {
+
+      return new NextResponse(null, { status: 204 });
+
+    }
+
     const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
     if (adminUrl) {
       const suffix = pathname.replace(/^\/consultant/, "");
