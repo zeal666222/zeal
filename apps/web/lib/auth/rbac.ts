@@ -1,7 +1,7 @@
 import "server-only";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { getUserId } from "./server";
-import { AppError, ErrorCode } from "@/lib/errors";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {getUserId} from "./server";
+import {AppError, ErrorCode} from "@/lib/errors";
 
 export type Role =
   | "USER" | "CLIENT_ADMIN" | "SUPER_ADMIN" | "ADMIN" | "SUPPORT" | "VIEWER";

@@ -5,8 +5,8 @@
 // Subscribes to user:{id}:inbox via @zeal/realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useState } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useCallback, useState} from "react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 export interface ConversationItem {
   sessionId: string;

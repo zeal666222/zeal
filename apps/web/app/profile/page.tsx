@@ -1,15 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { getProfileData, updateProfileName, processWalletRecharge } from "@/actions/profile";
-import { signOutAction } from "@/actions/auth";
-import { createClient } from "@zeal/database";
-import {
-  User, Wallet, Shield, IndianRupee, ArrowUpRight, ArrowDownRight,
-  Clock, Plus, Loader2, Edit3, CheckCircle2, LogOut, Sparkles,
-  KeyRound, ShieldCheck, AlertCircle, X,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
+import {useEffect, useState, useRef} from "react";
+import {getProfileData, updateProfileName, processWalletRecharge} from "@/actions/profile";
+import {signOutAction} from "@/actions/auth";
+import {createClient} from "@zeal/database";
+import { User, Wallet, Shield, IndianRupee, ArrowUpRight, ArrowDownRight, Clock, Plus, Loader2, Edit3, CheckCircle2, LogOut, Sparkles, KeyRound, ShieldCheck, AlertCircle, X } from "lucide-react";
+import {useRouter} from "next/navigation";
 
 type MfaFactor = {
   id: string;
@@ -236,8 +232,7 @@ export default function ProfileDashboardPage() {
                 activeTab === "general"
                   ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
                   : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
-              }`}
-            >
+              }`} aria-label="Button">
               <User size={18} /> General Info
             </button>
             <button
@@ -246,8 +241,7 @@ export default function ProfileDashboardPage() {
                 activeTab === "billing"
                   ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
                   : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
-              }`}
-            >
+              }`} aria-label="Button">
               <Wallet size={18} /> Billing & Wallet
             </button>
             <button
@@ -256,8 +250,7 @@ export default function ProfileDashboardPage() {
                 activeTab === "security"
                   ? "bg-rose-600 text-white shadow-lg shadow-rose-600/20"
                   : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
-              }`}
-            >
+              }`} aria-label="Button">
               <Shield size={18} /> Security
             </button>
           </div>
@@ -277,18 +270,18 @@ export default function ProfileDashboardPage() {
                         <input
                           type="text"
                           value={newName}
-                          onChange={(e) => setNewName(e.target.value)}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
                           className="flex-1 px-4 py-3 bg-slate-900 border border-purple-500/50 rounded-xl text-sm focus:outline-none focus:border-purple-500"
                           required
                         />
-                        <button type="submit" disabled={updatingName} className="px-5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center">
+                        <button type="submit" disabled={updatingName} className="px-5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center" aria-label="Save changes">
                           {updatingName ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
                         </button>
                       </form>
                     ) : (
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-semibold">{profile?.full_name}</span>
-                        <button onClick={() => setIsEditing(true)} className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors">
+                        <button onClick={() => setIsEditing(true)} aria-label="Edit profile" className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors">
                           <Edit3 size={18} />
                         </button>
                       </div>
@@ -326,10 +319,10 @@ export default function ProfileDashboardPage() {
                       </h2>
                     </div>
                     <div className="flex gap-3 w-full md:w-auto">
-                      <button onClick={() => handleRecharge(500)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm font-bold transition-all cursor-pointer">
+                      <button aria-label="Add ₹500 to wallet" onClick={() => handleRecharge(500)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm font-bold transition-all cursor-pointer">
                         + ₹500
                       </button>
-                      <button onClick={() => handleRecharge(1000)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 hover:opacity-90 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer">
+                      <button aria-label="Add ₹1000 to wallet" onClick={() => handleRecharge(1000)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 hover:opacity-90 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer">
                         {rechargeLoading ? <Loader2 className="animate-spin" size={18} /> : <><Plus size={18} /> Add Funds</>}
                       </button>
                     </div>
@@ -471,8 +464,7 @@ export default function ProfileDashboardPage() {
                           <button
                             onClick={() => removeFactor(f.id)}
                             disabled={unenrollingId === f.id}
-                            className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-bold transition-colors disabled:opacity-50"
-                          >
+                            className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-bold transition-colors disabled:opacity-50" aria-label="Remove">
                             {unenrollingId === f.id ? <Loader2 size={14} className="animate-spin" /> : "Remove"}
                           </button>
                         </div>
@@ -482,8 +474,7 @@ export default function ProfileDashboardPage() {
                     <button
                       onClick={startEnrollment}
                       disabled={enrollState.kind === "enrolling"}
-                      className="btn-3d w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-                    >
+                      className="btn-3d w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50" aria-label="Enable two-factor authentication">
                       {enrollState.kind === "enrolling" ? (
                         <><Loader2 size={18} className="animate-spin" /> Preparing…</>
                       ) : (
@@ -497,11 +488,11 @@ export default function ProfileDashboardPage() {
                   <div className="p-6 bg-rose-950/20 rounded-3xl border border-rose-500/10">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                       <div>
-                        <h4 className="text-sm font-bold text-white mb-1">Terminate Session</h4>
+                        <h3 className="text-sm font-bold text-white mb-1">Terminate Session</h3>
                         <p className="text-xs text-slate-400">Securely log out of your Zeal account on this device.</p>
                       </div>
                       <form action={signOutAction}>
-                        <button type="submit" className="px-6 py-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                        <button type="submit" className="px-6 py-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-sm font-bold transition-all flex items-center gap-2" aria-label="Submit">
                           <LogOut size={16} /> Secure Sign Out
                         </button>
                       </form>

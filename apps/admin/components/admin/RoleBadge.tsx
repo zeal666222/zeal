@@ -1,7 +1,7 @@
 // apps/admin/components/admin/RoleBadge.tsx
 "use client";
 
-import { cn } from "@zeal/ui";
+import {cn} from "@zeal/ui";
 
 const STYLE: Record<string, string> = {
   SUPER_ADMIN:  "bg-rose-500/15 text-rose-300 border-rose-500/30",

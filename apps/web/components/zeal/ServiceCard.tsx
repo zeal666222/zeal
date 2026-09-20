@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
+import {motion} from "framer-motion";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import {ChevronRight} from "lucide-react";
 
 interface ServiceCardProps {
   id: string;

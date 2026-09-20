@@ -1,13 +1,25 @@
-import { notFound } from "next/navigation";
-import { prisma } from "@zeal/database/server";
+// ═══════════════════════════════════════════════════════════════════════════════
+// White-Label Layout — direct Supabase query (no Prisma)
+// ═══════════════════════════════════════════════════════════════════════════════
+import {notFound} from "next/navigation";
+import {createAdminClient} from "@zeal/database/server";
 import Link from "next/link";
-import type { CSSProperties } from "react";
+import type {CSSProperties} from "react";
 
 interface Theme {
   primaryColor: string;
   accentColor: string;
   welcomeMessage: string;
   logoUrl?: string;
+}
+
+interface ConsultantRow {
+  theme: unknown;
+  subdomainActive: boolean | null;
+  user:
+    | { id: string; name: string | null; username: string | null; avatar: string | null }
+    | { id: string; name: string | null; username: string | null; avatar: string | null }[]
+    | null;
 }
 
 const DEFAULT_THEME: Theme = {
@@ -22,24 +34,41 @@ function normalizeTheme(raw: unknown): Theme {
   return {
     primaryColor: typeof t.primaryColor === "string" ? t.primaryColor : DEFAULT_THEME.primaryColor,
     accentColor: typeof t.accentColor === "string" ? t.accentColor : DEFAULT_THEME.accentColor,
-    welcomeMessage: typeof t.welcomeMessage === "string" ? t.welcomeMessage : DEFAULT_THEME.welcomeMessage,
+    welcomeMessage:
+      typeof t.welcomeMessage === "string" ? t.welcomeMessage : DEFAULT_THEME.welcomeMessage,
     logoUrl: typeof t.logoUrl === "string" ? t.logoUrl : undefined,
   };
 }
 
-interface Props { children: React.ReactNode; params: Promise<{ subdomain: string }>; }
+interface Props {
+  children: React.ReactNode;
+  params: Promise<{subdomain: string}>;
+}
 
-export default async function WhiteLabelLayout({ children, params }: Props) {
-  const { subdomain } = await params;
-  const consultant = await prisma.consultant.findUnique({
-    where: { subdomain },
-    include: { user: { select: { id: true, name: true, username: true, avatar: true } } },
-  });
-  if (!consultant || !consultant.subdomainActive) notFound();
+export default async function WhiteLabelLayout({children, params}: Props) {
+  const {subdomain} = await params;
+  const admin = createAdminClient();
 
-  const theme = normalizeTheme(consultant.theme);
-  const displayName = consultant.user.name || consultant.user.username;
+  const {data, error} = await admin
+    .from("Consultant")
+    .select(`
+      theme, "subdomainActive",
+      user:User!Consultant_userId_fkey(id, name, username, avatar)
+    `)
+    .eq("subdomain", subdomain)
+    .eq("subdomainActive", true)
+    .maybeSingle();
+
+  if (error || !data) notFound();
+
+  const row = data as unknown as ConsultantRow;
+  const user = Array.isArray(row.user) ? row.user[0] : row.user;
+  if (!user) notFound();
+
+  const theme = normalizeTheme(row.theme);
+  const displayName = user.name || user.username || "Consultant";
   const initial = displayName.charAt(0).toUpperCase();
+
   const style = {
     "--wl-primary": theme.primaryColor,
     "--wl-accent": theme.accentColor,
@@ -49,20 +78,31 @@ export default async function WhiteLabelLayout({ children, params }: Props) {
     <div style={style} className="min-h-screen bg-[#FDFBF7]">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-sm border-b border-[#E1C5E7]">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href={"/white-label/" + subdomain} className="flex items-center gap-2">
+          <Link href={`/white-label/${subdomain}`} className="flex items-center gap-2">
             {theme.logoUrl ? (
               <img src={theme.logoUrl} alt="Logo" className="w-8 h-8 rounded-full object-cover" />
             ) : (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white" style={{ background: theme.primaryColor }}>
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                style={{background: theme.primaryColor}}
+              >
                 {initial}
               </div>
             )}
             <span className="font-semibold text-[#5E4B8B]">{displayName}</span>
           </Link>
           <nav className="flex items-center gap-4 text-sm">
-            <Link href={"/white-label/" + subdomain} className="text-[#5E4B8B] hover:opacity-70">Home</Link>
-            <Link href={"/white-label/" + subdomain + "/services"} className="text-[#5E4B8B] hover:opacity-70">Services</Link>
-            <Link href={"/white-label/" + subdomain + "/book"} className="px-4 py-2 rounded-xl text-white font-medium" style={{ background: "linear-gradient(135deg, " + theme.primaryColor + ", " + theme.accentColor + ")" }}>
+            <Link href={`/white-label/${subdomain}`} className="text-[#5E4B8B] hover:opacity-70">
+              Home
+            </Link>
+            <Link href={`/white-label/${subdomain}/services`} className="text-[#5E4B8B] hover:opacity-70">
+              Services
+            </Link>
+            <Link
+              href={`/white-label/${subdomain}/book`}
+              className="px-4 py-2 rounded-xl text-white font-medium"
+              style={{background: `linear-gradient(135deg, ${theme.primaryColor}, ${theme.accentColor})`}}
+            >
               Book
             </Link>
           </nav>
@@ -77,4 +117,3 @@ export default async function WhiteLabelLayout({ children, params }: Props) {
 }
 
 export const dynamic = "force-dynamic";
-

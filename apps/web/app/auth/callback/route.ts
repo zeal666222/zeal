@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { syncAuthUser } from "@/lib/auth/server";
+import {createServerClient} from "@supabase/ssr";
+import {cookies} from "next/headers";
+import {syncAuthUser} from "@/lib/auth/server";
 
 export async function GET(request: Request) {
   const { searchParams, origin: requestOrigin } = new URL(request.url);

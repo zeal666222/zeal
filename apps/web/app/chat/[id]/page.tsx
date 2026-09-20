@@ -1,7 +1,7 @@
 // apps/web/app/chat/[id]/page.tsx
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { redirect, notFound } from "next/navigation";
-import { ChatInterface } from "@/components/session/ChatInterface";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {redirect, notFound} from "next/navigation";
+import {ChatInterface} from "@/components/session/ChatInterface";
 
 export const dynamic = "force-dynamic";
 

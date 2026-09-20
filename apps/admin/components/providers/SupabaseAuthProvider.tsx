@@ -7,9 +7,9 @@
 // throw during Next.js prerender (e.g. /_not-found).
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createContext, useContext, useEffect, useState } from "react";
+import {createContext, useContext, useEffect, useState} from "react";
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
-import { createClient } from "@zeal/database";
+import {createClient} from "@zeal/database";
 
 interface AuthContextType {
   user: User | null;

@@ -7,10 +7,10 @@
 // Renders a lightweight overlay when a consultant requests a session.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Phone, MessageCircle, Calendar, X } from "lucide-react";
-import { getBrowserClient } from "@zeal/database";
+import {useEffect, useState} from "react";
+import {useRouter} from "next/navigation";
+import {Phone, MessageCircle, Calendar, X} from "lucide-react";
+import {getBrowserClient} from "@zeal/database";
 
 interface IncomingAlert {
   id: string;

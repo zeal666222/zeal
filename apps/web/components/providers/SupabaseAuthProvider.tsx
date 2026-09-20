@@ -1,10 +1,9 @@
 "use client";
-
 // ═══════════════════════════════════════════════════════════════════════════════
-// Web Supabase Auth Provider (SSR-safe)
+// SSR-safe Auth Provider — lazy client init, no prerender crashes.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@zeal/database";
 
@@ -24,45 +23,35 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
-export function SupabaseAuthProvider({ children }: { children: React.ReactNode }) {
+export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const [supabase] = useState(() => {
-    try {
-      return createClient();
-    } catch {
-      return null;
-    }
+    try { return createClient(); } catch { return null; }
   });
 
   useEffect(() => {
-    if (!supabase) {
-      setIsLoading(false);
-      return;
-    }
-
+    if (!supabase) { setIsLoading(false); return; }
     let mounted = true;
 
-    const getSession = async () => {
+    const loadSession = async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
         if (!mounted) return;
-        if (error) {
-          console.error("Error getting session:", error);
-        } else {
+        if (!error) {
           setSession(data.session);
           setUser(data.session?.user ?? null);
         }
       } catch (err) {
-        console.warn("Session fetch failed:", err);
+        console.warn("[auth] session fetch failed:", err);
       } finally {
         if (mounted) setIsLoading(false);
       }
     };
 
-    void getSession();
+    void loadSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event: AuthChangeEvent, newSession: Session | null) => {
@@ -73,15 +62,10 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
       }
     );
 
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, [supabase]);
 
-  const signOut = async () => {
-    if (supabase) await supabase.auth.signOut();
-  };
+  const signOut = async () => { if (supabase) await supabase.auth.signOut(); };
 
   return (
     <AuthContext.Provider value={{ user, session, isLoading, signOut }}>

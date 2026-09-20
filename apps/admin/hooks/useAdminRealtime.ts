@@ -5,8 +5,8 @@
 // Subscribes to admin:broadcast via @zeal/realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useState } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useCallback, useEffect, useState} from "react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 export interface AdminStats {
   users: number;

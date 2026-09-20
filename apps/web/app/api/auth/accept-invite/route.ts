@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { verifyInvite, acceptInvite } from "@/lib/auth/invites";
-import { z } from "zod";
+import {createClient} from "@supabase/supabase-js";
+import {verifyInvite, acceptInvite} from "@/lib/auth/invites";
+import {z} from "zod";
 
 export const dynamic = "force-dynamic";
 

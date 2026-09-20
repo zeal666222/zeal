@@ -1,38 +1,26 @@
-import { createClient } from "@zeal/database/server";
-import { redirect } from "next/navigation";
+import {createClient} from "@zeal/database/server";
+import {redirect} from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function AuthSortingHat() {
   const supabase = await createClient();
-  const { data: { user }, error } = await supabase.auth.getUser();
+  const {data: {user}, error} = await supabase.auth.getUser();
+  if (error || !user) redirect("/login");
 
-  if (error || !user) {
-    redirect("/login");
-  }
-
-  // Fetch complete profile record
-  const { data: profile } = await supabase
-    .from("profiles")
+  const {data: profile} = await supabase
+    .from("User")
     .select("role, onboarding_completed")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  const role = profile?.role || user.user_metadata?.role || "user";
-  const isOnboarded = profile?.onboarding_completed || false;
+  const role = (profile?.role as string) || "USER";
+  const isOnboarded = Boolean(profile?.onboarding_completed);
 
-  // 1. Strict Admin Routing
-  if (role === "admin" || role === "super_admin") {
-    redirect("/admin/dashboard");
+  if (role === "ADMIN" || role === "SUPER_ADMIN") redirect("/dashboard");
+  if (role === "CLIENT_ADMIN") {
+    if (!isOnboarded) redirect("/consultant/onboarding");
+    redirect("/consultant/dashboard");
   }
-
-  // 2. Strict Consultant Routing & Onboarding Trap
-  if (role === "consultant") {
-    if (!isOnboarded) {
-      redirect("/onboarding/partner");
-    } else {
-      redirect("/consultant/dashboard");
-    }
-  }
-
-  // 3. Strict User Routing (To Website Root / Profile)
   redirect("/");
 }

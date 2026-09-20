@@ -1,16 +1,11 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { createClient } from "@supabase/supabase-js";
-import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
-import {
-  ensureUserRow,
-  ensureConsultantRow,
-  syncAppMetadata,
-  type AppRole,
-} from "@zeal/database/server";
-import { checkRateLimit, authLimiter } from "@/lib/rate-limit";
+import {createServerClient} from "@supabase/ssr";
+import {createClient} from "@supabase/supabase-js";
+import {cookies, headers} from "next/headers";
+import {redirect} from "next/navigation";
+import {ensureUserRow, ensureConsultantRow, syncAppMetadata, type AppRole} from "@zeal/database/server";
+import {checkRateLimit, authLimiter} from "@/lib/rate-limit";
 
 const ALLOWED_ADMIN_ROLES: AppRole[] = ["SUPER_ADMIN","ADMIN","SUPPORT","VIEWER","CLIENT_ADMIN"];
 

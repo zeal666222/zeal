@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import { Activity, RefreshCw, Trash2, Filter, Wifi } from "lucide-react";
-import { getRecentLogs, clearLogs, type LogEntry, type LogChannel } from "@/lib/logger";
+import {useEffect, useState, useMemo} from "react";
+import {motion} from "framer-motion";
+import {Activity, RefreshCw, Trash2, Filter, Wifi} from "lucide-react";
+import {getRecentLogs, clearLogs, type LogEntry, type LogChannel} from "@/lib/logger";
 
 const CHANNEL_COLORS: Record<string, string> = {
   api: "text-purple-500",

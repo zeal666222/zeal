@@ -1,8 +1,8 @@
 'use client';
-import { motion } from 'framer-motion';
+import {motion} from 'framer-motion';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-import { ReactNode } from 'react';
+import {ArrowLeft} from 'lucide-react';
+import {type ReactNode} from 'react';
 
 interface ServiceLayoutProps {
   title: string;

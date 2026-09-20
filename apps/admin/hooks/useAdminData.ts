@@ -1,5 +1,5 @@
 'use client';
-import { useQuery, UseQueryOptions } from '@tanstack/react-query';
+import {useQuery, type UseQueryOptions} from '@tanstack/react-query';
 
 export interface UseAdminDataOptions<T> extends UseQueryOptions<T> {
   queryKey: string[];

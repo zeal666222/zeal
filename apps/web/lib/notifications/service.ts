@@ -1,8 +1,8 @@
 // Notification service — Supabase-native, realtime-published
-import { createAdminClient } from "@zeal/database/server";
-import { sendEmail } from "@/lib/emails";
-import { emailTemplates } from "@/lib/emails/templates";
-import { serverPublish } from "@/lib/realtime/server";
+import {createAdminClient} from "@zeal/database/server";
+import {sendEmail} from "@/lib/emails";
+import {emailTemplates} from "@/lib/emails/templates";
+import {serverPublish} from "@/lib/realtime/server";
 
 export type NotificationType =
   | "booking" | "call" | "chat" | "system" | "referral"

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@zeal/database/server";
+import {createAdminClient} from "@zeal/database/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 interface C { name: string; status: "ok"|"degraded"|"down"; latencyMs?: number; error?: string }

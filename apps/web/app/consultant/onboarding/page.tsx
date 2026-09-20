@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Loader2, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {motion} from "framer-motion";
+import {Loader2, Check, ChevronLeft, ChevronRight} from "lucide-react";
 
 // Values MUST match the DB enum. Verified against migration 001.
 const CATEGORIES = [
@@ -93,21 +93,21 @@ export default function ConsultantOnboardingPage() {
             <h2 className="text-xl font-bold text-[#5E4B8B] dark:text-white">Your Practice</h2>
             <div>
               <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">Category</label>
-              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as Category })} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white">
+              <select value={form.category} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, category: e.target.value as Category })} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white">
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c.replace(/_/g, " ")}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">Specialties (comma separated)</label>
-              <input type="text" value={form.specialties} onChange={(e) => setForm({ ...form, specialties: e.target.value })} placeholder="Vedic, KP, Nadi" className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white" />
+              <input type="text" value={form.specialties} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, specialties: e.target.value })} placeholder="Vedic, KP, Nadi" className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white" aria-label="Vedic, KP, Nadi" />
             </div>
             <div>
               <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">Languages (comma separated)</label>
-              <input type="text" value={form.languages} onChange={(e) => setForm({ ...form, languages: e.target.value })} placeholder="English, Hindi" className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white" />
+              <input type="text" value={form.languages} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, languages: e.target.value })} placeholder="English, Hindi" className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white" aria-label="English, Hindi" />
             </div>
             <div>
               <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">Faith</label>
-              <select value={form.faith} onChange={(e) => setForm({ ...form, faith: e.target.value as Faith })} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white">
+              <select value={form.faith} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setForm({ ...form, faith: e.target.value as Faith })} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white">
                 {FAITHS.map((f) => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
@@ -118,7 +118,7 @@ export default function ConsultantOnboardingPage() {
             <h2 className="text-xl font-bold text-[#5E4B8B] dark:text-white">About You</h2>
             <div>
               <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">Bio (50+ characters)</label>
-              <textarea value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} rows={6} maxLength={1000} placeholder="Share your experience, approach, and what makes you unique…" className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white resize-none" />
+              <textarea value={form.bio} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, bio: e.target.value })} rows={6} maxLength={1000} placeholder="Share your experience, approach, and what makes you unique…" className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white resize-none" />
               <p className="text-xs text-[#B8A1D9] mt-1">{form.bio.length}/1000 · min 50</p>
             </div>
           </>
@@ -128,7 +128,7 @@ export default function ConsultantOnboardingPage() {
             <h2 className="text-xl font-bold text-[#5E4B8B] dark:text-white">Your Rates</h2>
             <div>
               <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">Per-minute rate (₹10 – ₹500)</label>
-              <input type="number" min={10} max={500} value={form.perMinuteRate} onChange={(e) => setForm({ ...form, perMinuteRate: Number(e.target.value) })} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white" />
+              <input type="number" min={10} max={500} value={form.perMinuteRate} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, perMinuteRate: Number(e.target.value) })} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white" />
             </div>
             <div className="p-4 rounded-xl bg-[#F4E8F7] dark:bg-gray-800 text-sm text-[#5E4B8B] dark:text-white">
               You earn <strong>{Math.round(form.perMinuteRate * 0.9)}₹/min</strong> after the 10% platform fee.

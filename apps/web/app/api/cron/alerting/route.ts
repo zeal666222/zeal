@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
 
 const ALERT_WEBHOOK_ENV = "ALERT_WEBHOOK_URL";
 

@@ -1,7 +1,9 @@
 "use server";
-
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+// ═══════════════════════════════════════════════════════════════════════════════
+// Admin actions — canonical tables only
+// ═══════════════════════════════════════════════════════════════════════════════
+import {createServerClient} from "@supabase/ssr";
+import {cookies} from "next/headers";
 
 async function getSupabase() {
   const cookieStore = await cookies();
@@ -11,8 +13,8 @@ async function getSupabase() {
     {
       cookies: {
         getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
-          try { cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)); } catch {}
+        setAll(cs) {
+          try { cs.forEach(({name, value, options}) => cookieStore.set(name, value, options)); } catch {}
         },
       },
     }
@@ -22,62 +24,63 @@ async function getSupabase() {
 export async function getAdminMetrics() {
   try {
     const supabase = await getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { userCount: 0, pendingAppsCount: 0, applications: [], auditLogs: [], error: "Unauthorized" };
+    const {data: {user}} = await supabase.auth.getUser();
+    if (!user) return {userCount: 0, pendingAppsCount: 0, applications: [], auditLogs: [], error: "Unauthorized"};
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-    if (!profile || !['admin', 'superadmin', 'super_admin'].includes(profile.role)) {
-      return { userCount: 0, pendingAppsCount: 0, applications: [], auditLogs: [], error: "Forbidden access" };
+    const {data: profile} = await supabase.from("User").select("role").eq("id", user.id).maybeSingle();
+    const role = profile?.role as string | undefined;
+    if (!role || !["ADMIN", "SUPER_ADMIN", "SUPPORT"].includes(role)) {
+      return {userCount: 0, pendingAppsCount: 0, applications: [], auditLogs: [], error: "Forbidden access"};
     }
 
-    const { count: userCount } = await supabase.from("profiles").select("*", { count: "exact", head: true });
-    const { count: pendingAppsCount } = await supabase.from("consultant_applications").select("*", { count: "exact", head: true }).eq("status", "pending");
-    const { data: applications } = await supabase.from("consultant_applications").select("*").order("created_at", { ascending: false });
-    const { data: auditLogs } = await supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(20);
+    const [usersRes, pendingRes, appsRes, auditRes] = await Promise.all([
+      supabase.from("User").select("*", {count: "exact", head: true}),
+      supabase.from("Consultant").select("*", {count: "exact", head: true}).eq("status", "PENDING"),
+      supabase.from("Consultant")
+        .select(`id, category, status, bio, "createdAt", user:User!Consultant_userId_fkey(id, name, email, avatar)`)
+        .order("createdAt", {ascending: false}).limit(100),
+      supabase.from("AdminAuditLog").select("*").order("createdAt", {ascending: false}).limit(20),
+    ]);
 
     return {
-      userCount: userCount || 0,
-      pendingAppsCount: pendingAppsCount || 0,
-      applications: applications || [],
-      auditLogs: auditLogs || [],
-      error: null
+      userCount: usersRes.count ?? 0,
+      pendingAppsCount: pendingRes.count ?? 0,
+      applications: appsRes.data ?? [],
+      auditLogs: auditRes.data ?? [],
+      error: null,
     };
-  } catch (err: any) {
-    return { userCount: 0, pendingAppsCount: 0, applications: [], auditLogs: [], error: err.message || "Failed to load metrics." };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Failed to load metrics.";
+    return {userCount: 0, pendingAppsCount: 0, applications: [], auditLogs: [], error: message};
   }
 }
 
-// Alias export for ApplicationReviewBoard compatibility
-export async function processApplicationAction(applicationId: string, userId: string, approve: boolean) {
-  return reviewConsultantApplication(applicationId, userId, approve);
+export async function processApplicationAction(consultantId: string, userId: string, approve: boolean) {
+  return reviewConsultantApplication(consultantId, userId, approve);
 }
 
-export async function reviewConsultantApplication(applicationId: string, userId: string, approve: boolean) {
+export async function reviewConsultantApplication(consultantId: string, userId: string, approve: boolean) {
   try {
     const supabase = await getSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "Unauthorized" };
+    const {data: {user}} = await supabase.auth.getUser();
+    if (!user) return {success: false, error: "Unauthorized"};
 
-    const newStatus = approve ? "approved" : "rejected";
+    const newStatus = approve ? "VERIFIED" : "REJECTED";
 
-    const { error: appError } = await supabase
-      .from("consultant_applications")
-      .update({ status: newStatus })
-      .eq("id", applicationId);
+    const {error: appError} = await supabase
+      .from("Consultant")
+      .update({status: newStatus, isActive: approve, isVerified: approve})
+      .eq("id", consultantId);
+    if (appError) return {success: false, error: appError.message};
 
-    if (appError) return { success: false, error: appError.message };
-
-    if (approve) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ role: "consultant" })
-        .eq("id", userId);
-
-      if (profileError) return { success: false, error: profileError.message };
+    if (approve && userId) {
+      const {error: userError} = await supabase.from("User").update({role: "CLIENT_ADMIN"}).eq("id", userId);
+      if (userError) return {success: false, error: userError.message};
     }
 
-    return { success: true };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Review action failed." };
+    return {success: true};
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Review action failed.";
+    return {success: false, error: message};
   }
 }

@@ -5,13 +5,11 @@
 // Uses Phase 1's useChannel for realtime spark + activity updates
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react";
+import {useEffect, useState} from "react";
 import Link from "next/link";
-import {
-  Flame, Sparkles, Activity, ArrowLeft, Loader2, Heart,
-} from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { channels, useChannel } from "@zeal/realtime";
+import {Flame, Sparkles, Activity, ArrowLeft, Loader2, Heart} from "lucide-react";
+import {motion, AnimatePresence} from "framer-motion";
+import {channels, useChannel} from "@zeal/realtime";
 
 interface SparkActivity {
   id: string;

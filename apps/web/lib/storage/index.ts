@@ -2,7 +2,7 @@
 export * from "./adapter";
 export { createR2Adapter } from "./r2";
 
-import { createR2Adapter } from "./r2";
+import {createR2Adapter} from "./r2";
 import type { StorageAdapter } from "./adapter";
 
 let cachedAdapter: StorageAdapter | null = null;

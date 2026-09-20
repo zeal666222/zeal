@@ -1,0 +1,2 @@
+apps/web/lib/auth/api-guard.ts
+apps/web/app/api/admin/ai-consultants/route.ts

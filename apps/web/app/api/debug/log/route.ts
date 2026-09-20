@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/auth";
+import {getUserId} from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 

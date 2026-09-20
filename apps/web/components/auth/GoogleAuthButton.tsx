@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
-import { Loader2 } from "lucide-react";
+import {useState} from "react";
+import {createBrowserClient} from "@supabase/ssr";
+import {Loader2} from "lucide-react";
 
 export function GoogleAuthButton({
   label = "Continue with Google",

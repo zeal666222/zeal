@@ -1,6 +1,6 @@
 'use client';
-import { Card, CardHeader, CardTitle, CardContent } from '@zeal/ui';
-import { formatDistanceToNow } from 'date-fns';
+import {Card, CardHeader, CardTitle, CardContent} from '@zeal/ui';
+import {formatDistanceToNow} from 'date-fns';
 
 const activities = [
   { id: 1, user: 'Rajesh Kumar', action: 'booked a consultation', time: new Date(Date.now() - 1000 * 60 * 5) },

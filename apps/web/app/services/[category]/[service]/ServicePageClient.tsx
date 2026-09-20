@@ -1,14 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
-import { Sparkles, Users } from "lucide-react";
-import { ServiceHero } from "@/components/services/ServiceHero";
-import {
-  ServiceFilterBar,
-  type ServiceFilters,
-} from "@/components/services/ServiceFilterBar";
-import { ConsultantGrid } from "@/components/services/ConsultantGrid";
+import {useState, useMemo} from "react";
+import {motion} from "framer-motion";
+import {Sparkles, Users} from "lucide-react";
+import {ServiceHero} from "@/components/services/ServiceHero";
+import {ServiceFilterBar, type ServiceFilters} from "@/components/services/ServiceFilterBar";
+import {ConsultantGrid} from "@/components/services/ConsultantGrid";
 import type { ServiceDefinition } from "@/lib/services";
 import type { ConsultantProfile } from "@zeal/types";
 

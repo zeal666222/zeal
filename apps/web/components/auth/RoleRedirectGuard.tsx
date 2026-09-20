@@ -7,7 +7,7 @@
 // - Silent no-op for regular users
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect } from "react";
+import {useEffect} from "react";
 
 export function RoleRedirectGuard() {
   useEffect(() => {

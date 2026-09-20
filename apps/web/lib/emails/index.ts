@@ -3,7 +3,7 @@ export * from "./adapter";
 export * from "./templates";
 export { createResendAdapter } from "./resend";
 
-import { createResendAdapter } from "./resend";
+import {createResendAdapter} from "./resend";
 import type { EmailAdapter } from "./adapter";
 
 let cachedAdapter: EmailAdapter | null = null;

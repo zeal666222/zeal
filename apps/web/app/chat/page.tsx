@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageSquare, Send, Sparkles } from "lucide-react";
+import {MessageSquare, Send, Sparkles} from "lucide-react";
 
 export default function ChatIndexPage() {
   return (

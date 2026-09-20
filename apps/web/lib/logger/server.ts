@@ -1,4 +1,4 @@
-import { logger, startTimer } from "./index";
+import {logger, startTimer} from "./index";
 
 /**
  * Server-side logger for API routes and server components.

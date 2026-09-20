@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Heart, MessageCircle, Loader2, ImageIcon } from "lucide-react";
-import { EmptyState } from "@/components/shared/EmptyState";
+import {useState} from "react";
+import {useQuery} from "@tanstack/react-query";
+import {Heart, MessageCircle, Loader2, ImageIcon} from "lucide-react";
+import {EmptyState} from "@/components/shared/EmptyState";
 
 interface PostItem { id: string; imageUrl: string; cheerCount: number; commentCount: number; }
 

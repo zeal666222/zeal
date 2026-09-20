@@ -5,9 +5,9 @@
 // Subscribes to user:{id}:notifications via @zeal/realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback } from "react";
-import { useAppStore } from "@/lib/store/appStore";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useCallback} from "react";
+import {useAppStore} from "@/lib/store/appStore";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 interface NotificationRow {
   id?: string;

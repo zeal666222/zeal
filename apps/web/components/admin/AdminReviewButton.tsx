@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { reviewConsultantApplication } from "@/actions/admin";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {useState} from "react";
+import {reviewConsultantApplication} from "@/actions/admin";
+import {CheckCircle2, XCircle, Loader2} from "lucide-react";
+import {useRouter} from "next/navigation";
 
 export function AdminReviewButton({ appId, userId }: { appId: string; userId: string }) {
   const [loading, setLoading] = useState(false);

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Clock, ChevronRight } from "lucide-react";
+import {motion} from "framer-motion";
+import {Clock, ChevronRight} from "lucide-react";
 
 interface PendingRequestsProps {
   count: number;

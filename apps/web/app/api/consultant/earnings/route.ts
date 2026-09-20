@@ -1,7 +1,7 @@
 // apps/web/app/api/consultant/earnings/route.ts
 // Returns wallet balance + recent transactions for the current consultant
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

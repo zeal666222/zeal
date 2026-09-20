@@ -4,11 +4,11 @@
 // AI Astrologer Detail — Start Chat wires to conversation RPC
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { ArrowLeft, Sparkles, Zap, Star, Loader2, AlertCircle } from "lucide-react";
-import { Button, Badge, Card, CardContent } from "@zeal/ui";
+import {useParams, useRouter} from "next/navigation";
+import {useEffect, useState} from "react";
+import {motion} from "framer-motion";
+import {ArrowLeft, Sparkles, Zap, Star, Loader2, AlertCircle} from "lucide-react";
+import {Button, Badge, Card, CardContent} from "@zeal/ui";
 import Link from "next/link";
 
 interface AIDetail {
@@ -158,9 +158,9 @@ export default function AIAstrologerDetailPage() {
 
             {ai.specialties && ai.specialties.length > 0 && (
               <div className="mt-4 w-full text-left">
-                <h3 className="text-sm font-medium text-[#5E4B8B] dark:text-white mb-2">
+                <h2 className="text-sm font-medium text-[#5E4B8B] dark:text-white mb-2">
                   Specialties
-                </h3>
+                </h2>
                 <div className="flex flex-wrap gap-2">
                   {ai.specialties.map((s: string) => (
                     <Badge key={s} variant="outline" className="text-xs">

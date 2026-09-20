@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import {useState, useEffect} from "react";
+import {motion} from "framer-motion";
+import {ChevronLeft, ChevronRight, Loader2} from "lucide-react";
 
 interface TimeSlot {
   start: string;

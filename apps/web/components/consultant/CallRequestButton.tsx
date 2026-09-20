@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { requestConsultationSession } from "@/actions/discovery";
-import { Video, Loader2, PhoneCall } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {useState} from "react";
+import {requestConsultationSession} from "@/actions/discovery";
+import {Video, Loader2, PhoneCall} from "lucide-react";
+import {useRouter} from "next/navigation";
 
 export function CallRequestButton({ consultantId }: { consultantId: string }) {
   const [loading, setLoading] = useState(false);

@@ -5,8 +5,8 @@
 // Subscribes to consultant:ai:updates via @zeal/realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 export interface AiConsultant {
   id: string;

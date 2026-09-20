@@ -1,0 +1,113 @@
+apps/admin/app/api/chat/ai/[consultantId]/route.ts	POST 	yes
+apps/admin/app/api/consultant/availability/route.ts	GET PUT 	yes
+apps/admin/app/api/consultant/bookings/route.ts	GET 	yes
+apps/admin/app/api/consultant/chat/[id]/messages/route.ts	GET POST 	yes
+apps/admin/app/api/consultant/chat/[id]/read/route.ts	POST 	yes
+apps/admin/app/api/consultant/chat/conversations/route.ts	GET 	yes
+apps/admin/app/api/consultant/clients/route.ts	GET 	yes
+apps/admin/app/api/consultant/earnings/route.ts	GET 	yes
+apps/admin/app/api/consultant/online/route.ts	POST 	yes
+apps/admin/app/api/consultant/profile/route.ts	PATCH 	yes
+apps/admin/app/api/consultant/pulse/route.ts	GET 	yes
+apps/admin/app/api/consultant/withdraw/route.ts	POST 	yes
+apps/admin/app/api/error-log/route.ts	POST 	no
+apps/admin/app/api/health/route.ts	GET 	no
+apps/web/app/api/admin/ai-consultants/[id]/route.ts	PUT DELETE 	yes
+apps/web/app/api/admin/ai-consultants/route.ts	GET POST 	yes
+apps/web/app/api/admin/audit/route.ts	GET 	no
+apps/web/app/api/admin/bookings/[id]/route.ts	PUT 	yes
+apps/web/app/api/admin/bookings/route.ts	GET 	yes
+apps/web/app/api/admin/broadcast/route.ts	POST 	yes
+apps/web/app/api/admin/consultants/[id]/stats/route.ts	GET 	no
+apps/web/app/api/admin/consultants/route.ts	GET POST 	yes
+apps/web/app/api/admin/content/reports/route.ts	GET POST 	no
+apps/web/app/api/admin/impersonate/route.ts	POST 	yes
+apps/web/app/api/admin/invites/route.ts	POST 	yes
+apps/web/app/api/admin/platform-fee/route.ts	GET POST 	yes
+apps/web/app/api/admin/recordings/[id]/send/route.ts	POST 	no
+apps/web/app/api/admin/recordings/route.ts	GET 	yes
+apps/web/app/api/admin/settings/route.ts	GET PUT 	yes
+apps/web/app/api/admin/stats/route.ts	GET 	yes
+apps/web/app/api/admin/stats/timeseries/route.ts	GET 	no
+apps/web/app/api/admin/users/route.ts	GET POST 	yes
+apps/web/app/api/admin/verification/route.ts	GET POST 	yes
+apps/web/app/api/admin/wallet/route.ts	GET 	yes
+apps/web/app/api/admin/wallet/topup/route.ts	POST 	no
+apps/web/app/api/admin/wallet/transactions/route.ts	GET 	no
+apps/web/app/api/admin/withdrawals/route.ts	GET POST 	yes
+apps/web/app/api/ai/assist/route.ts	POST 	yes
+apps/web/app/api/ai/astrologers/route.ts	GET 	no
+apps/web/app/api/ai/consultants/[id]/route.ts	GET 	no
+apps/web/app/api/ai/consultants/route.ts	GET 	no
+apps/web/app/api/ai/horoscope/route.ts	POST 	yes
+apps/web/app/api/ai/kundali/route.ts	POST 	yes
+apps/web/app/api/ai/matchmaking/route.ts	POST 	no
+apps/web/app/api/ai/numerology/route.ts	POST 	yes
+apps/web/app/api/ai/palmistry/route.ts	POST 	no
+apps/web/app/api/ai/route.ts	POST 	yes
+apps/web/app/api/ai/tarot/route.ts	POST 	yes
+apps/web/app/api/auth/accept-invite/route.ts	POST 	no
+apps/web/app/api/auth/signout/route.ts	POST 	yes
+apps/web/app/api/auth/sync-user/route.ts	POST 	no
+apps/web/app/api/auth/verify-invite/route.ts	GET 	no
+apps/web/app/api/billing/instamojo/route.ts	POST 	yes
+apps/web/app/api/bookings/[id]/cancel/route.ts	POST 	yes
+apps/web/app/api/bookings/[id]/confirm/route.ts	POST 	yes
+apps/web/app/api/bookings/[id]/rate/route.ts	POST 	yes
+apps/web/app/api/bookings/[id]/reschedule/route.ts	POST 	yes
+apps/web/app/api/bookings/[id]/route.ts	GET DELETE 	yes
+apps/web/app/api/bookings/availability/route.ts	GET 	yes
+apps/web/app/api/bookings/list/route.ts	GET 	yes
+apps/web/app/api/bookings/route.ts	POST 	yes
+apps/web/app/api/chat/[id]/messages/route.ts	GET POST 	yes
+apps/web/app/api/chat/[id]/read/route.ts	POST 	yes
+apps/web/app/api/chat/[id]/route.ts	GET 	yes
+apps/web/app/api/chat/ai/[consultantId]/route.ts	POST 	yes
+apps/web/app/api/chat/conversations/route.ts	GET POST 	yes
+apps/web/app/api/chat/groq/route.ts	POST 	yes
+apps/web/app/api/consultant/availability/route.ts	GET PUT 	yes
+apps/web/app/api/consultant/bookings/route.ts	GET 	yes
+apps/web/app/api/consultant/clients/route.ts	GET 	yes
+apps/web/app/api/consultant/earnings/route.ts	GET 	yes
+apps/web/app/api/consultant/onboarding/route.ts	POST 	no
+apps/web/app/api/consultant/online/route.ts	POST 	yes
+apps/web/app/api/consultant/profile/route.ts	PATCH 	yes
+apps/web/app/api/consultant/pulse/route.ts	GET 	yes
+apps/web/app/api/cron/alerting/route.ts	GET 	no
+apps/web/app/api/cron/reminders/route.ts	GET 	no
+apps/web/app/api/debug/log/route.ts	POST 	yes
+apps/web/app/api/error-log/route.ts	POST 	no
+apps/web/app/api/explore/consultants/route.ts	GET 	no
+apps/web/app/api/explore/search/route.ts	GET 	yes
+apps/web/app/api/explore/trending/route.ts	GET 	yes
+apps/web/app/api/health/route.ts	GET 	no
+apps/web/app/api/notifications/[id]/read/route.ts	POST 	yes
+apps/web/app/api/notifications/read-all/route.ts	POST 	yes
+apps/web/app/api/notifications/route.ts	GET PUT 	yes
+apps/web/app/api/notifications/unread-count/route.ts	GET 	yes
+apps/web/app/api/posts/[id]/cheer/route.ts	POST 	yes
+apps/web/app/api/posts/[id]/comments/route.ts	GET POST 	yes
+apps/web/app/api/posts/[id]/report/route.ts	POST 	yes
+apps/web/app/api/posts/[id]/route.ts	GET 	yes
+apps/web/app/api/posts/create/route.ts	POST 	yes
+apps/web/app/api/posts/feed/route.ts	GET 	yes
+apps/web/app/api/realtime/publish/route.ts	POST 	yes
+apps/web/app/api/realtime/token/route.ts	POST 	yes
+apps/web/app/api/socket/route.ts	GET 	no
+apps/web/app/api/sparks/claim/route.ts	POST 	yes
+apps/web/app/api/sparks/feed/route.ts	GET 	yes
+apps/web/app/api/trpc/[trpc]/route.ts	GET POST 	no
+apps/web/app/api/upload/route.ts	POST 	yes
+apps/web/app/api/users/[id]/block/route.ts	POST DELETE 	yes
+apps/web/app/api/users/[id]/follow/route.ts	POST DELETE 	yes
+apps/web/app/api/users/[id]/posts/route.ts	GET 	yes
+apps/web/app/api/users/[id]/profile/route.ts	GET POST PUT 	yes
+apps/web/app/api/users/me/delete/route.ts	POST 	yes
+apps/web/app/api/users/me/export/route.ts	GET 	yes
+apps/web/app/api/users/me/profile/route.ts	GET 	yes
+apps/web/app/api/wallet/balance/route.ts	GET 	yes
+apps/web/app/api/wallet/topup/route.ts	POST 	yes
+apps/web/app/api/wallet/transactions/route.ts	GET 	yes
+apps/web/app/api/wallet/webhooks/instamojo/route.ts	POST 	no
+apps/web/app/api/zeal/categories/route.ts	GET 	no
+apps/web/app/api/zeal/chat/route.ts	POST 	yes

@@ -1,7 +1,7 @@
 // apps/admin/app/api/consultant/chat/conversations/route.ts
-import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { fetchConsultantConversations } from "@/lib/chat/fetch-conversations";
+import {NextResponse} from "next/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {fetchConsultantConversations} from "@/lib/chat/fetch-conversations";
 
 export const dynamic = "force-dynamic";
 

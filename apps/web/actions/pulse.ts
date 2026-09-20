@@ -1,5 +1,5 @@
 "use server";
-import { createClient } from "@zeal/database/server";
+import {createClient} from "@zeal/database/server";
 
 export async function executeConsultationPulse(consultationId: string) {
   try {

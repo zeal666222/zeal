@@ -1,0 +1,6 @@
+packages/ui/package.json
+packages/ui/src/index.ts
+apps/web/app/layout.tsx
+apps/admin/app/layout.tsx
+packages/ui/src/skeleton.tsx
+apps/web/app/services/page.tsx

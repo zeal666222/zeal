@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Button } from "@zeal/ui";
+import {Button} from "@zeal/ui";
 
 export default function AdminGlobalError({
   error,

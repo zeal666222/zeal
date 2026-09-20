@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

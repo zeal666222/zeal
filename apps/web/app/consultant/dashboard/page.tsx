@@ -1,6 +1,6 @@
-import { createServerClientFromCookies, evaluateConsultantProfile } from "@zeal/database/server";
-import { redirect } from "next/navigation";
-import { StudioClient } from "@/components/consultant/StudioClient";
+import {createServerClientFromCookies, evaluateConsultantProfile} from "@zeal/database/server";
+import {redirect} from "next/navigation";
+import {StudioClient} from "@/components/consultant/StudioClient";
 
 export const dynamic = "force-dynamic";
 

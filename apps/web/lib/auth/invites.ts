@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "crypto";
-import { createClient } from "@supabase/supabase-js";
+import {createClient} from "@supabase/supabase-js";
 import type { AdminRole } from "./roles";
 
 const INVITE_TTL_HOURS = 72;

@@ -4,8 +4,8 @@
 // usePresence — Room presence
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useState } from "react";
-import { usePresence as useZealPresence } from "@zeal/realtime";
+import {useState} from "react";
+import {usePresence as useZealPresence} from "@zeal/realtime";
 
 interface PresenceEntry {
   online_at: string;

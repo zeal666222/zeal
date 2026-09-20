@@ -5,8 +5,8 @@
 // Subscribes to room:{id}:messages via @zeal/realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 export interface ChatMessage {
   id: string;

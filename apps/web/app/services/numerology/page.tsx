@@ -2,9 +2,9 @@
 
 // Numerology — uses unified /api/ai?task=numerology (cached 24h)
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Hash, Sparkles, Loader2 } from "lucide-react";
+import {useState} from "react";
+import {motion} from "framer-motion";
+import {Hash, Sparkles, Loader2} from "lucide-react";
 
 export default function NumerologyPage() {
   const [fullName, setFullName] = useState("");
@@ -58,7 +58,7 @@ export default function NumerologyPage() {
                 type="text"
                 required
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl outline-none text-white focus:border-amber-500"
               />
             </div>
@@ -70,7 +70,7 @@ export default function NumerologyPage() {
                 type="date"
                 required
                 value={dob}
-                onChange={(e) => setDob(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDob(e.target.value)}
                 className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl outline-none text-white focus:border-amber-500"
               />
             </div>
@@ -91,9 +91,9 @@ export default function NumerologyPage() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-slate-900/60 backdrop-blur-xl border border-white/10 p-8 sm:p-12 rounded-3xl shadow-2xl space-y-6"
           >
-            <h3 className="text-2xl font-bold flex items-center gap-2 text-white">
+            <h2 className="text-2xl font-bold flex items-center gap-2 text-white">
               <Sparkles className="text-amber-500" /> {fullName}&apos;s Matrix
-            </h3>
+            </h2>
             <p className="text-slate-300 font-light leading-relaxed whitespace-pre-line">
               {analysis}
             </p>

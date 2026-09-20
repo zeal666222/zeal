@@ -1,19 +1,19 @@
-// apps/admin/app/consultant/layout.tsx
-import { redirect } from "next/navigation";
-import {
-  createServerClientFromCookies,
-  evaluateConsultantProfile,
-} from "@zeal/database/server";
-import { WorkspaceSidebar } from "@/components/consultant/WorkspaceSidebar";
+import {redirect} from "next/navigation";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {AppShell} from "@/components/consultant/AppShell";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Consultant Studio | Zeal" };
 
-interface UserRow { id: string; name: string | null; email: string | null; avatar_url: string | null; role: string }
-interface ConsultantRow {
-  id: string; status: string; subdomain: string | null; isActive: boolean;
-  bio: string | null; perMinuteRate: number | null; specialties: string[] | null;
-  languages: string[] | null; availability: unknown; category: string | null;
+function evaluateCompleteness(c: any): number {
+  let s = 0;
+  if ((c.bio ?? "").trim().length >= 20) s += 25;
+  if ((c.perMinuteRate ?? 0) >= 10) s += 15;
+  if ((c.specialties ?? []).length >= 1) s += 15;
+  if ((c.languages ?? []).length >= 1) s += 10;
+  if (c.category) s += 5;
+  const av = c.availability;
+  if (av && typeof av === "object" && Object.values(av).some((b: any) => Array.isArray(b) && b.length > 0)) s += 30;
+  return s;
 }
 
 export default async function ConsultantLayout({ children }: { children: React.ReactNode }) {
@@ -22,48 +22,37 @@ export default async function ConsultantLayout({ children }: { children: React.R
   if (!user) redirect("/login?redirectedFrom=/consultant/dashboard");
 
   const [profileRes, consultantRes] = await Promise.all([
-    supabase.from("User").select("id, name, email, avatar_url, role").eq("id", user.id).maybeSingle(),
-    supabase.from("Consultant")
-      .select("id, status, subdomain, isActive, bio, perMinuteRate, specialties, languages, availability, category")
-      .eq("userId", user.id).maybeSingle(),
+    supabase.from("User").select("id, name, email, avatar, role, is_online").eq("id", user.id).maybeSingle(),
+    supabase.from("Consultant").select("id, status, subdomain, isActive, bio, perMinuteRate, specialties, languages, availability, category").eq("userId", user.id).maybeSingle(),
   ]);
 
-  const profile = profileRes.data as UserRow | null;
-  const consultant = consultantRes.data as ConsultantRow | null;
+  let consultant = consultantRes.data;
+  if (!consultant) {
+    await supabase.rpc("self_heal_user");
+    consultant = (await supabase.from("Consultant").select("id, status, subdomain, isActive, bio, perMinuteRate, specialties, languages, availability, category").eq("userId", user.id).maybeSingle()).data;
+  }
+  if (!consultant) redirect("/login");
 
-  if (!consultant) redirect("/register?type=consultant");
-  if (consultant.status === "SUSPENDED") redirect("/login?error=suspended");
+  const pending = await supabase
+    .from("Booking")
+    .select("*", { count: "exact", head: true })
+    .eq("consultantId", consultant.id)
+    .eq("status", "PENDING");
 
-  const { count: pendingCount } = await supabase
-    .from("Booking").select("*", { count: "exact", head: true })
-    .eq("consultantId", consultant.id).eq("status", "PENDING");
-
-  const completeness = evaluateConsultantProfile({
-    bio: consultant.bio,
-    perMinuteRate: consultant.perMinuteRate,
-    specialties: consultant.specialties,
-    languages: consultant.languages,
-    availability: consultant.availability,
-    category: consultant.category,
-  });
+  const profile = profileRes.data;
+  const score = evaluateCompleteness(consultant);
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50">
-      <WorkspaceSidebar
-        user={{
-          name: profile?.name ?? null,
-          email: profile?.email ?? null,
-          avatar: profile?.avatar_url ?? null,
-        }}
-        consultant={{ status: consultant.status, subdomain: consultant.subdomain }}
-        completeness={completeness}
-        pendingBookings={pendingCount ?? 0}
-      />
-      <main className="lg:ml-64 min-h-screen-app pb-20 lg:pb-8">
-        <div className="pt-14 lg:pt-0">
-          <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">{children}</div>
-        </div>
-      </main>
-    </div>
+    <AppShell
+      user={{ name: profile?.name ?? null, email: profile?.email ?? user.email ?? "", avatar: profile?.avatar ?? null }}
+      role={(profile?.role as any) ?? "CLIENT_ADMIN"}
+      subdomain={consultant.subdomain}
+      completeness={score}
+      isLive={score >= 60 && consultant.status === "VERIFIED"}
+      pendingBookings={pending.count ?? 0}
+      online={Boolean(profile?.is_online)}
+    >
+      {children}
+    </AppShell>
   );
 }

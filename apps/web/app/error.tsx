@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
-import { AlertCircle, RefreshCw } from "lucide-react";
-import { Button } from "@zeal/ui";
+import {motion} from "framer-motion";
+import {AlertCircle, RefreshCw} from "lucide-react";
+import {Button} from "@zeal/ui";
 
 export default function Error({
   error,

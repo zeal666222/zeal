@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, Phone, Video, Users, ChevronLeft, ChevronRight, Check, Loader2 } from "lucide-react";
-import { SlotPicker } from "./SlotPicker";
-import { formatCurrency } from "@zeal/utils";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {motion, AnimatePresence} from "framer-motion";
+import {MessageCircle, Phone, Video, Users, ChevronLeft, ChevronRight, Check, Loader2} from "lucide-react";
+import {SlotPicker} from "./SlotPicker";
+import {formatCurrency} from "@zeal/utils";
 
 type Modality = "chat" | "audio" | "video" | "physical";
 

@@ -1,17 +1,13 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
-import {
-  LayoutDashboard, Users, UserCog, Calendar, Video,
-  Wallet, CreditCard, Settings, LogOut, Shield, BarChart3,
-  Megaphone, Menu, X, Flag, UserPlus,
-} from "lucide-react";
-import { cn } from "@zeal/ui";
-import { useAuth } from "@/components/providers/SupabaseAuthProvider";
-import { useAdminStore, type AdminRole } from "@/lib/store/adminStore";
-import { Avatar, AvatarImage, AvatarFallback } from "@zeal/ui";
+import {usePathname, useRouter} from "next/navigation";
+import {motion, AnimatePresence} from "framer-motion";
+import {useEffect, useState} from "react";
+import {LayoutDashboard, Users, UserCog, Calendar, Video, Wallet, CreditCard, Settings, LogOut, Shield, BarChart3, Megaphone, Menu, X, Flag, UserPlus} from "lucide-react";
+import {cn} from "@zeal/ui";
+import {useAuth} from "@/components/providers/SupabaseAuthProvider";
+import {useAdminStore, type AdminRole} from "@/lib/store/adminStore";
+import {Avatar, AvatarImage, AvatarFallback} from "@zeal/ui";
 
 interface NavItem {
   icon: typeof LayoutDashboard;

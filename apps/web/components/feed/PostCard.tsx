@@ -1,10 +1,10 @@
 "use client";
-import { useState, useCallback } from "react";
+import {useState, useCallback} from "react";
 import Link from "next/link";
-import { Heart, MessageCircle, Share2, Flag } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { motion } from "framer-motion";
-import { Avatar, AvatarImage, AvatarFallback } from "@zeal/ui";
+import {Heart, MessageCircle, Share2, Flag} from "lucide-react";
+import {formatDistanceToNow} from "date-fns";
+import {motion} from "framer-motion";
+import {Avatar, AvatarImage, AvatarFallback} from "@zeal/ui";
 
 export interface PostCardData {
   id: string;

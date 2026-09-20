@@ -5,12 +5,12 @@
 // Theme: dark slate + Zeal purple. Mobile-first.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useState } from "react";
+import {useState} from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Search, Sparkles, MessageCircle, Edit3, ChevronRight } from "lucide-react";
-import { useConversations, type ConversationItem } from "@/hooks/useConversations";
-import { cn } from "@zeal/ui";
+import {usePathname} from "next/navigation";
+import {Search, Sparkles, MessageCircle, Edit3, ChevronRight} from "lucide-react";
+import {useConversations, type ConversationItem} from "@/hooks/useConversations";
+import {cn} from "@zeal/ui";
 
 interface Props {
   currentUserId: string;
@@ -70,7 +70,7 @@ export function InstagramInboxList({ currentUserId, initialConversations }: Prop
             type="text"
             placeholder="Search Direct Messages..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-slate-900/90 border border-white/5 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-[#9D7DC5]/50 transition-colors"
           />
         </div>
@@ -154,10 +154,10 @@ export function InstagramInboxList({ currentUserId, initialConversations }: Prop
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1 mb-0.5">
-                    <h3 className="text-sm font-bold text-slate-200 truncate flex items-center gap-1.5">
+                    <h2 className="text-sm font-bold text-slate-200 truncate flex items-center gap-1.5">
                       {conv.partnerName}
                       {conv.isAI && <Sparkles size={12} className="text-[#9D7DC5] shrink-0" />}
-                    </h3>
+                    </h2>
                     <span className="text-[11px] text-slate-500 shrink-0">
                       {formatRelative(conv.lastMessageTime)}
                     </span>

@@ -1,7 +1,7 @@
 'use client';
-import { useScrollReveal } from '@/hooks/useScrollReveal';
-import { cn } from '@zeal/ui';
-import { ReactNode } from 'react';
+import {useScrollReveal} from '@/hooks/useScrollReveal';
+import {cn} from '@zeal/ui';
+import {type ReactNode} from 'react';
 
 interface ScrollRevealProps {
   children: ReactNode;

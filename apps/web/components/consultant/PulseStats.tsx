@@ -1,8 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { Calendar, Radio, Clock, DollarSign } from "lucide-react";
-import { formatCurrency } from "@zeal/utils";
+import {motion} from "framer-motion";
+import {Calendar, Radio, Clock, DollarSign} from "lucide-react";
+import {formatCurrency} from "@zeal/utils";
 
 interface PulseStatsProps {
   data?: {

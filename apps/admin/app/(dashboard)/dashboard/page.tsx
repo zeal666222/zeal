@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Users, UserCog, Calendar, DollarSign, Radio, AlertCircle } from "lucide-react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useCallback} from "react";
+import {useQuery, useQueryClient} from "@tanstack/react-query";
+import {motion} from "framer-motion";
+import {Users, UserCog, Calendar, DollarSign, Radio, AlertCircle} from "lucide-react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 interface Stats {
   users: number;

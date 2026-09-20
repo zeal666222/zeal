@@ -4,15 +4,8 @@
 // @zeal/realtime — React Hooks
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState } from "react";
-import {
-  getConnectionState,
-  onConnectionStateChange,
-  subscribe,
-  subscribePresence,
-  type ConnectionState,
-  type PresenceHandle,
-} from "./client";
+import {useEffect, useRef, useState} from "react";
+import {getConnectionState, onConnectionStateChange, subscribe, subscribePresence, type ConnectionState, type PresenceHandle} from "./client";
 
 // ─── useConnection ────────────────────────────────────────────────────────────
 export function useConnection(): ConnectionState {

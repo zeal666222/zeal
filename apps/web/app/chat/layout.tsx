@@ -4,10 +4,10 @@
 // Fetches conversations via typed helper; hands off to ChatShell
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { redirect } from "next/navigation";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { ChatShell } from "./ChatShell";
-import { fetchUserConversations } from "@/lib/chat/fetch-conversations";
+import {redirect} from "next/navigation";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {ChatShell} from "./ChatShell";
+import {fetchUserConversations} from "@/lib/chat/fetch-conversations";
 
 export const dynamic = "force-dynamic";
 

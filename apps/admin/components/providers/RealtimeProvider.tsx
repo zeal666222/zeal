@@ -1,53 +1,39 @@
 "use client";
-
-import { createContext, useContext, useEffect, type ReactNode } from "react";
-import {
-  useChannel, useConnection, channels,
-  type BroadcastChange, type ConnectionState,
-} from "@zeal/realtime";
-import { useAdminStore } from "@/lib/store/adminStore";
+import {createContext, useContext, useEffect, type ReactNode} from "react";
+import {useChannel, useConnection, channels, type BroadcastChange, type ConnectionState} from "@zeal/realtime";
+import {useAdminStore} from "@/lib/store/adminStore";
 
 interface Ctx { connectionState: ConnectionState; isConnected: boolean; }
 const RealtimeContext = createContext<Ctx>({ connectionState: "disconnected", isConnected: false });
 export const useAdminRealtimeCtx = () => useContext(RealtimeContext);
 
-interface NotificationRow {
-  id?: string; type?: string; message?: string; redirectUrl?: string | null;
-  actorId?: string; actorName?: string | null; actorAvatar?: string | null;
-}
+interface NotifRow { id?: string; type?: string; message?: string; redirectUrl?: string | null; actorId?: string; actorName?: string | null; actorAvatar?: string | null; }
 
 export function RealtimeProvider({ children }: { children: ReactNode }) {
-  const connectionState = useConnection();
+  const cs = useConnection();
   const profile = useAdminStore((s) => s.profile);
-  const setSocketConnected = useAdminStore((s) => s.setSocketConnected);
+  const setConnected = useAdminStore((s) => s.setSocketConnected);
   const addNotification = useAdminStore((s) => s.addNotification);
+  const showIncoming = (useAdminStore as any)((s: any) => s.showIncomingAlert);
 
-  useEffect(() => {
-    setSocketConnected(connectionState === "connected");
-  }, [connectionState, setSocketConnected]);
+  useEffect(() => { setConnected(cs === "connected"); }, [cs, setConnected]);
 
-  useChannel<BroadcastChange<NotificationRow>>({
+  useChannel<BroadcastChange<NotifRow>>({
     channel: profile?.id ? channels.userNotifications(profile.id) : null,
     event: "*",
-    onMessage: (payload) => {
-      const row = payload?.record;
-      if (!row?.message) return;
+    onMessage: (p) => {
+      const r = p?.record;
+      if (!r?.message) return;
       addNotification({
-        id: row.id ?? `notif-${Date.now()}`,
-        type: (row.type as never) ?? "system",
-        message: row.message,
-        redirectUrl: row.redirectUrl ?? null,
-        read: false,
-        actorId: row.actorId ?? "system",
-        actorName: row.actorName ?? null,
-        actorAvatar: row.actorAvatar ?? null,
+        id: r.id ?? `notif-${Date.now()}`, type: (r.type as never) ?? "system",
+        message: r.message, redirectUrl: r.redirectUrl ?? null, read: false,
+        actorId: r.actorId ?? "system", actorName: r.actorName ?? null, actorAvatar: r.actorAvatar ?? null,
       });
+      if (r.type === "chat" || r.type === "call" || r.type === "booking") {
+        try { showIncoming?.({ id: r.id ?? `alert-${Date.now()}`, type: r.type, message: r.message, read: false }); } catch {}
+      }
     },
   });
 
-  return (
-    <RealtimeContext.Provider value={{ connectionState, isConnected: connectionState === "connected" }}>
-      {children}
-    </RealtimeContext.Provider>
-  );
+  return <RealtimeContext.Provider value={{ connectionState: cs, isConnected: cs === "connected" }}>{children}</RealtimeContext.Provider>;
 }

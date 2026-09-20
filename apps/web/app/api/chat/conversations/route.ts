@@ -5,8 +5,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { fetchUserConversations } from "@/lib/chat/fetch-conversations";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {fetchUserConversations} from "@/lib/chat/fetch-conversations";
 
 export const dynamic = "force-dynamic";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { logger, startTimer } from "./index";
+import {logger, startTimer} from "./index";
 
 /**
  * Client-side logger with page-aware helpers.

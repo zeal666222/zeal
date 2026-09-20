@@ -1,7 +1,7 @@
 'use client';
-import { Card, CardContent } from '@zeal/ui';
-import { LucideIcon } from 'lucide-react';
-import { cn } from '@zeal/ui';
+import {Card, CardContent} from '@zeal/ui';
+import {type LucideIcon} from 'lucide-react';
+import {cn} from '@zeal/ui';
 
 interface StatsCardProps {
   label: string;

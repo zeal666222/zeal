@@ -4,8 +4,8 @@
 // useConsultantRealtime — admin-side realtime for a specific consultant
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useState } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useCallback, useEffect, useState} from "react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 import type { PulseStats } from "@/components/shared/PulseGrid";
 
 interface IncomingAlert {

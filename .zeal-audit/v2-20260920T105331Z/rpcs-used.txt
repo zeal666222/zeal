@@ -1,0 +1,15 @@
+admin_timeseries
+cancel_booking
+check_booking_conflict
+check_rate_limit
+claim_quest
+credit_funds_safe
+delete_user_cascade
+hold_in_escrow_safe
+increment_spark
+process_withdrawal
+pulse_deduct_inr
+request_withdrawal
+self_heal_user
+toggle_cheer
+verify_consultant

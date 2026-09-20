@@ -5,9 +5,9 @@
 // Theme: dark slate + Zeal purple. Mobile-first.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { motion, AnimatePresence } from "framer-motion";
-import { Flame } from "lucide-react";
-import { cn } from "@zeal/ui";
+import {motion, AnimatePresence} from "framer-motion";
+import {Flame} from "lucide-react";
+import {cn} from "@zeal/ui";
 
 interface SparkBadgeProps {
   score: number;

@@ -1,46 +1,203 @@
 "use client";
+// ═══════════════════════════════════════════════════════════════════════════════
+// BottomNavBar — Home · Explore · [Morph Z] · Chat · Me
+// ═══════════════════════════════════════════════════════════════════════════════
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { Home, Compass, MessageCircle, User } from "lucide-react";
+import { AnimatedZealMark, cn } from "@zeal/ui";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import { useState, useEffect } from "react";
 
-export function BottomNavBar() {
-  const pathname = usePathname();
-
-  return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 h-20 sm:h-24 bg-slate-950/90 backdrop-blur-3xl border-t border-white/5 flex items-center justify-between px-4 sm:px-12 pb-safe">
-      
-      <NavIcon href="/" icon={Home} label="Home" currentPath={pathname} />
-      <NavIcon href="/explore" icon={Compass} label="Explore" currentPath={pathname} />
-
-      {/* CENTER: 9-Second Morphing 'Z' mapped to /services */}
-      <Link href="/services" className="relative -top-5 sm:-top-7 no-tap-highlight group">
-        <div className="btn-3d w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-700 border border-purple-400/50 flex items-center justify-center shadow-[0_0_30px_rgba(139,92,246,0.3)] morph-container">
-          <div className="relative w-8 h-8 flex items-center justify-center">
-            <div className="morph-line morph-line-1" />
-            <div className="morph-line morph-line-2" />
-            <div className="morph-line morph-line-3" />
-          </div>
-        </div>
-      </Link>
-
-      <NavIcon href="/chat" icon={MessageCircle} label="Chat" currentPath={pathname} />
-      <NavIcon href="/profile" icon={User} label="Profile" currentPath={pathname} />
-      
-    </div>
-  );
+interface MessageRow {
+  senderId?: string;
+  conversationId?: string;
+  createdAt?: string;
 }
 
-function NavIcon({ href, icon: Icon, label, currentPath }: { href: string, icon: any, label: string, currentPath: string }) {
-  const isActive = currentPath === href || (href !== '/' && currentPath.startsWith(href));
+function NavIcon({
+  href,
+  icon: Icon,
+  label,
+  active,
+  badge,
+}: {
+  href: string;
+  icon: typeof Home;
+  label: string;
+  active: boolean;
+  badge?: number;
+}) {
   return (
-    <Link href={href} className="flex flex-col items-center gap-1 group no-tap-highlight min-w-[60px]">
-      <div className={`p-2 rounded-xl transition-all duration-300 ${isActive ? 'bg-white/10 text-white scale-110 shadow-inner' : 'text-slate-500 group-hover:text-slate-300 group-active:scale-95'}`}>
-        <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className="drop-shadow-lg" />
-      </div>
-      <span className={`text-[9px] sm:text-[10px] font-bold tracking-wider uppercase transition-colors ${isActive ? 'text-white' : 'text-transparent group-hover:text-slate-500'}`}>
+    <Link
+      href={href}
+      className="relative flex flex-col items-center justify-center gap-0.5 min-w-[56px] h-full select-none"
+      aria-label={label}
+    >
+      {active && (
+        <motion.span
+          layoutId="bottomnav-active"
+          className="absolute -top-0.5 w-10 h-0.5 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD]"
+          transition={{ type: "spring", stiffness: 500, damping: 32 }}
+        />
+      )}
+      <motion.div
+        whileTap={{ scale: 0.82, rotate: active ? 0 : -8 }}
+        transition={{ type: "spring", stiffness: 500, damping: 18 }}
+        className="relative"
+      >
+        <Icon
+          size={22}
+          strokeWidth={active ? 2.5 : 1.8}
+          className={cn(
+            "transition-all duration-200",
+            active
+              ? "text-[var(--color-primary)] drop-shadow-[0_0_8px_rgba(157,125,197,0.5)]"
+              : "text-[var(--color-muted-foreground)]",
+          )}
+        />
+        {badge !== undefined && badge > 0 && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 600, damping: 18 }}
+            className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full
+                       bg-rose-500 text-white text-[9px] font-black
+                       flex items-center justify-center
+                       shadow-md shadow-rose-500/40"
+          >
+            {badge > 9 ? "9+" : badge}
+          </motion.span>
+        )}
+      </motion.div>
+      <span
+        className={cn(
+          "text-[9px] font-black uppercase tracking-wider transition-colors duration-200",
+          active ? "text-[var(--color-primary)]" : "text-[var(--color-muted-foreground)]",
+        )}
+      >
         {label}
       </span>
     </Link>
+  );
+}
+
+export function BottomNavBar({ userId }: { userId?: string | null }) {
+  const pathname = usePathname();
+  const [unreadChat, setUnreadChat] = useState(0);
+
+  useChannel<BroadcastChange<MessageRow>>({
+    channel: userId ? channels.userInbox(userId) : null,
+    event: "*",
+    onMessage: (p) => {
+      if (p?.record?.senderId && p.record.senderId !== userId) {
+        setUnreadChat((n) => Math.min(99, n + 1));
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (pathname?.startsWith("/chat")) setUnreadChat(0);
+  }, [pathname]);
+
+  return (
+    <motion.nav
+      initial={{ y: 72, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+      className="fixed bottom-0 left-0 right-0 z-50 h-20
+                 bg-[var(--color-surface)]/85 backdrop-blur-2xl
+                 border-t border-[var(--color-border)]
+                 flex items-center justify-around px-2"
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}
+    >
+      <NavIcon href="/" icon={Home} label="Home" active={pathname === "/"} />
+      <NavIcon
+        href="/explore"
+        icon={Compass}
+        label="Explore"
+        active={pathname?.startsWith("/explore") ?? false}
+      />
+
+      {/* ─── CENTER: morph Z button ─────────────────────────────────────── */}
+      <Link
+        href="/services"
+        className="relative -top-7 sm:-top-8 select-none"
+        aria-label="Services"
+      >
+        <motion.span
+          aria-hidden
+          className="absolute inset-0 rounded-2xl pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(157,125,197,0.35) 0%, rgba(83,58,253,0) 70%)",
+          }}
+          animate={{ scale: [1, 1.35, 1], opacity: [0.55, 0.15, 0.55] }}
+          transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        <motion.span
+          aria-hidden
+          className="absolute -inset-1 rounded-2xl opacity-70 pointer-events-none"
+          style={{
+            background:
+              "conic-gradient(from 0deg, #9D7DC5, #533AFD, #9D7DC5, #533AFD, #9D7DC5)",
+            filter: "blur(6px)",
+          }}
+          animate={{ rotate: 360 }}
+          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        />
+
+        <motion.div
+          whileHover={{ scale: 1.08, rotate: 3 }}
+          whileTap={{ scale: 0.88, rotate: -6 }}
+          transition={{ type: "spring", stiffness: 420, damping: 16 }}
+          className="relative w-16 h-16 sm:w-[68px] sm:h-[68px]
+                     rounded-2xl
+                     bg-gradient-to-br from-[#9D7DC5] via-[#7A5A9E] to-[#533AFD]
+                     border border-purple-400/40
+                     flex items-center justify-center
+                     shadow-[0_8px_24px_-6px_rgba(83,58,253,0.55),0_0_24px_-4px_rgba(157,125,197,0.55)]"
+        >
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-2xl
+                       bg-gradient-to-b from-white/15 to-transparent
+                       pointer-events-none"
+          />
+          <AnimatedZealMark
+            size={30}
+            glow={false}
+            variant="mono"
+            className="text-white relative z-10"
+          />
+        </motion.div>
+
+        <span
+          className="absolute -bottom-5 left-1/2 -translate-x-1/2
+                     text-[9px] font-black uppercase tracking-wider
+                     text-[var(--color-primary)]
+                     drop-shadow-[0_0_6px_rgba(157,125,197,0.4)]"
+        >
+          Services
+        </span>
+      </Link>
+
+      <NavIcon
+        href="/chat"
+        icon={MessageCircle}
+        label="Chat"
+        active={pathname?.startsWith("/chat") ?? false}
+        badge={unreadChat}
+      />
+      <NavIcon
+        href="/profile"
+        icon={User}
+        label="Me"
+        active={pathname?.startsWith("/profile") ?? false}
+      />
+    </motion.nav>
   );
 }

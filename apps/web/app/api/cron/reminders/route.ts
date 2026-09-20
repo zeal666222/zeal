@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@zeal/database/server";
-import { NotificationService } from "@/lib/notifications/service";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import {createAdminClient} from "@zeal/database/server";
+import {NotificationService} from "@/lib/notifications/service";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 

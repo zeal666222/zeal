@@ -1,11 +1,11 @@
-import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { Inter, JetBrains_Mono } from "next/font/google";
+import "@zeal/ui/tokens.css";
+import { ThemeProvider } from "@zeal/ui/theme";
 import { SupabaseAuthProvider } from "@/components/providers/SupabaseAuthProvider";
 import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
 import { QueryProvider } from "@/lib/query/provider";
 import "./globals.css";
 
-// Ensure this layout is always rendered dynamically (avoids
-// /_not-found prerender crash when providers need a request context)
 export const dynamic = "force-dynamic";
 
 export const metadata = {
@@ -13,26 +13,38 @@ export const metadata = {
   description: "Admin dashboard for Zeal platform",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+  preload: true,
+  fallback: ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-jetbrains",
+  preload: false,
+});
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="bg-gray-50 dark:bg-gray-900 antialiased">
+    <html lang="en" className={`${inter.variable} ${mono.variable}`} suppressHydrationWarning>
+      <body className="antialiased">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
-          enableSystem={false}
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange={false}
           themes={["light", "dark"]}
-          disableTransitionOnChange
         >
           <QueryProvider>
             <SupabaseAuthProvider>
-            <RealtimeProvider>
-              {children}
-            </RealtimeProvider>
+              <RealtimeProvider>
+                <div id="main-content">{children}</div>
+              </RealtimeProvider>
             </SupabaseAuthProvider>
           </QueryProvider>
         </ThemeProvider>
@@ -40,5 +52,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-// ADMIN_QUERY_FIX_APPLIED

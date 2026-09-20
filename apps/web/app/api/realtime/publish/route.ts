@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/auth";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { createClient } from "@supabase/supabase-js";
-import { z } from "zod";
+import {getUserId} from "@/lib/auth";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import {createClient} from "@supabase/supabase-js";
+import {z} from "zod";
 
 const PublishSchema = z.object({
   channel: z.string().min(1).max(200),

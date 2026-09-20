@@ -4,8 +4,8 @@
 // PulseGrid — Reusable stats grid for consultant + admin aggregate views
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { motion } from "framer-motion";
-import { Users, IndianRupee, Star, Flame, Radio } from "lucide-react";
+import {motion} from "framer-motion";
+import {Users, IndianRupee, Star, Flame, Radio} from "lucide-react";
 
 export interface PulseStats {
   sessions: number;

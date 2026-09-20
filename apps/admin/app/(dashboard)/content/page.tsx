@@ -1,8 +1,8 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { Flag, Check, X, Eye, Loader2, ExternalLink } from "lucide-react";
+import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {motion} from "framer-motion";
+import {Flag, Check, X, Eye, Loader2, ExternalLink} from "lucide-react";
 
 interface FlaggedPost {
   id: string;

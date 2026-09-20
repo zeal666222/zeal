@@ -3,7 +3,7 @@
 // When @sentry/nextjs is added later, swap the sink implementations below —
 // the public API (captureError, captureMessage, setUser, addBreadcrumb) stays the same.
 
-import { logger } from "@/lib/logger";
+import {logger} from "@/lib/logger";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 

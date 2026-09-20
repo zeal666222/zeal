@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, Suspense } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
-import { clientLogger } from "@/lib/logger/client";
+import {useEffect, useRef, Suspense} from "react";
+import {usePathname, useSearchParams} from "next/navigation";
+import {clientLogger} from "@/lib/logger/client";
 
 function LoggingInner() {
   const pathname = usePathname();

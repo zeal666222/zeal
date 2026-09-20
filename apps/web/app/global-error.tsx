@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { AlertCircle, RefreshCw } from "lucide-react";
-import { captureError } from "@/lib/observability";
+import {useEffect} from "react";
+import {AlertCircle, RefreshCw} from "lucide-react";
+import {captureError} from "@/lib/observability";
 
 export default function GlobalError({
   error,

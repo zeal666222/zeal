@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { useAppStore } from "@/lib/store/appStore";
+import {useState, useRef, useCallback} from "react";
+import {useAppStore} from "@/lib/store/appStore";
 
 export function useCall(bookingId: string) {
   const { wallet, setWallet } = useAppStore();

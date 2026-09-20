@@ -3,7 +3,7 @@
 // Rate-limited at the edge by Vercel. Body is logged, never persisted.
 // Server-side sink for client error reports. Non-authenticated: errors can
 // happen before login (e.g. handoff failure). Rate-limited at the edge.
-import { NextResponse } from "next/server";
+import {NextResponse} from "next/server";
 
 export const dynamic = "force-dynamic";
 

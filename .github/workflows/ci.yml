@@ -1,3 +1,10 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ZEAL — Continuous Integration (path-filtered)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Only runs the jobs that are relevant to the files that changed.
+# Uses npm cache + Turborepo Remote Cache when available.
+# ═══════════════════════════════════════════════════════════════════════════════
+
 name: CI
 
 on:
@@ -7,59 +14,130 @@ on:
     branches: [main]
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: "20"
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
 jobs:
-  type-check:
-    name: Type-check
+  detect-changes:
+    name: Detect changes
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      admin: ${{ steps.filter.outputs.admin }}
+      ui: ${{ steps.filter.outputs.ui }}
+      db: ${{ steps.filter.outputs.db }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'package.json'
+            admin:
+              - 'apps/admin/**'
+              - 'packages/**'
+              - 'package.json'
+            ui:
+              - 'packages/ui/**'
+            db:
+              - 'supabase/**'
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.admin == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
       - run: npm ci --legacy-peer-deps
-      - name: Type-check packages
-        run: |
-          for ws in packages/types packages/utils packages/ui packages/database packages/realtime; do
-            echo "→ $ws"
-            npm run type-check --workspace="$ws" --if-present || exit 1
-          done
-      - name: Type-check apps
-        run: |
-          npm run type-check --workspace=web
-          npm run type-check --workspace=admin
+      - run: npm run lint --if-present
+
+  typecheck:
+    name: Type-check
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci --legacy-peer-deps
+      - run: bash scripts/verify-packages.sh
+      - run: npm run type-check --workspaces --if-present
+
+  a11y:
+    name: Accessibility scan
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Run WCAG 2.2 AA scanner
+        run: python3 scripts/a11y/scan.py apps
 
   build:
     name: Build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: type-check
+    needs: [lint, typecheck, a11y]
+    if: needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.admin == 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
       - run: npm ci --legacy-peer-deps
-      - name: Build web
+      - run: npm run build
         env:
-          NEXT_PUBLIC_SUPABASE_URL: https://zyrunsnweznyrhuroduo.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cnVuc253ZXpueXJodXJvZHVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0OTc2MDgsImV4cCI6MjEwMzA3MzYwOH0.kOPtlaJvT0fnGYit6dG43rekXDin3HoinUNrFB8vtL0
-          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cnVuc253ZXpueXJodXJvZHVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQ5NzYwOCwiZXhwIjoyMTAzMDczNjA4fQ.b5rggzXRCyLeH9HP_-J_IbM4mMpCou6Rk9i0qU-ztiU
-          NEXT_PUBLIC_APP_URL: https://zeal-web-red.vercel.app
-          NEXT_PUBLIC_ADMIN_URL: https://zeal-admin-rose.vercel.app
-          NEXT_PUBLIC_REALTIME_ENABLED: "true"
-        run: npm run build --workspace=web
-      - name: Build admin
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://zyrunsnweznyrhuroduo.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cnVuc253ZXpueXJodXJvZHVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc0OTc2MDgsImV4cCI6MjEwMzA3MzYwOH0.kOPtlaJvT0fnGYit6dG43rekXDin3HoinUNrFB8vtL0
-          SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cnVuc253ZXpueXJodXJvZHVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQ5NzYwOCwiZXhwIjoyMTAzMDczNjA4fQ.b5rggzXRCyLeH9HP_-J_IbM4mMpCou6Rk9i0qU-ztiU
-          NEXT_PUBLIC_APP_URL: https://zeal-web-red.vercel.app
-          NEXT_PUBLIC_ADMIN_URL: https://zeal-admin-rose.vercel.app
-          NEXT_PUBLIC_REALTIME_ENABLED: "true"
-        run: npm run build --workspace=admin
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_ADMIN_URL: ${{ secrets.NEXT_PUBLIC_ADMIN_URL }}
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ secrets.NEXT_PUBLIC_APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm i -g vercel@latest
+      - name: Deploy web
+        run: |
+          cd apps/web
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy admin
+        run: |
+          cd apps/admin
+          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+          vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Smoke test
+        run: bash scripts/smoke-test.sh "${{ secrets.NEXT_PUBLIC_APP_URL }}" "${{ secrets.NEXT_PUBLIC_ADMIN_URL }}"

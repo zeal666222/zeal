@@ -3,7 +3,7 @@
 // Legacy route — redirects to /chat/[id] (unified chat)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { redirect } from "next/navigation";
+import {redirect} from "next/navigation";
 
 export default async function SessionRoomPage({
   params,

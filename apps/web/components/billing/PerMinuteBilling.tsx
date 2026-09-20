@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { motion } from "framer-motion";
-import { Clock, AlertCircle } from "lucide-react";
-import { Badge, Button } from "@zeal/ui";
+import {motion} from "framer-motion";
+import {Clock, AlertCircle} from "lucide-react";
+import {Badge, Button} from "@zeal/ui";
 
 interface PerMinuteBillingProps {
   ratePerMinute: number;

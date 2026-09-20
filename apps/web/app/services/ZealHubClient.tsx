@@ -1,9 +1,10 @@
 "use client";
-import { motion } from "framer-motion";
-import { useAppStore } from "@/lib/store/appStore";
-import { ZealChat } from "@/components/zeal/ZealChat";
-import { CategoryAccordion } from "@/components/zeal/CategoryAccordion";
-import { Sparkles, Users, Brain, Heart, Star, Briefcase, Leaf } from "lucide-react";
+import {motion} from "framer-motion";
+import { useRouter } from "next/navigation";
+import {useAppStore} from "@/lib/store/appStore";
+import {ZealChat} from "@/components/zeal/ZealChat";
+import {CategoryAccordion} from "@/components/zeal/CategoryAccordion";
+import {Sparkles, Users, Brain, Heart, Star, Briefcase, Leaf} from "lucide-react";
 
 const featuredCategories = [
   { icon: Sparkles, label: "Astrology", color: "from-purple-400 to-pink-400" },
@@ -15,6 +16,7 @@ const featuredCategories = [
 ];
 
 export default function ZealHubClient() {
+  const router = useRouter();
   const { user } = useAppStore();
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-8">
@@ -33,9 +35,9 @@ export default function ZealHubClient() {
         </div>
         <div className="flex flex-wrap gap-2 mt-4 relative z-10">
           {featuredCategories.map((cat, idx) => (
-            <span key={idx} className={`text-xs px-3 py-1.5 rounded-full bg-gradient-to-r ${cat.color} text-white font-medium shadow-sm hover:scale-105 transition-transform cursor-pointer`} onClick={() => window.location.href = `/explore?category=${cat.label.toLowerCase()}`}>
+            <button type="button" key={idx} className={`text-xs px-3 py-1.5 rounded-full bg-gradient-to-r ${cat.color} text-white font-medium shadow-sm hover:scale-105 transition-transform cursor-pointer`} onClick={() => router.push(`/explore?category=${cat.label.toLowerCase()}`)} aria-label="Browse category">
               <cat.icon className="w-3 h-3 inline mr-1" />{cat.label}
-            </span>
+            </button>
           ))}
         </div>
         <div className="mt-6"><ZealChat /></div>

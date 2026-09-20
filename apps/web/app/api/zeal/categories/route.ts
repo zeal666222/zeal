@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { redis } from "@/lib/cache";
+import {redis} from "@/lib/cache";
 
 const CATEGORIES = [
   { id: "astrology", name: "Astrology & Divination", count: 12 },

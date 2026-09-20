@@ -1,0 +1,13 @@
+apps/web/next.config.js
+apps/admin/next.config.js
+apps/web/lib/ai/persona-loader.ts
+apps/web/lib/ai/index.ts
+apps/admin/lib/ai/persona-loader.ts
+apps/admin/lib/ai/index.ts
+packages/database/src/auth-handoff.ts
+apps/web/lib/ai/groq-client.ts
+apps/admin/lib/ai/groq-client.ts
+apps/web/lib/ai/router.ts
+apps/admin/lib/ai/router.ts
+apps/web/components/session/ChatInterface.tsx
+apps/admin/components/chat/ChatRoom.tsx

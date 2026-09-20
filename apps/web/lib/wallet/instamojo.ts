@@ -1,4 +1,4 @@
-import { AppError, HTTP_STATUS } from "@/lib/errors";
+import {AppError, HTTP_STATUS} from "@/lib/errors";
 import crypto from "crypto";
 
 const INSTAMOJO_API_URL =

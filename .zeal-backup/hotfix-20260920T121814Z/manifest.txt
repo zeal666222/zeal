@@ -1,0 +1,8 @@
+apps/web/next.config.js
+apps/admin/next.config.js
+apps/web/app/services/page.tsx
+apps/web/app/post/[id]/page.tsx
+apps/web/app/consultant/settings/page.tsx
+apps/web/components/shared/ConsultantProfile.tsx
+apps/web/components/zeal/CategoryAccordion.tsx
+apps/web/app/services/ZealHubClient.tsx

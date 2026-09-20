@@ -1,7 +1,7 @@
-import { getUserId } from "@/lib/auth";
+import {getUserId} from "@/lib/auth";
 import { NextResponse } from 'next/server';
-import { NotificationService } from '@/lib/notifications/service';
-import { withErrorHandler, AppError } from '@/lib/errors';
+import {NotificationService} from '@/lib/notifications/service';
+import {withErrorHandler, AppError} from '@/lib/errors';
 
 export const POST = withErrorHandler(async () => {
   const userId = await getUserId();

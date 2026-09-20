@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import {createServerClient} from "@supabase/ssr";
 
 const PUBLIC_ROUTES = [
   "/", "/explore", "/services", "/ai-astrologers", "/consultant", "/white-label",

@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState, memo } from "react";
-import { motion } from "framer-motion";
+import {useState, memo} from "react";
+import {motion} from "framer-motion";
 import type { ConsultantProfile } from "@zeal/types";
-import { Badge, Button } from "@zeal/ui";
-import { cn } from "@zeal/ui";
-import { useAppStoreShallow } from "@/lib/store/appStore";
-import { useRouter } from "next/navigation";
-import { Sparkles, Zap, Star, Clock, ChevronRight } from "lucide-react";
+import {Badge, Button} from "@zeal/ui";
+import {cn} from "@zeal/ui";
+import {useAppStoreShallow} from "@/lib/store/appStore";
+import {useRouter} from "next/navigation";
+import {Sparkles, Zap, Star, Clock, ChevronRight} from "lucide-react";
 
 interface ConsultantCardProps {
   consultant: ConsultantProfile;

@@ -1,8 +1,8 @@
 // apps/admin/components/admin/RealtimeIndicator.tsx
 "use client";
 
-import { useConnection, type ConnectionState } from "@zeal/realtime";
-import { cn } from "@zeal/ui";
+import {useConnection, type ConnectionState} from "@zeal/realtime";
+import {cn} from "@zeal/ui";
 
 const STYLE: Record<ConnectionState, { dot: string; label: string; text: string }> = {
   connected:    { dot: "bg-emerald-500",  label: "Live",         text: "text-emerald-400" },

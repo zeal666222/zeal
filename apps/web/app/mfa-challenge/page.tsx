@@ -4,12 +4,10 @@
 // MFA Challenge — promotes AAL1 → AAL2 for users with enrolled TOTP factors
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { Suspense, useEffect, useState, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { createClient } from "@zeal/database";
-import {
-  ShieldCheck, Loader2, KeyRound, AlertCircle, ArrowLeft,
-} from "lucide-react";
+import {Suspense, useEffect, useState, useRef} from "react";
+import {useRouter, useSearchParams} from "next/navigation";
+import {createClient} from "@zeal/database";
+import {ShieldCheck, Loader2, KeyRound, AlertCircle, ArrowLeft} from "lucide-react";
 import Link from "next/link";
 
 interface TOTPFactor {

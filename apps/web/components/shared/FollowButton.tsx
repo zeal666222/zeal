@@ -1,7 +1,7 @@
 "use client";
-import { useState, useCallback } from "react";
-import { Button } from "@zeal/ui";
-import { UserPlus, UserMinus, Loader2 } from "lucide-react";
+import {useState, useCallback} from "react";
+import {Button} from "@zeal/ui";
+import {UserPlus, UserMinus, Loader2} from "lucide-react";
 
 interface FollowButtonProps {
   userId: string;

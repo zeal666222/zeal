@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Loader2, Sparkles, Wifi } from "lucide-react";
-import { useAiConsultants, type AiConsultant } from "@/hooks/useAiConsultants";
+import {motion} from "framer-motion";
+import {Loader2, Sparkles, Wifi} from "lucide-react";
+import {useAiConsultants, type AiConsultant} from "@/hooks/useAiConsultants";
 
 function AiConsultantCard({
   consultant,

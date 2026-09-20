@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { serverPublish } from "@/lib/realtime/server";
-import { getUserId } from "@/lib/auth";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { generateMeetingLink } from "@/lib/livekit/room";
-import { NotificationService } from "@/lib/notifications/service";
+import {serverPublish} from "@/lib/realtime/server";
+import {getUserId} from "@/lib/auth";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import {generateMeetingLink} from "@/lib/livekit/room";
+import {NotificationService} from "@/lib/notifications/service";
 
 export const dynamic = "force-dynamic";
 

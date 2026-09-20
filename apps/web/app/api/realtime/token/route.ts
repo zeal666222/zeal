@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUserId } from "@/lib/auth";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import {getUserId} from "@/lib/auth";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
 import crypto from "crypto";
 
 export const POST = withErrorHandler(async () => {

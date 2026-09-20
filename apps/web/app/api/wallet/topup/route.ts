@@ -1,47 +1,68 @@
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /api/wallet/topup — create Instamojo payment request
+// ═══════════════════════════════════════════════════════════════════════════════
 import { NextResponse } from "next/server";
-import { createClient } from "@zeal/database/server";
+import { createServerClientFromCookies } from "@zeal/database/server";
+import { z } from "zod";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const BodySchema = z.object({
+  amount: z.number().int().min(10).max(100_000),
+});
 
 export async function POST(req: Request) {
+  // ─── Auth ────────────────────────────────────────────────────────────────
+  const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
+  }
+
+  // ─── Body ────────────────────────────────────────────────────────────────
+  let raw: unknown;
   try {
-    const supabase = await createClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    raw = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
 
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const parsed = BodySchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? "Invalid amount." },
+      { status: 422 },
+    );
+  }
 
-    const body = await req.json();
-    const { amount } = body;
+  const { amount } = parsed.data;
 
-    if (!amount || amount < 10) {
-      return NextResponse.json({ error: "Invalid amount. Minimum ₹10 required." }, { status: 400 });
-    }
+  const isProd = process.env.NODE_ENV === "production";
+  const endpoint = isProd
+    ? "https://www.instamojo.com/api/1.1/payment-requests/"
+    : "https://test.instamojo.com/api/1.1/payment-requests/";
 
-    const isProduction = process.env.NODE_ENV === "production";
-    const endpoint = isProduction 
-      ? "https://www.instamojo.com/api/1.1/payment-requests/" 
-      : "https://test.instamojo.com/api/1.1/payment-requests/";
+  const apiKey = process.env.INSTAMOJO_API_KEY;
+  const authToken = process.env.INSTAMOJO_AUTH_TOKEN;
 
-    const apiKey = process.env.INSTAMOJO_API_KEY;
-    const authToken = process.env.INSTAMOJO_AUTH_TOKEN;
-
-    // Fallback for development if keys are missing
-    if (!apiKey || !authToken) {
-      console.warn("Instamojo keys missing. Proceeding with mock URL for development.");
-      return NextResponse.json({ 
-        paymentUrl: `/wallet?mock_payment_success=true` 
-      });
-    }
-
-    const payload = new URLSearchParams({
-      purpose: "Wallet Topup",
-      amount: amount.toString(),
-      buyer_name: session.user.id,
-      redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/wallet`,
-      webhook: `${process.env.NEXT_PUBLIC_APP_URL}/api/wallet/webhooks/instamojo`,
-      allow_repeated_payments: "False",
+  if (!apiKey || !authToken) {
+    // Dev fallback — no gateway configured
+    return NextResponse.json({
+      paymentUrl: "/wallet?mock_payment_success=true",
     });
+  }
 
+  const payload = new URLSearchParams({
+    purpose: "Wallet Topup",
+    amount: amount.toString(),
+    buyer_name: user.id,
+    redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/wallet`,
+    webhook: `${process.env.NEXT_PUBLIC_APP_URL}/api/wallet/webhooks/instamojo`,
+    allow_repeated_payments: "False",
+  });
+
+  try {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -55,12 +76,19 @@ export async function POST(req: Request) {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.message || "Failed to create Instamojo payment request");
+      console.error("[wallet/topup] gateway error:", data);
+      return NextResponse.json(
+        { error: "Payment gateway is temporarily unavailable." },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({ paymentUrl: data.payment_request.longurl });
-  } catch (error: any) {
-    console.error("Topup Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (err) {
+    console.error("[wallet/topup] fatal:", err);
+    return NextResponse.json(
+      { error: "Payment gateway is temporarily unavailable." },
+      { status: 500 },
+    );
   }
 }

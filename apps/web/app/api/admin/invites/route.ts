@@ -1,6 +1,6 @@
 // apps/web/app/api/admin/invites/route.ts
 import { NextResponse } from "next/server";
-import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import {requireAdminAPI, logAdminAction} from "@/lib/auth/api-guard";
 import crypto from "crypto";
 
 export const dynamic = "force-dynamic";

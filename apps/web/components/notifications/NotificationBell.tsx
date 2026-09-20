@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Bell, BellDot, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
+import {useState} from "react";
+import {Bell, BellDot, Check} from "lucide-react";
+import {motion, AnimatePresence} from "framer-motion";
+import {formatDistanceToNow} from "date-fns";
 import Link from "next/link";
-import { useAppStore } from "@/lib/store/appStore";
+import {useAppStore} from "@/lib/store/appStore";
 
 export function NotificationBell() {
   const { notifications, markAllRead, unreadCount } = useAppStore();

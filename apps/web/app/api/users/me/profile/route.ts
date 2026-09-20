@@ -1,7 +1,7 @@
 // apps/web/app/api/users/me/profile/route.ts
 // Returns the current user's profile + wallet (used by /wallet page)
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

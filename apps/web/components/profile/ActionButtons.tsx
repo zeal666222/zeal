@@ -1,6 +1,10 @@
 "use client";
+// ═══════════════════════════════════════════════════════════════════════════════
+// ActionButtons — Book / Chat / Call
+// ═══════════════════════════════════════════════════════════════════════════════
 import { useState } from "react";
-import { BookOpen, MessageCircle, Phone } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { BookOpen, MessageCircle, Phone, Loader2 } from "lucide-react";
 import { BookingModal } from "./BookingModal";
 
 interface ActionButtonsProps {
@@ -10,24 +14,71 @@ interface ActionButtonsProps {
   isAvailable: boolean;
 }
 
-export function ActionButtons({ healerId, healerName, perMinuteRate, isAvailable }: ActionButtonsProps) {
+export function ActionButtons({
+  healerId,
+  healerName,
+  perMinuteRate,
+  isAvailable,
+}: ActionButtonsProps) {
+  const router = useRouter();
   const [showBooking, setShowBooking] = useState(false);
+  const [busy, setBusy] = useState<"chat" | "call" | null>(null);
+
+  const startChat = async () => {
+    setBusy("chat");
+    try {
+      const res = await fetch("/api/chat/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partnerId: healerId }),
+      });
+      if (!res.ok) throw new Error("chat");
+      const data = (await res.json()) as { conversationId?: string };
+      if (data.conversationId) router.push(`/chat/${data.conversationId}`);
+    } catch {
+      router.push(`/login?redirectedFrom=/consultant/${healerId}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const startCall = () => {
+    if (!isAvailable) return;
+    router.push(`/booking?consultantId=${healerId}&intent=call`);
+  };
 
   return (
     <>
-      <div className="flex items-center gap-3 mt-4 w-full max-w-xs">
+      <div className="flex flex-wrap items-center gap-3 mt-4 w-full max-w-lg">
         <button
+          type="button"
           onClick={() => setShowBooking(true)}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#9D7DC5] text-white rounded-xl hover:bg-[#533AFD] transition-all"
+          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[#9D7DC5] text-white rounded-xl hover:bg-[#533AFD] transition-all"
         >
           <BookOpen className="w-4 h-4" />
           Book {perMinuteRate > 0 && `(₹${perMinuteRate}/min)`}
         </button>
-        <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4E8F7] text-[#5E4B8B] rounded-xl hover:bg-[#E1C5E7] transition-all">
-          <MessageCircle className="w-4 h-4" />
+
+        <button
+          type="button"
+          onClick={startChat}
+          disabled={busy === "chat"}
+          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4E8F7] text-[#5E4B8B] rounded-xl hover:bg-[#E1C5E7] transition-all disabled:opacity-50"
+        >
+          {busy === "chat" ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <MessageCircle className="w-4 h-4" />
+          )}
           Chat
         </button>
-        <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4E8F7] text-[#5E4B8B] rounded-xl hover:bg-[#E1C5E7] transition-all">
+
+        <button
+          type="button"
+          onClick={startCall}
+          disabled={!isAvailable}
+          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4E8F7] text-[#5E4B8B] rounded-xl hover:bg-[#E1C5E7] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Phone className="w-4 h-4" />
           Call
         </button>

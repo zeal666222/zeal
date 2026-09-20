@@ -5,7 +5,7 @@
 // Flow: check balance → hold in escrow (atomic) → insert booking → notify consultant
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 interface InitiateResult {
   success: boolean;

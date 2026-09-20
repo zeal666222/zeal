@@ -1,0 +1,2 @@
+apps/web/lib/auth/api-guard.ts
+apps/admin/app/consultant/earnings/page.tsx

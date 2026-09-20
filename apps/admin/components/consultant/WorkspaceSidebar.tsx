@@ -1,15 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
-import {
-  LayoutDashboard, Calendar, Users, DollarSign, Clock, Palette,
-  Settings, LogOut, Menu, X, Copy, Check, MessageCircle,
-  type LucideIcon,
-} from "lucide-react";
-import { cn } from "@zeal/ui";
-import type { CompletenessReport } from "@zeal/database/server";
+import {usePathname, useRouter} from "next/navigation";
+import {useState} from "react";
+import {LayoutDashboard, Calendar, Users, DollarSign, Clock, Palette, Settings, LogOut, Menu, X, Copy, Check, MessageCircle, type LucideIcon} from "lucide-react";
+import {cn} from "@zeal/ui";
+import type { CompletenessReport } from "@zeal/types";
 
 interface NavItem {
   icon: LucideIcon;
@@ -140,7 +136,7 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
       </div>
       {open && (
         <>
-          <div onClick={() => setOpen(false)} className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+          <button type="button" aria-label="Close overlay" onClick={() => setOpen(false)} className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
           <aside className="lg:hidden fixed top-0 left-0 z-50 w-72 h-screen bg-slate-950 shadow-2xl">
             <button onClick={() => setOpen(false)} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/5" aria-label="Close menu">
               <X className="w-5 h-5 text-white" />

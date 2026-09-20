@@ -1,8 +1,8 @@
 "use client";
-import { motion } from "framer-motion";
-import { ConsultantCard } from "@/components/shared/ConsultantCard";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { UserX } from "lucide-react";
+import {motion} from "framer-motion";
+import {ConsultantCard} from "@/components/shared/ConsultantCard";
+import {EmptyState} from "@/components/shared/EmptyState";
+import {UserX} from "lucide-react";
 import type { ConsultantProfile } from "@zeal/types";
 
 interface ConsultantGridProps { consultants: ConsultantProfile[]; showActions?: boolean; }

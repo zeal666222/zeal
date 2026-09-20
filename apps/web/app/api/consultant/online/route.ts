@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies, evaluateConsultantProfile } from "@zeal/database/server";
+import {createServerClientFromCookies, evaluateConsultantProfile} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

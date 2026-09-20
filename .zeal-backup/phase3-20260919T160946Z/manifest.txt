@@ -1,0 +1,7 @@
+apps/web/lib/auth/api-guard.ts
+apps/admin/app/(dashboard)/layout.tsx
+apps/web/app/api/admin/ai-consultants/route.ts
+apps/admin/app/(dashboard)/ai-consultants/page.tsx
+apps/admin/app/consultant/earnings/page.tsx
+apps/web/app/api/admin/users/route.ts
+apps/web/app/bookings/page.tsx

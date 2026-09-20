@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Calendar, Clock, Video, Phone, MessageCircle } from "lucide-react";
+import {motion} from "framer-motion";
+import {Calendar, Clock, Video, Phone, MessageCircle} from "lucide-react";
 
 interface Booking {
   id: string;

@@ -1,27 +1,23 @@
 "use client";
-
 // ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL — Chat Interface
+// Chat interface — human + AI conversations with optional billed session
 // ═══════════════════════════════════════════════════════════════════════════════
-// Handles both human↔human and human↔AI conversations.
-//   • Human partner: send via /api/chat/[id]/messages
-//   • AI partner:    sendToAI (streams tokens) via /api/chat/ai/[consultantId]
-// ═══════════════════════════════════════════════════════════════════════════════
-
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Send, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Send, Loader2, ShieldCheck, Sparkles, AlertTriangle } from "lucide-react";
 import { useChat, type ChatMessage } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
+import { BillingPanel } from "./BillingPanel";
 import { cn } from "@zeal/ui";
 
-interface ChatInterfaceProps {
+interface Props {
   conversationId: string;
   currentUserId: string;
   partnerId: string;
   partnerName: string;
   partnerAvatar?: string | null;
   isAI?: boolean;
+  rate?: number;
 }
 
 function formatTime(ts: string) {
@@ -35,8 +31,12 @@ export function ChatInterface({
   partnerName,
   partnerAvatar,
   isAI = false,
-}: ChatInterfaceProps) {
+  rate = 0,
+}: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get("session");
+
   const { messages, isLoading, isSending, send, sendToAI } = useChat({
     conversationId,
     currentUserId,
@@ -45,6 +45,7 @@ export function ChatInterface({
 
   const [input, setInput] = useState("");
   const [streamingText, setStreamingText] = useState<string | null>(null);
+  const [terminationReason, setTerminationReason] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -61,7 +62,6 @@ export function ChatInterface({
     if (!text || isSending) return;
     setInput("");
     setTyping(false);
-
     try {
       if (isAI) {
         setStreamingText("");
@@ -81,6 +81,10 @@ export function ChatInterface({
     if (!isAI) setTyping(e.target.value.length > 0);
   };
 
+  const handleSessionEnd = () => {
+    router.push("/bookings");
+  };
+
   const showTyping = !isAI && typingUsers.size > 0;
   const showStreaming = isAI && streamingText !== null;
 
@@ -92,7 +96,7 @@ export function ChatInterface({
           <button
             onClick={() => router.push("/chat")}
             className="md:hidden p-2 -ml-1 rounded-lg hover:bg-white/5 active:scale-95"
-            aria-label="Back to inbox"
+            aria-label="Back"
           >
             <ArrowLeft size={18} className="text-white" />
           </button>
@@ -115,20 +119,32 @@ export function ChatInterface({
             </h2>
             <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold">
               {showTyping ? (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#9D7DC5] animate-pulse" />
-                  typing...
-                </>
+                <><span className="w-1.5 h-1.5 rounded-full bg-[#9D7DC5] animate-pulse" /> typing…</>
               ) : (
-                <>
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {isAI ? "AI · 24/7" : "Secure Session"}
-                </>
+                <><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  {isAI ? "AI · 24/7" : "Secure Session"}</>
               )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Billing panel — only when a session is active */}
+      {sessionId && (
+        <BillingPanel
+          sessionId={sessionId}
+          rate={rate}
+          onEnd={handleSessionEnd}
+          onTerminated={(reason) => setTerminationReason(reason)}
+        />
+      )}
+
+      {/* Termination banner */}
+      {terminationReason && (
+        <div className="flex-none px-3 md:px-4 py-2 bg-rose-500/10 border-b border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2">
+          <AlertTriangle size={12} /> {terminationReason}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar">
@@ -150,15 +166,13 @@ export function ChatInterface({
             const isMe = msg.senderId === currentUserId;
             return (
               <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                <div
-                  className={cn(
-                    "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-lg break-words",
-                    isMe
-                      ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white rounded-br-sm"
-                      : "bg-slate-800 text-slate-200 border border-white/5 rounded-bl-sm",
-                    msg._optimistic && "opacity-70"
-                  )}
-                >
+                <div className={cn(
+                  "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-lg break-words",
+                  isMe
+                    ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white rounded-br-sm"
+                    : "bg-slate-800 text-slate-200 border border-white/5 rounded-bl-sm",
+                  msg._optimistic && "opacity-70"
+                )}>
                   {msg.content}
                 </div>
                 <span className="text-[10px] text-slate-600 mt-1 px-1 font-medium">
@@ -200,7 +214,7 @@ export function ChatInterface({
             value={input}
             onChange={handleChange}
             onBlur={() => !isAI && setTyping(false)}
-            placeholder={isAI ? `Message ${partnerName}...` : "Type your message..."}
+            placeholder={isAI ? `Message ${partnerName}…` : "Type your message…"}
             maxLength={4000}
             className="flex-1 bg-slate-900 border border-white/10 rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-[#9D7DC5] text-slate-200 shadow-inner placeholder:text-slate-500"
           />

@@ -8,10 +8,10 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies, createAdminClient } from "@zeal/database/server";
-import { checkRateLimit, aiRateLimiter, aiStrictLimiter } from "@/lib/rate-limit";
-import { callAIJson, withAICache } from "@/lib/ai";
-import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
+import {createServerClientFromCookies, createAdminClient} from "@zeal/database/server";
+import {checkRateLimit, aiRateLimiter, aiStrictLimiter} from "@/lib/rate-limit";
+import {callAIJson, withAICache} from "@/lib/ai";
+import {CATEGORY_ID_TO_NAME} from "@/lib/services/slug";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

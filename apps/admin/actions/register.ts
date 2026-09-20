@@ -1,12 +1,8 @@
 "use server";
 
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import {
-  ensureUserRow,
-  ensureConsultantRow,
-  syncAppMetadata,
-} from "@zeal/database/server";
+import {createServerClient} from "@supabase/ssr";
+import {cookies} from "next/headers";
+import {ensureUserRow, ensureConsultantRow, syncAppMetadata} from "@zeal/database/server";
 
 export type RegisterResult =
   | { ok: true; destination?: string; needsConfirmation?: false }

@@ -1,6 +1,6 @@
 "use client";
-import { motion } from "framer-motion";
-import { LucideIcon } from "lucide-react";
+import {motion} from "framer-motion";
+import {type LucideIcon} from "lucide-react";
 import Link from "next/link";
 
 interface EmptyStateProps {

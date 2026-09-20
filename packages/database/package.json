@@ -5,16 +5,33 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./server": "./src/server.ts",
-    "./auth-handoff": "./src/auth-handoff.ts",
-    "./rpc": "./src/rpc/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "default": "./src/server.ts"
+    },
+    "./auth-handoff": {
+      "types": "./src/auth-handoff.ts",
+      "default": "./src/auth-handoff.ts"
+    },
+    "./ai-chat-handler": {
+      "types": "./src/ai-chat-handler.ts",
+      "default": "./src/ai-chat-handler.ts"
+    },
+    "./package.json": "./package.json"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.6",
     "@supabase/supabase-js": "2.115.0",
     "@zeal/types": "*",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "zod": "4.4.3"
   }
 }

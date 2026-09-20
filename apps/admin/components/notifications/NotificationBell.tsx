@@ -1,12 +1,12 @@
 'use client';
-import { useState } from 'react';
-import { Bell, BellDot, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { formatDistanceToNow } from 'date-fns';
-import { useAdminStore } from '@/lib/store/adminStore';
+import {useState} from 'react';
+import {Bell, BellDot, Check} from 'lucide-react';
+import {motion, AnimatePresence} from 'framer-motion';
+import {formatDistanceToNow} from 'date-fns';
+import {useAdminStore} from '@/lib/store/adminStore';
 
 export function NotificationBell() {
-  const { notifications, unreadCount, markAllRead } = useAdminStore();
+  const { notifications, unreadCount, markAllRead, markNotificationRead } = useAdminStore();
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -69,7 +69,11 @@ export function NotificationBell() {
                       </p>
                     </div>
                     {!n.read && (
-                      <button className="p-1 rounded-full hover:bg-white/20 transition-colors">
+                      <button
+                        onClick={() => markNotificationRead(n.id)}
+                        className="p-1 rounded-full hover:bg-white/20 transition-colors"
+                        aria-label="Mark read"
+                      >
                         <Check className="w-4 h-4 text-[#9D7DC5]" />
                       </button>
                     )}

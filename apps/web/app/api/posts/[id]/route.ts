@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 

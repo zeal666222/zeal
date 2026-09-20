@@ -1,9 +1,10 @@
 "use server";
+// ═══════════════════════════════════════════════════════════════════════════════
+// Public API — consultant public profile
+// ═══════════════════════════════════════════════════════════════════════════════
+import {createServerClient} from "@supabase/ssr";
+import {cookies} from "next/headers";
 
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-// Standard UUID validation regex to prevent database crashes
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function getPublicSupabase() {
@@ -11,50 +12,39 @@ async function getPublicSupabase() {
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {}, // Read-only client
-      },
-    }
+    {cookies: {getAll() { return cookieStore.getAll(); }, setAll() {}}},
   );
 }
 
 export async function getConsultantPublicProfile(id: string) {
   try {
-    if (!UUID_REGEX.test(id)) {
-      return { success: false, error: "Invalid profile identifier." };
-    }
+    if (!UUID_REGEX.test(id)) return {success: false, error: "Invalid profile identifier."};
 
     const supabase = await getPublicSupabase();
 
-    // Fetch the profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id, full_name, avatar_url, cover_url, is_ai, is_online, role")
+    const {data: profile, error: profileError} = await supabase
+      .from("User")
+      .select("id, name, avatar, cover_url, is_ai, is_online, role")
       .eq("id", id)
-      .single();
+      .maybeSingle();
 
-    if (profileError || !profile || profile.role !== "consultant") {
-      return { success: false, error: "Consultant not found or inactive." };
+    if (profileError || !profile || profile.role !== "CLIENT_ADMIN") {
+      return {success: false, error: "Consultant not found or inactive."};
     }
 
-    // Fetch their public grid posts
-    const { data: posts, error: postsError } = await supabase
-      .from("consultant_posts")
-      .select("id, image_url, content, created_at")
-      .eq("consultant_id", id)
-      .order("created_at", { ascending: false });
+    const {data: posts, error: postsError} = await supabase
+      .from("Post")
+      .select("id, mediaUrls, content, createdAt")
+      .eq("authorId", id)
+      .eq("isFlagged", false)
+      .order("createdAt", {ascending: false});
 
     if (postsError) throw postsError;
 
-    return { 
-      success: true, 
-      profile, 
-      posts: posts || [] 
-    };
-  } catch (err: any) {
-    console.error("[PUBLIC_API_ERROR]:", err.message);
-    return { success: false, error: "An unexpected error occurred while fetching the profile." };
+    return {success: true, profile, posts: posts || []};
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "An unexpected error occurred.";
+    console.error("[PUBLIC_API_ERROR]:", message);
+    return {success: false, error: message};
   }
 }

@@ -1,11 +1,14 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { AdminSidebar } from "@/components/layout/AdminSidebar";
-import { AdminTopBar } from "@/components/layout/AdminTopBar";
-import { useAuth } from "@/components/providers/SupabaseAuthProvider";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import {usePathname} from "next/navigation";
+import {AdminSidebar} from "@/components/layout/AdminSidebar";
+import {AdminTopBar} from "@/components/layout/AdminTopBar";
+
+      import {useAuth} from "@/components/providers/SupabaseAuthProvider";
+import {ImpersonationBanner} from "@/components/admin/ImpersonationBanner";
+    
+import {useEffect} from "react";
+import {useRouter} from "next/navigation";
 
 export default function AdminDashboardLayout({
   children,
@@ -39,7 +42,10 @@ export default function AdminDashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-[#F4E8F7] dark:bg-gray-900 overflow-hidden">
+    
+      <div className="flex h-screen bg-[#F4E8F7] dark:bg-gray-900 overflow-hidden">
+      <ImpersonationBanner />
+    
       <AdminSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <AdminTopBar />

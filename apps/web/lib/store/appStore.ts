@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist, devtools, createJSONStorage } from 'zustand/middleware';
-import { immer } from 'zustand/middleware/immer';
+import {create} from 'zustand';
+import {persist, devtools, createJSONStorage} from 'zustand/middleware';
+import {immer} from 'zustand/middleware/immer';
 
 export interface User {
   id: string;
@@ -176,7 +176,7 @@ export const selectIsAuthenticated = (state: AppState) => state.isAuthenticated;
 export const selectIsConsultant = (state: AppState) => state.isConsultant;
 export const selectIsAdmin = (state: AppState) => state.isAdmin;
 
-import { useShallow } from 'zustand/react/shallow';
+import {useShallow} from 'zustand/react/shallow';
 export const useAppStoreShallow = <T>(selector: (state: AppState) => T) => {
   return useAppStore(useShallow(selector));
 };

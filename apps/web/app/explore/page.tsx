@@ -1,6 +1,6 @@
-import { getExploreFeed } from "@/actions/discovery";
+import {getExploreFeed} from "@/actions/discovery";
 import Link from "next/link";
-import { Sparkles, Compass, Star, Video, MessageCircle, ShieldCheck } from "lucide-react";
+import {Sparkles, Compass, Star, Video, MessageCircle, ShieldCheck} from "lucide-react";
 
 export default async function ExplorePage() {
   const { consultants, posts } = await getExploreFeed();
@@ -34,7 +34,7 @@ export default async function ExplorePage() {
                 {c.avatar_url ? <img src={c.avatar_url} alt={c.full_name} className="w-full h-full object-cover" /> : c.full_name.charAt(0)}
                 {c.is_online && <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-slate-900 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />}
               </div>
-              <h4 className="font-bold text-white text-sm truncate w-full">{c.full_name}</h4>
+              <h3 className="font-bold text-white text-sm truncate w-full">{c.full_name}</h3>
               <p className="text-[10px] text-purple-400 font-semibold uppercase tracking-wider mt-1">Verified Guide</p>
             </Link>
           ))}
@@ -55,7 +55,7 @@ export default async function ExplorePage() {
                   {post.profiles?.avatar_url ? <img src={post.profiles.avatar_url} alt="" className="w-full h-full object-cover" /> : (post.profiles?.full_name?.charAt(0) || "U")}
                 </div>
                 <div>
-                  <h4 className="font-bold text-white text-sm">{post.profiles?.full_name || "Consultant"}</h4>
+                  <h3 className="font-bold text-white text-sm">{post.profiles?.full_name || "Consultant"}</h3>
                   <p className="text-[10px] text-slate-500">{new Date(post.created_at).toLocaleDateString()}</p>
                 </div>
               </div>

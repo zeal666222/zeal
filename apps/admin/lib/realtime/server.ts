@@ -1,6 +1,6 @@
 // apps/admin/lib/realtime/server.ts
 // Server-side realtime publisher — mirrors apps/web/lib/realtime/server.ts
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {createClient, type SupabaseClient} from "@supabase/supabase-js";
 
 let serverClient: SupabaseClient | null = null;
 

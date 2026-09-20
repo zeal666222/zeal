@@ -1,13 +1,13 @@
 'use client';
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { Card, CardContent, Badge, Button } from '@zeal/ui';
-import { Search, Filter, RefreshCw, Check, X, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { LoadingState } from '@/components/shared/LoadingState';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
-import { useAdminStore } from '@/lib/store/adminStore';
+import {useState} from 'react';
+import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
+import {motion} from 'framer-motion';
+import {Card, CardContent, Badge, Button} from '@zeal/ui';
+import {Search, Filter, RefreshCw, Check, X, Calendar, ChevronLeft, ChevronRight} from 'lucide-react';
+import {LoadingState} from '@/components/shared/LoadingState';
+import {EmptyState} from '@/components/shared/EmptyState';
+import {ErrorBoundary} from '@/components/shared/ErrorBoundary';
+import {useAdminStore} from '@/lib/store/adminStore';
 
 function BookingsContent() {
   const { profile } = useAdminStore();
@@ -66,7 +66,7 @@ function BookingsContent() {
         <div className="flex items-center gap-2 flex-wrap">
           <select
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilter(e.target.value)}
             className="px-3 py-2 rounded-xl glass border border-[#E1C5E7] dark:border-gray-700 text-sm focus:ring-2 focus:ring-[#9D7DC5] outline-none w-full sm:w-auto"
           >
             <option value="all">All</option>

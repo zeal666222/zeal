@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { SlidersHorizontal, X } from "lucide-react";
+import {useState} from "react";
+import {motion} from "framer-motion";
+import {SlidersHorizontal, X} from "lucide-react";
 
 export interface ServiceFilters {
   onlineOnly: boolean;
@@ -56,7 +56,7 @@ export function ServiceFilterBar({
               <input
                 type="checkbox"
                 checked={filters.onlineOnly}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onChange({ ...filters, onlineOnly: e.target.checked })
                 }
                 className="rounded"
@@ -76,7 +76,7 @@ export function ServiceFilterBar({
                 max={500}
                 step={10}
                 value={filters.maxPrice}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onChange({ ...filters, maxPrice: Number(e.target.value) })
                 }
                 className="w-full accent-[#9D7DC5]"
@@ -93,7 +93,7 @@ export function ServiceFilterBar({
                 max={5}
                 step={0.5}
                 value={filters.minRating}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onChange({ ...filters, minRating: Number(e.target.value) })
                 }
                 className="w-full accent-[#9D7DC5]"
@@ -106,7 +106,7 @@ export function ServiceFilterBar({
               </label>
               <select
                 value={filters.language}
-                onChange={(e) =>
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   onChange({ ...filters, language: e.target.value })
                 }
                 className="w-full px-3 py-2 rounded-lg border border-[#E1C5E7] dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"

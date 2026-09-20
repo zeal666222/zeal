@@ -5,8 +5,8 @@
 // Subscribes to consultant:{uid}:sparks via @zeal/realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useRef, useState } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useEffect, useRef, useState} from "react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 interface SparksRow {
   sparkScore?: number;

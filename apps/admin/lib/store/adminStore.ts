@@ -1,4 +1,4 @@
-import{create}from"zustand";import{persist,createJSONStorage}from"zustand/middleware";
+import {create} from"zustand";import {persist, createJSONStorage} from"zustand/middleware";
 export type AdminRole="SUPER_ADMIN"|"ADMIN"|"SUPPORT"|"VIEWER";
 export const ROLE_LEVEL:Record<AdminRole,number>={SUPER_ADMIN:100,ADMIN:80,SUPPORT:50,VIEWER:10};
 export type NotificationType="chat"|"call"|"booking"|"system"|"payment"|"verification"|"reminder"|"referral"|"quest"|"new_post";

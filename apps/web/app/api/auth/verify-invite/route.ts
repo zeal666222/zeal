@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { verifyInvite } from "@/lib/auth/invites";
+import {verifyInvite} from "@/lib/auth/invites";
 
 export const dynamic = "force-dynamic";
 

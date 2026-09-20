@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { X, CreditCard } from "lucide-react";
-import { useAuth } from "@/components/providers/SupabaseAuthProvider";
-import { useRouter } from "next/navigation";
+import {useState} from "react";
+import {X, CreditCard} from "lucide-react";
+import {useAuth} from "@/components/providers/SupabaseAuthProvider";
+import {useRouter} from "next/navigation";
 
 interface BookingModalProps {
   healerId: string;
@@ -71,7 +71,7 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
             <input
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)}
               className="w-full px-3 py-2 border border-[#E1C5E7] rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none"
             />
           </div>
@@ -80,7 +80,7 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
             <input
               type="time"
               value={selectedTime}
-              onChange={(e) => setSelectedTime(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedTime(e.target.value)}
               className="w-full px-3 py-2 border border-[#E1C5E7] rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none"
             />
           </div>
@@ -88,7 +88,7 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
             <label className="block text-sm font-medium text-[#5E4B8B] mb-1">Duration</label>
             <select
               value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDuration(Number(e.target.value))}
               className="w-full px-3 py-2 border border-[#E1C5E7] rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none"
             >
               <option value={15}>15 min</option>

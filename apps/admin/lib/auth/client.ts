@@ -1,4 +1,4 @@
-import { createClient } from "@zeal/database/server";
+import {createClient} from "@zeal/database/server";
 
 export async function getClientSession() {
   const supabase = await createClient();

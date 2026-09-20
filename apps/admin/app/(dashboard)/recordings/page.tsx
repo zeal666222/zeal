@@ -1,13 +1,13 @@
 'use client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { Badge, Button } from '@zeal/ui';
-import { Video, Send, RefreshCw, Clock } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { useAdminStore } from '@/lib/store/adminStore';
-import { LoadingState } from '@/components/shared/LoadingState';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import {useQuery, useMutation, useQueryClient} from '@tanstack/react-query';
+import {motion} from 'framer-motion';
+import {Badge, Button} from '@zeal/ui';
+import {Video, Send, RefreshCw, Clock} from 'lucide-react';
+import {formatDistanceToNow} from 'date-fns';
+import {useAdminStore} from '@/lib/store/adminStore';
+import {LoadingState} from '@/components/shared/LoadingState';
+import {EmptyState} from '@/components/shared/EmptyState';
+import {ErrorBoundary} from '@/components/shared/ErrorBoundary';
 
 function RecordingsContent() {
   const { profile } = useAdminStore();

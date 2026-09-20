@@ -2,129 +2,116 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { createBrowserClient } from "@supabase/ssr";
-import { Calendar, Clock, ShieldCheck, ArrowRight, Home, Video, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { Calendar, Clock, Video, Loader2, ArrowRight, Home } from "lucide-react";
 
-interface Booking {
+interface BookingItem {
   id: string;
-  consultant_name: string;
-  specialty: string;
-  date: string;
-  time: string;
-  status: "Confirmed" | "Completed" | "Pending";
+  scheduledAt: string;
+  durationMinutes: number;
+  status: string;
+  amount: number;
+  consultant: {
+    user: { name: string | null; username: string | null; avatar: string | null } | null;
+  } | null;
 }
 
 export default function BookingsPage() {
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder-key";
-  const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchBookings = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const { data, error } = await supabase.from("consultant_bookings").select("*");
-        if (!isMounted) return;
-        if (!error && data && data.length > 0) {
-          setBookings(data);
-        }
+        const res = await fetch("/api/bookings/list", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { bookings?: BookingItem[] };
+        if (!cancelled) setBookings(data.bookings ?? []);
       } catch (err) {
-        // Fallbacks remain active if table doesn't exist yet
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
       } finally {
-        if (isMounted) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
-
-    fetchBookings();
-    return () => { isMounted = false; };
-  }, [supabase]);
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8 selection:bg-purple-500/30 transition-colors duration-500 relative overflow-hidden">
-      
-      {/* Background Glows */}
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-purple-200 dark:bg-purple-600/10 blur-[150px] rounded-full pointer-events-none -z-10" />
-
-      <div className="max-w-[72rem] mx-auto relative z-10">
-        
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
         <div className="mb-12">
-          <button 
-            onClick={() => window.location.href = "/"} 
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-purple-600 dark:text-slate-400 dark:hover:text-purple-400 mb-4 transition-colors"
-          >
-            <Home size={16} /> Return to Cosmos
-          </button>
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div>
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-100 dark:bg-purple-500/10 border border-purple-200 dark:border-purple-500/20 text-purple-700 dark:text-purple-300 font-medium text-xs uppercase tracking-widest mb-4">
-                <Calendar size={14} /> Encrypted Consultations
-              </div>
-              <h1 className="text-4xl sm:text-6xl font-medium tracking-tight">Your Bookings.</h1>
-              <p className="text-slate-600 dark:text-slate-400 font-light mt-2 text-lg">Manage your scheduled sessions with verified master consultants.</p>
-            </div>
-            
-            <Link href="/ai-consultants" className="px-6 py-3.5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-medium text-sm hover:bg-purple-600 dark:hover:bg-purple-400 transition-all shadow-md inline-flex items-center gap-2">
-              Book New Session <ArrowRight size={16} />
-            </Link>
-          </div>
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-600 mb-4">
+            <Home size={16} /> Home
+          </Link>
+          <h1 className="text-4xl font-black tracking-tight text-white">Your Bookings</h1>
+          <p className="text-slate-400 mt-2">Manage your scheduled sessions.</p>
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
-            {[1, 2].map(i => <div key={i} className="h-48 bg-slate-200 dark:bg-slate-900/30 rounded-[2.5rem]" />)}
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
           </div>
+        ) : error ? (
+          <div className="text-center py-16 text-rose-400">{error}</div>
         ) : bookings.length === 0 ? (
-          <div className="text-center py-24 bg-white/50 dark:bg-slate-900/20 rounded-[2.5rem] border border-slate-200 dark:border-white/5">
-            <Calendar size={48} className="mx-auto text-slate-400 dark:text-slate-700 mb-4" />
-            <h3 className="text-xl font-medium text-slate-700 dark:text-slate-300">No active bookings</h3>
-            <p className="text-slate-500 mt-2 mb-6">Schedule a consultation with our verified master network.</p>
-            <Link href="/ai-consultants" className="px-6 py-3 bg-purple-600 text-white rounded-xl font-medium text-sm">Find Advisor</Link>
+          <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-3xl">
+            <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400">No bookings yet</p>
+            <Link href="/services"
+              className="inline-block mt-4 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-sm font-bold">
+              Find a Consultant <ArrowRight size={14} className="inline ml-1" />
+            </Link>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <AnimatePresence>
-              {bookings.map((b, idx) => (
-                <motion.div 
-                  key={b.id} 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  transition={{ delay: idx * 0.1 }}
-                  className="bg-white/80 dark:bg-slate-900/40 backdrop-blur-xl border border-slate-200 dark:border-white/5 rounded-[2.5rem] p-8 shadow-sm hover:shadow-xl dark:hover:border-purple-500/30 transition-all flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-6">
-                      <span className={`px-3.5 py-1.5 rounded-full text-xs font-medium border ${b.status === 'Confirmed' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20'}`}>
-                        {b.status}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {bookings.map((b, i) => (
+              <motion.div key={b.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center overflow-hidden">
+                    {b.consultant?.user?.avatar ? (
+                      <img src={b.consultant.user.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-purple-400 font-bold">
+                        {(b.consultant?.user?.name || "?").charAt(0).toUpperCase()}
                       </span>
-                      <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                        <ShieldCheck size={14} className="text-purple-500" /> Encrypted Room
-                      </span>
-                    </div>
-
-                    <h3 className="text-2xl font-medium text-slate-900 dark:text-white mb-1">{b.consultant_name}</h3>
-                    <p className="text-purple-600 dark:text-purple-400 text-xs font-medium uppercase tracking-wider mb-6">{b.specialty}</p>
-
-                    <div className="space-y-2 mb-8 text-sm text-slate-600 dark:text-slate-400 font-light">
-                      <div className="flex items-center gap-2"><Calendar size={16} /> Date: {b.date}</div>
-                      <div className="flex items-center gap-2"><Clock size={16} /> Time: {b.time}</div>
-                    </div>
+                    )}
                   </div>
-
-                  <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
-                    <span className="text-xs text-emerald-500 font-medium flex items-center gap-1"><Video size={14} /> Link opens at scheduled time</span>
-                    <button onClick={() => alert("Connecting to secure video node...")} className="px-5 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-medium text-sm hover:bg-purple-600 dark:hover:bg-purple-400 transition-all shadow-md">
-                      Join Session
-                    </button>
+                  <div className="min-w-0">
+                    <p className="font-bold text-white truncate">
+                      {b.consultant?.user?.name || b.consultant?.user?.username || "Consultant"}
+                    </p>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md ${
+                      b.status === "CONFIRMED" ? "bg-emerald-500/15 text-emerald-400" :
+                      b.status === "PENDING" ? "bg-amber-500/15 text-amber-400" :
+                      "bg-slate-500/15 text-slate-400"
+                    }`}>{b.status}</span>
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                </div>
+                <div className="space-y-2 text-sm text-slate-400 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={14} /> {new Date(b.scheduledAt).toLocaleDateString()}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock size={14} /> {b.durationMinutes} minutes
+                  </div>
+                  <div className="flex items-center gap-2 text-purple-400 font-mono font-bold">
+                    ₹{b.amount.toFixed(2)}
+                  </div>
+                </div>
+                {b.status === "CONFIRMED" && (
+                  <Link href={`/call/${b.id}`}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2">
+                    <Video size={16} /> Join Session
+                  </Link>
+                )}
+              </motion.div>
+            ))}
           </div>
         )}
       </div>

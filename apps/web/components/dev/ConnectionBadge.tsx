@@ -1,6 +1,6 @@
 "use client";
 
-import { useConnection, type ConnectionState } from "@zeal/realtime";
+import {useConnection, type ConnectionState} from "@zeal/realtime";
 
 const COLOR: Record<ConnectionState, string> = {
   connected: "bg-green-500",

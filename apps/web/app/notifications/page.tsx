@@ -5,12 +5,12 @@
 // Subscribes to user:{uid}:notifications; server broadcasts TG_OP events.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Check, CheckCheck, Loader2 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {motion, AnimatePresence} from "framer-motion";
+import {Bell, Check, CheckCheck, Loader2} from "lucide-react";
+import {formatDistanceToNow} from "date-fns";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 interface NotificationItem {
   id: string;
@@ -166,7 +166,7 @@ export default function NotificationsPage() {
           <div className="p-4 rounded-full bg-[#9D7DC5]/10 mb-4">
             <Bell className="w-8 h-8 text-[#9D7DC5]" />
           </div>
-          <h3 className="text-lg font-semibold text-white">No notifications</h3>
+          <h2 className="text-lg font-semibold text-white">No notifications</h2>
           <p className="text-sm text-slate-400 mt-1">
             {filter === "unread" ? "All caught up!" : "Nothing here yet."}
           </p>

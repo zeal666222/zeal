@@ -3,13 +3,13 @@
 // Service Page — consultant grid with filters + AI consultants
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createAdminClient } from "@zeal/database/server";
+import {createAdminClient} from "@zeal/database/server";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
-import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
-import { getService } from "@/lib/services/registry";
-import { ConsultantCard } from "@/components/shared/ConsultantCard";
+import {notFound} from "next/navigation";
+import {ArrowLeft} from "lucide-react";
+import {CATEGORY_ID_TO_NAME} from "@/lib/services/slug";
+import {getService} from "@/lib/services/registry";
+import {ConsultantCard} from "@/components/shared/ConsultantCard";
 
 export const dynamic = "force-dynamic";
 

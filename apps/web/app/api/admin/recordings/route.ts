@@ -1,6 +1,6 @@
 // apps/web/app/api/admin/recordings/route.ts
 import { NextResponse } from "next/server";
-import { requireAdminAPI } from "@/lib/auth/api-guard";
+import {requireAdminAPI} from "@/lib/auth/api-guard";
 
 export const dynamic = "force-dynamic";
 

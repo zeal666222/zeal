@@ -6,10 +6,10 @@
 // Desktop (≥ md) : split view (list + room)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { usePathname } from "next/navigation";
-import { InstagramInboxList } from "@/components/chat/InstagramInboxList";
+import {usePathname} from "next/navigation";
+import {InstagramInboxList} from "@/components/chat/InstagramInboxList";
 import type { ConversationItem } from "@/hooks/useConversations";
-import { cn } from "@zeal/ui";
+import {cn} from "@zeal/ui";
 
 interface ChatShellProps {
   currentUserId: string;

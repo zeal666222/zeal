@@ -1,11 +1,7 @@
-import { NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import {
-  ensureUserRow,
-  ensureConsultantRow,
-  syncAppMetadata,
-} from "@zeal/database/server";
+import {NextResponse} from "next/server";
+import {createServerClient} from "@supabase/ssr";
+import {cookies} from "next/headers";
+import {ensureUserRow, ensureConsultantRow, syncAppMetadata} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

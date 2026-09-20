@@ -5,7 +5,7 @@
 // Uses: credit_funds_safe, process_wallet_deduction_safe
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export async function getWalletBalance(): Promise<{ balance: number }> {
   const supabase = await createServerClientFromCookies();

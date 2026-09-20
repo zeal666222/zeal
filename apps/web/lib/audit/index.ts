@@ -1,5 +1,5 @@
 import "server-only";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {createClient, type SupabaseClient} from "@supabase/supabase-js";
 
 let client: SupabaseClient | null = null;
 

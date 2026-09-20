@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { spawnAIPersonaAction } from "@/actions/ai";
-import { Sparkles, Bot, Loader2, Link as LinkIcon, Database, CheckCircle2 } from "lucide-react";
+import {useState} from "react";
+import {spawnAIPersonaAction} from "@/actions/ai";
+import {Sparkles, Bot, Loader2, Link as LinkIcon, Database, CheckCircle2} from "lucide-react";
 import Link from "next/link";
 
 export function AISpawnerClient() {
@@ -52,7 +52,7 @@ export function AISpawnerClient() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Persona Name</label>
-            <input name="name" type="text" required placeholder="e.g. Aacharya Dev" className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200" />
+            <input name="name" type="text" required placeholder="e.g. Aacharya Dev" className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200"  aria-label="e.g. Aacharya Dev"/>
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Expertise Domain</label>
@@ -69,7 +69,7 @@ export function AISpawnerClient() {
           <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Avatar URL (Optional)</label>
           <div className="relative">
             <LinkIcon size={16} className="absolute left-4 top-3.5 text-slate-500" />
-            <input name="avatarUrl" type="url" placeholder="https://example.com/avatar.png" className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200" />
+            <input name="avatarUrl" type="url" placeholder="https://example.com/avatar.png" className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200"  aria-label="https://example.com/avatar.png"/>
           </div>
         </div>
 

@@ -11,13 +11,8 @@
 //   • Idempotent refetch (in-flight guard)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  useChannel,
-  useConnection,
-  channels,
-  type BroadcastChange,
-} from "@zeal/realtime";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {useChannel, useConnection, channels, type BroadcastChange} from "@zeal/realtime";
 
 export interface WalletState {
   balance: number;

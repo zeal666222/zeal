@@ -1,7 +1,7 @@
-import { getUserId } from "@/lib/auth";
+import {getUserId} from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { withErrorHandler, AppError, HTTP_STATUS } from "@/lib/errors";
-import { NotificationService } from "@/lib/notifications/service";
+import {withErrorHandler, AppError, HTTP_STATUS} from "@/lib/errors";
+import {NotificationService} from "@/lib/notifications/service";
 
 export const POST = withErrorHandler(async (
   req: Request,

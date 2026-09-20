@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Megaphone, Loader2, Check } from "lucide-react";
+import {useState} from "react";
+import {motion} from "framer-motion";
+import {Megaphone, Loader2, Check} from "lucide-react";
 
 const SEGMENTS = [
   { value: "all", label: "Everyone" },
@@ -59,7 +59,7 @@ export default function AdminBroadcastPage() {
           </label>
           <textarea
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessage(e.target.value)}
             rows={4}
             maxLength={500}
             placeholder="Type your announcement..."

@@ -1,9 +1,9 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { CreditCard, Check, X } from "lucide-react";
-import { EmptyState } from "@/components/shared/EmptyState";
+import {useQuery, useMutation, useQueryClient} from "@tanstack/react-query";
+import {motion} from "framer-motion";
+import {CreditCard, Check, X} from "lucide-react";
+import {EmptyState} from "@/components/shared/EmptyState";
 
 interface Withdrawal {
   id: string;

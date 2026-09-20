@@ -4,8 +4,16 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
-    }
+      "/database/ai-chat-handler": ["../../packages/database/src/ai-chat-handler.ts"],
+      "@/*": [
+        "./*"
+      ]
+    },
+    "verbatimModuleSyntax": false
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ]
 }

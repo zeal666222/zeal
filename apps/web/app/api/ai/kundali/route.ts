@@ -1,10 +1,10 @@
 // apps/web/app/api/ai/kundali/route.ts
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { checkRateLimit, aiStrictLimiter } from "@/lib/rate-limit";
-import { withCache } from "@/lib/ai/response-cache";
-import { fetchKundali } from "@/lib/ai/astroask-client";
-import { runAI } from "@/lib/ai/router";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {checkRateLimit, aiStrictLimiter} from "@/lib/rate-limit";
+import {withCache} from "@/lib/ai/response-cache";
+import {fetchKundali} from "@/lib/ai/astroask-client";
+import {runAI} from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

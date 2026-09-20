@@ -1,7 +1,7 @@
 // apps/web/app/api/consultant/bookings/route.ts
 // Lists bookings for the current consultant
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

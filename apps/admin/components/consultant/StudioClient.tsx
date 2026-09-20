@@ -1,13 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Power, Video, MessageSquare, IndianRupee, Star, Clock, Users,
-  Loader2, Sparkles, Activity, Flame, ChevronRight,
-} from "lucide-react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
-import { cn } from "@zeal/ui";
+import {useCallback, useState} from "react";
+import {useRouter} from "next/navigation";
+import {Power, Video, MessageSquare, IndianRupee, Star, Clock, Users, Loader2, Sparkles, Activity, Flame, ChevronRight} from "lucide-react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
+import {cn} from "@zeal/ui";
 
 interface CompletenessReport {
   score: number;
@@ -173,9 +170,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
         <div className="lg:col-span-2">
           <div className="bg-slate-900/60 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl min-h-[420px]">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-black text-white flex items-center gap-3">
+              <h2 className="text-lg font-black text-white flex items-center gap-3">
                 <Activity className="text-indigo-400 w-5 h-5" /> Live Seeker Queue
-              </h3>
+              </h2>
               {online && (
                 <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs font-bold text-emerald-400 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Searching
@@ -212,9 +209,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                   )}>
                     {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
-                  <h4 className="text-base font-bold text-slate-200 mb-2">
+                  <h3 className="text-base font-bold text-slate-200 mb-2">
                     {online ? "Waiting for connections…" : completeness.isLive ? "You're offline" : "Studio locked"}
-                  </h4>
+                  </h3>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
                     {online ? "Your profile is visible to seekers. Requests appear here instantly."
                       : completeness.isLive ? "Toggle the switch above to start receiving sessions."
@@ -228,9 +225,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
 
         <div className="space-y-4">
           <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-            <h3 className="text-sm font-black mb-4 text-white uppercase tracking-wider flex items-center gap-2">
+            <h2 className="text-sm font-black mb-4 text-white uppercase tracking-wider flex items-center gap-2">
               <MessageSquare className="text-slate-400" size={16} /> Quick Actions
-            </h3>
+            </h2>
             <div className="space-y-3">
               <Quick icon={Clock} label="Set Availability" href="/consultant/availability" />
               <Quick icon={IndianRupee} label="View Earnings" href="/consultant/earnings" />

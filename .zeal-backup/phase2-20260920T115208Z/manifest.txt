@@ -1,0 +1,10 @@
+apps/web/lib/billing/types.ts
+apps/web/lib/billing/session-service.ts
+apps/web/app/api/billing/session/start/route.ts
+apps/web/app/api/billing/session/heartbeat/route.ts
+apps/web/app/api/billing/session/end/route.ts
+apps/web/app/api/admin/sessions/live/route.ts
+apps/web/components/session/BillingPanel.tsx
+apps/web/components/session/StartSessionButton.tsx
+apps/web/components/session/ChatInterface.tsx
+apps/admin/app/(dashboard)/sessions/page.tsx

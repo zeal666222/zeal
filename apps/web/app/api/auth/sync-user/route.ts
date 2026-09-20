@@ -3,7 +3,7 @@
 // Delegates to syncAuthUser() — single source of truth.
 
 import { NextResponse } from "next/server";
-import { syncAuthUser } from "@/lib/auth/server";
+import {syncAuthUser} from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 

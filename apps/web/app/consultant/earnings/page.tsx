@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Loader2, TrendingUp } from "lucide-react";
+import {useEffect, useMemo, useState} from "react";
+import {Wallet, IndianRupee, ArrowUpRight, ArrowDownRight, Loader2, TrendingUp} from "lucide-react";
 
 interface Tx {
   id: string;

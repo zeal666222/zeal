@@ -1,5 +1,5 @@
 'use client';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import {useInfiniteQuery} from '@tanstack/react-query';
 
 interface FeedResponse {
   posts: unknown[];

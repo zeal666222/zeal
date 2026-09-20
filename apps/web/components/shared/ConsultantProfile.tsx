@@ -1,8 +1,8 @@
 "use client";
 
-import { Avatar, AvatarImage, AvatarFallback, Badge, Button } from "@zeal/ui";
-import { useRouter } from "next/navigation";
-import { Calendar, MessageCircle, Phone } from "lucide-react";
+import {Avatar, AvatarImage, AvatarFallback, Badge, Button} from "@zeal/ui";
+import {useRouter} from "next/navigation";
+import {Calendar, MessageCircle, Phone} from "lucide-react";
 
 export interface ConsultantProfileData {
   id: string;
@@ -71,7 +71,7 @@ export function ConsultantProfile({ consultant, isAI }: ConsultantProfileProps) 
               <Button variant="secondary" onClick={() => router.push("/chat/" + consultant.id)}>
                 <MessageCircle className="w-4 h-4 mr-2" /> Chat
               </Button>
-              <Button variant="secondary" onClick={() => { window.location.href = "/call/" + consultant.id; }}>
+              <Button variant="secondary" onClick={() => router.push("/call/" + consultant.id)}>
                 <Phone className="w-4 h-4 mr-2" /> Call
               </Button>
             </div>
@@ -81,4 +81,3 @@ export function ConsultantProfile({ consultant, isAI }: ConsultantProfileProps) 
     </div>
   );
 }
-

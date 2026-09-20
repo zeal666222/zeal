@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { generateSlots } from "@/lib/scheduling";
-import { z } from "zod";
+import {createServerClientFromCookies} from "@zeal/database/server";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import {generateSlots} from "@/lib/scheduling";
+import {z} from "zod";
 
 export const dynamic = "force-dynamic";
 

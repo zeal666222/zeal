@@ -1,10 +1,10 @@
 "use client";
-import { useCallback, useEffect } from "react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { useInView } from "react-intersection-observer";
-import { Loader2, Newspaper } from "lucide-react";
-import { PostCard, type PostCardData } from "./PostCard";
-import { EmptyState } from "@/components/shared/EmptyState";
+import {useCallback, useEffect} from "react";
+import {useInfiniteQuery, useQueryClient} from "@tanstack/react-query";
+import {useInView} from "react-intersection-observer";
+import {Loader2, Newspaper} from "lucide-react";
+import {PostCard, type PostCardData} from "./PostCard";
+import {EmptyState} from "@/components/shared/EmptyState";
 
 interface FeedPage {
   posts: PostCardData[];

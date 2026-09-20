@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
-import { initiateSessionAction } from "@/actions/signaling";
-import { useRouter, usePathname } from "next/navigation";
-import { Star, Shield, Phone, MessageSquare, Sparkles, Image as ImageIcon } from "lucide-react";
+import {useState, useEffect} from "react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
+import {initiateSessionAction} from "@/actions/signaling";
+import {useRouter, usePathname} from "next/navigation";
+import {Star, Shield, Phone, MessageSquare, Sparkles, Image as ImageIcon} from "lucide-react";
 
 type PublicProfile = { id: string; full_name: string; avatar_url: string | null; cover_url: string | null; is_ai: boolean; is_online: boolean; };
 type Post = { id: string; image_url: string | null; content: string; created_at: string; };
@@ -90,7 +90,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
         <div className="py-8">
           {activeTab === "grid" && (
             posts.length === 0 ? (
-              <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl"><ImageIcon size={40} className="mx-auto text-slate-600 mb-4" /><h3 className="text-lg font-bold text-slate-300">No content yet</h3></div>
+              <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl"><ImageIcon size={40} className="mx-auto text-slate-600 mb-4" /><h2 className="text-lg font-bold text-slate-300">No content yet</h2></div>
             ) : (
               <div className="grid grid-cols-3 gap-1 md:gap-4">
                 {posts.map((post) => (

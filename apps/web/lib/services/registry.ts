@@ -1,5 +1,5 @@
 // Service registry – maps service slugs to Prisma query definitions
-import { CATEGORY_ID_TO_PRISMA, CATEGORY_ID_TO_NAME, slugify } from "./slug";
+import {CATEGORY_ID_TO_PRISMA, CATEGORY_ID_TO_NAME, slugify} from "./slug";
 
 export interface ServiceDefinition {
   categoryId: string;

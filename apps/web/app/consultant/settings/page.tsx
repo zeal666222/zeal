@@ -1,10 +1,12 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { useState } from "react";
-import { Home } from "lucide-react";
+import {useState} from "react";
+import { useRouter } from "next/navigation";
+import {Home} from "lucide-react";
 
 export default function ConsultantSettingsPage() {
+  const router = useRouter();
   const [name, setName] = useState("Acharya Rajesh");
   const [saved, setSaved] = useState(false);
 
@@ -17,7 +19,7 @@ export default function ConsultantSettingsPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
-        <button onClick={() => window.location.href = "/consultant/dashboard"} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-400 mb-8">
+        <button onClick={() => router.push("/consultant/dashboard")} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-400 mb-8">
           <Home size={16} /> Back to Dashboard
         </button>
 

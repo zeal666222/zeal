@@ -1,7 +1,7 @@
 // apps/web/app/api/chat/[id]/read/route.ts
 // Marks the conversation as read for the current user
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

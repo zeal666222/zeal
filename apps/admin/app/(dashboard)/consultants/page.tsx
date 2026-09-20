@@ -4,12 +4,12 @@
 // Admin Consultant Management — premium card grid with realtime
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
-import { useState } from "react";
-import { Search, Sparkles, Star, Flame, Loader2, Filter } from "lucide-react";
-import { EmptyState } from "@/components/shared/EmptyState";
-import { PulseGrid } from "@/components/shared/PulseGrid";
+import {useQuery} from "@tanstack/react-query";
+import {motion} from "framer-motion";
+import {useState} from "react";
+import {Search, Sparkles, Star, Flame, Loader2, Filter} from "lucide-react";
+import {EmptyState} from "@/components/shared/EmptyState";
+import {PulseGrid} from "@/components/shared/PulseGrid";
 
 interface ConsultantRow {
   id: string;
@@ -94,7 +94,7 @@ export default function ConsultantsPage() {
           <input
             type="text"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
             placeholder="Search by name, email, or category..."
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/60 border border-white/10 text-sm text-white placeholder:text-slate-500 outline-none focus:border-[#9D7DC5]"
           />
@@ -103,7 +103,7 @@ export default function ConsultantsPage() {
           <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
             className="pl-10 pr-6 py-3 rounded-xl bg-slate-900/60 border border-white/10 text-sm text-white outline-none focus:border-[#9D7DC5] appearance-none"
           >
             <option value="all">All Status</option>

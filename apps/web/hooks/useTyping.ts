@@ -4,8 +4,8 @@
 // useTyping — Presence-based typing indicator
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { usePresence, channels } from "@zeal/realtime";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {usePresence, channels} from "@zeal/realtime";
 
 interface TypingState extends Record<string, unknown> {
   typing?: boolean;

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import {useEffect, useRef, useState} from 'react';
 
 export function useScrollReveal<T extends HTMLElement = HTMLDivElement>(
   options?: { threshold?: number; rootMargin?: string }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Trash2, Loader2, Save, Check } from "lucide-react";
+import {useEffect, useState} from "react";
+import {Plus, Trash2, Loader2, Save, Check} from "lucide-react";
 
 const DAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"] as const;
 type Day = typeof DAYS[number];
@@ -92,10 +92,10 @@ export default function AvailabilityPage() {
               <div className="space-y-2">
                 {availability[d].map((b, i) => (
                   <div key={i} className="flex items-center gap-2">
-                    <input type="time" value={b.start} onChange={(e) => upd(d, i, "start", e.target.value)}
+                    <input type="time" value={b.start} onChange={(e: React.ChangeEvent<HTMLInputElement>) => upd(d, i, "start", e.target.value)}
                       className="flex-1 px-3 py-2 bg-slate-900 border border-white/5 rounded-lg text-sm text-white font-mono" />
                     <span className="text-slate-500 text-xs">to</span>
-                    <input type="time" value={b.end} onChange={(e) => upd(d, i, "end", e.target.value)}
+                    <input type="time" value={b.end} onChange={(e: React.ChangeEvent<HTMLInputElement>) => upd(d, i, "end", e.target.value)}
                       className="flex-1 px-3 py-2 bg-slate-900 border border-white/5 rounded-lg text-sm text-white font-mono" />
                     <button onClick={() => rm(d, i)} className="p-2 rounded-lg hover:bg-rose-500/10 text-rose-400">
                       <Trash2 size={13} />
@@ -109,7 +109,7 @@ export default function AvailabilityPage() {
 
         <div className="pt-4 border-t border-white/5">
           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Buffer between sessions</label>
-          <select value={bufferMinutes} onChange={(e) => setBufferMinutes(Number(e.target.value))}
+          <select value={bufferMinutes} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setBufferMinutes(Number(e.target.value))}
             className="px-4 py-2.5 bg-slate-950 border border-white/5 rounded-xl text-sm text-white outline-none focus:border-indigo-500">
             {[5, 10, 15, 20, 30].map((n) => <option key={n} value={n}>{n} minutes</option>)}
           </select>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { withErrorHandler } from '@/lib/errors';
+import {withErrorHandler} from '@/lib/errors';
 
 export const GET = withErrorHandler(async () => {
   // Mock data – replace with database query

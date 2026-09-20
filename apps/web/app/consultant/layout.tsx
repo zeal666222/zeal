@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
-import { createServerClientFromCookies, evaluateConsultantProfile } from "@zeal/database/server";
-import { WorkspaceSidebar } from "@/components/consultant/WorkspaceSidebar";
+import {redirect} from "next/navigation";
+import {createServerClientFromCookies, evaluateConsultantProfile} from "@zeal/database/server";
+import {WorkspaceSidebar} from "@/components/consultant/WorkspaceSidebar";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Consultant Studio | Zeal" };

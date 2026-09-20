@@ -6,10 +6,10 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
-import { requireUserAPI } from "@/lib/auth/api-guard";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { getStorageAdapter } from "@/lib/storage";
-import { randomUUID } from "crypto";
+import {requireUserAPI} from "@/lib/auth/api-guard";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import {getStorageAdapter} from "@/lib/storage";
+import {randomUUID} from "crypto";
 
 const ALLOWED_MIME = new Set([
   "image/jpeg",

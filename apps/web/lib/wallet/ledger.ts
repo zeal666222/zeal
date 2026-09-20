@@ -1,4 +1,4 @@
-import { createAdminClient } from "@zeal/database/server";
+import {createAdminClient} from "@zeal/database/server";
 
 export async function getWalletBalance(userId: string): Promise<number> {
   const supabase = createAdminClient();

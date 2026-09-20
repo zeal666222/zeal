@@ -2,9 +2,9 @@
 
 // Horoscope — uses unified /api/ai?task=horoscope (cached 6h)
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Star, Sparkles, Loader2 } from "lucide-react";
+import {useState} from "react";
+import {motion} from "framer-motion";
+import {Star, Sparkles, Loader2} from "lucide-react";
 
 const SIGNS = [
   "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -75,9 +75,9 @@ export default function HoroscopePage() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 sm:p-12 text-left"
         >
-          <h3 className="text-2xl font-bold mb-4 flex items-center gap-2 text-white">
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-white">
             <Sparkles className="text-[#9D7DC5]" /> {selectedSign} Forecast
-          </h3>
+          </h2>
 
           {loading ? (
             <div className="flex items-center gap-3 text-slate-400">

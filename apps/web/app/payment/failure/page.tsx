@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { XCircle } from "lucide-react";
-import { Button } from "@zeal/ui";
+import {useRouter} from "next/navigation";
+import {motion} from "framer-motion";
+import {XCircle} from "lucide-react";
+import {Button} from "@zeal/ui";
 
 export default function PaymentFailure() {
   const router = useRouter();

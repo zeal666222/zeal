@@ -1,6 +1,6 @@
 'use client';
-import { Card, CardHeader, CardTitle, CardContent } from '@zeal/ui';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {Card, CardHeader, CardTitle, CardContent} from '@zeal/ui';
+import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer} from 'recharts';
 
 const data = [
   { name: 'Mon', revenue: 4000 },

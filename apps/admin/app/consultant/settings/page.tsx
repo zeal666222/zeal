@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Loader2, Save, Check, Copy } from "lucide-react";
+import {useEffect, useState} from "react";
+import {Loader2, Save, Check, Copy} from "lucide-react";
 
 export default function ConsultantSettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -87,7 +87,7 @@ export default function ConsultantSettingsPage() {
           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
             Professional Bio (min 20 chars)
           </label>
-          <textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={6}
+          <textarea value={bio} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBio(e.target.value)} rows={6}
             className="w-full p-4 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white resize-none focus:border-indigo-500 outline-none"
             placeholder="Describe your practice, lineage, and approach…" />
           <p className="text-xs text-slate-500 mt-1.5">
@@ -101,7 +101,7 @@ export default function ConsultantSettingsPage() {
               Per-minute rate (₹)
             </label>
             <input type="number" min={10} max={500} value={rate}
-              onChange={(e) => setRate(Number(e.target.value))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRate(Number(e.target.value))}
               className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none" />
           </div>
           <div>
@@ -116,7 +116,7 @@ export default function ConsultantSettingsPage() {
           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
             Specialties (comma separated)
           </label>
-          <input type="text" value={specialties} onChange={(e) => setSpecialties(e.target.value)}
+          <input type="text" value={specialties} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSpecialties(e.target.value)}
             className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
             placeholder="Vedic Astrology, KP, Nadi" />
         </div>
@@ -125,7 +125,7 @@ export default function ConsultantSettingsPage() {
           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
             Languages (comma separated)
           </label>
-          <input type="text" value={languages} onChange={(e) => setLanguages(e.target.value)}
+          <input type="text" value={languages} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLanguages(e.target.value)}
             className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
             placeholder="English, Hindi" />
         </div>
@@ -135,7 +135,7 @@ export default function ConsultantSettingsPage() {
             <p className="text-[10px] uppercase tracking-widest text-[#9D7DC5] font-bold mb-1">Your white-label site</p>
             <div className="flex items-center gap-2">
               <p className="text-sm font-mono text-white flex-1 truncate">{subdomain}.zeal.app</p>
-              <button onClick={copySubdomain} className="p-2 rounded-lg hover:bg-white/10 text-[#9D7DC5]">
+              <button onClick={copySubdomain} className="p-2 rounded-lg hover:bg-white/10 text-[#9D7DC5]" aria-label="Copy white-label URL">
                 {copied ? <Check size={14} /> : <Copy size={14} />}
               </button>
             </div>

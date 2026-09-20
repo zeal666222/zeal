@@ -1,7 +1,8 @@
 "use server";
-
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+// ═══════════════════════════════════════════════════════════════════════════════
+// Inbox — user's conversations with partner + preview
+// ═══════════════════════════════════════════════════════════════════════════════
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export type ConversationItem = {
   sessionId: string;
@@ -16,19 +17,9 @@ export type ConversationItem = {
   status: string;
 };
 
-async function getSupabase() {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll() {},
-      },
-    }
-  );
-}
+interface ParticipantRow { conversationId: string; userId: string }
+interface ConversationRow { id: string; lastMessageAt: string | null; lastMessageText: string | null }
+interface UserRow { id: string; name: string | null; username: string | null; avatar: string | null; is_online: boolean | null; role: string | null }
 
 export async function getUserConversations(): Promise<{
   success: boolean;
@@ -37,93 +28,70 @@ export async function getUserConversations(): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = await getSupabase();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
+    const supabase = await createServerClientFromCookies();
+    const {data: {user}, error: authError} = await supabase.auth.getUser();
     if (authError || !user) {
-      return { success: false, conversations: [], currentUserId: null, error: "Unauthorized" };
+      return {success: false, conversations: [], currentUserId: null, error: "Unauthorized"};
     }
 
-    // 1. Fetch all session requests where user is seeker or consultant
-    const { data: sessions, error: sessionsError } = await supabase
-      .from("session_requests")
-      .select(`
-        id,
-        status,
-        seeker_id,
-        consultant_id,
-        created_at,
-        seeker:profiles!session_requests_seeker_id_fkey(id, full_name, avatar_url, is_online, is_ai),
-        consultant:profiles!session_requests_consultant_id_fkey(id, full_name, avatar_url, is_online, is_ai)
-      `)
-      .or(`seeker_id.eq.${user.id},consultant_id.eq.${user.id}`)
-      .order("created_at", { ascending: false });
+    const {data: memberships} = await supabase
+      .from("ConversationParticipant")
+      .select("conversationId")
+      .eq("userId", user.id);
 
-    if (sessionsError) throw sessionsError;
-    if (!sessions || sessions.length === 0) {
-      return { success: true, conversations: [], currentUserId: user.id };
+    const conversationIds = (memberships ?? []).map((m: {conversationId: string}) => m.conversationId);
+    if (conversationIds.length === 0) {
+      return {success: true, conversations: [], currentUserId: user.id};
     }
 
-    const sessionIds = sessions.map((s) => s.id);
+    const {data: conversations} = await supabase
+      .from("Conversation")
+      .select("id, lastMessageAt, lastMessageText")
+      .in("id", conversationIds)
+      .order("lastMessageAt", {ascending: false});
 
-    // 2. Fetch the latest message for these sessions
-    const { data: messages, error: messagesError } = await supabase
-      .from("session_messages")
-      .select("session_id, content, created_at, sender_id")
-      .in("session_id", sessionIds)
-      .order("created_at", { ascending: false });
+    const {data: partners} = await supabase
+      .from("ConversationParticipant")
+      .select("conversationId, userId")
+      .in("conversationId", conversationIds)
+      .neq("userId", user.id);
 
-    if (messagesError) throw messagesError;
+    const partnerIds = Array.from(new Set(((partners ?? []) as ParticipantRow[]).map(p => p.userId)));
 
-    // Group latest message by session_id
-    const latestMessageMap = new Map<string, { content: string; created_at: string; sender_id: string }>();
-    if (messages) {
-      for (const msg of messages) {
-        if (!latestMessageMap.has(msg.session_id)) {
-          latestMessageMap.set(msg.session_id, msg);
-        }
-      }
+    let users: UserRow[] = [];
+    if (partnerIds.length > 0) {
+      const {data} = await supabase
+        .from("User")
+        .select("id, name, username, avatar, is_online, role")
+        .in("id", partnerIds);
+      users = (data ?? []) as UserRow[];
     }
+    const userById = new Map(users.map(u => [u.id, u]));
+    const partnerIdByConv = new Map(((partners ?? []) as ParticipantRow[]).map(p => [p.conversationId, p.userId]));
 
-    // 3. Assemble Conversation Items with safe type handling
-    const conversations: ConversationItem[] = sessions.map((s) => {
-      const isSeeker = user.id === s.seeker_id;
-      
-      const rawPartner = isSeeker ? s.consultant : s.seeker;
-      const partner = Array.isArray(rawPartner) ? rawPartner[0] : rawPartner;
-
-      const latestMsg = latestMessageMap.get(s.id);
-      let previewText = latestMsg ? latestMsg.content : "Session initiated";
-      
-      // Clean preview if it was WebRTC internal signaling
-      if (previewText.startsWith("[WEBRTC_")) {
-        previewText = "📹 Video call";
-      }
+    const items: ConversationItem[] = ((conversations ?? []) as ConversationRow[]).map(c => {
+      const pid = partnerIdByConv.get(c.id) ?? "";
+      const p = userById.get(pid);
+      let previewText = c.lastMessageText ?? "Session initiated";
+      if (previewText.startsWith("[WEBRTC_")) previewText = "📹 Video call";
 
       return {
-        sessionId: s.id,
-        partnerId: partner?.id || "",
-        partnerName: partner?.full_name || "Zeal Member",
-        partnerAvatar: partner?.avatar_url || null,
-        isOnline: Boolean(partner?.is_online),
-        isAI: Boolean(partner?.is_ai),
+        sessionId: c.id,
+        partnerId: pid,
+        partnerName: p?.name || p?.username || "Zeal Member",
+        partnerAvatar: p?.avatar ?? null,
+        isOnline: Boolean(p?.is_online),
+        isAI: p?.role === "AI",
         lastMessage: previewText,
-        lastMessageTime: latestMsg?.created_at || s.created_at,
-        lastMessageSenderId: latestMsg?.sender_id || null,
-        status: s.status,
+        lastMessageTime: c.lastMessageAt,
+        lastMessageSenderId: null,
+        status: "active",
       };
     });
 
-    // Sort by latest message/activity timestamp
-    conversations.sort((a, b) => {
-      const timeA = new Date(a.lastMessageTime || 0).getTime();
-      const timeB = new Date(b.lastMessageTime || 0).getTime();
-      return timeB - timeA;
-    });
-
-    return { success: true, conversations, currentUserId: user.id };
-  } catch (err: any) {
-    console.error("[INBOX_FETCH_ERROR]:", err.message);
-    return { success: false, conversations: [], currentUserId: null, error: err.message };
+    return {success: true, conversations: items, currentUserId: user.id};
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return {success: false, conversations: [], currentUserId: null, error: message};
   }
 }

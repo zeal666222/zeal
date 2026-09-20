@@ -1,17 +1,21 @@
 "use client";
 export const dynamic = "force-dynamic";
 
-import { useParams } from "next/navigation";
-import { MessageSquare, Sparkles, Home } from "lucide-react";
+import {useParams, useRouter} from "next/navigation";
+import {MessageSquare, Sparkles, Home} from "lucide-react";
 
 export default function PostDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
-        <button onClick={() => window.location.href = "/"} className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-400 mb-8">
+        <button
+          onClick={() => router.push("/")}
+          className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-400 mb-8"
+        >
           <Home size={16} /> Return to Cosmos
         </button>
 

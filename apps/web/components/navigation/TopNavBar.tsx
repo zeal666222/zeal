@@ -1,32 +1,55 @@
 "use client";
+// ═══════════════════════════════════════════════════════════════════════════════
+// TopNavBar — theme | animated mark + ZEAL | wallet + bell + avatar
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { Sun, Moon, Bell, IndianRupee, UserCircle } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { UserCircle, LogOut, Settings, Wallet, Sparkles } from "lucide-react";
+import {
+  AnimatedZealMark,
+  ThemeToggle,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@zeal/ui";
 import { useChannel, useConnection, channels, type BroadcastChange } from "@zeal/realtime";
-import { useWallet } from "@/hooks/useWallet";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { WalletChip } from "./WalletChip";
 import { useAppStore } from "@/lib/store/appStore";
 
-interface NotifRow { id?: string; type?: string; message?: string; redirectUrl?: string | null; }
+interface NotifRow {
+  id?: string;
+  type?: string;
+  message?: string;
+  redirectUrl?: string | null;
+}
 
-export function TopNavBar({ userId, initialBalance }: { userId: string | null; initialBalance: number }) {
+interface Props {
+  userId: string | null;
+  initialBalance: number;
+}
+
+export function TopNavBar({ userId, initialBalance }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const connection = useConnection();
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const isDark = mounted && resolvedTheme === "dark";
+  const [scrolled, setScrolled] = useState(false);
 
-  const { balance: liveBalance } = useWallet(userId);
-  const [balance, setBalance] = useState(initialBalance);
-  useEffect(() => { if (typeof liveBalance === "number" && liveBalance > 0) setBalance(liveBalance); }, [liveBalance]);
-  useEffect(() => { setBalance(initialBalance); }, [initialBalance]);
-
-  const storeUnread = useAppStore((s) => s.unreadCount);
   const addNotification = useAppStore((s) => s.addNotification);
-  const [unread, setUnread] = useState(0);
-  useEffect(() => setUnread(storeUnread), [storeUnread]);
+  const user = useAppStore((s) => s.user);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useChannel<BroadcastChange<NotifRow>>({
     channel: userId ? channels.userNotifications(userId) : null,
@@ -34,65 +57,150 @@ export function TopNavBar({ userId, initialBalance }: { userId: string | null; i
     onMessage: (p) => {
       const r = p?.record;
       if (!r?.message) return;
-      addNotification({ id: r.id ?? `n-${Date.now()}`, type: (r.type as never) ?? "system", message: r.message, redirectUrl: r.redirectUrl ?? null, read: false, actorId: "system" });
-      setUnread((n) => n + 1);
+      addNotification({
+        id: r.id ?? `n-${Date.now()}`,
+        type: (r.type as never) ?? "system",
+        message: r.message,
+        redirectUrl: r.redirectUrl ?? null,
+        read: false,
+        actorId: "system",
+      });
     },
   });
 
-  useEffect(() => {
-    if (!userId) return;
-    let c = false;
-    fetch("/api/notifications/unread-count", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((dd) => { if (!c && typeof dd?.count === "number") setUnread(dd.count); })
-      .catch(() => {});
-    return () => { c = true; };
-  }, [userId, pathname]);
-
-  const icon = !mounted ? <Moon size={18} /> : isDark ? <Moon size={18} /> : <Sun size={18} className="text-amber-400" />;
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/signout", { method: "POST" });
+    } catch {
+      /* ignore */
+    }
+    router.push("/login");
+  };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-16 sm:h-20 bg-slate-950/80 backdrop-blur-3xl border-b border-white/5 flex items-center justify-between px-3 sm:px-8">
-      <div className="flex-1 flex items-center">
-        <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} aria-label="Toggle theme" className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-800/80 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white active:scale-90 transition-all">
-          {icon}
-        </button>
-      </div>
-      <div className="flex-1 flex justify-center">
-        <Link href="/" className="relative flex items-center justify-center group">
-          <div className="absolute w-12 h-12 sm:w-16 sm:h-16 bg-purple-500/20 blur-xl rounded-full group-hover:bg-purple-500/40 transition-all pointer-events-none" />
-          <h1 className="text-3xl sm:text-4xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-purple-200 to-purple-600 relative z-10">Zeal</h1>
+    <motion.header
+      initial={{ y: -72, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className={`fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-300 ${
+        scrolled
+          ? "bg-[var(--color-surface)]/80 backdrop-blur-xl border-b border-[var(--color-border)] shadow-sm"
+          : "bg-transparent border-b border-transparent"
+      }`}
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
+      <div className="mx-auto max-w-7xl h-full px-3 sm:px-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 shrink-0">
+          <ThemeToggle />
+        </div>
+
+        <Link
+          href="/"
+          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2.5 group"
+          aria-label="Zeal home"
+        >
+          <motion.div
+            whileHover={{ scale: 1.08, rotate: -3 }}
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: "spring", stiffness: 400, damping: 18 }}
+          >
+            <AnimatedZealMark size={34} glow />
+          </motion.div>
+
+          <motion.span
+            initial={{ opacity: 0, letterSpacing: "0.3em" }}
+            animate={{ opacity: 1, letterSpacing: "0.15em" }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="hidden sm:inline-block text-lg font-black tracking-tight
+                       bg-gradient-to-r from-[#9D7DC5] via-purple-300 to-[#533AFD]
+                       bg-clip-text text-transparent
+                       drop-shadow-[0_0_12px_rgba(157,125,197,0.35)]"
+          >
+            ZEAL
+          </motion.span>
         </Link>
-      </div>
-      <div className="flex-1 flex items-center justify-end gap-2 sm:gap-3">
-        {userId ? (
-          <>
-            <Link href="/wallet" className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-full bg-gradient-to-br from-emerald-600 to-emerald-900 border border-emerald-500/50 text-white hover:from-emerald-500 active:scale-95 transition-all">
-              <IndianRupee size={16} />
-              <span className="font-black text-sm tabular-nums">{Number(balance).toFixed(2)}</span>
-            </Link>
-            <Link href="/notifications" aria-label="Notifications" className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-slate-800/80 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white active:scale-90 transition-all">
-              <Bell size={18} />
-              {unread > 0 && (
-                <span className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 min-w-[18px] h-[18px] px-1 bg-rose-500 rounded-full border-2 border-slate-950 flex items-center justify-center text-white text-[10px] font-bold">
-                  {unread > 99 ? "99+" : unread}
+
+        <div className="flex items-center gap-2 shrink-0">
+          {userId ? (
+            <>
+              <div className="hidden sm:block">
+                <WalletChip userId={userId} initialBalance={initialBalance} />
+              </div>
+
+              <NotificationBell />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="relative w-9 h-9 rounded-full overflow-hidden
+                               bg-gradient-to-br from-[#9D7DC5] to-[#533AFD]
+                               flex items-center justify-center
+                               text-white font-black text-sm
+                               ring-2 ring-transparent hover:ring-[var(--color-primary)]/40
+                               transition-all duration-200 active:scale-95"
+                    aria-label="Account menu"
+                  >
+                    {user?.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      (user?.name || user?.email || "?").charAt(0).toUpperCase()
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>{user?.name || "Your account"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => router.push("/profile")}>
+                    <UserCircle size={14} /> Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => router.push("/wallet")}>
+                    <Wallet size={14} /> Wallet
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => router.push("/sparks")}>
+                    <Sparkles size={14} /> Sparks
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => router.push("/profile?tab=settings")}>
+                    <Settings size={14} /> Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem destructive onSelect={handleSignOut}>
+                    <LogOut size={14} /> Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {process.env.NODE_ENV !== "production" && (
+                <span
+                  className={`hidden md:inline-flex items-center gap-1 text-[10px] font-bold ${
+                    connection === "connected" ? "text-emerald-500" : "text-amber-500"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      connection === "connected"
+                        ? "bg-emerald-500 animate-pulse"
+                        : "bg-amber-500"
+                    }`}
+                  />
+                  {connection === "connected" ? "Live" : connection}
                 </span>
               )}
+            </>
+          ) : (
+            <Link
+              href={`/login?redirectedFrom=${encodeURIComponent(pathname)}`}
+              className="flex items-center gap-2 px-4 h-9 rounded-full
+                         bg-gradient-to-br from-[#9D7DC5] to-[#533AFD]
+                         text-white font-black text-xs
+                         hover:opacity-95 active:scale-95 transition-all"
+            >
+              <UserCircle size={14} /> Sign in
             </Link>
-            {process.env.NODE_ENV !== "production" && (
-              <span className={`hidden md:inline-flex items-center gap-1 text-[10px] font-bold ${connection === "connected" ? "text-emerald-400" : "text-amber-400"}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${connection === "connected" ? "bg-emerald-500 animate-pulse" : "bg-amber-500"}`} />
-                {connection === "connected" ? "Live" : connection}
-              </span>
-            )}
-          </>
-        ) : (
-          <Link href={`/login?redirectedFrom=${encodeURIComponent(pathname)}`} className="flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-2.5 rounded-full bg-gradient-to-br from-purple-600 to-indigo-700 border border-purple-500/50 text-white active:scale-95 transition-all">
-            <UserCircle size={16} />
-            <span className="font-black text-xs sm:text-sm">Sign In</span>
-          </Link>
-        )}
+          )}
+        </div>
       </div>
-    </header>
+    </motion.header>
   );
 }

@@ -2,9 +2,9 @@
 
 // Tarot — uses unified /api/ai?task=tarot (cached 12h)
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Layers, Sparkles, RotateCcw, Loader2 } from "lucide-react";
+import {useState} from "react";
+import {motion} from "framer-motion";
+import {Layers, Sparkles, RotateCcw, Loader2} from "lucide-react";
 
 const MAJOR_ARCANA = [
   "The Fool", "The Magician", "The High Priestess", "The Empress",
@@ -90,7 +90,7 @@ export default function TarotPage() {
                   <div className="w-20 h-28 rounded-2xl bg-gradient-to-tr from-[#9D7DC5] to-[#533AFD] text-white flex items-center justify-center font-black text-3xl shadow-lg my-4">
                     {card.charAt(0)}
                   </div>
-                  <h3 className="text-xl font-bold text-white">{card}</h3>
+                  <h2 className="text-xl font-bold text-white">{card}</h2>
                 </motion.div>
               ))}
             </div>
@@ -109,9 +109,9 @@ export default function TarotPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 sm:p-12 max-w-3xl mx-auto text-left"
               >
-                <h3 className="text-2xl font-bold mb-4 flex items-center gap-2 text-white">
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-white">
                   <Sparkles className="text-[#9D7DC5]" /> Esoteric Synthesis
-                </h3>
+                </h2>
                 <p className="text-slate-300 leading-relaxed whitespace-pre-line">
                   {reading}
                 </p>

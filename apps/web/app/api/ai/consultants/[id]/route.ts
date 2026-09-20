@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@zeal/database/server";
+import {createAdminClient} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

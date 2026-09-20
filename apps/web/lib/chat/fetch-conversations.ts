@@ -4,7 +4,7 @@
 // Used by: /api/chat/conversations (GET), /chat/layout (server fetch)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 import type { ConversationItem } from "@/hooks/useConversations";
 
 // ─── Row types (explicit, since Supabase .from() is `any`) ───────────────────

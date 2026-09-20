@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { useAuth } from "@/components/providers/SupabaseAuthProvider";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button, Input, Avatar, AvatarImage, AvatarFallback } from "@zeal/ui";
-import { ArrowLeft, Camera, Loader2 } from "lucide-react";
+import {useState, useRef} from "react";
+import {useRouter} from "next/navigation";
+import {motion} from "framer-motion";
+import {useAuth} from "@/components/providers/SupabaseAuthProvider";
+import {useForm} from "react-hook-form";
+import {zodResolver} from "@hookform/resolvers/zod";
+import {z} from "zod";
+import {Button, Input, Avatar, AvatarImage, AvatarFallback} from "@zeal/ui";
+import {ArrowLeft, Camera, Loader2} from "lucide-react";
 
 const profileSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),

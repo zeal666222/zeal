@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@zeal/database/server";
-import { getUserId } from "@/lib/auth";
-import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { audit, requestMeta } from "@/lib/audit";
+import {createAdminClient} from "@zeal/database/server";
+import {getUserId} from "@/lib/auth";
+import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import {audit, requestMeta} from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 

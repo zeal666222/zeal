@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
+import {useState} from "react";
+import {motion} from "framer-motion";
 import Link from "next/link";
-import {
-  Calendar, Clock, Video, Phone, MessageCircle, Star, Loader2, X, Check,
-} from "lucide-react";
-import { formatCurrency } from "@zeal/utils";
+import {Calendar, Clock, Video, Phone, MessageCircle, Star, Loader2, X, Check} from "lucide-react";
+import {formatCurrency} from "@zeal/utils";
 
 export interface BookingSummary {
   id: string;
@@ -183,7 +181,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Bo
               </div>
               <textarea
                 value={review}
-                onChange={(e) => setReview(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReview(e.target.value)}
                 placeholder="Optional review..."
                 rows={2}
                 maxLength={500}
@@ -211,7 +209,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Bo
               <input
                 type="datetime-local"
                 value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewDate(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-[#E1C5E7] dark:border-gray-700 bg-white dark:bg-gray-900 text-xs"
               />
               <button

@@ -1,4 +1,4 @@
-import { createClient } from "@zeal/database/server";
+import {createClient} from "@zeal/database/server";
 
 /**
  * Returns the authenticated user's ID, or null. Never throws.

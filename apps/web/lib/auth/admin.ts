@@ -1,6 +1,6 @@
-import { createAdminClient } from "@zeal/database/server";
-import { getUserId } from "@/lib/auth";
-import { AppError, ErrorCode } from "@/lib/errors";
+import {createAdminClient} from "@zeal/database/server";
+import {getUserId} from "@/lib/auth";
+import {AppError, ErrorCode} from "@/lib/errors";
 
 export async function requireSuperAdmin(): Promise<string> {
   const userId = await getUserId();

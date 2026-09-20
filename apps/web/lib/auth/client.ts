@@ -3,7 +3,7 @@
 // Server-side session helpers
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export async function getClientSession(): Promise<{
   user: any | null;

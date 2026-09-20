@@ -1,18 +1,15 @@
 "use client";
-import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Wallet Page — Real-time balance + top-up
 // Theme: dark slate + Zeal purple. Mobile-first.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from "react";
-import {
-  IndianRupee, ShieldCheck, Loader2, ArrowUpRight,
-  Plus, Wallet as WalletIcon, ArrowDownRight,
-} from "lucide-react";
-import { useWallet } from "@/hooks/useWallet";
-import { topUpWalletAction } from "@/actions/wallet";
+import {useEffect, useState} from "react";
+import {IndianRupee, ShieldCheck, Loader2, ArrowUpRight, Plus, Wallet as WalletIcon, ArrowDownRight} from "lucide-react";
+import {useWallet} from "@/hooks/useWallet";
+import {topUpWalletAction} from "@/actions/wallet";
 
 export default function WalletPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -108,9 +105,9 @@ export default function WalletPage() {
           {/* Preset top-ups */}
           <div className="relative z-10 space-y-5">
             <div>
-              <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
+              <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">
                 Quick Top-Up
-              </h3>
+              </h2>
               <div className="grid grid-cols-3 gap-3">
                 {[100, 500, 1000].map((amt) => (
                   <button
@@ -139,7 +136,7 @@ export default function WalletPage() {
                 <input
                   type="number"
                   value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomAmount(e.target.value)}
                   min="1"
                   max="100000"
                   className="flex-1 px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white outline-none focus:border-emerald-500 font-mono"

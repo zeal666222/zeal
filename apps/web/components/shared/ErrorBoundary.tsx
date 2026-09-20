@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { motion } from "framer-motion";
-import { AlertCircle, RefreshCw } from "lucide-react";
-import { Button } from "@zeal/ui";
+import {motion} from "framer-motion";
+import {AlertCircle, RefreshCw} from "lucide-react";
+import {Button} from "@zeal/ui";
 
 interface Props { children: React.ReactNode; fallback?: React.ReactNode; onReset?: () => void; }
 interface State { hasError: boolean; error: Error | null; }

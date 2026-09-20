@@ -1,22 +1,46 @@
-import { notFound } from "next/navigation";
-import { prisma } from "@zeal/database/server";
+// ═══════════════════════════════════════════════════════════════════════════════
+// White-Label Book — direct Supabase query + auth gate
+// ═══════════════════════════════════════════════════════════════════════════════
+import {notFound} from "next/navigation";
+import {createAdminClient} from "@zeal/database/server";
 import Link from "next/link";
 
-interface Props { params: Promise<{ subdomain: string }>; }
+interface Props {
+  params: Promise<{subdomain: string}>;
+}
 
-export default async function WhiteLabelBookPage({ params }: Props) {
-  const { subdomain } = await params;
+interface ConsultantRow {
+  subdomainActive: boolean | null;
+  user:
+    | { name: string | null; username: string | null }
+    | { name: string | null; username: string | null }[]
+    | null;
+}
 
-  const consultant = await prisma.consultant.findUnique({
-    where: { subdomain },
-    include: { user: { select: { name: true } } },
-  });
-  if (!consultant || !consultant.subdomainActive) notFound();
+export default async function WhiteLabelBookPage({params}: Props) {
+  const {subdomain} = await params;
+  const admin = createAdminClient();
 
-  const name = consultant.user.name || "the consultant";
+  const {data, error} = await admin
+    .from("Consultant")
+    .select(`
+      "subdomainActive",
+      user:User!Consultant_userId_fkey(name, username)
+    `)
+    .eq("subdomain", subdomain)
+    .eq("subdomainActive", true)
+    .maybeSingle();
+
+  if (error || !data) notFound();
+
+  const row = data as unknown as ConsultantRow;
+  const user = Array.isArray(row.user) ? row.user[0] : row.user;
+  if (!user) notFound();
+
+  const name = user.name || user.username || "the consultant";
   const loginHref =
     "/auth/login?redirect=" +
-    encodeURIComponent("/white-label/" + subdomain + "/book");
+    encodeURIComponent(`/white-label/${subdomain}/book`);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
@@ -47,4 +71,3 @@ export default async function WhiteLabelBookPage({ params }: Props) {
 }
 
 export const dynamic = "force-dynamic";
-

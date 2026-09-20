@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
-import { motion } from "framer-motion";
-import { Button, Input } from "@zeal/ui";
+import {useState, useRef} from "react";
+import {useRouter} from "next/navigation";
+import {Upload, X, Image as ImageIcon, Loader2} from "lucide-react";
+import {motion} from "framer-motion";
+import {Button, Input} from "@zeal/ui";
 
 export default function CreatePage() {
   const router = useRouter();
@@ -99,7 +99,7 @@ export default function CreatePage() {
         <textarea
           placeholder="Write a caption..."
           value={caption}
-          onChange={(e) => setCaption(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCaption(e.target.value)}
           className="w-full px-4 py-3 border border-[#E1C5E7] dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none resize-none bg-white dark:bg-gray-800 text-[#5E4B8B] dark:text-white placeholder:text-[#B8A1D9]"
           rows={3}
         />
@@ -107,7 +107,7 @@ export default function CreatePage() {
         <Input
           placeholder="Tags (comma separated)"
           value={tags}
-          onChange={(e) => setTags(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
           className="w-full px-4 py-3 border border-[#E1C5E7] dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none bg-white dark:bg-gray-800 text-[#5E4B8B] dark:text-white placeholder:text-[#B8A1D9]"
         />
 

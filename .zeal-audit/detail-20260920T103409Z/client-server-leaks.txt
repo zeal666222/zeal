@@ -1,0 +1,3 @@
+apps/web/components/consultant/StudioClient.tsx:6
+apps/web/components/consultant/WorkspaceSidebar.tsx:7
+apps/admin/components/consultant/WorkspaceSidebar.tsx:8

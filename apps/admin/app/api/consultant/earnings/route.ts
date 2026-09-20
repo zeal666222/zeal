@@ -1,6 +1,6 @@
 // apps/admin/app/api/consultant/earnings/route.ts
-import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {NextResponse} from "next/server";
+import {createServerClientFromCookies} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 

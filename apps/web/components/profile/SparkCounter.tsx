@@ -1,7 +1,7 @@
 "use client";
 
-import { useSparks } from "@/hooks/useSparks";
-import { Flame } from "lucide-react";
+import {useSparks} from "@/hooks/useSparks";
+import {Flame} from "lucide-react";
 
 interface SparkCounterProps {
   userId: string;
