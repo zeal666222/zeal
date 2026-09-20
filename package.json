@@ -45,7 +45,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "5.7.1",
-    "@livekit/components-react": "2.9.23",
+    "@livekit/components-react": "2.9.24",
     "@neondatabase/serverless": "1.1.0",
     "@puspendra/easy-call-engine": "1.1.0",
     "@radix-ui/react-avatar": "1.2.6",
