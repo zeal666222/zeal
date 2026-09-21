@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-// Legal pages linked from /register are public.
+// ZEAL_FIX_CORS — legal pages linked from /register are public.
 const PUBLIC_ROUTES = [
   "/login",
   "/register",
@@ -38,37 +38,16 @@ function isPublic(pathname: string): boolean {
   );
 }
 
-/**
- * RSC prefetch detection.
- *
- * Next.js App Router signals a prefetch three different ways depending on
- * version and whether the request is a soft navigation:
- *   1. `?_rsc=<hash>` query param        — primary (App Router, Next 14+)
- *   2. `RSC: 1` header                   — secondary
- *   3. `Next-Router-Prefetch: 1` header  — legacy
- *   4. `Purpose: prefetch` header        — spec-compliant (fetch metadata)
- *
- * Any ONE of these means "do not issue a cross-origin redirect".
- * The browser blocks cross-origin fetch redirects with no
- * Access-Control-Allow-Origin header — that was the CORS error.
- */
+// ZEAL_FIX_CORS — a Next.js RSC prefetch must never be redirected to another
+// origin: the browser refuses to follow a cross-origin 307 inside fetch(),
+// producing a CORS error. Return 204 so the prefetch quietly no-ops.
 function isPrefetchOrRsc(request: NextRequest): boolean {
   const h = request.headers;
-  const url = request.nextUrl;
   return (
-    url.searchParams.has("_rsc") ||
-    h.get("rsc") === "1" ||
     h.get("next-router-prefetch") === "1" ||
-    h.get("purpose") === "prefetch"
+    h.get("purpose") === "prefetch" ||
+    h.get("rsc") === "1"
   );
-}
-
-/** Same-origin no-op for prefetches — never redirect cross-origin on fetch. */
-function noContent(): NextResponse {
-  return new NextResponse(null, {
-    status: 204,
-    headers: { "Cache-Control": "no-store" },
-  });
 }
 
 export async function middleware(request: NextRequest) {
@@ -100,7 +79,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
-  // ─── API proxy: attach bearer token ─────────────────────────────────────
+  // API proxy: attach bearer token
   if (pathname.startsWith("/api/")) {
     if (user) {
       const {
@@ -123,9 +102,6 @@ export async function middleware(request: NextRequest) {
   if (isPublic(pathname)) return response;
 
   if (!user) {
-    // RSC prefetch → same-origin 204 (no redirect that could be cross-origin)
-    if (isPrefetchOrRsc(request)) return noContent();
-
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectedFrom", pathname);
@@ -136,32 +112,26 @@ export async function middleware(request: NextRequest) {
   const isAdmin = ADMIN_ROLES.includes(role);
   const isConsultant = role === "CLIENT_ADMIN";
 
-  // ─── Consultant hitting an admin console route → bounce to studio ───────
+  // Consultant → admin console: bounce to studio
   if (
     isConsultant &&
     ADMIN_CONSOLE_PREFIXES.some((p) => pathname.startsWith(p))
   ) {
-    if (isPrefetchOrRsc(request)) return noContent();
+    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
     return NextResponse.redirect(new URL("/consultant/dashboard", request.url));
   }
 
-  // ─── Admin hitting a consultant route → bounce to console ───────────────
+  // Admin → consultant studio: bounce to console
   if (isAdmin && pathname.startsWith(CONSULTANT_PREFIX)) {
-    if (isPrefetchOrRsc(request)) return noContent();
+    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // ─── Plain USER (no admin, no consultant) ───────────────────────────────
-  // RSC prefetch → 204 (never redirect cross-origin — the browser blocks it).
-  // Full navigation → cross-origin redirect to the web app is fine.
+  // Plain USER → bounce to web (this is where the CORS error originated)
   if (!isAdmin && !isConsultant) {
-    if (isPrefetchOrRsc(request)) return noContent();
-
+    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
     const webUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "");
     if (webUrl) return NextResponse.redirect(`${webUrl}/explore`);
-    return NextResponse.redirect(
-      new URL("/login?error=not_authorized", request.url),
-    );
   }
 
   return response;

@@ -3,16 +3,15 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // ⚠ SERVER-ONLY MODULE
 //
-// Imported by Server Components, Route Handlers, Server Actions, Middleware.
+// Imported by Server Components, Route Handlers, Server Actions, and Middleware.
 // Do NOT import from "use client" files — use @zeal/types for shared types.
 //
 // Design notes:
 //   • No `import "server-only"` — Next.js 16 + transpilePackages mis-handles
-//     the runtime tripwire during page data collection. Subpath export
-//     boundary is the real compile-time guard.
+//     the runtime tripwire during page data collection. Subpath export boundary
+//     is the real compile-time guard.
 //   • Dummy fallbacks ("build-dummy-*") allow static analysis during build
-//     without env vars present. Runtime paths use identityClient() which
-//     throws a TYPED error when env is missing.
+//     without env vars present.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { cookies } from "next/headers";
@@ -21,17 +20,10 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@zeal/types";
 export type { Database, Json } from "@zeal/types";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Single source of truth for consultant completeness types ─────────────────
 export type { CompletenessCheck, CompletenessReport } from "@zeal/types";
 
-export class DatabaseConfigError extends Error {
-  constructor(public readonly missing: string[]) {
-    super(`[@zeal/database] Missing env: ${missing.join(", ")}`);
-    this.name = "DatabaseConfigError";
-  }
-}
-
-// ─── Admin (service role) — stateless, safe fallback ──────────────────────────
+// ─── Service-role admin client ────────────────────────────────────────────────
 export function createAdminClient(): any {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "build-dummy-service-key";
@@ -41,7 +33,7 @@ export function createAdminClient(): any {
 }
 export const getAdminClient = (): any => createAdminClient();
 
-// ─── Cookie-bound SSR client ──────────────────────────────────────────────────
+// ─── Cookie-bound SSR client (RLS enforced via user session) ──────────────────
 export const createServerClientFromCookies = async (): Promise<any> => {
   const cookieStore = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";
@@ -66,7 +58,7 @@ export const createServerClientFromCookies = async (): Promise<any> => {
 export const createClient = async (): Promise<any> =>
   createServerClientFromCookies();
 
-// ─── Session helpers ──────────────────────────────────────────────────────────
+// ─── Session helpers (never throw) ────────────────────────────────────────────
 export const getUserId = async (): Promise<string | null> => {
   try {
     const sb = await createServerClientFromCookies();
@@ -87,7 +79,7 @@ export const getActorRole = async (): Promise<string | null> => {
   }
 };
 
-// ─── Roles ────────────────────────────────────────────────────────────────────
+// ─── Role model ───────────────────────────────────────────────────────────────
 export type AppRole =
   | "USER"
   | "CLIENT_ADMIN"
@@ -103,7 +95,7 @@ const ADMIN_ROLES: readonly AppRole[] = [
 
 const PRIVILEGED: readonly AppRole[] = ["CLIENT_ADMIN", ...ADMIN_ROLES] as const;
 
-// ─── Identity client (service role, eager error on missing env) ───────────────
+// ─── Auth core ────────────────────────────────────────────────────────────────
 export interface SupaUserShape {
   id: string;
   email?: string | null;
@@ -127,15 +119,10 @@ let _identityClient: any = null;
 
 function identityClient(): any {
   if (_identityClient) return _identityClient;
-
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const missing: string[] = [];
-  if (!url) missing.push("NEXT_PUBLIC_SUPABASE_URL");
-  if (!key) missing.push("SUPABASE_SERVICE_ROLE_KEY");
-  if (missing.length > 0) throw new DatabaseConfigError(missing);
-
-  _identityClient = createSupabaseClient(url!, key!, {
+  if (!url || !key) throw new Error("[auth-core] Missing Supabase env");
+  _identityClient = createSupabaseClient(url, key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -145,11 +132,8 @@ function identityClient(): any {
   return _identityClient;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const buildUsernameBase = (email: string): string => {
-  const local = (email.split("@")[0] ?? "user")
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "");
+  const local = (email.split("@")[0] ?? "user").toLowerCase().replace(/[^a-z0-9_]/g, "");
   return (local.length >= 3 ? local : `user${local}`).slice(0, 24);
 };
 
@@ -188,11 +172,7 @@ async function ensureWallet(userId: string): Promise<void> {
   });
 }
 
-// ─── ensureUserRow (idempotent, race-safe, optional promote) ──────────────────
-export async function ensureUserRow(
-  u: SupaUserShape,
-  opts: { promoteTo?: AppRole } = {},
-): Promise<EnsureUserResult> {
+export async function ensureUserRow(u: SupaUserShape): Promise<EnsureUserResult> {
   const admin = identityClient();
   const email = u.email ?? "";
   const meta = u.user_metadata ?? {};
@@ -209,7 +189,6 @@ export async function ensureUserRow(
     .eq("id", u.id)
     .maybeSingle();
 
-  // ── Existing row path ────────────────────────────────────────────────────
   if (existing) {
     const patch: Record<string, unknown> = {};
     if (email) patch.email = email;
@@ -217,34 +196,23 @@ export async function ensureUserRow(
       patch.name = fullName;
       patch.full_name = fullName;
     }
-    if (avatar) patch.avatar_url = avatar;
+    if (avatar) {
 
-    // Role promotion — needed for consultant signup (DB trigger seeds USER).
-    if (opts.promoteTo && existing.role !== opts.promoteTo) {
-      patch.role = opts.promoteTo;
-      patch.updatedAt = new Date().toISOString();
+      patch.avatar_url = avatar;
     }
-
     if (Object.keys(patch).length > 0) {
       await admin.from("User").update(patch).eq("id", u.id);
     }
     await ensureWallet(u.id);
-
     return {
-      role: (patch.role as AppRole) ?? ((existing.role as AppRole) ?? "USER"),
+      role: (existing.role as AppRole) ?? "USER",
       isNew: false,
       userId: u.id,
     };
   }
 
-  // ── Fresh row path ───────────────────────────────────────────────────────
   const appRole = String(appMeta.role ?? "").toUpperCase() as AppRole;
-  const seedRole: AppRole = opts.promoteTo
-    ? opts.promoteTo
-    : PRIVILEGED.includes(appRole)
-      ? appRole
-      : "USER";
-
+  const seedRole: AppRole = PRIVILEGED.includes(appRole) ? appRole : "USER";
   const base = buildUsernameBase(email);
   const stable = shortId(u.id, 6);
 
@@ -262,6 +230,7 @@ export async function ensureUserRow(
         username: uname,
         name: fullName,
         full_name: fullName,
+        
         avatar_url: avatar,
         role: seedRole,
         sparks: 100,
@@ -280,7 +249,6 @@ export async function ensureUserRow(
       };
     }
 
-    // Race — someone else inserted first
     if (error?.code === "23505") {
       const { data: race } = await admin
         .from("User")
@@ -304,7 +272,6 @@ export async function ensureUserRow(
   throw new Error("[ensureUserRow] retries exhausted");
 }
 
-// ─── ensureConsultantRow ──────────────────────────────────────────────────────
 export async function ensureConsultantRow(
   u: SupaUserShape,
   opts: { category?: string; rate?: number } = {},
@@ -380,29 +347,21 @@ export async function ensureConsultantRow(
   };
 }
 
-// ─── syncAppMetadata (loud on failure, returns boolean) ───────────────────────
 export async function syncAppMetadata(
   userId: string,
   role: AppRole,
   current: Record<string, unknown> | undefined,
-): Promise<boolean> {
-  if ((current?.role as string) === role) return true;
+): Promise<void> {
+  if ((current?.role as string) === role) return;
   try {
     await identityClient().auth.admin.updateUserById(userId, {
       app_metadata: { ...(current ?? {}), role },
     });
-    return true;
-  } catch (err) {
-    console.error("[syncAppMetadata] failed", {
-      userId,
-      role,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return false;
+  } catch {
+    /* non-fatal */
   }
 }
 
-// ─── Destination resolver ─────────────────────────────────────────────────────
 export function resolveDestination(params: {
   role: AppRole;
   hasConsultant: boolean;
@@ -419,6 +378,7 @@ export function resolveDestination(params: {
 }
 
 // ─── Consultant profile completeness ──────────────────────────────────────────
+// Types come from @zeal/types (imported via re-export at top of file).
 import type {
   CompletenessCheck,
   CompletenessReport,
