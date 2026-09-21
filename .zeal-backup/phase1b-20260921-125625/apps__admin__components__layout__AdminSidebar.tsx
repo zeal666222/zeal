@@ -1,5 +1,5 @@
 "use client";
-// ZEAL_FIX_SIDEBAR_VISIBILITY_V2
+// ZEAL_FIX_SIDEBAR_VISIBILITY
 import Link from "next/link";
 import { usePathname, useRouter} from "next/navigation";
 import {motion, AnimatePresence} from "framer-motion";
@@ -38,6 +38,7 @@ const NAV: NavItem[] = [
   { icon: Megaphone,       label: "Broadcast",   href: "/broadcast",    minRole: "ADMIN" },
   { icon: UserPlus,        label: "Admins",      href: "/settings/admins", minRole: "SUPER_ADMIN" },
   { icon: Settings,        label: "Settings",    href: "/settings",     minRole: "SUPER_ADMIN" },
+  { icon: Eye, label: "Visibility", href: "/consultant/visibility", minRole: "VIEWER" },
 ];
 
 export function AdminSidebar() {

@@ -1,79 +1,61 @@
+// ZEAL_FIX_PULSE_V3
+// Consultant dashboard pulse — bearer + cookie aware.
 import { NextResponse } from "next/server";
-import {getUserId} from "@/lib/auth";
-import {createServerClientFromCookies} from "@zeal/database/server";
-import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import { requireUserAPI } from "@/lib/auth/api-guard";
+import { evaluateConsultantProfile } from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-export const GET = withErrorHandler(async () => {
-  const userId = await getUserId();
-  if (!userId) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
+export async function GET() {
+  const guard = await requireUserAPI();
+  if (!guard.ok) return guard.response;
+  const { userId, admin } = guard;
 
-  const supabase = await createServerClientFromCookies();
-
-  const { data: consultant } = await supabase
+  const { data: consultant } = await admin
     .from("Consultant")
-    .select("id, status, isActive, rating, totalConsultations")
+    .select(`id, bio, "perMinuteRate", specialties, languages, availability,
+             category, status, "isActive", rating, "totalConsultations",
+             "sparkScore", subdomain`)
     .eq("userId", userId)
     .maybeSingle();
 
-  if (!consultant) throw new AppError("Not a consultant", 403, ErrorCode.AUTH_FORBIDDEN);
+  if (!consultant) {
+    return NextResponse.json({ error: "NO_CONSULTANT_PROFILE" }, { status: 404 });
+  }
+  const c = consultant as { id: string };
 
-  const now = new Date();
-  const startOfDay = new Date(now); startOfDay.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(now); endOfDay.setHours(23, 59, 59, 999);
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
 
-  const [todaysBookingsRes, liveSessionsRes, pendingRes, earningsRes, unreadRes] = await Promise.all([
-    supabase
+  const [userRow, wallet, todaysBookings, pending, live] = await Promise.all([
+    admin.from("User").select("id, name, is_online, avatar_url").eq("id", userId).maybeSingle(),
+    admin.from("Wallet").select("balance, escrow, pendingIn, pendingOut, blocked").eq("userId", userId).maybeSingle(),
+    admin
       .from("Booking")
-      .select("*, user:User!Booking_userId_fkey(id, name, avatar)")
-      .eq("consultantId", consultant.id)
-      .in("status", ["PENDING", "CONFIRMED", "IN_PROGRESS"])
-      .gte("scheduledAt", startOfDay.toISOString())
-      .lte("scheduledAt", endOfDay.toISOString())
+      .select("id, scheduledAt, durationMinutes, status, amount, userId")
+      .eq("consultantId", c.id)
+      .gte("scheduledAt", todayStart.toISOString())
+      .lte("scheduledAt", todayEnd.toISOString())
       .order("scheduledAt", { ascending: true })
       .limit(20),
-    supabase
-      .from("CallSession")
-      .select("*", { count: "exact", head: true })
-      .eq("consultantId", consultant.id)
-      .eq("status", "INITIATED"),
-    supabase
-      .from("Booking")
-      .select("*", { count: "exact", head: true })
-      .eq("consultantId", consultant.id)
-      .eq("status", "PENDING"),
-    // Earnings today: get transactions tied to consultant's wallet today
-    (async () => {
-      const { data: wallet } = await supabase
-        .from("Wallet").select("id").eq("userId", userId).maybeSingle();
-      if (!wallet) return { data: [] as Array<{ amount: number }> };
-      return supabase
-        .from("Transaction")
-        .select("amount")
-        .eq("walletId", wallet.id)
-        .eq("type", "COMMISSION")
-        .gte("createdAt", startOfDay.toISOString())
-        .lte("createdAt", endOfDay.toISOString());
-    })(),
-    supabase
-      .from("Notification")
-      .select("*", { count: "exact", head: true })
-      .eq("userId", userId)
-      .eq("read", false),
+    admin.from("Booking").select("*", { count: "exact", head: true })
+      .eq("consultantId", c.id).eq("status", "PENDING"),
+    admin.from("CallSession").select("*", { count: "exact", head: true })
+      .eq("consultantId", c.id).eq("status", "INITIATED"),
   ]);
 
-  const earningsToday = ((earningsRes.data ?? []) as Array<{ amount: number }>)
-    .reduce((s, r) => s + (r.amount ?? 0), 0);
-
   return NextResponse.json({
-    consultant,
-    today: {
-      bookings: todaysBookingsRes.data ?? [],
-      liveSessions: liveSessionsRes.count ?? 0,
-      pendingRequests: pendingRes.count ?? 0,
-      earnings: earningsToday,
+    consultant: {
+      ...(consultant as Record<string, unknown>),
+      ...((userRow.data ?? {}) as Record<string, unknown>),
+      wallet: wallet.data ?? { balance: 0, escrow: 0, pendingIn: 0, pendingOut: 0, blocked: 0 },
+      completeness: evaluateConsultantProfile(consultant),
     },
-    unreadNotifications: unreadRes.count ?? 0,
+    today: {
+      bookings: todaysBookings.data ?? [],
+      pendingRequests: pending.count ?? 0,
+      liveSessions: live.count ?? 0,
+    },
   });
-});
+}

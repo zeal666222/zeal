@@ -1,9 +1,8 @@
 "use client";
 import Link from "next/link";
-import {usePathname, useRouter} from "next/navigation";
+import { usePathname, useRouter} from "next/navigation";
 import {useEffect, useState} from "react";
-import { Calendar, Check, Clock, Copy, DollarSign, ExternalLink, LayoutDashboard, LogOut,
-  Menu, Palette, Settings, Users, X } from "lucide-react";
+import { Calendar, Check, Clock, Copy, DollarSign, ExternalLink, LayoutDashboard, LogOut, Menu, Palette, Settings, Users, X, Eye } from "lucide-react";
 import {cn} from "@zeal/ui";
 import type { CompletenessReport } from "@zeal/types";
 
@@ -13,6 +12,7 @@ const NAV: NavItem[] = [
   { icon: Calendar,        label: "Bookings",    href: "/consultant/bookings",     mobile: true },
   { icon: Users,           label: "Clients",     href: "/consultant/clients",      mobile: true },
   { icon: DollarSign,      label: "Earnings",    href: "/consultant/earnings",     mobile: true },
+  { icon: Eye, label: "Visibility", href: "/consultant/visibility", mobile: false },
   { icon: Clock,           label: "Schedule",    href: "/consultant/availability", mobile: false },
   { icon: Palette,         label: "White-Label", href: "/consultant/settings",     mobile: false },
   { icon: Settings,        label: "Settings",    href: "/consultant/settings",     mobile: true },

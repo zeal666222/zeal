@@ -1,82 +1,139 @@
-// ZEAL_FIX_PHASE2_SERVICES
+// ZEAL_FIX_SERVICES_API_V2
+// ═══════════════════════════════════════════════════════════════════════════════
+// Accepts auth from either bearer (admin proxy) or cookie session.
+// Accepts {services: [{slug}]} OR {services: [{serviceId, proficiency}]}.
+// Refreshes the MV on write so the change propagates immediately.
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import { createAdminClient } from "@zeal/database/server";
+import { requireUserAPI } from "@/lib/auth/api-guard";
+import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const PutSchema = z.object({
-  services: z
-    .array(
-      z.object({
-        serviceId: z.string().uuid(),
-        proficiency: z.number().int().min(1).max(5).default(3),
-      }),
-    )
-    .max(20),
+// ─── Schemas ────────────────────────────────────────────────────────────────
+const ServiceSlug = z.object({
+  slug: z.string().min(1).max(80),
+  proficiency: z.number().int().min(1).max(5).default(3),
 });
 
-export async function GET() {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const ServiceId = z.object({
+  serviceId: z.string().uuid(),
+  proficiency: z.number().int().min(1).max(5).default(3),
+});
 
-  const { data: consultant } = await supabase
+const PutSchema = z.object({
+  services: z.array(z.union([ServiceSlug, ServiceId])).max(50),
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GET — list current consultant's tagged services
+// ═══════════════════════════════════════════════════════════════════════════════
+export const GET = withErrorHandler(async () => {
+  const guard = await requireUserAPI();
+  if (!guard.ok) return guard.response;
+  const { userId } = guard;
+
+  const admin = createAdminClient();
+
+  const { data: consultant } = await admin
     .from("Consultant")
     .select("id")
-    .eq("userId", user.id)
+    .eq("userId", userId)
     .maybeSingle();
 
-  if (!consultant) return NextResponse.json({ services: [] });
+  if (!consultant) {
+    return NextResponse.json({ services: [] });
+  }
 
-  const { data } = await supabase
+  const { data } = await admin
     .from("ConsultantService")
     .select("service_id, proficiency, Service(name, slug, parent_category)")
     .eq("consultant_id", consultant.id);
 
   return NextResponse.json({ services: data ?? [] });
-}
+});
 
-export async function PUT(req: Request) {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// ═══════════════════════════════════════════════════════════════════════════════
+// PUT — replace the full set of services
+// ═══════════════════════════════════════════════════════════════════════════════
+export const PUT = withErrorHandler(async (req: Request) => {
+  const guard = await requireUserAPI();
+  if (!guard.ok) return guard.response;
+  const { userId } = guard;
 
   let raw: unknown;
   try { raw = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    throw new AppError("Invalid JSON", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   const parsed = PutSchema.safeParse(raw);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid" },
-      { status: 422 },
+    throw new AppError(
+      parsed.error.issues[0]?.message || "Invalid input",
+      422,
+      ErrorCode.VALIDATION_INPUT,
     );
   }
 
-  const { data: consultant } = await supabase
+  const admin = createAdminClient();
+
+  const { data: consultant } = await admin
     .from("Consultant")
     .select("id")
-    .eq("userId", user.id)
+    .eq("userId", userId)
     .maybeSingle();
 
-  if (!consultant) return NextResponse.json({ error: "Not a consultant" }, { status: 403 });
-
-  await supabase.from("ConsultantService").delete().eq("consultant_id", consultant.id);
-
-  if (parsed.data.services.length > 0) {
-    const rows = parsed.data.services.map((s) => ({
-      consultant_id: consultant.id,
-      service_id: s.serviceId,
-      proficiency: s.proficiency,
-    }));
-    const { error } = await supabase.from("ConsultantService").insert(rows);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!consultant) {
+    throw new AppError("No consultant profile", 403, ErrorCode.AUTH_FORBIDDEN);
   }
 
-  try { await supabase.rpc("refresh_consultant_directory"); } catch { /* best-effort */ }
+  // Normalize every entry to a service_id (resolve slugs)
+  const requestedSlugs = parsed.data.services
+    .map((s) => ("slug" in s ? s.slug : null))
+    .filter((x): x is string => Boolean(x));
 
-  return NextResponse.json({ success: true, count: parsed.data.services.length });
-}
+  const requestedIds = parsed.data.services
+    .map((s) => ("serviceId" in s ? s.serviceId : null))
+    .filter((x): x is string => Boolean(x));
+
+  // Resolve slugs → ids
+  let idSet = new Set<string>(requestedIds);
+  if (requestedSlugs.length > 0) {
+    const { data: rows } = await admin
+      .from("Service")
+      .select("id, slug")
+      .in("slug", requestedSlugs);
+    for (const r of (rows ?? []) as Array<{ id: string; slug: string }>) {
+      idSet.add(r.id);
+    }
+  }
+
+  // Wipe + insert (idempotent)
+  await admin.from("ConsultantService").delete().eq("consultant_id", consultant.id);
+
+  if (idSet.size > 0) {
+    const rows = Array.from(idSet).map((id) => ({
+      consultant_id: consultant.id,
+      service_id: id,
+      proficiency: 3,
+    }));
+
+    const { error } = await admin.from("ConsultantService").insert(rows);
+    if (error) {
+      throw new AppError(error.message, 500, ErrorCode.INTERNAL_SERVER);
+    }
+  }
+
+  // Immediate MV refresh so the change lands on the next read
+  try {
+    await admin.rpc("refresh_consultant_directory");
+  } catch (e) {
+    console.warn("[services] MV refresh failed (best-effort):", e);
+  }
+
+  return NextResponse.json({ success: true, count: idSet.size });
+});

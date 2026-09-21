@@ -1,9 +1,9 @@
 "use client";
+// ZEAL_FIX_STUDIO_VISIBILITY
 
-import {useCallback, useState} from "react";
+import { useCallback, useState} from "react";
 import {useRouter} from "next/navigation";
-import { Activity, ChevronRight, Clock, Flame, IndianRupee, Loader2, MessageSquare, Power,
-  Sparkles, Star, Users, Video } from "lucide-react";
+import { Activity, ChevronRight, Clock, Flame, IndianRupee, Loader2, MessageSquare, Power, Sparkles, Star, Users, Video, Eye, ExternalLink } from "lucide-react";
 import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 import {cn} from "@zeal/ui";
 

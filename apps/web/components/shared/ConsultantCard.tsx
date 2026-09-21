@@ -1,4 +1,5 @@
 "use client";
+// ZEAL_FIX_CARD_NORMALIZE
 
 import Link from "next/link";
 import {useState, memo} from "react";
@@ -27,6 +28,11 @@ const ConsultantCard = memo(function ConsultantCard({
   showActions = true,
   priority = false,
 }: ConsultantCardProps) {
+  // ZEAL_FIX_CARD_NORMALIZE
+  // Normalize avatar vs avatar_url so callers can pass either.
+  const _c = consultant as unknown as { avatar?: string | null; avatar_url?: string | null };
+  const _avatar = _c.avatar ?? _c.avatar_url ?? "";
+
   const router = useRouter();
   const { isAuthenticated } = useAppStoreShallow((state) => ({
     isAuthenticated: state.isAuthenticated,
@@ -114,7 +120,7 @@ const ConsultantCard = memo(function ConsultantCard({
           )}
         >
           <img
-            src={consultant.avatar || "https://ui-avatars.com/api/?name=U&background=9D7DC5&color=fff"}
+            src={_avatar || "https://ui-avatars.com/api/?name=U&background=9D7DC5&color=fff"}
             alt={consultant.name}
             className="w-full h-full rounded-full object-cover"
             loading={priority ? "eager" : "lazy"}

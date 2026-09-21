@@ -1,11 +1,11 @@
-// apps/web/app/api/consultant/bookings/route.ts
-// Lists bookings for the current consultant
+// ZEAL_FIX_BOOKINGS_V3
+// Consultant bookings list — bearer + cookie aware.
 import { NextResponse } from "next/server";
-import {createServerClientFromCookies} from "@zeal/database/server";
+import { requireUserAPI } from "@/lib/auth/api-guard";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-interface ConsultantRow { id: string; }
 interface BookingRow {
   id: string;
   scheduledAt: string;
@@ -14,29 +14,29 @@ interface BookingRow {
   amount: number;
   userId: string | null;
 }
-interface UserRow { id: string; name: string | null; username: string | null; }
+interface UserRow {
+  id: string;
+  name: string | null;
+  username: string | null;
+}
 
 export async function GET() {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireUserAPI();
+  if (!guard.ok) return guard.response;
+  const { userId, admin } = guard;
 
-  // Find consultant row
-  const { data: consultantRaw } = await supabase
+  const { data: consultantRaw } = await admin
     .from("Consultant")
     .select("id")
-    .eq("userId", user.id)
+    .eq("userId", userId)
     .maybeSingle();
 
-  const consultant = consultantRaw as ConsultantRow | null;
+  const consultant = consultantRaw as { id: string } | null;
   if (!consultant) {
     return NextResponse.json({ bookings: [] });
   }
 
-  // Fetch bookings
-  const { data: bookingsRaw, error } = await supabase
+  const { data: bookingsRaw, error } = await admin
     .from("Booking")
     .select("id, scheduledAt, durationMinutes, status, amount, userId")
     .eq("consultantId", consultant.id)
@@ -49,29 +49,33 @@ export async function GET() {
 
   const bookings = (bookingsRaw ?? []) as BookingRow[];
 
-  // Fetch user names
-  const userIds = Array.from(
-    new Set(bookings.map((b) => b.userId).filter((x): x is string => Boolean(x)))
+  const ids = Array.from(
+    new Set(bookings.map((b) => b.userId).filter((x): x is string => Boolean(x))),
   );
+
   let users: UserRow[] = [];
-  if (userIds.length > 0) {
-    const { data: usersRaw } = await supabase
+  if (ids.length > 0) {
+    const { data: usersRaw } = await admin
       .from("User")
       .select("id, name, username")
-      .in("id", userIds);
+      .in("id", ids);
     users = (usersRaw ?? []) as UserRow[];
   }
+
   const userById = new Map<string, UserRow>();
   for (const u of users) userById.set(u.id, u);
 
-  const items = bookings.map((b) => ({
-    id: b.id,
-    scheduledAt: b.scheduledAt,
-    durationMinutes: b.durationMinutes,
-    status: b.status,
-    amount: b.amount,
-    userName: b.userId ? (userById.get(b.userId)?.name || userById.get(b.userId)?.username || null) : null,
-  }));
+  const items = bookings.map((b) => {
+    const u = b.userId ? userById.get(b.userId) : undefined;
+    return {
+      id: b.id,
+      scheduledAt: b.scheduledAt,
+      durationMinutes: b.durationMinutes,
+      status: b.status,
+      amount: b.amount,
+      userName: u?.name || u?.username || null,
+    };
+  });
 
   return NextResponse.json({ bookings: items });
 }

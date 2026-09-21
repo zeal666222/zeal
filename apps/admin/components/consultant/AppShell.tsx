@@ -1,4 +1,5 @@
 "use client";
+// ZEAL_FIX_APPSHELL_NAV
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ZEAL — Consultant AppShell
@@ -12,12 +13,11 @@
 //   • Ambient glass-morphism backdrop
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {useState, useEffect} from "react";
+import { useState, useEffect} from "react";
 import Link from "next/link";
 import {usePathname} from "next/navigation";
 import {motion, AnimatePresence} from "framer-motion";
-import { Calendar, Check, Clock, Copy, DollarSign, LayoutDashboard, LogOut,
-  type LucideIcon, Menu, MessageCircle, Settings, Users, Wifi, X, Zap } from "lucide-react";
+import { Calendar, Check, Clock, Copy, DollarSign, LayoutDashboard, LogOut, type LucideIcon, Menu, MessageCircle, Settings, Users, Wifi, X, Zap, Eye, Sparkles } from "lucide-react";
 import {useConnection} from "@zeal/realtime";
 
 interface NavItem {
@@ -33,6 +33,8 @@ const NAV: NavItem[] = [
   { icon: Calendar,        label: "Bookings", href: "/consultant/bookings",     mobile: true },
   { icon: Users,           label: "Clients",  href: "/consultant/clients",      mobile: true },
   { icon: DollarSign,      label: "Earnings", href: "/consultant/earnings",     mobile: true },
+  { icon: Sparkles, label: "Services",   href: "/consultant/services",   mobile: false },
+  { icon: Eye,      label: "Visibility", href: "/consultant/visibility", mobile: false },
   { icon: Clock,           label: "Schedule", href: "/consultant/availability", mobile: false },
   { icon: Settings,        label: "Settings", href: "/consultant/settings",     mobile: false },
 ];
