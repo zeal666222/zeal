@@ -1,69 +1,10 @@
-// ZEAL_FIX_PHASE1_MW_WEB
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-
-const PUBLIC_ROUTES = [
-  "/",
-  "/explore",
-  "/services",
-  "/ai-astrologers",
-  "/consultant",
-  "/white-label",
-  "/login",
-  "/register",
-  "/auth/callback",
-  "/auth/verify-invite",
-  "/payment/success",
-  "/payment/failure",
-  "/not-found",
-];
-
-const AUTH_REQUIRED_PREFIXES = [
-  "/chat",
-  "/wallet",
-  "/bookings",
-  "/booking",
-  "/profile",
-  "/notifications",
-  "/sparks",
-  "/create",
-  "/post",
-  "/debug",
-  "/session",
-];
-
-const CONSULTANT_REDIRECT_PREFIXES = [
-  "/consultant/dashboard",
-  "/consultant/bookings",
-  "/consultant/clients",
-  "/consultant/earnings",
-  "/consultant/availability",
-  "/consultant/settings",
-  "/consultant/onboarding",
-  "/consultant/pending",
-];
-
-const isPublic = (p: string) =>
-  p === "/" || PUBLIC_ROUTES.some((r) => p === r || p.startsWith(r + "/"));
-const requiresAuth = (p: string) =>
-  AUTH_REQUIRED_PREFIXES.some((r) => p === r || p.startsWith(r + "/"));
-const requiresConsultantRedirect = (p: string) =>
-  CONSULTANT_REDIRECT_PREFIXES.some((r) => p === r || p.startsWith(r + "/"));
-
-// ZEAL_FIX_CORS — see admin middleware for rationale.
-function isPrefetchOrRsc(request: NextRequest): boolean {
-  const h = request.headers;
-  return (
-    h.get("next-router-prefetch") === "1" ||
-    h.get("purpose") === "prefetch" ||
-    h.get("rsc") === "1"
-  );
-}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Bearer-authed API calls bypass (api-guard handles them)
+  // 1. Bypass explicitly authorized API routes (handled by backend API guards)
   if (
     pathname.startsWith("/api/") &&
     request.headers.get("authorization")?.startsWith("Bearer ")
@@ -71,8 +12,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({ request });
+  // 2. Initialize the base response
+  let supabaseResponse = NextResponse.next({ request });
 
+  // 3. Initialize the Supabase Server Client
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -82,46 +25,38 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          response = NextResponse.next({ request });
+          // Update incoming request cookies so subsequent Server Components see the rotated token instantly
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          
+          // Re-initialize the response to flush headers safely without destroying existing ones
+          supabaseResponse = NextResponse.next({ request });
+          
+          // Attach the new tokens to the outgoing browser response
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
+            supabaseResponse.cookies.set(name, value, options)
           );
         },
       },
-    },
+    }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // 4. Force Token Evaluation
+  // We explicitly call getUser() instead of getSession() to guarantee a secure, 
+  // cryptographically verified check that triggers the setAll token rotation if expired.
+  await supabase.auth.getUser();
 
-  // Consultant pages → redirect to admin portal
-  if (requiresConsultantRedirect(pathname)) {
-    if (isPrefetchOrRsc(request)) return new NextResponse(null, { status: 204 });
-    const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
-    if (adminUrl) {
-      const suffix = pathname.replace(/^\/consultant/, "");
-      return NextResponse.redirect(`${adminUrl}/consultant${suffix}`);
-    }
-  }
-
-  if (isPublic(pathname)) return response;
-
-  if (requiresAuth(pathname) && !user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  return response;
+  return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - Any file with an extension (e.g., .svg, .png, .jpg)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
