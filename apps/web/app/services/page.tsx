@@ -66,11 +66,11 @@ export default async function ServicesPage() {
         <div className="flex items-center gap-2 mb-4">
           <Sparkles size={18} className="text-[var(--color-primary)]" />
           <h2 className="text-2xl md:text-3xl font-black text-[var(--color-foreground)]">
-            Explore every tradition
+            Explore every faith & healing tradition
           </h2>
         </div>
         <p className="text-sm text-[var(--color-muted-foreground)] mb-6">
-          From Vedic astrology to modern therapy — 37 categories, one platform.
+          From Vedic astrology to Islamic counseling, Buddhist meditation, Christian therapy, and modern wellness — 37 traditions, one platform.
         </p>
         <Suspense fallback={<SkeletonGrid count={8} />}>
           <CategoryGrid />

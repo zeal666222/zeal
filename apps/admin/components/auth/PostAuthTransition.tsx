@@ -12,7 +12,7 @@ import { AnimatedZealMark } from "@zeal/ui";
 import { ArrowRight, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type Destination = "studio" | "console" | "handoff";
+type Destination = "studio" | "console";
 
 interface Props {
   destination: Destination;
@@ -29,13 +29,7 @@ const COPY: Record<Destination, { title: string; subtitle: string; steps: string
     title: "Opening the Console",
     subtitle: "Loading platform pulse",
     steps: ["Authenticated", "Verifying role", "Fetching metrics"],
-  },
-  handoff: {
-    title: "Transferring session",
-    subtitle: "Moving to the admin portal",
-    steps: ["Authenticated", "Generating handoff", "Securing connection"],
-  },
-};
+  },};
 
 export function PostAuthTransition({ destination, email }: Props) {
   const copy = COPY[destination];

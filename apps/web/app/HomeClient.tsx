@@ -60,18 +60,18 @@ export function HomeClient({ aiConsultants, experts, posts: initialPosts }: Prop
         <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/15 via-transparent to-[var(--color-primary)]/5 pointer-events-none" />
         <div className="relative p-8 md:p-14">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-primary-muted)] border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold uppercase tracking-widest mb-5">
-            <Sparkles size={12} /> 37 traditions · 24/7 AI + verified humans
+            <Sparkles size={12} /> Multi-faith · 37 traditions · 24/7 AI + verified humans
           </div>
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-[var(--color-foreground)] leading-[1.05] max-w-3xl">
-            Ancient wisdom,
-            <br />
-            <span className="bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] bg-clip-text text-transparent">
-              real-time guidance.
-            </span>
+            Every tradition.
+              <br />
+              <span className="bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] bg-clip-text text-transparent">
+                One platform.
+              </span>
           </h1>
           <p className="text-[var(--color-muted-foreground)] mt-5 max-w-xl text-base">
-            Connect with verified consultants and AI guides across astrology, therapy,
-            healing, and coaching.
+            Multi-faith wellness & healing — Vedic astrology, Islamic counseling,
+            Buddhist meditation, Christian therapy, Tarot, energy healing, and modern wellness coaching.
           </p>
           <div className="flex flex-wrap gap-3 mt-8">
             <Link

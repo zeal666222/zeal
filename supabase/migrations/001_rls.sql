@@ -82,14 +82,14 @@ CREATE POLICY "conversation_participants_insert" ON "Conversation" FOR INSERT WI
   auth.uid()::text = "userAId" OR auth.uid()::text = "userBId"
 );
 
-DROP POLICY IF EXISTS "chatmessage_participants_read" ON "ChatMessage";
-CREATE POLICY "chatmessage_participants_read" ON "ChatMessage" FOR SELECT USING (
+DROP POLICY IF EXISTS "chatmessage_participants_read" ON "Message";
+CREATE POLICY "chatmessage_participants_read" ON "Message" FOR SELECT USING (
   EXISTS (SELECT 1 FROM "Conversation" c
           WHERE c.id = "conversationId"
             AND (c."userAId" = auth.uid()::text OR c."userBId" = auth.uid()::text))
 );
-DROP POLICY IF EXISTS "chatmessage_sender_insert" ON "ChatMessage";
-CREATE POLICY "chatmessage_sender_insert" ON "ChatMessage" FOR INSERT WITH CHECK (auth.uid()::text = "senderId");
+DROP POLICY IF EXISTS "chatmessage_sender_insert" ON "Message";
+CREATE POLICY "chatmessage_sender_insert" ON "Message" FOR INSERT WITH CHECK (auth.uid()::text = "senderId");
 
 DROP POLICY IF EXISTS "prefs_owner_all" ON "UserPreferences";
 CREATE POLICY "prefs_owner_all" ON "UserPreferences" FOR ALL USING (auth.uid()::text = "userId");

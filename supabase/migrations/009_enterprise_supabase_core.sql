@@ -7,7 +7,7 @@
 CREATE INDEX IF NOT EXISTS idx_booking_user_status ON "Booking"("userId", "status");
 CREATE INDEX IF NOT EXISTS idx_booking_consultant_date ON "Booking"("consultantId", "scheduledAt");
 CREATE INDEX IF NOT EXISTS idx_callsession_booking ON "CallSession"("bookingId", "status");
-CREATE INDEX IF NOT EXISTS idx_chatmessage_conversation_time ON "ChatMessage"("conversationId", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS idx_chatmessage_conversation_time ON "Message"("conversationId", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS idx_wallet_userid ON "Wallet"("userId");
 CREATE INDEX IF NOT EXISTS idx_transaction_wallet_time ON "Transaction"("walletId", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS idx_post_author_time ON "Post"("authorId", "createdAt" DESC);
@@ -22,7 +22,7 @@ CREATE PUBLICATION supabase_realtime;
 -- Add critical tables to the publication
 ALTER PUBLICATION supabase_realtime ADD TABLE 
   "Wallet", "Consultant", "Booking", "CallSession", 
-  "Conversation", "ChatMessage", "Notification", "User";
+  "Conversation", "Message", "Notification", "User";
 
 -- Force Full Replica Identity so WebSockets receive both OLD and NEW row states
 ALTER TABLE "Wallet" REPLICA IDENTITY FULL;

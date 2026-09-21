@@ -181,14 +181,14 @@ CREATE TABLE IF NOT EXISTS "Conversation" (
 CREATE INDEX IF NOT EXISTS "Conversation_userA_idx" ON "Conversation"("userAId", "lastMessageAt" DESC);
 CREATE INDEX IF NOT EXISTS "Conversation_userB_idx" ON "Conversation"("userBId", "lastMessageAt" DESC);
 
-CREATE TABLE IF NOT EXISTS "ChatMessage" (
+CREATE TABLE IF NOT EXISTS "Message" (
   "id" TEXT PRIMARY KEY DEFAULT (gen_random_uuid())::text,
   "conversationId" TEXT NOT NULL REFERENCES "Conversation"("id") ON DELETE CASCADE,
   "senderId" TEXT NOT NULL REFERENCES "User"("id") ON DELETE CASCADE,
   "content" TEXT NOT NULL, "readAt" TIMESTAMPTZ,
   "createdAt" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS "ChatMessage_conv_idx" ON "ChatMessage"("conversationId", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "ChatMessage_conv_idx" ON "Message"("conversationId", "createdAt" DESC);
 
 CREATE TABLE IF NOT EXISTS "AdminAuditLog" (
   "id" TEXT PRIMARY KEY DEFAULT (gen_random_uuid())::text,

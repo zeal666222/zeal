@@ -1,26 +1,25 @@
 "use client";
-// ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL Admin — Consultant Registration
-// Split layout · instant activation · password strength · smooth transition
-// ═══════════════════════════════════════════════════════════════════════════════
 
 import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, ArrowRight, Briefcase, Check, Eye, EyeOff, Loader2, Lock, Mail,
-  MailCheck, ShieldCheck, Sparkles, UserIcon } from "lucide-react";
+import {
+  AlertCircle, ArrowRight, Briefcase, Check, Eye, EyeOff, Loader2, Lock, Mail,
+  MailCheck, ShieldCheck, Sparkles, UserIcon,
+} from "lucide-react";
+import { ThemeToggle } from "@zeal/ui";
 import { registerConsultantAction } from "@/actions/register";
 import { PostAuthTransition } from "@/components/auth/PostAuthTransition";
 
 type Strength = 0 | 1 | 2 | 3 | 4;
 
 const META: Record<Strength, { label: string; color: string; width: string }> = {
-  0: { label: "",       color: "",                 width: "0%" },
-  1: { label: "Weak",   color: "bg-rose-500",      width: "25%" },
-  2: { label: "Fair",   color: "bg-amber-500",     width: "50%" },
-  3: { label: "Good",   color: "bg-blue-500",      width: "75%" },
-  4: { label: "Strong", color: "bg-emerald-500",   width: "100%" },
+  0: { label: "",       color: "",               width: "0%"   },
+  1: { label: "Weak",   color: "bg-rose-500",    width: "25%"  },
+  2: { label: "Fair",   color: "bg-amber-500",   width: "50%"  },
+  3: { label: "Good",   color: "bg-blue-500",    width: "75%"  },
+  4: { label: "Strong", color: "bg-emerald-500", width: "100%" },
 };
 
 function score(pw: string): Strength {
@@ -32,6 +31,9 @@ function score(pw: string): Strength {
   if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) s++;
   return Math.min(s, 4) as Strength;
 }
+
+const WEB_URL =
+  process.env.NEXT_PUBLIC_APP_URL || "https://zeal-web-red.vercel.app";
 
 function Content() {
   const router = useRouter();
@@ -53,16 +55,19 @@ function Content() {
   const meta = META[strength];
   const pwOk = password.length >= 12;
   const matches = password === confirm && confirm.length > 0;
-  const emailOk = useMemo(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()), [email]);
+  const emailOk = useMemo(
+    () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
+    [email],
+  );
   const nameOk = fullName.trim().length >= 2;
   const canSubmit = nameOk && emailOk && pwOk && matches && agreed && !loading;
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setTouched({ name: true, email: true });
+    setError(null);
     if (!canSubmit) return;
     setLoading(true);
-    setError(null);
 
     const fd = new FormData();
     fd.append("fullName", fullName.trim());
@@ -79,6 +84,7 @@ function Content() {
       setTransition(true);
       window.setTimeout(() => {
         router.push(("destination" in res && res.destination) || "/consultant/dashboard");
+        router.refresh();
       }, 950);
       return;
     }
@@ -120,17 +126,22 @@ function Content() {
       </AnimatePresence>
 
       <div className="min-h-screen bg-[#0B0A14] flex relative overflow-hidden">
+        <div className="fixed top-4 right-4 z-50">
+          <ThemeToggle />
+        </div>
+
         <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-500/10 blur-[160px] pointer-events-none" />
         <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-purple-500/[0.08] blur-[160px] pointer-events-none" />
 
-        {/* LEFT brand */}
         <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 border-r border-white/[0.06]">
           <Link href="/" className="inline-flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center shadow-2xl shadow-purple-500/20">
               <Briefcase size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-white font-black tracking-wider text-lg leading-none">ZEAL STUDIO</p>
+              <p className="text-white font-black tracking-wider text-lg leading-none">
+                ZEAL STUDIO
+              </p>
               <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
                 Consultant + Admin
               </p>
@@ -157,7 +168,9 @@ function Content() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-slate-400 text-base mt-6 max-w-md"
             >
-              Instant activation. No approval queue. Complete your profile to go live.
+              Serve seekers across every faith and healing tradition — Vedic,
+              Islamic, Buddhist, Christian, Taoist, and modern wellness.
+              Instant activation, no approval queue.
             </motion.p>
 
             <ul className="mt-10 space-y-3.5">
@@ -184,7 +197,7 @@ function Content() {
           </div>
 
           <div className="flex items-center gap-6 text-[11px] text-slate-600">
-            <span>© 2026 Zeal</span>
+            <span>© {new Date().getFullYear()} Zeal</span>
             <span>•</span>
             <span>SOC 2</span>
             <span>•</span>
@@ -192,7 +205,6 @@ function Content() {
           </div>
         </aside>
 
-        {/* RIGHT form */}
         <main className="flex-1 flex items-center justify-center p-6 relative">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -205,7 +217,9 @@ function Content() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
                   <Briefcase size={18} className="text-white" />
                 </div>
-                <span className="text-white font-black tracking-wider text-lg">ZEAL STUDIO</span>
+                <span className="text-white font-black tracking-wider text-lg">
+                  ZEAL STUDIO
+                </span>
               </Link>
             </div>
 
@@ -251,13 +265,16 @@ function Content() {
                   Full Name
                 </label>
                 <div className="relative group">
-                  <UserIcon size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400" />
+                  <UserIcon
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  />
                   <input
                     id="reg-name"
                     type="text"
                     required
                     value={fullName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
+                    onChange={(e) => setFullName(e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                     placeholder="Your full name"
                     autoComplete="name"
@@ -272,13 +289,16 @@ function Content() {
                   Email
                 </label>
                 <div className="relative group">
-                  <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400" />
+                  <Mail
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  />
                   <input
                     id="reg-email"
                     type="email"
                     required
                     value={email}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                     placeholder="you@example.com"
                     autoComplete="email"
@@ -298,14 +318,17 @@ function Content() {
                   Password
                 </label>
                 <div className="relative group">
-                  <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400" />
+                  <Lock
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  />
                   <input
                     id="reg-pw"
                     type={showPw ? "text" : "password"}
                     required
                     minLength={12}
                     value={password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min. 12 characters"
                     autoComplete="new-password"
                     className="w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
@@ -340,9 +363,8 @@ function Content() {
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-500">
-                      {pwOk
-                        ? "✓ 12-character minimum met"
-                        : `${12 - password.length} more character${12 - password.length === 1 ? "" : "s"}`}
+                      {pwOk ? "✓ 12-character minimum met"
+                            : `${12 - password.length} more character${12 - password.length === 1 ? "" : "s"}`}
                     </p>
                   </div>
                 )}
@@ -354,13 +376,16 @@ function Content() {
                   Confirm Password
                 </label>
                 <div className="relative group">
-                  <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400" />
+                  <Lock
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  />
                   <input
                     id="reg-confirm"
                     type="password"
                     required
                     value={confirm}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirm(e.target.value)}
+                    onChange={(e) => setConfirm(e.target.value)}
                     placeholder="Repeat password"
                     autoComplete="new-password"
                     className={
@@ -384,7 +409,7 @@ function Content() {
                   <input
                     type="checkbox"
                     checked={agreed}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAgreed(e.target.checked)}
+                    onChange={(e) => setAgreed(e.target.checked)}
                     className="peer sr-only"
                   />
                   <div className="w-5 h-5 rounded-md border-2 border-white/10 bg-slate-900/60 peer-checked:bg-purple-600 peer-checked:border-purple-600 transition-all flex items-center justify-center">
@@ -392,22 +417,31 @@ function Content() {
                   </div>
                 </div>
                 <span className="text-[11px] text-slate-500 leading-relaxed">
-                  I agree to Zeal's{" "}
-                  <Link href="/terms" className="text-purple-400 hover:text-purple-300 font-bold">Terms</Link>
-                  {" "}and{" "}
-                  <Link href="/privacy" className="text-purple-400 hover:text-purple-300 font-bold">Privacy Policy</Link>.
+                  I agree to Zeal&apos;s{" "}
+                  <Link href="/terms" className="text-purple-400 hover:text-purple-300 font-bold">
+                    Terms
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" className="text-purple-400 hover:text-purple-300 font-bold">
+                    Privacy Policy
+                  </Link>
+                  .
                 </span>
               </label>
 
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="btn-3d w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Creating account…</>
+                  <>
+                    <Loader2 size={16} className="animate-spin" /> Creating account…
+                  </>
                 ) : (
-                  <>Create Consultant Account <ArrowRight size={15} /></>
+                  <>
+                    Create Consultant Account <ArrowRight size={15} />
+                  </>
                 )}
               </button>
             </form>
@@ -423,7 +457,7 @@ function Content() {
               <Sparkles size={10} className="inline mr-1.5 text-purple-400" />
               Just looking for guidance?{" "}
               <a
-                href={`${process.env.NEXT_PUBLIC_APP_URL || "https://zeal-web-red.vercel.app"}/register`}
+                href={`${WEB_URL}/register`}
                 className="text-purple-400 hover:text-purple-300 font-bold"
               >
                 Join as a Seeker

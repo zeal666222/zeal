@@ -1,19 +1,21 @@
 "use client";
-// ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL Admin — Consultant / Admin Login
-// Split layout · inline validation · smooth post-auth transition
-// ═══════════════════════════════════════════════════════════════════════════════
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, ArrowRight, Briefcase, Check, Eye, EyeOff, Loader2, Lock, Mail,
-  ShieldCheck, Sparkles } from "lucide-react";
+import {
+  AlertCircle, ArrowRight, Briefcase, Check, Eye, EyeOff, Loader2, Lock, Mail,
+  ShieldCheck, Sparkles,
+} from "lucide-react";
+import { ThemeToggle } from "@zeal/ui";
 import { adminLoginAction } from "@/actions/auth";
 import { PostAuthTransition } from "@/components/auth/PostAuthTransition";
 
-type Destination = "studio" | "console" | "handoff";
+type Destination = "studio" | "console";
+
+const WEB_URL =
+  process.env.NEXT_PUBLIC_APP_URL || "https://zeal-web-red.vercel.app";
 
 function Content() {
   const router = useRouter();
@@ -25,41 +27,53 @@ function Content() {
   const [touched, setTouched] = useState({ email: false, password: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wrongPortal, setWrongPortal] = useState(false);
   const [transition, setTransition] = useState<Destination | null>(null);
 
   const emailValid = useMemo(
     () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
     [email],
   );
-  const passwordValid = password.length > 0;
-  const canSubmit = emailValid && passwordValid && !loading;
+  const canSubmit = emailValid && password.length > 0 && !loading;
 
   useEffect(() => {
     const err = params.get("error");
-    if (err === "handoff_failed") setError("Session transfer failed. Please sign in again.");
-    else if (err === "not_authorized") setError("This account doesn't have studio access.");
+    if (err === "wrong_portal") {
+      setError("This account belongs to the Zeal seeker app.");
+      setWrongPortal(true);
+    } else if (err === "not_authorized") {
+      setError("This account doesn't have studio access.");
+    } else if (err) {
+      setError("Sign-in failed. Please try again.");
+    }
   }, [params]);
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setTouched({ email: true, password: true });
-    if (!canSubmit) return;
-    setLoading(true);
     setError(null);
+    setWrongPortal(false);
+    if (!canSubmit) return;
 
+    setLoading(true);
     const res = await adminLoginAction(new FormData(e.currentTarget));
-    if (res.success && res.destination) {
+
+    if (res.ok && res.destination) {
       const dest: Destination = res.destination.startsWith("/consultant")
         ? "studio"
         : "console";
       setTransition(dest);
-      // Give the transition time to play, then navigate
       window.setTimeout(() => {
-        router.push(res.destination!);
+        router.push(res.destination);
+        router.refresh();
       }, 950);
       return;
     }
-    setError(res.error || "Sign-in failed.");
+
+    if (!res.ok) {
+      setError(res.error);
+      if (res.code === "WRONG_PORTAL_SEEKER") setWrongPortal(true);
+    }
     setLoading(false);
   };
 
@@ -70,7 +84,11 @@ function Content() {
       </AnimatePresence>
 
       <div className="min-h-screen bg-[#0B0A14] flex relative overflow-hidden">
-        {/* Ambient blurs */}
+        {/* Theme toggle — top right */}
+        <div className="fixed top-4 right-4 z-50">
+          <ThemeToggle />
+        </div>
+
         <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-500/10 blur-[160px] pointer-events-none" />
         <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-purple-500/[0.08] blur-[160px] pointer-events-none" />
 
@@ -81,7 +99,9 @@ function Content() {
               <Briefcase size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-white font-black tracking-wider text-lg leading-none">ZEAL STUDIO</p>
+              <p className="text-white font-black tracking-wider text-lg leading-none">
+                ZEAL STUDIO
+              </p>
               <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
                 Consultant + Admin
               </p>
@@ -95,7 +115,7 @@ function Content() {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight"
             >
-              Your studio,
+              Your practice,
               <br />
               <span className="bg-gradient-to-r from-purple-400 via-indigo-400 to-purple-500 bg-clip-text text-transparent">
                 always on.
@@ -108,7 +128,9 @@ function Content() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-slate-400 text-base mt-6 max-w-md"
             >
-              Accept sessions, manage clients, track earnings — everything you need, all in one place.
+              Multi-faith guidance across every tradition — Vedic, Islamic,
+              Buddhist, Christian, Taoist, and beyond. Serve seekers in your own
+              practice.
             </motion.p>
 
             <ul className="mt-10 space-y-3.5">
@@ -135,7 +157,7 @@ function Content() {
           </div>
 
           <div className="flex items-center gap-6 text-[11px] text-slate-600">
-            <span>© 2026 Zeal</span>
+            <span>© {new Date().getFullYear()} Zeal</span>
             <span>•</span>
             <span>SOC 2</span>
             <span>•</span>
@@ -151,13 +173,14 @@ function Content() {
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-md"
           >
-            {/* Mobile brand */}
             <div className="lg:hidden text-center mb-8">
               <Link href="/" className="inline-flex items-center gap-2">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
                   <Briefcase size={18} className="text-white" />
                 </div>
-                <span className="text-white font-black tracking-wider text-lg">ZEAL STUDIO</span>
+                <span className="text-white font-black tracking-wider text-lg">
+                  ZEAL STUDIO
+                </span>
               </Link>
             </div>
 
@@ -170,15 +193,35 @@ function Content() {
               </p>
             </div>
 
+            {wrongPortal && (
+              <div className="mb-5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <p className="text-amber-300 text-xs font-bold mb-1">
+                  This account belongs to Zeal
+                </p>
+                <p className="text-amber-300/80 text-[11px] mb-3">
+                  You signed in as a seeker. Head to the Zeal app to continue.
+                </p>
+                <a
+                  href={WEB_URL}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold"
+                >
+                  Open Zeal <ArrowRight size={11} />
+                </a>
+              </div>
+            )}
+
             <AnimatePresence>
-              {error && (
+              {error && !wrongPortal && (
                 <motion.div
                   initial={{ opacity: 0, y: -8, height: 0 }}
                   animate={{ opacity: 1, y: 0, height: "auto" }}
                   exit={{ opacity: 0, y: -8, height: 0 }}
                   className="mb-5 overflow-hidden"
                 >
-                  <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium flex items-start gap-2.5">
+                  <div
+                    role="alert"
+                    className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium flex items-start gap-2.5"
+                  >
                     <AlertCircle size={14} className="mt-0.5 shrink-0" />
                     <span>{error}</span>
                   </div>
@@ -186,14 +229,20 @@ function Content() {
               )}
             </AnimatePresence>
 
-            <form onSubmit={submit} className="space-y-4">
+            <form onSubmit={submit} className="space-y-4" noValidate>
               {/* Email */}
               <div>
-                <label htmlFor="admin-email" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label
+                  htmlFor="admin-email"
+                  className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2"
+                >
                   Email
                 </label>
                 <div className="relative group">
-                  <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors" />
+                  <Mail
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors"
+                  />
                   <input
                     id="admin-email"
                     name="email"
@@ -201,7 +250,7 @@ function Content() {
                     required
                     autoComplete="email"
                     value={email}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                     placeholder="you@example.com"
                     className={
@@ -222,7 +271,10 @@ function Content() {
               {/* Password */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label htmlFor="admin-password" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  <label
+                    htmlFor="admin-password"
+                    className="block text-[10px] font-black text-slate-500 uppercase tracking-widest"
+                  >
                     Password
                   </label>
                   <Link
@@ -233,7 +285,10 @@ function Content() {
                   </Link>
                 </div>
                 <div className="relative group">
-                  <Lock size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors" />
+                  <Lock
+                    size={17}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors"
+                  />
                   <input
                     id="admin-password"
                     name="password"
@@ -241,7 +296,7 @@ function Content() {
                     required
                     autoComplete="current-password"
                     value={password}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                    onChange={(e) => setPassword(e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                     placeholder="••••••••••••"
                     className="w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
@@ -258,11 +313,10 @@ function Content() {
                 </div>
               </div>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="btn-3d w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/25 transition-all flex items-center justify-center gap-2 mt-2 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -276,7 +330,6 @@ function Content() {
               </button>
             </form>
 
-            {/* Divider */}
             <div className="my-7 relative flex items-center justify-center">
               <div className="border-t border-white/5 w-full" />
               <span className="bg-[#0B0A14] px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
@@ -285,7 +338,6 @@ function Content() {
               <div className="border-t border-white/5 w-full" />
             </div>
 
-            {/* CTAs */}
             <div className="grid grid-cols-2 gap-3">
               <Link
                 href="/register"
@@ -299,7 +351,7 @@ function Content() {
               </Link>
 
               <a
-                href={process.env.NEXT_PUBLIC_APP_URL || "https://zeal-web-red.vercel.app"}
+                href={WEB_URL}
                 className="group p-4 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-purple-500/40 hover:bg-slate-900/90 transition-all text-left"
               >
                 <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
@@ -311,7 +363,7 @@ function Content() {
             </div>
 
             <p className="text-center text-[10px] text-slate-600 mt-6 flex items-center justify-center gap-1.5">
-              <ShieldCheck size={10} /> Encrypted session · Rate-limited for your safety
+              <ShieldCheck size={10} /> Encrypted session · Rate-limited
             </p>
           </motion.div>
         </main>
