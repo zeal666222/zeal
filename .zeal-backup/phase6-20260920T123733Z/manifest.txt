@@ -1,2 +1,0 @@
-apps/web/lib/rate-limit/index.ts
-apps/web/components/providers/SupabaseAuthProvider.tsx

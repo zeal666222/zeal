@@ -1,4 +1,0 @@
-check_rate_limit
-delete_user_cascade
-increment_spark
-pulse_deduct_inr

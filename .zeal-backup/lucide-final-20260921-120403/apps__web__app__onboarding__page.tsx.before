@@ -1,0 +1,184 @@
+"use client";
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZEAL — Onboarding Wizard (3-step)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
+import { createClient } from "@zeal/database";
+
+const INTERESTS = [
+  "Astrology", "Tarot", "Numerology", "Palmistry", "Therapy",
+  "Meditation", "Yoga", "Coaching", "Energy Healing", "Dreams",
+  "Relationships", "Career", "Wellness", "Spirituality",
+];
+
+export default function OnboardingPage() {
+  const router = useRouter();
+  const [step, setStep] = useState(1);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [goal, setGoal] = useState("");
+
+  const canNext = () =>
+    step === 1 ? displayName.trim().length >= 2 :
+    step === 2 ? picked.length >= 1 :
+    true;
+
+  const next = () => canNext() && setStep(step + 1);
+
+  const finish = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error: err } = await supabase
+        .from("User")
+        .update({
+          name: displayName.trim(),
+          onboarding_completed: true,
+        })
+        .eq("id", user.id);
+
+      if (err) throw err;
+
+      // Optionally persist preferences if the table exists
+      try {
+        await supabase.from("UserPreferences").upsert({
+          userId: user.id,
+          interests: picked,
+          goals: goal ? [goal] : [],
+        });
+      } catch { /* table optional */ }
+
+      router.push("/explore");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+      setSaving(false);
+    }
+  };
+
+  const toggle = (interest: string) => {
+    setPicked((prev) =>
+      prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest],
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="absolute top-1/4 left-1/3 w-[500px] h-[500px] bg-purple-600/10 blur-[180px] rounded-full pointer-events-none" />
+
+      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
+        className="relative w-full max-w-lg">
+        {/* Progress */}
+        <div className="flex items-center justify-center gap-2 mb-10">
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="flex items-center gap-2">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                step >= n
+                  ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30"
+                  : "bg-slate-900 text-slate-600 border border-white/5"
+              }`}>
+                {step > n ? <Check size={14} /> : n}
+              </div>
+              {n < 3 && (
+                <div className={`w-12 h-0.5 ${step > n ? "bg-purple-500" : "bg-slate-800"}`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <AnimatePresence mode="wait">
+          <motion.div key={step}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
+            {step === 1 && (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
+                  <Sparkles size={12} /> Step 1 of 3
+                </div>
+                <h2 className="text-2xl font-black text-white mb-2">What should we call you?</h2>
+                <p className="text-sm text-slate-400 mb-6">This is how you'll appear to consultants.</p>
+                <input type="text" value={displayName}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
+                  placeholder="Your name" autoFocus
+                  className="w-full px-4 py-3.5 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white outline-none focus:border-purple-500" />
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
+                  <Sparkles size={12} /> Step 2 of 3
+                </div>
+                <h2 className="text-2xl font-black text-white mb-2">What interests you?</h2>
+                <p className="text-sm text-slate-400 mb-6">Pick at least one — we'll personalize your feed.</p>
+                <div className="flex flex-wrap gap-2">
+                  {INTERESTS.map((i) => (
+                    <button key={i} type="button" onClick={() => toggle(i)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                        picked.includes(i)
+                          ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
+                          : "bg-slate-950 border border-white/10 text-slate-400 hover:border-purple-500/40"
+                      }`}>
+                      {i}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
+                  <Sparkles size={12} /> Step 3 of 3
+                </div>
+                <h2 className="text-2xl font-black text-white mb-2">What brings you here?</h2>
+                <p className="text-sm text-slate-400 mb-6">Optional — helps us match you faster.</p>
+                <textarea value={goal}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setGoal(e.target.value)}
+                  rows={3} maxLength={500}
+                  placeholder="e.g. I'm navigating a career change and want clarity…"
+                  className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white resize-none outline-none focus:border-purple-500" />
+              </>
+            )}
+
+            {error && (
+              <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">{error}</div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Navigation */}
+        <div className="flex gap-3 mt-6">
+          {step > 1 && (
+            <button onClick={() => setStep(step - 1)} disabled={saving}
+              className="flex items-center gap-1 px-5 py-3 rounded-2xl bg-slate-900 border border-white/10 text-slate-300 font-bold text-sm">
+              <ArrowLeft size={14} /> Back
+            </button>
+          )}
+          {step < 3 ? (
+            <button onClick={next} disabled={!canNext()}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-sm shadow-xl disabled:opacity-50">
+              Continue <ArrowRight size={14} />
+            </button>
+          ) : (
+            <button onClick={finish} disabled={saving}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-sm shadow-xl disabled:opacity-50">
+              {saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : <><Check size={16} /> Finish</>}
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}

@@ -1,9 +1,0 @@
-trg_broadcast_ai_consultant
-trg_broadcast_booking
-trg_broadcast_consultant
-trg_broadcast_consultant_directory
-trg_broadcast_ledger_entry
-trg_broadcast_message
-trg_broadcast_message_to_inboxes
-trg_broadcast_notification
-trg_broadcast_wallet

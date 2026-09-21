@@ -1,0 +1,119 @@
+"use client";
+
+export const dynamic = "force-dynamic";
+
+import { ArrowRight, Clock, Home, Loader2, useEffect,
+  useState } from "react"; import Link from "next/link"; import { motion } from "framer-motion"; import { Calendar,
+  Video } from "lucide-react";
+
+interface BookingItem {
+  id: string;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: string;
+  amount: number;
+  consultant: {
+    user: { name: string | null; username: string | null; avatar: string | null } | null;
+  } | null;
+}
+
+export default function BookingsPage() {
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/bookings/list", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as { bookings?: BookingItem[] };
+        if (!cancelled) setBookings(data.bookings ?? []);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-12">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-600 mb-4">
+            <Home size={16} /> Home
+          </Link>
+          <h1 className="text-4xl font-black tracking-tight text-white">Your Bookings</h1>
+          <p className="text-slate-400 mt-2">Manage your scheduled sessions.</p>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-16 text-rose-400">{error}</div>
+        ) : bookings.length === 0 ? (
+          <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-3xl">
+            <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-400">No bookings yet</p>
+            <Link href="/services"
+              className="inline-block mt-4 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-sm font-bold">
+              Find a Consultant <ArrowRight size={14} className="inline ml-1" />
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {bookings.map((b, i) => (
+              <motion.div key={b.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center overflow-hidden">
+                    {b.consultant?.user?.avatar ? (
+                      <img src={b.consultant.user.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-purple-400 font-bold">
+                        {(b.consultant?.user?.name || "?").charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-white truncate">
+                      {b.consultant?.user?.name || b.consultant?.user?.username || "Consultant"}
+                    </p>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md ${
+                      b.status === "CONFIRMED" ? "bg-emerald-500/15 text-emerald-400" :
+                      b.status === "PENDING" ? "bg-amber-500/15 text-amber-400" :
+                      "bg-slate-500/15 text-slate-400"
+                    }`}>{b.status}</span>
+                  </div>
+                </div>
+                <div className="space-y-2 text-sm text-slate-400 mb-4">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={14} /> {new Date(b.scheduledAt).toLocaleDateString()}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock size={14} /> {b.durationMinutes} minutes
+                  </div>
+                  <div className="flex items-center gap-2 text-purple-400 font-mono font-bold">
+                    ₹{b.amount.toFixed(2)}
+                  </div>
+                </div>
+                {b.status === "CONFIRMED" && (
+                  <Link href={`/call/${b.id}`}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold flex items-center justify-center gap-2">
+                    <Video size={16} /> Join Session
+                  </Link>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

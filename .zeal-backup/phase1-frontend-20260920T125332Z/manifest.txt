@@ -1,7 +1,0 @@
-packages/ui/src/tokens.css
-packages/ui/package.json
-packages/ui/src/index.ts
-apps/web/app/layout.tsx
-apps/admin/app/layout.tsx
-apps/web/components/navigation/TopNavBar.tsx
-apps/admin/components/layout/AdminTopBar.tsx

@@ -1,5 +1,0 @@
-apps/web/components/navigation/TopNavBar.tsx
-apps/web/components/navigation/BottomNavBar.tsx
-packages/ui/src/index.ts
-packages/ui/package.json
-apps/web/components/navigation/AppLayout.tsx

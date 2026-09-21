@@ -1,8 +1,0 @@
-packages/ui/src/index.ts
-packages/ui/package.json
-apps/admin/app/consultant/dashboard/page.tsx
-apps/admin/app/consultant/bookings/page.tsx
-apps/admin/app/consultant/earnings/page.tsx
-apps/admin/app/(dashboard)/verification/page.tsx
-apps/admin/app/(dashboard)/users/page.tsx
-apps/admin/app/(dashboard)/sessions/page.tsx

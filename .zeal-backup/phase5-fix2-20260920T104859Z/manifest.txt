@@ -1,2 +1,0 @@
-packages/database/src/server.ts
-apps/web/app/consultant/[id]/page.tsx

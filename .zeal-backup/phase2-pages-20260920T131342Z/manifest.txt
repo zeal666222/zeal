@@ -1,4 +1,0 @@
-apps/web/app/page.tsx
-apps/web/app/HomeClient.tsx
-apps/web/app/services/page.tsx
-apps/web/app/services/[category]/page.tsx

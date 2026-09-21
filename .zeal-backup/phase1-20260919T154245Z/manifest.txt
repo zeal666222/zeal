@@ -1,2 +1,0 @@
-apps/admin/tsconfig.json
-apps/web/tsconfig.json

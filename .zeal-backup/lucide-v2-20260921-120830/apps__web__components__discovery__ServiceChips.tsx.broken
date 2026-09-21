@@ -1,0 +1,90 @@
+"use client";
+// ZEAL_FIX_FE_CHIPS
+// Horizontal scroll of category chips + service sub-chips.
+import { useEffect,
+  useState } from "react"; import { motion } from "framer-motion"; import { Sparkles, X } from "lucide-react";
+
+interface CatalogService { id: string; name: string; slug: string; parent_category: string; }
+interface CatalogGroup { categoryId: string; categoryName: string; services: CatalogService[]; }
+
+interface Props {
+  selected: string | null;
+  onSelect: (slug: string | null) => void;
+  className?: string;
+}
+
+export function ServiceChips({ selected, onSelect, className = "" }: Props) {
+  const [groups, setGroups] = useState<CatalogGroup[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+
+  useEffect(() => {
+    fetch("/api/consultants/service-catalog", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { groups: [] }))
+      .then((d: { groups?: CatalogGroup[] }) => setGroups(d.groups ?? []))
+      .catch(() => {});
+  }, []);
+
+  if (groups.length === 0) return null;
+
+  const visibleServices = activeCategory === "all"
+    ? groups.flatMap((g) => g.services).slice(0, 12)
+    : groups.find((g) => g.categoryId === activeCategory)?.services ?? [];
+
+  return (
+    <div className={`space-y-3 ${className}`}>
+      {/* Category chips */}
+      <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+        <button
+          type="button"
+          onClick={() => { setActiveCategory("all"); onSelect(null); }}
+          className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
+            activeCategory === "all" && !selected
+              ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white shadow-lg"
+              : "bg-slate-900/60 border border-white/10 text-slate-300 hover:border-purple-500/40"
+          }`}
+        >
+          <Sparkles size={11} className="inline mr-1" /> All
+        </button>
+        {groups.map((g) => (
+          <button
+            key={g.categoryId}
+            type="button"
+            onClick={() => { setActiveCategory(g.categoryId); onSelect(null); }}
+            className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+              activeCategory === g.categoryId
+                ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white shadow-lg"
+                : "bg-slate-900/60 border border-white/10 text-slate-300 hover:border-purple-500/40"
+            }`}
+          >
+            {g.categoryName}
+          </button>
+        ))}
+      </div>
+
+      {/* Service sub-chips */}
+      {visibleServices.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 overflow-x-auto hide-scrollbar"
+        >
+          {visibleServices.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => onSelect(selected === s.slug ? null : s.slug)}
+              className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold transition-all whitespace-nowrap ${
+                selected === s.slug
+                  ? "bg-purple-500/20 border border-purple-500/40 text-purple-300"
+                  : "bg-slate-900/60 border border-white/10 text-slate-400 hover:text-white hover:border-purple-500/30"
+              }`}
+            >
+              {s.name}
+              {selected === s.slug && <X size={10} className="inline ml-1" />}
+            </button>
+          ))}
+        </motion.div>
+      )}
+    </div>
+  );
+}

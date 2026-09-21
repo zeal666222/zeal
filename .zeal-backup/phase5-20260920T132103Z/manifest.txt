@@ -1,4 +1,0 @@
-packages/ui/src/index.ts
-apps/web/next.config.js
-apps/admin/next.config.js
-.github/workflows/ci.yml

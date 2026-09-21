@@ -1,3 +1,0 @@
-apps/admin/app/login/page.tsx
-apps/admin/app/register/page.tsx
-apps/admin/app/page.tsx

@@ -1,4 +1,0 @@
-apps/web/tsconfig.json
-apps/admin/tsconfig.json
-apps/admin/hooks/useChat.ts
-apps/admin/components/chat/ChatRoom.tsx

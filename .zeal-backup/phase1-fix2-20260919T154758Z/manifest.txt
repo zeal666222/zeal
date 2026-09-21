@@ -1,9 +1,0 @@
-apps/web/app/register/page.tsx
-packages/database/src/server.ts
-packages/database/src/client.ts
-apps/web/app/api/socket/route.ts
-apps/web/app/api/trpc/[trpc]/route.ts
-apps/web/app/white-label/[subdomain]/layout.tsx
-apps/web/app/white-label/[subdomain]/page.tsx
-apps/web/app/white-label/[subdomain]/services/page.tsx
-apps/web/app/white-label/[subdomain]/book/page.tsx

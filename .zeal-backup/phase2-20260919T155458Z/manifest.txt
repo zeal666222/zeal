@@ -1,5 +1,0 @@
-packages/database/package.json
-packages/database/src/index.ts
-apps/admin/hooks/useChat.ts
-apps/admin/components/chat/ChatRoom.tsx
-apps/admin/app/consultant/chat/[id]/page.tsx

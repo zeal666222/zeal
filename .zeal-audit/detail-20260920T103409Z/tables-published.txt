@@ -1,6 +1,0 @@
-AIConsultant
-Consultant
-Message
-public
-Transaction
-Wallet

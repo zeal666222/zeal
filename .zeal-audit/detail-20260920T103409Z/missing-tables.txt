@@ -1,8 +1,0 @@
-audit_events
-audit_logs
-auth_attempts
-consultant_applications
-consultant_posts
-profiles
-session_messages
-session_requests
