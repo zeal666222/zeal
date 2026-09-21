@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
-import {createServerClient} from "@supabase/ssr";
-import {cookies} from "next/headers";
-import {syncAuthUser} from "@/lib/auth/server";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
+import { hasSupabaseEnv } from "@/lib/env";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const { searchParams, origin: requestOrigin } = new URL(request.url);
+  const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/explore";
-  const intent = searchParams.get("intent") ?? "user";
 
-  const origin = process.env.NEXT_PUBLIC_SITE_URL
-    ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "")
-    : requestOrigin;
-
+  if (!hasSupabaseEnv()) {
+    return NextResponse.redirect(`${origin}/login?error=config`);
+  }
   if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=MissingCode`);
+    return NextResponse.redirect(`${origin}/login?error=missing_code`);
   }
 
   const cookieStore = await cookies();
@@ -23,39 +23,27 @@ export async function GET(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(toSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+            toSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
             );
-          } catch { /* RSC — safe */ }
+          } catch {
+            /* RSC context */
+          }
         },
       },
-    }
+    },
   );
 
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error || !data.user) {
-    return NextResponse.redirect(`${origin}/login?error=OAuthFailed`);
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    return NextResponse.redirect(`${origin}/login?error=exchange_failed`);
   }
 
-  const sync = await syncAuthUser();
-
-  if (intent === "consultant" && sync.role === "USER") {
-    return NextResponse.redirect(`${origin}/apply`);
-  }
-  if (
-    sync.role === "SUPER_ADMIN" || sync.role === "ADMIN" ||
-    sync.role === "SUPPORT" || sync.role === "VIEWER"
-  ) {
-    return NextResponse.redirect(`${origin}/admin`);
-  }
-  if (sync.role === "CLIENT_ADMIN") {
-    return NextResponse.redirect(`${origin}/consultant/dashboard`);
-  }
-
-  const safeNext =
-    next !== "/" && next !== "/login" && next !== "/auth/login" ? next : "/explore";
+  const safeNext = next.startsWith("/") ? next : "/explore";
   return NextResponse.redirect(`${origin}${safeNext}`);
 }

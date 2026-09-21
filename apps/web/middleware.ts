@@ -1,10 +1,92 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+const PUBLIC_ROUTES = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/mfa-challenge",
+  "/auth/callback",
+  "/terms",
+  "/privacy",
+  "/not-found",
+];
+
+const AUTH_ENABLED = Boolean(
+  process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+);
+
+function isPublic(pathname: string): boolean {
+  return PUBLIC_ROUTES.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
+
+function isPrefetchOrRsc(req: NextRequest): boolean {
+  const h = req.headers;
+  const search = req.nextUrl.search || "";
+  return (
+    search.includes("_rsc=") ||
+    h.get("rsc") === "1" ||
+    h.get("next-router-prefetch") === "1" ||
+    h.get("x-middleware-prefetch") === "1" ||
+    h.get("purpose") === "prefetch"
+  );
+}
+
+function noContent(): NextResponse {
+  return new NextResponse(null, {
+    status: 204,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
+const CSP = [
+  "default-src 'self'",
+  "img-src 'self' data: blob: https://*.r2.dev https://*.supabase.co https://ui-avatars.com https://images.unsplash.com https://picsum.photos https://lh3.googleusercontent.com",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.vercel.app https://zeal-web-red.vercel.app https://zeal-admin-rose.vercel.app https://api.groq.com https://apihub.agnes-ai.com https://vitals.vercel-insights.com",
+  "font-src 'self' data:",
+  "worker-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
+function harden(res: NextResponse): NextResponse {
+  res.headers.set("Content-Security-Policy", CSP);
+  res.headers.set("X-Frame-Options", "DENY");
+  res.headers.set("X-Content-Type-Options", "nosniff");
+  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.headers.set(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains",
+  );
+  return res;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Bypass explicitly authorized API routes (handled by backend API guards)
+  // Env-safe: without keys we can't authenticate. Pass through in dev so
+  // local rendering works. Fail loudly in prod — a misconfig is a blocker.
+  if (!AUTH_ENABLED) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[middleware] Supabase env missing in production");
+      return harden(
+        new NextResponse("Configuration error: Supabase env missing", {
+          status: 500,
+        }),
+      );
+    }
+    return NextResponse.next();
+  }
+
   if (
     pathname.startsWith("/api/") &&
     request.headers.get("authorization")?.startsWith("Bearer ")
@@ -12,10 +94,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 2. Initialize the base response
-  let supabaseResponse = NextResponse.next({ request });
-
-  // 3. Initialize the Supabase Server Client
+  let response = NextResponse.next({ request });
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -24,39 +103,39 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
-          // Update incoming request cookies so subsequent Server Components see the rotated token instantly
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          
-          // Re-initialize the response to flush headers safely without destroying existing ones
-          supabaseResponse = NextResponse.next({ request });
-          
-          // Attach the new tokens to the outgoing browser response
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+        setAll(toSet) {
+          toSet.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          toSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
           );
         },
       },
-    }
+    },
   );
 
-  // 4. Force Token Evaluation
-  // We explicitly call getUser() instead of getSession() to guarantee a secure, 
-  // cryptographically verified check that triggers the setAll token rotation if expired.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
-  return supabaseResponse;
+  harden(response);
+
+  if (isPublic(pathname)) return response;
+
+  if (!user || authError) {
+    if (isPrefetchOrRsc(request)) return noContent();
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("redirectedFrom", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  return response;
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - Any file with an extension (e.g., .svg, .png, .jpg)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
