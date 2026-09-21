@@ -62,7 +62,7 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
     });
   }, [user, setProfile]);
 
-  const role = roleProp ?? profile?.role ?? "VIEWER";
+  const role = profile?.role ?? "VIEWER";
   const visible = NAV.filter((item) => ROLE_LEVEL[role] >= ROLE_LEVEL[item.minRole]);
 
   const handleLogout = async () => {

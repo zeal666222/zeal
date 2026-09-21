@@ -63,7 +63,10 @@ function Content() {
         ? "studio"
         : "console";
       setTransition(dest);
-      window.setTimeout(() => { window.location.href = res.destination; }, 950);
+      window.setTimeout(() => {
+        router.push(res.destination);
+        router.refresh();
+      }, 950);
       return;
     }
 

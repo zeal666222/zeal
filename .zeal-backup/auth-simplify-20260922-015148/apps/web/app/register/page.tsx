@@ -75,7 +75,8 @@ function RegisterContent() {
       }
 
       if ("destination" in res && res.destination) {
-        window.location.href = res.destination;
+        router.push(res.destination);
+        router.refresh();
       }
     } catch (err) {
       setError(

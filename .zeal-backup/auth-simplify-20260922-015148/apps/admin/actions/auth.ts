@@ -6,11 +6,7 @@ import { redirect } from "next/navigation";
 import { checkRateLimit, authLimiter } from "@/lib/rate-limit";
 
 const ADMIN_PORTAL_ROLES = new Set([
-  "CLIENT_ADMIN",
-  "SUPPORT",
-  "ADMIN",
-  "SUPER_ADMIN",
-  "VIEWER",
+  "CLIENT_ADMIN", "SUPPORT", "ADMIN", "SUPER_ADMIN", "VIEWER",
 ]);
 
 export type AdminLoginResult =
@@ -24,17 +20,13 @@ async function getSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
+        getAll() { return cookieStore.getAll(); },
         setAll(toSet) {
           try {
             toSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {
-            /* RSC */
-          }
+          } catch { /* RSC */ }
         },
       },
     },
@@ -49,9 +41,7 @@ async function getClientIp(): Promise<string> {
       h.get("x-real-ip") ||
       "unknown"
     );
-  } catch {
-    return "unknown";
-  }
+  } catch { return "unknown"; }
 }
 
 export async function adminLoginAction(
@@ -67,11 +57,7 @@ export async function adminLoginAction(
   const ip = await getClientIp();
   const rl = await checkRateLimit(authLimiter, `admin-login:${ip}:${email}`);
   if (!rl.ok) {
-    return {
-      ok: false,
-      error: "Too many attempts. Please wait a minute.",
-      code: "RATE_LIMITED",
-    };
+    return { ok: false, error: "Too many attempts. Please wait a minute.", code: "RATE_LIMITED" };
   }
 
   const supabase = await getSupabase();
@@ -81,14 +67,11 @@ export async function adminLoginAction(
     return { ok: false, error: "Invalid email or password.", code: "INVALID_CREDENTIALS" };
   }
 
-  // ─── Read role from the DB. This is the ONLY source of truth. ────────────
-  const { data: profile } = await supabase
-    .from("User")
-    .select("role")
-    .eq("id", data.user.id)
-    .maybeSingle();
-
-  const role = String(profile?.role ?? "USER").toUpperCase();
+  const role = String(
+    (data.user as unknown as { user_role?: string }).user_role ??
+    data.user.app_metadata?.role ??
+    "USER",
+  ).toUpperCase();
 
   if (!ADMIN_PORTAL_ROLES.has(role)) {
     await supabase.auth.signOut();
@@ -99,9 +82,7 @@ export async function adminLoginAction(
     };
   }
 
-  const destination =
-    role === "CLIENT_ADMIN" ? "/consultant/dashboard" : "/dashboard";
-
+  const destination = role === "CLIENT_ADMIN" ? "/consultant/dashboard" : "/dashboard";
   return { ok: true, destination };
 }
 

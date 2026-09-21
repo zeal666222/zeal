@@ -33,24 +33,21 @@ export async function registerConsultantAction(
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
+        getAll() { return cookieStore.getAll(); },
         setAll(toSet) {
           try {
             toSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {
-            /* RSC */
-          }
+          } catch { /* RSC */ }
         },
       },
     },
   );
 
-  // The DB trigger handle_new_user provisions User + Wallet + Consultant.
-  // User.role becomes CLIENT_ADMIN automatically.
+  // The DB trigger (handle_new_user) reads account_type and provisions
+  // User + Wallet + Consultant rows BEFORE the signup response returns.
+  // The FIRST JWT already carries app_metadata.role = "CLIENT_ADMIN".
   const { data, error } = await supabase.auth.signUp({
     email,
     password,

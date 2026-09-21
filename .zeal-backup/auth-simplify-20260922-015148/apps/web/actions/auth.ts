@@ -23,17 +23,13 @@ async function getSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
+        getAll() { return cookieStore.getAll(); },
         setAll(toSet) {
           try {
             toSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options),
             );
-          } catch {
-            /* RSC */
-          }
+          } catch { /* RSC */ }
         },
       },
     },
@@ -48,9 +44,7 @@ async function getClientIp(): Promise<string> {
       h.get("x-real-ip") ||
       "unknown"
     );
-  } catch {
-    return "unknown";
-  }
+  } catch { return "unknown"; }
 }
 
 export async function registerAction(formData: FormData): Promise<RegisterResult> {
@@ -65,21 +59,13 @@ export async function registerAction(formData: FormData): Promise<RegisterResult
     return { ok: false, error: "Invalid email.", code: "VALIDATION" };
   }
   if (password.length < 12) {
-    return {
-      ok: false,
-      error: "Password must be at least 12 characters.",
-      code: "WEAK_PASSWORD",
-    };
+    return { ok: false, error: "Password must be at least 12 characters.", code: "WEAK_PASSWORD" };
   }
 
   const ip = await getClientIp();
   const rl = await checkRateLimit(authLimiter, `register:${ip}`);
   if (!rl.ok) {
-    return {
-      ok: false,
-      error: "Too many attempts. Wait a minute.",
-      code: "RATE_LIMITED",
-    };
+    return { ok: false, error: "Too many attempts. Wait a minute.", code: "RATE_LIMITED" };
   }
 
   const supabase = await getSupabase();
@@ -87,7 +73,10 @@ export async function registerAction(formData: FormData): Promise<RegisterResult
     email,
     password,
     options: {
-      data: { full_name: fullName, account_type: "seeker" },
+      data: {
+        full_name: fullName,
+        account_type: "seeker",
+      },
       emailRedirectTo: `${WEB_URL}/auth/callback`,
     },
   });
@@ -115,34 +104,22 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
   const ip = await getClientIp();
   const rl = await checkRateLimit(authLimiter, `login:${ip}:${email}`);
   if (!rl.ok) {
-    return {
-      ok: false,
-      error: "Too many attempts. Please wait a minute.",
-      code: "RATE_LIMITED",
-    };
+    return { ok: false, error: "Too many attempts. Please wait a minute.", code: "RATE_LIMITED" };
   }
 
   const supabase = await getSupabase();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.user) {
-    return {
-      ok: false,
-      error: "Invalid email or password.",
-      code: "INVALID_CREDENTIALS",
-    };
+    return { ok: false, error: "Invalid email or password.", code: "INVALID_CREDENTIALS" };
   }
 
-  // Read role from DB (single source of truth)
-  const { data: profile } = await supabase
-    .from("User")
-    .select("role")
-    .eq("id", data.user.id)
-    .maybeSingle();
+  const role = String(
+    (data.user as unknown as { user_role?: string }).user_role ??
+    data.user.app_metadata?.role ??
+    "USER",
+  ).toUpperCase();
 
-  const role = String(profile?.role ?? "USER").toUpperCase();
-
-  // Non-user roles belong to the admin portal — bounce them out.
   if (role !== "USER") {
     await supabase.auth.signOut();
     return {

@@ -1,15 +1,17 @@
 // apps/web/app/(dashboard)/layout.tsx
-// ═══════════════════════════════════════════════════════════════════════════════
-// Dashboard route group — authenticated UI (chat, wallet, bookings, profile)
-// ═══════════════════════════════════════════════════════════════════════════════
+// SERVER guard. Reads role from DB. No middleware.
+
 import { redirect } from "next/navigation";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import { getSession } from "@zeal/database/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { user } = await getSession();
   if (!user) redirect("/login");
   return <>{children}</>;
 }

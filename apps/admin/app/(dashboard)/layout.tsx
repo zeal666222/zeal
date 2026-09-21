@@ -1,56 +1,36 @@
-"use client";
+// apps/admin/app/(dashboard)/layout.tsx
+// ═══════════════════════════════════════════════════════════════════════════════
+// SERVER guard. Reads role from DB. No middleware, no JWT claims.
+// ═══════════════════════════════════════════════════════════════════════════════
 
-import {usePathname} from "next/navigation";
-import {AdminSidebar} from "@/components/layout/AdminSidebar";
-import {AdminTopBar} from "@/components/layout/AdminTopBar";
+import { requireAdminPortal } from "@zeal/database/session";
+import { DashboardShell } from "@/components/layout/DashboardShell";
 
-      import {useAuth} from "@/components/providers/SupabaseAuthProvider";
-import {ImpersonationBanner} from "@/components/admin/ImpersonationBanner";
-    
-import {useEffect} from "react";
-import {useRouter} from "next/navigation";
+export const dynamic = "force-dynamic";
 
-export default function AdminDashboardLayout({
+export default async function AdminDashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login");
-    }
-  }, [user, isLoading, router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 bg-[#9D7DC5] rounded-full animate-bounce" />
-          <span className="w-2.5 h-2.5 bg-[#9D7DC5] rounded-full animate-bounce [animation-delay:0.2s]" />
-          <span className="w-2.5 h-2.5 bg-[#9D7DC5] rounded-full animate-bounce [animation-delay:0.4s]" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  const { user, role } = await requireAdminPortal();
 
   return (
-    
-      <div className="flex h-screen bg-[#F4E8F7] dark:bg-gray-900 overflow-hidden">
-      <ImpersonationBanner />
-    
-      <AdminSidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <AdminTopBar />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
-      </div>
-    </div>
+    <DashboardShell
+      role={role}
+      user={{
+        id: user.id,
+        email: user.email ?? "",
+        name:
+          (user.user_metadata?.full_name as string | undefined) ??
+          (user.user_metadata?.name as string | undefined) ??
+          user.email?.split("@")[0] ??
+          "Admin",
+        avatar:
+          (user.user_metadata?.avatar_url as string | undefined) ?? null,
+      }}
+    >
+      {children}
+    </DashboardShell>
   );
 }

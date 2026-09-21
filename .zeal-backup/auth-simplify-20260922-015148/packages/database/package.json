@@ -25,15 +25,7 @@
       "types": "./src/ai-chat-handler.ts",
       "default": "./src/ai-chat-handler.ts"
     },
-    "./package.json": "./package.json",
-    "./session": {
-      "types": "./src/session.ts",
-      "default": "./src/session.ts"
-    },
-    "./api-guard": {
-      "types": "./src/api-guard.ts",
-      "default": "./src/api-guard.ts"
-    }
+    "./package.json": "./package.json"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.6",

@@ -78,7 +78,10 @@ function LoginContent() {
       }
 
       setRedirecting(true);
-      window.setTimeout(() => { window.location.href = res.destination; }, 450);
+      window.setTimeout(() => {
+        router.push(res.destination);
+        router.refresh();
+      }, 450);
     } catch (err) {
       setError(
         friendlyAuthError(err instanceof Error ? err.message : "Login failed"),
