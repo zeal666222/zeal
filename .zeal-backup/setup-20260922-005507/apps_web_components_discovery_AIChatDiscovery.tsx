@@ -1,0 +1,209 @@
+"use client";
+// ═══════════════════════════════════════════════════════════════════════════════
+// AIChatDiscovery — generative UI search
+// ─────────────────────────────────────────────────────────────────────────────
+// User types intent → POST /api/ai?task=search (Agnes → Groq) → returns
+// category classification + REAL consultants from DB → rendered as inline
+// cards + "View all N" CTA. Recognition over recall.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowRight, Loader2, Search, Sparkles, Star } from "lucide-react";
+
+interface ConsultantCard {
+  id: string; category: string; rating: number; "sparkScore": number;
+  "perMinuteRate": number;
+  user: { id: string; name: string | null; username: string; avatar: string | null; is_online: boolean };
+}
+
+interface SearchResponse {
+  intent: { categoryId: string; categoryName: string; confidence: number; mood: string | null };
+  consultants: ConsultantCard[];
+  totalMatches: number;
+  cached: boolean;
+}
+
+const QUICK_PROMPTS = [
+  { label: "💼 Career anxiety", value: "I'm feeling anxious about my career" },
+  { label: "💕 Relationship", value: "I need relationship guidance" },
+  { label: "🌟 Kundali", value: "I want my birth chart read" },
+  { label: "🔮 Tarot", value: "I want a tarot reading" },
+  { label: "🧘 Healing", value: "I need energy healing" },
+];
+
+export function AIChatDiscovery() {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<SearchResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const search = useCallback(async (q: string) => {
+    if (!q || q.trim().length < 3) {
+      setResult(null);
+      return;
+    }
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/ai?task=search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string })?.error || `HTTP ${res.status}`);
+      }
+      setResult((await res.json()) as SearchResponse);
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") {
+        setError(e instanceof Error ? e.message : "Search failed");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    if (!query || query.trim().length < 3) {
+      setResult(null);
+      return;
+    }
+    timerRef.current = window.setTimeout(() => void search(query), 350);
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, [query, search]);
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] p-6 md:p-8">
+      <div className="absolute top-0 right-0 w-72 h-72 bg-[var(--color-primary)]/10 blur-[100px] rounded-full pointer-events-none" />
+
+      <div className="relative">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-primary-muted)] border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold mb-4">
+          <Sparkles size={12} /> Ask Zeal
+        </div>
+
+        <h2 className="text-2xl md:text-3xl font-black text-[var(--color-foreground)] tracking-tight mb-2">
+          Find the right guide.
+        </h2>
+        <p className="text-sm text-[var(--color-muted-foreground)] mb-5 max-w-lg">
+          Describe what you need. We&apos;ll match you with the right tradition, service, and consultant.
+        </p>
+
+        <div className="relative">
+          <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-subtle-foreground)]" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+            placeholder="I'm feeling anxious about…"
+            className="w-full pl-14 pr-14 py-4 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-2xl text-sm md:text-base text-[var(--color-foreground)] placeholder:text-[var(--color-subtle-foreground)] focus:border-[var(--color-primary)] outline-none transition-colors"
+          />
+          {loading && (
+            <Loader2 className="absolute right-5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-primary)] animate-spin" />
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 mt-3">
+          {QUICK_PROMPTS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setQuery(p.value)}
+              className="text-xs px-3 py-1.5 rounded-full bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/40 hover:text-[var(--color-foreground)] transition-colors"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mt-4 p-3 rounded-xl bg-[var(--color-destructive-muted)] border border-[var(--color-destructive)]/30 text-[var(--color-destructive)] text-sm"
+            >
+              {error}
+            </motion.div>
+          )}
+
+          {result && !error && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mt-5 p-5 bg-[var(--color-surface-raised)] border border-[var(--color-primary)]/20 rounded-2xl"
+            >
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-primary)]">
+                  Matched · {result.intent.categoryName}
+                </p>
+                <span className="text-xs text-[var(--color-muted-foreground)]">
+                  {Math.round(result.intent.confidence * 100)}% confidence
+                  {result.cached && " · cached"}
+                </span>
+              </div>
+
+              {result.consultants.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                  {result.consultants.slice(0, 3).map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/consultant/${c.id}`}
+                      className="flex items-center gap-2 p-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl hover:border-[var(--color-primary)]/40 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--color-surface-raised)] shrink-0">
+                        {c.user.avatar ? (
+                          <img src={c.user.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[var(--color-primary)]">
+                            {(c.user.name ?? "?").charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-[var(--color-foreground)] truncate">
+                          {c.user.name || c.user.username}
+                        </p>
+                        <div className="flex items-center gap-2 text-[10px] mt-0.5">
+                          <span className="flex items-center gap-0.5 text-amber-500">
+                            <Star size={9} className="fill-amber-500" /> {c.rating.toFixed(1)}
+                          </span>
+                          <span className="text-[var(--color-primary)] font-mono">
+                            ₹{c.perMinuteRate}/min
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-[var(--color-muted-foreground)] mb-4">
+                  No consultants online right now — try another query.
+                </p>
+              )}
+
+              <Link
+                href={`/services/${result.intent.categoryId}`}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-[var(--color-primary-foreground)] rounded-xl text-sm font-bold"
+              >
+                View all {result.totalMatches} {result.intent.categoryName} <ArrowRight size={14} />
+              </Link>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}

@@ -186,9 +186,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                   }`}>
                     {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
-                  <h2 className="text-base font-bold text-slate-200 mb-2">
+                  <h3 className="text-base font-bold text-slate-200 mb-2">
                     {online ? "Waiting for connections…" : completeness.isLive ? "You're offline" : "Studio locked"}
-                  </h2>
+                  </h3>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
                     {online
                       ? "Your profile is visible to seekers. Requests appear here instantly."

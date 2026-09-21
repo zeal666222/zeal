@@ -1,0 +1,32 @@
+{
+  "name": "@zeal/utils",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./format": {
+      "types": "./src/format.ts",
+      "default": "./src/format.ts"
+    },
+    "./date": {
+      "types": "./src/date.ts",
+      "default": "./src/date.ts"
+    },
+    "./currency": {
+      "types": "./src/currency.ts",
+      "default": "./src/currency.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  }
+}

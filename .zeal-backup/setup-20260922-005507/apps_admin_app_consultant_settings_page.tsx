@@ -1,0 +1,156 @@
+"use client";
+
+import {useEffect, useState} from "react";
+import { Check, Copy, Loader2, Save } from "lucide-react";
+
+export default function ConsultantSettingsPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [bio, setBio] = useState("");
+  const [rate, setRate] = useState(50);
+  const [specialties, setSpecialties] = useState("");
+  const [languages, setLanguages] = useState("");
+  const [subdomain, setSubdomain] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/consultant/pulse", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          const c = data?.consultant;
+          if (c) {
+            setBio(c.bio ?? "");
+            setRate(c.perMinuteRate ?? 50);
+            setSpecialties((c.specialties ?? []).join(", "));
+            setLanguages((c.languages ?? []).join(", "));
+            setSubdomain(c.subdomain ?? null);
+          }
+        }
+      } catch { /* ignore */ }
+      setLoading(false);
+    })();
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    setError(null);
+    try {
+      const res = await fetch("/api/consultant/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bio: bio.trim(),
+          perMinuteRate: Number(rate),
+          specialties: specialties.split(",").map((s) => s.trim()).filter(Boolean),
+          languages: languages.split(",").map((s) => s.trim()).filter(Boolean),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Save failed");
+        return;
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch {
+      setError("Network error");
+    } finally { setSaving(false); }
+  };
+
+  const copySubdomain = async () => {
+    if (!subdomain) return;
+    try {
+      await navigator.clipboard.writeText(`https://${subdomain}.zeal.app`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  if (loading) {
+    return <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" /></div>;
+  }
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <h1 className="text-2xl lg:text-3xl font-black text-white">Settings</h1>
+        <p className="text-sm text-slate-400 mt-1">Update your public practice profile</p>
+      </div>
+
+      <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-5 lg:p-6 space-y-5">
+        <div>
+          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+            Professional Bio (min 20 chars)
+          </label>
+          <textarea value={bio} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setBio(e.target.value)} rows={6}
+            className="w-full p-4 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white resize-none focus:border-indigo-500 outline-none"
+            placeholder="Describe your practice, lineage, and approach…" />
+          <p className="text-xs text-slate-500 mt-1.5">
+            {bio.trim().length}/1000 · {bio.trim().length >= 20 ? "✓ meets minimum" : "min 20 chars"}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+              Per-minute rate (₹)
+            </label>
+            <input type="number" min={10} max={500} value={rate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRate(Number(e.target.value))}
+              className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">You earn</label>
+            <div className="px-4 py-3 bg-slate-950 border border-white/5 rounded-2xl text-sm text-emerald-400 font-black font-mono">
+              ₹{Math.round(rate * 0.9)}/min (90%)
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+            Specialties (comma separated)
+          </label>
+          <input type="text" value={specialties} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSpecialties(e.target.value)}
+            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+            placeholder="Vedic Astrology, KP, Nadi" />
+        </div>
+
+        <div>
+          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+            Languages (comma separated)
+          </label>
+          <input type="text" value={languages} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLanguages(e.target.value)}
+            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+            placeholder="English, Hindi" />
+        </div>
+
+        {subdomain && (
+          <div className="p-4 rounded-2xl bg-[#9D7DC5]/10 border border-[#9D7DC5]/20">
+            <p className="text-[10px] uppercase tracking-widest text-[#9D7DC5] font-bold mb-1">Your white-label site</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-mono text-white flex-1 truncate">{subdomain}.zeal.app</p>
+              <button onClick={copySubdomain} className="p-2 rounded-lg hover:bg-white/10 text-[#9D7DC5]" aria-label="Copy white-label URL">
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">{error}</div>}
+
+        <button onClick={save} disabled={saving || bio.trim().length < 20}
+          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-black hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50">
+          {saving ? <><Loader2 size={15} className="animate-spin" /> Saving…</> :
+           saved  ? <><Check size={15} /> Saved</> :
+                    <><Save size={15} /> Save changes</>}
+        </button>
+      </div>
+    </div>
+  );
+}

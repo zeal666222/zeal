@@ -234,9 +234,9 @@ export default function ConsultantDashboardPage() {
                   }`}>
                     {online ? <Users size={24} /> : <Power size={24} />}
                   </div>
-                  <h2 className="text-sm font-bold text-[var(--color-foreground)] mb-1">
+                  <h3 className="text-sm font-bold text-[var(--color-foreground)] mb-1">
                     {online ? "Waiting for connections…" : "You're offline"}
-                  </h2>
+                  </h3>
                   <p className="text-xs text-[var(--color-muted-foreground)] max-w-xs mx-auto">
                     {online ? "Requests appear here instantly." : "Toggle the switch above to start receiving."}
                   </p>

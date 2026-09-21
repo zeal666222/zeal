@@ -1,49 +1,71 @@
 "use client";
-// ZEAL_FIX_PHASE1_STUDIO
-import {useCallback, useEffect, useRef, useState} from "react";
-import {useRouter} from "next/navigation";
-import { Activity, ChevronRight, Clock, Flame, IndianRupee, Loader2, MessageSquare, Power,
-  Sparkles, Star, Users, Video } from "lucide-react";
-import {getBrowserClient} from "@zeal/database";
-import type { CompletenessReport } from "@zeal/types";
+// ZEAL_FIX_STUDIO_VISIBILITY
 
-interface Profile { id: string; full_name: string; wallet_balance: number; is_online: boolean; }
-interface Stats { sessions: number; rating: number; sparkScore: number; }
-interface Incoming { id: string; seekerName: string; rate: number; modality: string; receivedAt: string; }
-interface Props { initialProfile: Profile; completeness: CompletenessReport; subdomain: string | null; stats: Stats; }
+import { useCallback, useState} from "react";
+import {useRouter} from "next/navigation";
+import { Activity, ChevronRight, Clock, Flame, IndianRupee, Loader2, MessageSquare, Power, Sparkles, Star, Users, Video, Eye, ExternalLink } from "lucide-react";
+import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
+import {cn} from "@zeal/ui";
+
+interface CompletenessReport {
+  score: number;
+  isLive: boolean;
+  checks: Array<{ id: string; label: string; passed: boolean; actionHref: string }>;
+}
+
+interface Incoming {
+  id: string;
+  seekerName?: string;
+  rate?: number;
+  modality?: string;
+  receivedAt?: string;
+}
+
+interface Props {
+  initialProfile: { id: string; full_name: string; wallet_balance: number; is_online: boolean };
+  completeness: CompletenessReport;
+  subdomain: string | null;
+  stats: { sessions: number; rating: number; sparkScore: number };
+}
 
 export function StudioClient({ initialProfile, completeness, subdomain, stats }: Props) {
   const router = useRouter();
-  const ADMIN_URL = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
   const [online, setOnline] = useState(initialProfile.is_online);
   const [toggling, setToggling] = useState(false);
   const [balance, setBalance] = useState(initialProfile.wallet_balance);
+  const [sparkScore, setSparkScore] = useState(stats.sparkScore);
   const [incoming, setIncoming] = useState<Incoming[]>([]);
   const [toast, setToast] = useState<string | null>(null);
-  const sbRef = useRef<ReturnType<typeof getBrowserClient> | null>(null);
 
-  if (!sbRef.current && typeof window !== "undefined") {
-    try { sbRef.current = getBrowserClient(); } catch {}
-  }
+  useChannel<BroadcastChange<{ balance?: number }>>({
+    channel: initialProfile.id ? channels.userWallet(initialProfile.id) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const next = payload?.record?.balance;
+      if (typeof next === "number") setBalance(next);
+    },
+  });
 
-  useEffect(() => {
-    const sb = sbRef.current;
-    if (!sb) return;
-    const ch = sb.channel(`consultant:${initialProfile.id}:incoming`)
-      .on("broadcast", { event: "incoming_request" }, (payload: any) => {
-        const r = payload.payload as Incoming;
-        if (r?.id) {
-          setIncoming((prev) => [r, ...prev].slice(0, 10));
-          if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate?.([100, 50, 100]);
-        }
-      }).subscribe();
-    const w = sb.channel(`user:${initialProfile.id}:wallet`)
-      .on("broadcast", { event: "*" }, (payload: any) => {
-        const b = payload.payload?.balance ?? payload.payload?.record?.balance;
-        if (typeof b === "number") setBalance(b);
-      }).subscribe();
-    return () => { try { sb.removeChannel(ch); } catch {} try { sb.removeChannel(w); } catch {} };
-  }, [initialProfile.id]);
+  useChannel<BroadcastChange<{ sparkScore?: number; sparks?: number }>>({
+    channel: initialProfile.id ? channels.consultantSparks(initialProfile.id) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const next = payload?.record?.sparkScore ?? payload?.record?.sparks;
+      if (typeof next === "number") setSparkScore(next);
+    },
+  });
+
+  useChannel<Incoming>({
+    channel: initialProfile.id ? channels.consultantIncoming(initialProfile.id) : null,
+    event: "*",
+    onMessage: (payload) => {
+      if (!payload?.id) return;
+      setIncoming((prev) => [payload, ...prev].slice(0, 10));
+      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+        try { navigator.vibrate?.([100, 50, 100]); } catch { /* ignore */ }
+      }
+    },
+  });
 
   const toggle = useCallback(async () => {
     setToggling(true);
@@ -51,7 +73,8 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
     const next = !online;
     try {
       const res = await fetch("/api/consultant/online", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_online: next }),
       });
       if (!res.ok) {
@@ -64,19 +87,17 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
         return;
       }
       setOnline(next);
-      const sb = sbRef.current;
-      if (sb) {
-        const ch = sb.channel(`consultant:${initialProfile.id}:status`);
-        await ch.subscribe();
-        await ch.send({ type: "broadcast", event: "status_updated", payload: { consultantId: initialProfile.id, is_online: next } });
-        try { await sb.removeChannel(ch); } catch {}
-      }
     } catch {
       setToast("Network error");
-    } finally { setToggling(false); }
-  }, [online, initialProfile.id]);
+    } finally {
+      setToggling(false);
+    }
+  }, [online]);
 
-  const accept = (r: Incoming) => { setIncoming((p) => p.filter((x) => x.id !== r.id)); router.push(`/chat/${r.id}`); };
+  const accept = (r: Incoming) => {
+    setIncoming((p) => p.filter((x) => x.id !== r.id));
+    router.push(`/chat/${r.id}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -94,24 +115,24 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
             <div className="h-1.5 rounded-full bg-white/5 overflow-hidden mb-5">
               <div className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all" style={{ width: `${completeness.score}%` }} />
             </div>
-            <ul className="space-y-2 mb-5">
+            <ul className="space-y-2">
               {completeness.checks.map((c) => (
                 <li key={c.id} className="flex items-center gap-3 text-sm">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${c.passed ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-800 text-slate-500"}`}>
+                  <span className={cn(
+                    "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0",
+                    c.passed ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-800 text-slate-500",
+                  )}>
                     {c.passed ? "✓" : "○"}
                   </span>
                   <span className={c.passed ? "text-slate-500 line-through" : "text-slate-200"}>{c.label}</span>
                   {!c.passed && (
-                    <a href={`${ADMIN_URL}${c.actionHref}`} className="ml-auto text-xs text-amber-400 hover:text-amber-300 font-bold">
+                    <a href={c.actionHref} className="ml-auto text-xs text-amber-400 hover:text-amber-300 font-bold">
                       Fix <ChevronRight size={11} className="inline" />
                     </a>
                   )}
                 </li>
               ))}
             </ul>
-            <a href={`${ADMIN_URL}/consultant/onboarding`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg">
-              Complete profile <ChevronRight size={14} />
-            </a>
           </div>
         </div>
       )}
@@ -123,9 +144,10 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
         </div>
         <button onClick={toggle} disabled={toggling || !completeness.isLive}
           title={!completeness.isLive ? "Complete profile to go live" : undefined}
-          className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-            online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-slate-800 border-slate-700 text-slate-400"
-          }`}
+          className={cn(
+            "flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed",
+            online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-slate-800 border-slate-700 text-slate-400",
+          )}
         >
           {toggling ? <Loader2 size={18} className="animate-spin" /> : <Power size={18} className={online ? "animate-pulse" : ""} />}
           <span className="text-sm font-bold uppercase tracking-wider">
@@ -140,9 +162,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
         <Metric label="Balance"  value={`₹${Number(balance).toFixed(0)}`} icon={IndianRupee} accent="text-emerald-400" bg="bg-emerald-500/10" />
-        <Metric label="Rating"   value={`${stats.rating.toFixed(1)}★`}     icon={Star}         accent="text-amber-400"   bg="bg-amber-500/10" />
-        <Metric label="Sessions" value={String(stats.sessions)}            icon={Video}        accent="text-indigo-400"  bg="bg-indigo-500/10" />
-        <Metric label="Sparks"   value={stats.sparkScore.toLocaleString()} icon={Flame}        accent="text-orange-400"  bg="bg-orange-500/10" />
+        <Metric label="Rating"   value={`${stats.rating.toFixed(1)}★`}    icon={Star}         accent="text-amber-400"   bg="bg-amber-500/10" />
+        <Metric label="Sessions" value={String(stats.sessions)}           icon={Video}        accent="text-indigo-400"  bg="bg-indigo-500/10" />
+        <Metric label="Sparks"   value={sparkScore.toLocaleString()}      icon={Flame}        accent="text-orange-400"  bg="bg-orange-500/10" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -164,8 +186,8 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                 {incoming.map((r) => (
                   <div key={r.id} className="flex items-center justify-between gap-3 p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl">
                     <div className="min-w-0">
-                      <p className="font-bold text-white text-sm truncate">{r.seekerName}</p>
-                      <p className="text-xs text-slate-400">₹{r.rate}/min · {r.modality}</p>
+                      <p className="font-bold text-white text-sm truncate">{r.seekerName ?? "Seeker"}</p>
+                      <p className="text-xs text-slate-400">₹{r.rate ?? 0}/min · {r.modality ?? "chat"}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button onClick={() => setIncoming((p) => p.filter((x) => x.id !== r.id))}
@@ -177,23 +199,23 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                 ))}
               </div>
             ) : (
-              <div className={`flex items-center justify-center border-2 border-dashed rounded-3xl p-8 min-h-[340px] ${
-                online ? "border-indigo-500/30 bg-indigo-950/20" : "border-white/5 bg-slate-950/50"
-              }`}>
+              <div className={cn(
+                "flex items-center justify-center border-2 border-dashed rounded-3xl p-8 min-h-[340px]",
+                online ? "border-indigo-500/30 bg-indigo-950/20" : "border-white/5 bg-slate-950/50",
+              )}>
                 <div className="text-center">
-                  <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-white/5 text-slate-500"
-                  }`}>
+                  <div className={cn(
+                    "w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center",
+                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-white/5 text-slate-500",
+                  )}>
                     {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
-                  <h2 className="text-base font-bold text-slate-200 mb-2">
+                  <h3 className="text-base font-bold text-slate-200 mb-2">
                     {online ? "Waiting for connections…" : completeness.isLive ? "You're offline" : "Studio locked"}
-                  </h2>
+                  </h3>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    {online
-                      ? "Your profile is visible to seekers. Requests appear here instantly."
-                      : completeness.isLive
-                      ? "Toggle the switch above to start receiving sessions."
+                    {online ? "Your profile is visible to seekers. Requests appear here instantly."
+                      : completeness.isLive ? "Toggle the switch above to start receiving sessions."
                       : "Complete your profile to unlock the studio."}
                   </p>
                 </div>
@@ -234,7 +256,7 @@ function Metric({ label, value, icon: Icon, accent, bg }: { label: string; value
     <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-3">
         <span className="text-slate-400 text-[10px] lg:text-xs font-bold uppercase tracking-wider">{label}</span>
-        <div className={`p-2 rounded-lg ${bg} ${accent}`}><Icon size={16} /></div>
+        <div className={cn("p-2 rounded-lg", bg, accent)}><Icon size={16} /></div>
       </div>
       <div className="text-xl lg:text-3xl font-black font-mono tracking-tight text-white">{value}</div>
     </div>
