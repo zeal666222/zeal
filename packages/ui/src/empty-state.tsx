@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "./utils";
 
 interface EmptyStateProps {

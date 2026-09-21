@@ -1,5 +1,5 @@
 import * as React from "react";
-import { LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "./utils";
 
 interface KpiCardProps {
@@ -32,13 +32,17 @@ export function KpiCard({
   className,
 }: KpiCardProps) {
   const trendColor =
-    trend?.direction === "up" ? "text-emerald-500"
-    : trend?.direction === "down" ? "text-rose-500"
-    : "text-[var(--color-muted-foreground)]";
+    trend?.direction === "up"
+      ? "text-emerald-500"
+      : trend?.direction === "down"
+      ? "text-rose-500"
+      : "text-[var(--color-muted-foreground)]";
   const trendArrow =
-    trend?.direction === "up" ? "▲"
-    : trend?.direction === "down" ? "▼"
-    : "•";
+    trend?.direction === "up"
+      ? "▲"
+      : trend?.direction === "down"
+      ? "▼"
+      : "•";
 
   return (
     <div
@@ -59,7 +63,11 @@ export function KpiCard({
         )}
       </div>
       <div className="text-xl md:text-3xl font-black font-mono text-[var(--color-foreground)] tabular-nums tracking-tight">
-        {loading ? <span className="inline-block w-16 h-6 rounded bg-[var(--color-surface-raised)] animate-pulse" /> : value}
+        {loading ? (
+          <span className="inline-block w-16 h-6 rounded bg-[var(--color-surface-raised)] animate-pulse" />
+        ) : (
+          value
+        )}
       </div>
       {trend && !loading && (
         <div className={cn("mt-1.5 text-[11px] font-bold flex items-center gap-1", trendColor)}>
