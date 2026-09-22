@@ -4,7 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "./utils";
 
 interface EmptyStateProps {
-  icon?: LucideIcon;
+  icon?: LucideIcon | string;
   title: string;
   description?: string;
   action?: React.ReactNode;
@@ -12,7 +12,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({
-  icon: Icon,
+  icon,
   title,
   description,
   action,
@@ -26,10 +26,16 @@ export function EmptyState({
         className,
       )}
     >
-      {Icon && (
-        <div className="p-4 rounded-full bg-[var(--color-surface-raised)] mb-4">
-          <Icon className="w-8 h-8 text-[var(--color-muted-foreground)]" />
-        </div>
+      {icon !== undefined && icon !== null && (
+        typeof icon === "string" ? (
+          <div className="text-4xl mb-4" aria-hidden>{icon}</div>
+        ) : (
+          <div className="p-4 rounded-full bg-[var(--color-surface-raised)] mb-4">
+            {React.createElement(icon, {
+              className: "w-8 h-8 text-[var(--color-muted-foreground)]",
+            })}
+          </div>
+        )
       )}
       <h3 className="text-base font-semibold text-[var(--color-foreground)]">
         {title}

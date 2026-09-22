@@ -7,7 +7,7 @@
 
 import { createServerClientFromCookies } from "@zeal/database/server";
 import Link from "next/link";
-import { Compass, Radio, ShieldCheck, Sparkles } from "lucide-react";
+import { Compass, Radio, ShieldCheck } from "lucide-react";
 import { EmptyState } from "@zeal/ui";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +93,7 @@ export default async function ExplorePage() {
         {/* Grid */}
         {consultants.length === 0 ? (
           <EmptyState
-            icon={Sparkles}
+            icon="✨"
             title="No consultants yet"
             description="Check back soon — new guides are onboarding every day."
           />

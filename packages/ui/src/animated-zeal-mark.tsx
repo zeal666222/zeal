@@ -1,16 +1,6 @@
 "use client";
-// ═══════════════════════════════════════════════════════════════════════════════
-// AnimatedZealMark — morphing SVG with deterministic IDs (useId)
-// ─────────────────────────────────────────────────────────────────────────────
-// All paths share exactly 4 points (1 M + 3 L) so Framer Motion interpolates
-// each vertex. Sequence loops over 12s: Z → △ → ◇ → □ → Z.
-//
-// IDs are derived from React.useId() (deterministic across SSR + client),
-// avoiding hydration mismatches and re-render flicker.
-// ═══════════════════════════════════════════════════════════════════════════════
-
 import { useId } from "react";
-import { motion } from "framer-motion";
+import { m } from "framer-motion";
 import { cn } from "./utils";
 
 interface Props {
@@ -21,6 +11,21 @@ interface Props {
   variant?: "brand" | "mono";
 }
 
+const PATHS = {
+  z:        "M 8 10 L 40 10 L 8 38 L 40 38",
+  triangle: "M 24 8 L 40 34 L 8 34 L 40 34",
+  diamond:  "M 24 8 L 40 24 L 24 40 L 8 24",
+  square:   "M 8 8 L 40 8 L 40 40 L 8 40",
+} as const;
+
+const SEQUENCE = [PATHS.z, PATHS.triangle, PATHS.diamond, PATHS.square, PATHS.z];
+
+function safePath(d: string | undefined | null): string {
+  if (typeof d !== "string" || d.length === 0) return PATHS.z;
+  if (!/^[Mm]/.test(d.trim())) return PATHS.z;
+  return d;
+}
+
 export function AnimatedZealMark({
   size = 28,
   className,
@@ -28,22 +33,12 @@ export function AnimatedZealMark({
   animate = true,
   variant = "brand",
 }: Props) {
-  // useId returns ":r0:" style strings — sanitize for SVG id refs
   const raw = useId();
   const safe = raw.replace(/:/g, "");
   const gradientId = `zeal-mark-grad-${safe}`;
   const glowId = `zeal-mark-glow-${safe}`;
-
-  // Every path: 1 M + 3 L = 4 vertices. Same vertex count → smooth interpolation.
-  const paths = {
-    z:        "M 8 10 L 40 10 L 8 38 L 40 38",
-    triangle: "M 24 8 L 40 34 L 8 34 L 40 34",
-    diamond:  "M 24 8 L 40 24 L 24 40 L 8 24",
-    square:   "M 8 8 L 40 8 L 40 40 L 8 40",
-  };
-
-  const sequence = [paths.z, paths.triangle, paths.diamond, paths.square, paths.z];
   const stroke = variant === "brand" ? `url(#${gradientId})` : "currentColor";
+  const d0 = safePath(PATHS.z);
 
   return (
     <span
@@ -52,7 +47,7 @@ export function AnimatedZealMark({
       aria-label="Zeal"
     >
       {glow && (
-        <motion.span
+        <m.span
           aria-hidden
           className="absolute inset-0 rounded-full pointer-events-none"
           style={{
@@ -90,14 +85,14 @@ export function AnimatedZealMark({
         </defs>
 
         {animate ? (
-          <motion.path
-            d={paths.z}
+          <m.path
+            d={d0}
             stroke={stroke}
             strokeWidth={5}
             strokeLinecap="round"
             strokeLinejoin="round"
             filter={`url(#${glowId})`}
-            animate={{ d: sequence }}
+            animate={{ d: SEQUENCE }}
             transition={{
               duration: 12,
               repeat: Infinity,
@@ -107,7 +102,7 @@ export function AnimatedZealMark({
           />
         ) : (
           <path
-            d={paths.z}
+            d={d0}
             stroke={stroke}
             strokeWidth={5}
             strokeLinecap="round"

@@ -1,0 +1,545 @@
+id,date,method,pathname,status,timestamp,level,event_message,log_type,log_count,logs,auth_user
+08a2374f-6356-4567-81a0-628960e21996,"""2026-09-22T11:46:11.419Z""",,,42601,2026-09-22T11:46:11.419000,error,"syntax error at or near """"use client""""",postgres,null,[],null
+5407a7b6-b911-49a7-9dce-74b6dbb0388b,"""2026-09-22T11:46:00.081Z""",,,00000,2026-09-22T11:46:00.081000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+54682492-ade4-4de6-9ad7-da0b7c523662,"""2026-09-22T11:46:00.079Z""",,,00000,2026-09-22T11:46:00.079000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+bde2d71c-88f1-4b5e-bfae-c4dd604ff0e2,"""2026-09-22T11:46:00.055Z""",,,00000,2026-09-22T11:46:00.055000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+1cb3bc1f-20ff-4457-a5db-b10b50f23137,"""2026-09-22T11:46:00.021Z""",,,00000,2026-09-22T11:46:00.021000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+fca6b0ae-4037-4263-938c-2c9904261b26,"""2026-09-22T11:46:00.004Z""",,,00000,2026-09-22T11:46:00.004000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+6ed5f46f-944e-4936-a8df-d7f751079ec7,"""2026-09-22T11:45:53.460Z""",,,00000,2026-09-22T11:45:53.460000,success,"statement: REVOKE ALL ON FUNCTION public.user_is_in_conversation(uuid) FROM anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.user_is_in_conversation(uuid) TO authenticated;
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:45:53.435Z",postgres,null,[],null
+afe51aeb-f570-4bfc-a19f-a53283b7eebd,"""2026-09-22T11:45:15.780Z""",POST,/admin/v1/network-bans/retrieve,200,2026-09-22T11:45:15.780000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/admin/v1/network-bans/retrieve | @supabase-infra/mgmt-api/v1.340.0,edge,null,[],null
+f6397991-2f52-43d8-bfe7-7b4aefe11a49,"""2026-09-22T11:45:15.544Z""",,,00000,2026-09-22T11:45:15.544000,success,"AUDIT: SESSION,9,1,DDL,CREATE POLICY,POLICY,""message_participant_send on public.""""Message"""""",""CREATE POLICY message_participant_send ON public.""""Message""""
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    """"senderId"""" = (SELECT auth.uid())
+    AND public.user_is_in_conversation(""""Message"""".""""conversationId"""")
+  )"",<not logged>",postgres,null,[],null
+122d34f2-0d6c-437c-9f88-f6eec9a94ae3,"""2026-09-22T11:45:15.544Z""",,,00000,2026-09-22T11:45:15.544000,success,"AUDIT: SESSION,8,1,DDL,CREATE POLICY,POLICY,""message_participant_read on public.""""Message"""""",""CREATE POLICY message_participant_read ON public.""""Message""""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""""Message"""".""""conversationId""""))"",<not logged>",postgres,null,[],null
+c020b293-a77c-46b0-b849-29927175b5de,"""2026-09-22T11:45:15.538Z""",,,00000,2026-09-22T11:45:15.538000,success,"AUDIT: SESSION,7,1,DDL,CREATE POLICY,POLICY,""participant_self_read on public.""""ConversationParticipant"""""",""CREATE POLICY participant_self_read ON public.""""ConversationParticipant""""
+  FOR SELECT TO authenticated
+  USING (
+    """"userId"""" = (SELECT auth.uid())
+    OR public.user_is_in_conversation(""""ConversationParticipant"""".""""conversationId"""")
+  )"",<not logged>",postgres,null,[],null
+f50322dc-3793-4fac-9dd8-57bbde2baa84,"""2026-09-22T11:45:15.536Z""",,,00000,2026-09-22T11:45:15.536000,success,"AUDIT: SESSION,6,1,DDL,CREATE POLICY,POLICY,""conversation_participant_read on public.""""Conversation"""""",""CREATE POLICY conversation_participant_read ON public.""""Conversation""""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""""Conversation"""".id))"",<not logged>",postgres,null,[],null
+71aa66b8-de9e-4be1-b583-0e8bc7315a1b,"""2026-09-22T11:45:15.535Z""",,,00000,2026-09-22T11:45:15.535000,success,"AUDIT: SESSION,5,1,DDL,CREATE FUNCTION,FUNCTION,public.user_is_in_conversation(pg_catalog.uuid),""CREATE OR REPLACE FUNCTION public.user_is_in_conversation(p_conversation_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.""""ConversationParticipant""""
+    WHERE """"conversationId"""" = p_conversation_id
+      AND """"userId"""" = (SELECT auth.uid())
+  );
+$$"",<not logged>",postgres,null,[],null
+229df817-4e97-4883-b7ae-46a573fee364,"""2026-09-22T11:45:15.534Z""",,,00000,2026-09-22T11:45:15.534000,success,"AUDIT: SESSION,3,1,DDL,DROP POLICY,,,""DROP POLICY IF EXISTS message_participant_send      ON public.""""Message"""""",<not logged>",postgres,null,[],null
+9347619b-be84-43bd-9dc3-21120a046350,"""2026-09-22T11:45:15.534Z""",,,00000,2026-09-22T11:45:15.534000,success,"AUDIT: SESSION,4,1,DDL,DROP POLICY,,,""DROP POLICY IF EXISTS conversation_participant_read ON public.""""Conversation"""""",<not logged>",postgres,null,[],null
+6154d191-79f5-4a57-add0-6c92cbde8c16,"""2026-09-22T11:45:15.533Z""",,,00000,2026-09-22T11:45:15.533000,success,"AUDIT: SESSION,2,1,DDL,DROP POLICY,,,""DROP POLICY IF EXISTS message_participant_read      ON public.""""Message"""""",<not logged>",postgres,null,[],null
+b42f6a6d-0db7-410b-913c-486b9b561c52,"""2026-09-22T11:45:15.533Z""",,,00000,2026-09-22T11:45:15.533000,success,"AUDIT: SESSION,1,1,DDL,DROP POLICY,,,""DROP POLICY IF EXISTS participant_self_read         ON public.""""ConversationParticipant"""""",<not logged>",postgres,null,[],null
+a20f7387-5478-44a5-a9e4-58885292c8d8,"""2026-09-22T11:45:15.531Z""",,,00000,2026-09-22T11:45:15.531000,success,"statement: BEGIN;
+SET LOCAL statement_timeout = '2min';
+
+DROP POLICY IF EXISTS participant_self_read         ON public.""ConversationParticipant"";
+DROP POLICY IF EXISTS message_participant_read      ON public.""Message"";
+DROP POLICY IF EXISTS message_participant_send      ON public.""Message"";
+DROP POLICY IF EXISTS conversation_participant_read ON public.""Conversation"";
+
+CREATE OR REPLACE FUNCTION public.user_is_in_conversation(p_conversation_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.""ConversationParticipant""
+    WHERE ""conversationId"" = p_conversation_id
+      AND ""userId"" = (SELECT auth.uid())
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.user_is_in_conversation(uuid) FROM anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.user_is_in_conversation(uuid) TO authenticated;
+
+CREATE POLICY conversation_participant_read ON public.""Conversation""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""Conversation"".id));
+
+CREATE POLICY participant_self_read ON public.""ConversationParticipant""
+  FOR SELECT TO authenticated
+  USING (
+    ""userId"" = (SELECT auth.uid())
+    OR public.user_is_in_conversation(""ConversationParticipant"".""conversationId"")
+  );
+
+CREATE POLICY message_participant_read ON public.""Message""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""Message"".""conversationId""));
+
+CREATE POLICY message_participant_send ON public.""Message""
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    ""senderId"" = (SELECT auth.uid())
+    AND public.user_is_in_conversation(""Message"".""conversationId"")
+  );
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:45:15.505Z",postgres,null,[],null
+fa893fd9-49d0-4f63-ba63-39b84b451b2a,"""2026-09-22T11:45:00.100Z""",,,00000,2026-09-22T11:45:00.100000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+14466382-fc76-4d26-96ab-ca1d37bd04e8,"""2026-09-22T11:45:00.098Z""",,,00000,2026-09-22T11:45:00.098000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+f721f949-b286-4a4e-ac1c-b2d755410f4b,"""2026-09-22T11:45:00.076Z""",,,00000,2026-09-22T11:45:00.076000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+0a67556d-93c5-42ef-abbe-a3f1cbe2736d,"""2026-09-22T11:45:00.036Z""",,,00000,2026-09-22T11:45:00.036000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+b5b1135c-5496-49d8-86cf-e2edff6c109e,"""2026-09-22T11:45:00.013Z""",,,00000,2026-09-22T11:45:00.013000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+cb18ea96-f52e-4f56-abe0-b40dd93c5a35,"""2026-09-22T11:44:49.089Z""",,,42601,2026-09-22T11:44:49.089000,error,"syntax error at or near ""//""",postgres,null,[],null
+490958c5-b0a5-4e81-9186-7befb0c545ec,"""2026-09-22T11:44:33.131Z""",POST,/admin/v1/network-bans/retrieve,200,2026-09-22T11:44:33.131000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/admin/v1/network-bans/retrieve | @supabase-infra/mgmt-api/v1.340.0,edge,null,[],null
+9654120a-7467-4c59-a9e0-3fe2e77cf33c,"""2026-09-22T11:44:32.867Z""",,,00000,2026-09-22T11:44:32.867000,success,"AUDIT: SESSION,7,1,DDL,CREATE POLICY,POLICY,""participant_self_read on public.""""ConversationParticipant"""""",""-- ConversationParticipant: user sees their own row OR any row in a conversation
+-- they belong to. The second clause is now recursion-free.
+CREATE POLICY participant_self_read ON public.""""ConversationParticipant""""
+  FOR SELECT TO authenticated
+  USING (
+    """"userId"""" = (SELECT auth.uid())
+    OR public.user_is_in_conversation(""""ConversationParticipant"""".""""conversationId"""")
+  )"",<not logged>",postgres,null,[],null
+671aa85c-bd66-4a11-a5db-368863fd160d,"""2026-09-22T11:44:32.867Z""",,,00000,2026-09-22T11:44:32.867000,success,"AUDIT: SESSION,8,1,DDL,CREATE POLICY,POLICY,""message_participant_read on public.""""Message"""""",""-- Message: participants read all messages in their conversations
+CREATE POLICY message_participant_read ON public.""""Message""""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""""Message"""".""""conversationId""""))"",<not logged>",postgres,null,[],null
+64e8eeac-2937-4087-9263-926137faf19c,"""2026-09-22T11:44:32.867Z""",,,00000,2026-09-22T11:44:32.867000,success,"AUDIT: SESSION,9,1,DDL,CREATE POLICY,POLICY,""message_participant_send on public.""""Message"""""",""-- Message: sender must be the authenticated user AND a participant
+CREATE POLICY message_participant_send ON public.""""Message""""
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    """"senderId"""" = (SELECT auth.uid())
+    AND public.user_is_in_conversation(""""Message"""".""""conversationId"""")
+  )"",<not logged>",postgres,null,[],null
+ffee86ef-06a2-4efa-8b20-e08ebf861595,"""2026-09-22T11:44:32.866Z""",,,00000,2026-09-22T11:44:32.866000,success,"AUDIT: SESSION,6,1,DDL,CREATE POLICY,POLICY,""conversation_participant_read on public.""""Conversation"""""",""-- ─── §3. Rewrite policies to call the helper ────────────────────────────────
+
+-- Conversation: participants read conversations they belong to
+CREATE POLICY conversation_participant_read ON public.""""Conversation""""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""""Conversation"""".id))"",<not logged>",postgres,null,[],null
+f7a26659-6f27-4435-97c1-1cd779f2b548,"""2026-09-22T11:44:32.860Z""",,,00000,2026-09-22T11:44:32.860000,success,"AUDIT: SESSION,5,1,DDL,CREATE FUNCTION,FUNCTION,public.user_is_in_conversation(pg_catalog.uuid),""-- ─── §2. SECURITY DEFINER helper ────────────────────────────────────────────
+-- Runs as the function owner (postgres). Bypasses RLS on ConversationParticipant
+-- so the inner SELECT no longer re-enters the policy.
+CREATE OR REPLACE FUNCTION public.user_is_in_conversation(p_conversation_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.""""ConversationParticipant""""
+    WHERE """"conversationId"""" = p_conversation_id
+      AND """"userId"""" = (SELECT auth.uid())
+  );
+$$"",<not logged>",postgres,null,[],null
+2cd49e12-5da0-4ca5-99ad-f6cebb069519,"""2026-09-22T11:44:32.859Z""",,,00000,2026-09-22T11:44:32.859000,success,"AUDIT: SESSION,4,1,DDL,DROP POLICY,,,""DROP POLICY IF EXISTS conversation_participant_read ON public.""""Conversation"""""",<not logged>",postgres,null,[],null
+53d08ab2-efcf-4b79-8991-6a33f4778123,"""2026-09-22T11:44:32.858Z""",,,00000,2026-09-22T11:44:32.858000,success,"AUDIT: SESSION,3,1,DDL,DROP POLICY,,,""DROP POLICY IF EXISTS message_participant_send     ON public.""""Message"""""",<not logged>",postgres,null,[],null
+72f4b472-3368-4d60-b911-66d2bfed4a76,"""2026-09-22T11:44:32.857Z""",,,00000,2026-09-22T11:44:32.857000,success,"AUDIT: SESSION,2,1,DDL,DROP POLICY,,,""DROP POLICY IF EXISTS message_participant_read     ON public.""""Message"""""",<not logged>",postgres,null,[],null
+95632667-b56d-43c9-8f1c-71b3eb6310cf,"""2026-09-22T11:44:32.857Z""",,,00000,2026-09-22T11:44:32.857000,success,"AUDIT: SESSION,1,1,DDL,DROP POLICY,,,""-- ─── §1. Drop every policy that touches ConversationParticipant ──────────────
+DROP POLICY IF EXISTS participant_self_read        ON public.""""ConversationParticipant"""""",<not logged>",postgres,null,[],null
+a83da114-b5fa-46af-ad07-733567b888af,"""2026-09-22T11:44:32.852Z""",,,00000,2026-09-22T11:44:32.852000,success,"statement: -- ═══════════════════════════════════════════════════════════════════════════════
+-- 703_fix_conversation_rls_recursion.sql
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Breaks the RLS recursion on ConversationParticipant (and its dependents,
+-- Message and Conversation) by moving the membership check into a
+-- SECURITY DEFINER helper that bypasses RLS.
+--
+-- Idempotent. Safe to re-run.
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+BEGIN;
+SET LOCAL statement_timeout = '2min';
+SET LOCAL lock_timeout = '20s';
+
+-- ─── §1. Drop every policy that touches ConversationParticipant ──────────────
+DROP POLICY IF EXISTS participant_self_read        ON public.""ConversationParticipant"";
+DROP POLICY IF EXISTS message_participant_read     ON public.""Message"";
+DROP POLICY IF EXISTS message_participant_send     ON public.""Message"";
+DROP POLICY IF EXISTS conversation_participant_read ON public.""Conversation"";
+
+-- ─── §2. SECURITY DEFINER helper ────────────────────────────────────────────
+-- Runs as the function owner (postgres). Bypasses RLS on ConversationParticipant
+-- so the inner SELECT no longer re-enters the policy.
+CREATE OR REPLACE FUNCTION public.user_is_in_conversation(p_conversation_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.""ConversationParticipant""
+    WHERE ""conversationId"" = p_conversation_id
+      AND ""userId"" = (SELECT auth.uid())
+  );
+$$;
+
+-- Never callable by anon. Only authenticated users.
+REVOKE ALL ON FUNCTION public.user_is_in_conversation(uuid) FROM anon, PUBLIC;
+GRANT EXECUTE ON FUNCTION public.user_is_in_conversation(uuid) TO authenticated;
+
+-- ─── §3. Rewrite policies to call the helper ────────────────────────────────
+
+-- Conversation: participants read conversations they belong to
+CREATE POLICY conversation_participant_read ON public.""Conversation""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""Conversation"".id));
+
+-- ConversationParticipant: user sees their own row OR any row in a conversation
+-- they belong to. The second clause is now recursion-free.
+CREATE POLICY participant_self_read ON public.""ConversationParticipant""
+  FOR SELECT TO authenticated
+  USING (
+    ""userId"" = (SELECT auth.uid())
+    OR public.user_is_in_conversation(""ConversationParticipant"".""conversationId"")
+  );
+
+-- Message: participants read all messages in their conversations
+CREATE POLICY message_participant_read ON public.""Message""
+  FOR SELECT TO authenticated
+  USING (public.user_is_in_conversation(""Message"".""conversationId""));
+
+-- Message: sender must be the authenticated user AND a participant
+CREATE POLICY message_participant_send ON public.""Message""
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    ""senderId"" = (SELECT auth.uid())
+    AND public.user_is_in_conversation(""Message"".""conversationId"")
+  );
+
+-- ─── §4. Verify ─────────────────────────────────────────────────────────────
+DO $verify$
+DECLARE
+  v_helper_ok   boolean;
+  v_anon_can    boolean;
+  v_auth_can    boolean;
+  v_policies    int;
+BEGIN
+  v_helper_ok := EXISTS (
+    SELECT 1 FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'user_is_in_conversation'
+      AND p.prosecdef = true
+  );
+
+  v_anon_can := has_function_privilege(
+    'anon', 'public.user_is_in_conversation(uuid)', 'EXECUTE'
+  );
+  v_auth_can := has_function_privilege(
+    'authenticated', 'public.user_is_in_conversation(uuid)', 'EXECUTE'
+  );
+
+  SELECT COUNT(*) INTO v_policies
+  FROM pg_policies
+  WHERE schemaname = 'public'
+    AND policyname IN (
+      'conversation_participant_read',
+      'participant_self_read',
+      'message_participant_read',
+      'message_participant_send'
+    );
+
+  RAISE NOTICE '';
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════';
+  RAISE NOTICE '  703_fix_conversation_rls_recursion.sql — VERIFIED';
+  RAISE NOTICE '  helper exists + SECURITY DEFINER : %', v_helper_ok;
+  RAISE NOTICE '  anon can call helper             : %  (target: false)', v_anon_can;
+  RAISE NOTICE '  authenticated can call helper    : %  (target: true)', v_auth_can;
+  RAISE NOTICE '  policies rewritten               : %  (target: 4)', v_policies;
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════';
+
+  IF NOT v_helper_ok OR v_anon_can OR NOT v_auth_can OR v_policies <> 4 THEN
+    RAISE EXCEPTION '703 verification failed';
+  END IF;
+  RAISE NOTICE '  ✓ ALL CHECKS PASSED';
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════';
+END $verify$;
+
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload config';
+COMMIT;
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:44:32.827Z",postgres,null,[],null
+8820da60-a38c-43a3-a060-ec652fb8f306,"""2026-09-22T11:44:27.585Z""",,,00000,2026-09-22T11:44:27.585000,success,"AUDIT: SESSION,1,1,DDL,CREATE FUNCTION,FUNCTION,pg_temp_48.count_estimate(pg_catalog.text),""CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$"",<not logged>",postgres,null,[],null
+13e5eef7-756d-412f-9465-c1833cf8a13f,"""2026-09-22T11:44:27.581Z""",,,00000,2026-09-22T11:44:27.581000,success,"statement: SET statement_timeout='58s'; SET idle_session_timeout='58s';
+CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$;
+
+
+with approximation as (select reltuples as estimate from pg_class where oid = 'auth.users'::regclass)
+select 
+  case 
+    when estimate = -1 then (select pg_temp.count_estimate('select * from auth.users'))::int
+    when estimate > 50000 then estimate::int
+    else (select count(*) from auth.users)
+  end as count,
+  estimate = -1 or estimate > 50000 as is_estimate
+from approximation
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:44:27.549Z",postgres,null,[],null
+d34ded6c-5980-425d-99d8-0b14e824bd02,"""2026-09-22T11:44:27.471Z""",,,00000,2026-09-22T11:44:27.471000,success,"AUDIT: SESSION,1,1,DDL,CREATE FUNCTION,FUNCTION,pg_temp_57.count_estimate(pg_catalog.text),""CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$"",<not logged>",postgres,null,[],null
+32ba558c-1e2d-44f3-ad43-997718fcdcde,"""2026-09-22T11:44:27.462Z""",,,00000,2026-09-22T11:44:27.462000,success,"statement: SET statement_timeout='58s'; SET idle_session_timeout='58s';
+CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$;
+
+
+with approximation as (select reltuples as estimate from pg_class where oid = 'auth.users'::regclass)
+select 
+  case 
+    when estimate = -1 then (select pg_temp.count_estimate('select * from auth.users'))::int
+    when estimate > 50000 then estimate::int
+    else (select count(*) from auth.users)
+  end as count,
+  estimate = -1 or estimate > 50000 as is_estimate
+from approximation
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:44:27.423Z",postgres,null,[],null
+5320a3ad-cfd5-4aa3-af6c-bc6d5b4276a4,"""2026-09-22T11:44:00.059Z""",,,00000,2026-09-22T11:44:00.059000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+c615464e-7234-4223-a333-4ec4a5cd621d,"""2026-09-22T11:44:00.058Z""",,,00000,2026-09-22T11:44:00.058000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+214d7d33-5557-408a-b44c-4933f8590c54,"""2026-09-22T11:44:00.043Z""",,,00000,2026-09-22T11:44:00.043000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+34014351-36e2-43a3-a7a6-d946b39c2121,"""2026-09-22T11:44:00.019Z""",,,00000,2026-09-22T11:44:00.019000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+875d95a7-ab62-4646-ae52-822d9b4ab69a,"""2026-09-22T11:44:00.003Z""",,,00000,2026-09-22T11:44:00.003000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+0ea9548a-839b-47b8-9164-8922a49346fd,"""2026-09-22T11:43:48.000Z""",,,42P17,2026-09-22T11:43:48.000000,error,"infinite recursion detected in policy for relation ""ConversationParticipant""",postgres,null,[],null
+5821a6b5-640c-473d-886c-0df01e2543b2,"""2026-09-22T11:43:47.970Z""",,,42P17,2026-09-22T11:43:47.970000,error,"infinite recursion detected in policy for relation ""ConversationParticipant""",postgres,null,[],null
+062a2fe5-f7b0-404d-9009-a3057daa540e,"""2026-09-22T11:43:47.292Z""",GET,/rest/v1/ConversationParticipant,500,2026-09-22T11:43:47.292000,error,GET | 500 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/ConversationParticipant?select=conversationId&userId=eq.94f60bd8-e5b4-4603-9211-30167f6b7d80 | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+c742d453-c6cd-423a-8653-05122b5f61f8,"""2026-09-22T11:43:47.288Z""",GET,/rest/v1/ConversationParticipant,500,2026-09-22T11:43:47.288000,error,GET | 500 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/ConversationParticipant?select=conversationId&conversationId=eq.41458f6e-e592-4871-9186-f9cb9ca037b8&userId=eq.94f60bd8-e5b4-4603-9211-30167f6b7d80 | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+7fa9413c-cc3b-416f-ba4f-356afb98b916,"""2026-09-22T11:43:46.484Z""",GET,/auth/v1/user,200,2026-09-22T11:43:46.484000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+55b7aedc-dca0-46f1-b961-88ac5b487d28,"""2026-09-22T11:43:45.136Z""",POST,/rest/v1/rpc/get_or_create_conversation,200,2026-09-22T11:43:45.136000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/rpc/get_or_create_conversation | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+990b6147-744e-4268-abe7-c5764edbacb3,"""2026-09-22T11:43:44.160Z""",GET,/auth/v1/user,200,2026-09-22T11:43:44.160000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+fff1012f-aa4d-45ff-9d61-d46141e3e1de,"""2026-09-22T11:43:42.106Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:43:42.106000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&id=eq.0dc3aeda-3c11-4f14-e75c-2ab7ff71f2f5 | node,edge,null,[],null
+aecf2ec1-6ffd-405a-af70-f4229df464ce,"""2026-09-22T11:43:38.181Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:43:38.181000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+36f67373-e3fe-4c3d-a0df-164fe94601ae,"""2026-09-22T11:43:38.166Z""",GET,/rest/v1/Post,400,2026-09-22T11:43:38.166000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+8da25bb2-3f0c-4676-8746-0a75674b61ec,"""2026-09-22T11:43:38.162Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:43:38.162000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+e230c746-b136-4d40-9a9a-5b6c76a8fc62,"""2026-09-22T11:43:35.368Z""",POST,/rest/v1/rpc/search_consultants,200,2026-09-22T11:43:35.368000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/rpc/search_consultants | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+50c99a88-b951-47c7-a325-fc676db56c15,"""2026-09-22T11:43:31.737Z""",GET,/rest/v1/Post,400,2026-09-22T11:43:31.737000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+f35c1122-96ad-44a6-94b7-698f3f7459cd,"""2026-09-22T11:43:31.735Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:43:31.735000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+b906be0a-619c-4d8f-9ce1-976ed47dacaa,"""2026-09-22T11:43:31.731Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:43:31.731000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+c801d095-dfbb-465b-962b-06d533266d42,"""2026-09-22T11:43:00.038Z""",,,00000,2026-09-22T11:43:00.038000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+38c104f3-357d-4763-9433-c45e71eafc1e,"""2026-09-22T11:43:00.037Z""",,,00000,2026-09-22T11:43:00.037000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+78f3a4f7-7576-49d3-baa4-ce0addbfab44,"""2026-09-22T11:43:00.024Z""",,,00000,2026-09-22T11:43:00.024000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+98a3c841-2b8c-4778-be65-bd9f76384ff8,"""2026-09-22T11:43:00.005Z""",,,00000,2026-09-22T11:43:00.005000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+87359c04-134b-4b9f-8e90-f30583d002dd,"""2026-09-22T11:43:00.001Z""",,,00000,2026-09-22T11:43:00.001000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+be0d07ab-db5e-419e-9a45-2ff77811bb1d,"""2026-09-22T11:42:00.129Z""",,,00000,2026-09-22T11:42:00.129000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+0b65b51e-3b52-4193-8bde-3a5e72e039ba,"""2026-09-22T11:42:00.127Z""",,,00000,2026-09-22T11:42:00.127000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+54d10897-5cb3-41e4-9c66-a39a1e0b3e8b,"""2026-09-22T11:42:00.099Z""",,,00000,2026-09-22T11:42:00.099000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+29c64ff1-6ad1-4f77-9691-a82365a19999,"""2026-09-22T11:42:00.051Z""",,,00000,2026-09-22T11:42:00.051000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+5002b11b-6eb4-487d-9fdd-4ebe39a84b06,"""2026-09-22T11:42:00.025Z""",,,00000,2026-09-22T11:42:00.025000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+6aec56d7-819a-4e52-b1d7-62cbdf2059a3,"""2026-09-22T11:41:18.236Z""",,,00000,2026-09-22T11:41:18.236000,success,"checkpoint complete: wrote 173 buffers (0.6%); 0 WAL file(s) added, 0 removed, 3 recycled; write=17.033 s, sync=0.003 s, total=17.079 s; sync files=133, longest=0.003 s, average=0.001 s; distance=32886 kB, estimate=47482 kB; lsn=7/A6029448, redo lsn=7/A6028920",postgres,null,[],null
+ec45f05f-dd18-4738-8bdd-676366d29cf9,"""2026-09-22T11:41:03.664Z""",,,42P17,2026-09-22T11:41:03.664000,error,"infinite recursion detected in policy for relation ""ConversationParticipant""",postgres,null,[],null
+ba9de0f8-5d01-40be-8311-83b1a7e55fb0,"""2026-09-22T11:41:03.463Z""",GET,/rest/v1/ConversationParticipant,500,2026-09-22T11:41:03.463000,error,GET | 500 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/ConversationParticipant?select=conversationId&userId=eq.94f60bd8-e5b4-4603-9211-30167f6b7d80 | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+88304fdb-2276-44f2-9707-8704e7800d81,"""2026-09-22T11:41:03.074Z""",GET,/auth/v1/user,200,2026-09-22T11:41:03.074000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+8ee88b90-763f-4411-8f5f-a1afd6f26aa5,"""2026-09-22T11:41:02.301Z""",GET,/realtime/v1/websocket,101,2026-09-22T11:41:02.301000,success,"GET | 101 | https://zyrunsnweznyrhuroduo.supabase.co/realtime/v1/websocket?apikey=REDACTED&vsn=2.0.0 | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+6c3d7cae-4551-4bed-9b57-59293872ba98,"""2026-09-22T11:41:00.401Z""",,,00000,2026-09-22T11:41:00.401000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+0e5b2597-4175-4d88-874a-0e692abd0e1a,"""2026-09-22T11:41:00.399Z""",,,00000,2026-09-22T11:41:00.399000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+92008457-a425-4826-887b-7d0c8b9336b5,"""2026-09-22T11:41:00.343Z""",,,00000,2026-09-22T11:41:00.343000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+3a6b19e2-4766-40f7-b67e-bd54160631dd,"""2026-09-22T11:41:00.111Z""",GET,/rest/v1/User,400,2026-09-22T11:41:00.111000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/User?select=id%2Crole%2Cname%2Cavatar%2Cwallet%3AWallet%21Wallet_userId_fkey%28balance%29&id=eq.94f60bd8-e5b4-4603-9211-30167f6b7d80 | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+1c72ebe8-1eb9-4210-9a60-ef9e8f47e87a,"""2026-09-22T11:41:00.096Z""",,,00000,2026-09-22T11:41:00.096000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+04f655ba-b9e3-4a04-96ca-e949879f144b,"""2026-09-22T11:41:00.033Z""",,,00000,2026-09-22T11:41:00.033000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+cfe8eb79-f34b-4491-bd34-c4e08c4e8989,"""2026-09-22T11:40:59.089Z""",GET,/auth/v1/user,200,2026-09-22T11:40:59.089000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+8d9f300d-09a3-4154-b4c0-ff32a6165a18,"""2026-09-22T11:40:59.080Z""",POST,/rest/v1/rpc/search_consultants,200,2026-09-22T11:40:59.080000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/rpc/search_consultants | node,edge,null,[],94f60bd8-e5b4-4603-9211-30167f6b7d80
+3c664fa4-4f83-4a95-a99c-1524d0b90683,"""2026-09-22T11:40:56.925Z""",POST,/auth/v1/token,200,2026-09-22T11:40:56.925000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/token?grant_type=pkce | node,edge,null,[],null
+c5329ed0-a383-48cd-9aec-c651c56bc2f2,"""2026-09-22T11:40:55.596Z""",GET,/auth/v1/callback,302,2026-09-22T11:40:55.596000,success,"GET | 302 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/callback?state=31ee9b8e-a763-4d6f-aab8-84973c075969&iss=https%3A%2F%2Faccounts.google.com&code=4%2F0ATsMZqCDjEM5cpVAtxf-UeTLAHdAdkHDUDZHS29S82wwBYqoBarvmVzzRTvGh_r8fLUgiQ&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+a3c9b241-ee12-4998-830a-7453a9806975,"""2026-09-22T11:40:43.493Z""",GET,/auth/v1/authorize,302,2026-09-22T11:40:43.493000,success,"GET | 302 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fzeal-web-red.vercel.app%2Fauth%2Fcallback%3Fnext%3D%252Fexplore%26intent%3Duser&code_challenge=aCFpigBMTCgPBJZ_WiaXtbXH4lWCka9lZnI2Y8eOMMU&code_challenge_method=s256&access_type=offline&prompt=consent | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+7ed1c000-6e97-4a31-bbb7-1e0c5f9156d2,"""2026-09-22T11:40:39.779Z""",GET,/auth/v1/user,403,2026-09-22T11:40:39.779000,warning,GET | 403 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+d9f21431-f3ab-4f13-b280-60a7824c3233,"""2026-09-22T11:40:39.634Z""",GET,/auth/v1/user,403,2026-09-22T11:40:39.634000,warning,"GET | 403 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+6dcb94dd-7a9e-42d3-93ec-ec767a89ee38,"""2026-09-22T11:40:37.525Z""",GET,/auth/v1/user,403,2026-09-22T11:40:37.525000,warning,GET | 403 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+4f50508b-a90e-4ef5-b0e7-1f942d707c5c,"""2026-09-22T11:40:35.367Z""",GET,/auth/v1/user,403,2026-09-22T11:40:35.367000,warning,GET | 403 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+ed8f64ca-b802-45f5-8b65-0b5bedcffa8f,"""2026-09-22T11:40:33.509Z""",GET,/auth/v1/user,403,2026-09-22T11:40:33.509000,warning,GET | 403 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+14096df9-90a1-457c-af28-81ca60f4f038,"""2026-09-22T11:40:28.995Z""",DELETE,/auth/v1/admin/users/527db010-048d-4040-9eef-ef67f645fa74,200,2026-09-22T11:40:28.995000,success,DELETE | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/admin/users/527db010-048d-4040-9eef-ef67f645fa74 | @supabase-infra/mgmt-api/v1.340.0,edge,null,[],null
+d629b8b2-edae-4b71-9a43-38b3481cd71a,"""2026-09-22T11:40:28.958Z""",DELETE,/auth/v1/admin/users/f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb,200,2026-09-22T11:40:28.958000,success,DELETE | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/admin/users/f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb | @supabase-infra/mgmt-api/v1.340.0,edge,null,[],null
+486078dd-5b28-4d8f-b2ff-92b15d0c6d8c,"""2026-09-22T11:40:23.128Z""",,,00000,2026-09-22T11:40:23.128000,success,"AUDIT: SESSION,1,1,DDL,CREATE FUNCTION,FUNCTION,pg_temp_32.count_estimate(pg_catalog.text),""CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$"",<not logged>",postgres,null,[],null
+299eafe9-00fe-4b4c-9616-54ab653c90df,"""2026-09-22T11:40:23.126Z""",,,00000,2026-09-22T11:40:23.126000,success,"statement: SET statement_timeout='58s'; SET idle_session_timeout='58s';
+CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$;
+
+
+with approximation as (select reltuples as estimate from pg_class where oid = 'auth.users'::regclass)
+select 
+  case 
+    when estimate = -1 then (select pg_temp.count_estimate('select * from auth.users'))::int
+    when estimate > 50000 then estimate::int
+    else (select count(*) from auth.users)
+  end as count,
+  estimate = -1 or estimate > 50000 as is_estimate
+from approximation
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:40:23.104Z",postgres,null,[],null
+a5ef70cc-9671-4cbb-a190-b11ed43176f2,"""2026-09-22T11:40:23.027Z""",,,00000,2026-09-22T11:40:23.027000,success,"AUDIT: SESSION,1,1,DDL,CREATE FUNCTION,FUNCTION,pg_temp_30.count_estimate(pg_catalog.text),""CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$"",<not logged>",postgres,null,[],null
+a088bd07-76ce-4e62-8ccd-7d8e880a48f1,"""2026-09-22T11:40:23.010Z""",,,00000,2026-09-22T11:40:23.010000,success,"statement: SET statement_timeout='58s'; SET idle_session_timeout='58s';
+CREATE OR REPLACE FUNCTION pg_temp.count_estimate(
+    query text
+) RETURNS integer LANGUAGE plpgsql AS $$
+DECLARE
+    plan jsonb;
+BEGIN
+    EXECUTE 'EXPLAIN (FORMAT JSON)' || query INTO plan;
+    RETURN plan->0->'Plan'->'Plan Rows';
+END;
+$$;
+
+
+with approximation as (select reltuples as estimate from pg_class where oid = 'auth.users'::regclass)
+select 
+  case 
+    when estimate = -1 then (select pg_temp.count_estimate('select * from auth.users'))::int
+    when estimate > 50000 then estimate::int
+    else (select count(*) from auth.users)
+  end as count,
+  estimate = -1 or estimate > 50000 as is_estimate
+from approximation
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:40:22.982Z",postgres,null,[],null
+bfb4795a-c062-4e7e-b963-b8750c89aa5a,"""2026-09-22T11:40:00.053Z""",,,00000,2026-09-22T11:40:00.053000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+466b980e-6ac4-4941-9056-2b6e03565d06,"""2026-09-22T11:40:00.052Z""",,,00000,2026-09-22T11:40:00.052000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+e66a9eaf-608d-4586-9539-9f14a69d1fb3,"""2026-09-22T11:40:00.035Z""",,,00000,2026-09-22T11:40:00.035000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+8319d5b3-5eca-40eb-9856-50777fbf3f2a,"""2026-09-22T11:40:00.016Z""",,,00000,2026-09-22T11:40:00.016000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
