@@ -1,81 +1,42 @@
-// apps/web/app/chat/[id]/page.tsx
-import {createServerClientFromCookies} from "@zeal/database/server";
-import {redirect, notFound} from "next/navigation";
-import {ChatInterface} from "@/components/session/ChatInterface";
+import { createServerClientFromCookies } from "@zeal/database/server";
+import { redirect, notFound } from "next/navigation";
+import { ChatInterface } from "@/components/session/ChatInterface";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-interface PartnerRow {
-  userId: string;
+interface PartnerViewResult {
+  ok: boolean;
+  partner?: { id: string; name: string; username: string; avatar: string | null; role: string };
+  isAI?: boolean;
 }
 
-interface UserRow {
-  name: string | null;
-  username: string;
-  avatar: string | null;
-  role: string;
-}
-
-export default async function ChatRoomPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ChatRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = await params;
   const supabase = await createServerClientFromCookies();
-
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`/login?redirectedFrom=/chat/${conversationId}`);
 
-  // Verify participation
   const { data: participant } = await supabase
-    .from("ConversationParticipant")
-    .select("userId")
-    .eq("conversationId", conversationId)
-    .eq("userId", user.id)
-    .maybeSingle();
-
+    .from("ConversationParticipant").select("conversationId")
+    .eq("conversationId", conversationId).eq("userId", user.id).maybeSingle();
   if (!participant) notFound();
 
-  // Find the partner participant
-  const { data: partnerRaw } = await supabase
-    .from("ConversationParticipant")
-    .select("userId")
-    .eq("conversationId", conversationId)
-    .neq("userId", user.id)
-    .limit(1);
+  const { data: viewRaw, error: viewErr } = await supabase.rpc("chat_partner_view", {
+    p_conversation_id: conversationId,
+  });
+  if (viewErr) console.error("[chat/page] view error:", viewErr.message);
 
-  const partnerArr = (partnerRaw ?? []) as PartnerRow[];
-  const partnerId = partnerArr[0]?.userId ?? "";
-
-  let partnerName = "Chat";
-  let partnerAvatar: string | null = null;
-  let isAI = false;
-
-  if (partnerId) {
-    const { data: partnerUserRaw } = await supabase
-      .from("User")
-      .select("name, username, avatar, role")
-      .eq("id", partnerId)
-      .maybeSingle();
-
-    const partnerUser = partnerUserRaw as UserRow | null;
-
-    if (partnerUser) {
-      partnerName = partnerUser.name || partnerUser.username || "Chat";
-      partnerAvatar = partnerUser.avatar ?? null;
-      isAI = partnerUser.role === "AI";
-    }
-  }
+  const view = (viewRaw ?? {}) as PartnerViewResult;
 
   return (
     <ChatInterface
       conversationId={conversationId}
       currentUserId={user.id}
-      partnerId={partnerId}
-      partnerName={partnerName}
-      partnerAvatar={partnerAvatar}
-      isAI={isAI}
+      partnerId={view.partner?.id ?? ""}
+      partnerName={view.partner?.name ?? "Chat"}
+      partnerAvatar={view.partner?.avatar ?? null}
+      isAI={view.isAI === true}
     />
   );
 }

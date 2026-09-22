@@ -10,7 +10,7 @@
 // Framer Motion without the 34KB initial payload.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
+import { LazyMotion, domMax, m, AnimatePresence } from "framer-motion";
 import type { ComponentProps, ReactNode } from "react";
 
 interface MotionProviderProps {
@@ -23,7 +23,7 @@ interface MotionProviderProps {
  */
 export function MotionProvider({ children }: MotionProviderProps) {
   return (
-    <LazyMotion features={domAnimation} strict>
+    <LazyMotion features={domMax} strict>
       {children}
     </LazyMotion>
   );

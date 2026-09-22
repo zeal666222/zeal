@@ -1,105 +1,58 @@
-// apps/web/lib/chat/fetch-conversations.ts
-// ═══════════════════════════════════════════════════════════════════════════════
-// Shared typed helper — single source of truth for inbox queries
-// Used by: /api/chat/conversations (GET), /chat/layout (server fetch)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-import {createServerClientFromCookies} from "@zeal/database/server";
+import { createServerClientFromCookies } from "@zeal/database/server";
 import type { ConversationItem } from "@/hooks/useConversations";
 
-// ─── Row types (explicit, since Supabase .from() is `any`) ───────────────────
-interface MembershipRow {
-  conversationId: string;
-}
-
+interface MembershipRow { conversationId: string }
 interface ConversationRow {
   id: string;
   lastMessageAt: string | null;
   lastMessageText: string | null;
 }
-
-interface ParticipantRow {
-  conversationId: string;
-  userId: string;
+interface PartnerViewResult {
+  ok: boolean;
+  partner?: { id: string; name: string; username: string; avatar: string | null; role: string };
+  isAI?: boolean;
 }
 
-interface PartnerRow {
-  id: string;
-  name: string | null;
-  username: string | null;
-  avatar: string | null;
-  is_online: boolean | null;
-  role: string | null;
+function iso(v: unknown): string | null {
+  if (!v) return null;
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
 }
 
-// ─── Helper ──────────────────────────────────────────────────────────────────
-export async function fetchUserConversations(
-  userId: string
-): Promise<ConversationItem[]> {
+export async function fetchUserConversations(userId: string): Promise<ConversationItem[]> {
   const supabase = await createServerClientFromCookies();
+  const { data: memberRaw, error: memberErr } = await supabase
+    .from("ConversationParticipant").select("conversationId").eq("userId", userId);
+  if (memberErr) { console.error("[fetch-conversations] memberships:", memberErr.message); return []; }
+  const ids = ((memberRaw ?? []) as MembershipRow[]).map((m) => m.conversationId);
+  if (ids.length === 0) return [];
 
-  // 1. Memberships for this user
-  const { data: membershipsRaw } = await supabase
-    .from("ConversationParticipant")
-    .select("conversationId")
-    .eq("userId", userId);
+  const { data: convRaw, error: convErr } = await supabase
+    .from("Conversation").select("id, lastMessageAt, lastMessageText")
+    .in("id", ids).order("lastMessageAt", { ascending: false });
+  if (convErr) { console.error("[fetch-conversations] conversations:", convErr.message); return []; }
+  const convs = (convRaw ?? []) as ConversationRow[];
 
-  const memberships = (membershipsRaw ?? []) as MembershipRow[];
-  const conversationIds = memberships.map((m) => m.conversationId);
-  if (conversationIds.length === 0) return [];
+  const partnerViews = await Promise.all(convs.map(async (c) => {
+    try {
+      const { data } = await supabase.rpc("chat_partner_view", { p_conversation_id: c.id });
+      return { id: c.id, view: (data ?? {}) as PartnerViewResult };
+    } catch { return { id: c.id, view: { ok: false } as PartnerViewResult }; }
+  }));
+  const viewByConv = new Map(partnerViews.map((p) => [p.id, p.view]));
 
-  // 2. Conversation metadata (sorted by last message)
-  const { data: conversationsRaw } = await supabase
-    .from("Conversation")
-    .select("id, lastMessageAt, lastMessageText")
-    .in("id", conversationIds)
-    .order("lastMessageAt", { ascending: false });
-
-  const conversations = (conversationsRaw ?? []) as ConversationRow[];
-
-  // 3. Partner IDs per conversation (everyone but me)
-  const { data: partnersRaw } = await supabase
-    .from("ConversationParticipant")
-    .select("conversationId, userId")
-    .in("conversationId", conversationIds)
-    .neq("userId", userId);
-
-  const partners = (partnersRaw ?? []) as ParticipantRow[];
-  const partnerIdByConv = new Map<string, string>();
-  for (const p of partners) {
-    partnerIdByConv.set(p.conversationId, p.userId);
-  }
-
-  const partnerIds = Array.from(new Set(partnerIdByConv.values()));
-
-  // 4. Partner user rows
-  let users: PartnerRow[] = [];
-  if (partnerIds.length > 0) {
-    const { data: usersRaw } = await supabase
-      .from("User")
-      .select("id, name, username, avatar, is_online, role")
-      .in("id", partnerIds);
-    users = (usersRaw ?? []) as PartnerRow[];
-  }
-
-  const userById = new Map<string, PartnerRow>();
-  for (const u of users) {
-    userById.set(u.id, u);
-  }
-
-  // 5. Assemble typed ConversationItem[]
-  return conversations.map((c): ConversationItem => {
-    const partnerId = partnerIdByConv.get(c.id) ?? "";
-    const partner = userById.get(partnerId);
+  return convs.map((c): ConversationItem => {
+    const v = viewByConv.get(c.id);
+    const partner = v?.partner;
     return {
       sessionId: c.id,
-      partnerId,
-      partnerName: partner?.name || partner?.username || "Zeal Member",
+      partnerId: partner?.id ?? "",
+      partnerName: partner?.name ?? "Zeal Member",
       partnerAvatar: partner?.avatar ?? null,
-      isOnline: Boolean(partner?.is_online),
-      isAI: partner?.role === "AI",
+      isOnline: false,
+      isAI: v?.isAI === true,
       lastMessage: c.lastMessageText ?? null,
-      lastMessageTime: c.lastMessageAt ?? null,
+      lastMessageTime: iso(c.lastMessageAt),
       lastMessageSenderId: null,
     };
   });

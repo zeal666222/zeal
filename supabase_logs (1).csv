@@ -1,0 +1,894 @@
+id,date,method,pathname,status,timestamp,level,event_message,log_type,log_count,logs,auth_user
+fa8e88a0-82eb-4864-b855-b6fe642acc24,"""2026-09-22T11:21:27.391Z""",GET,/realtime/v1/websocket,101,2026-09-22T11:21:27.391000,success,"GET | 101 | https://zyrunsnweznyrhuroduo.supabase.co/realtime/v1/websocket?apikey=REDACTED&eventsPerSecond=20&vsn=2.0.0 | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.0 Safari/537.36",edge,null,[],null
+8f1bfb33-5b1a-4631-8d2f-8a870bf0e2bc,"""2026-09-22T11:21:27.216Z""",,,00000,2026-09-22T11:21:27.216000,success,"checkpoint complete: wrote 255 buffers (0.9%); 0 WAL file(s) added, 0 removed, 2 recycled; write=25.187 s, sync=0.016 s, total=25.227 s; sync files=138, longest=0.004 s, average=0.001 s; distance=32925 kB, estimate=47401 kB; lsn=7/9C0342A0, redo lsn=7/9C032C60",postgres,null,[],null
+2a02eecc-47f8-4167-bdae-ae1bd3541803,"""2026-09-22T11:21:26.225Z""",GET,/rest/v1/Post,400,2026-09-22T11:21:26.225000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+1933b10d-2d72-470c-9514-dee8b8bf3916,"""2026-09-22T11:21:26.222Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:21:26.222000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+de393185-9988-4b5e-9069-b20dc15b76a4,"""2026-09-22T11:21:26.219Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:21:26.219000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+e2814b29-b041-4fba-938b-a7bfb25a09bd,"""2026-09-22T11:21:00.050Z""",,,00000,2026-09-22T11:21:00.050000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+346d0aa8-f88d-4ab6-9bc4-3a632d6866b5,"""2026-09-22T11:21:00.049Z""",,,00000,2026-09-22T11:21:00.049000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+8a816945-cc7f-41d4-ae3e-c1dacd597e78,"""2026-09-22T11:21:00.036Z""",,,00000,2026-09-22T11:21:00.036000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+1c6e71f0-f95c-466a-ae3e-a01a9dfb5710,"""2026-09-22T11:21:00.015Z""",,,00000,2026-09-22T11:21:00.015000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+6dbed624-8482-4bdd-94ef-b28655fdd97d,"""2026-09-22T11:21:00.004Z""",,,00000,2026-09-22T11:21:00.004000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+0f67e406-b5ec-4e5c-8bce-af83929cc6f7,"""2026-09-22T11:20:00.075Z""",,,00000,2026-09-22T11:20:00.075000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+12bcfa80-328e-4d79-be53-7c9e60d94fd8,"""2026-09-22T11:20:00.074Z""",,,00000,2026-09-22T11:20:00.074000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+2bdf57e5-fb62-42bd-8be0-26aada0fb95d,"""2026-09-22T11:20:00.052Z""",,,00000,2026-09-22T11:20:00.052000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+3b74f991-4d6e-4946-8726-bd7ebb07acff,"""2026-09-22T11:20:00.022Z""",,,00000,2026-09-22T11:20:00.022000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+3832e2fc-717f-4246-9e3d-51fb0375a1af,"""2026-09-22T11:20:00.004Z""",,,00000,2026-09-22T11:20:00.004000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+47f4dc3d-f27e-47f8-baaf-30bdccf05e9d,"""2026-09-22T11:19:53.128Z""",GET,/realtime/v1/websocket,101,2026-09-22T11:19:53.128000,success,"GET | 101 | https://zyrunsnweznyrhuroduo.supabase.co/realtime/v1/websocket?apikey=REDACTED&eventsPerSecond=20&vsn=2.0.0 | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.0 Safari/537.36",edge,null,[],null
+8215422c-6f7f-4c08-be19-59ed40af8255,"""2026-09-22T11:19:51.882Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:19:51.882000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+90636b27-c1f2-455a-9395-909e6ff44a04,"""2026-09-22T11:19:51.879Z""",GET,/rest/v1/Post,400,2026-09-22T11:19:51.879000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+e55e64a1-4cb9-4d34-972a-12cd0ac9bc98,"""2026-09-22T11:19:51.878Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:19:51.878000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+ce775a37-acb1-4b2e-90e2-348b3b971bef,"""2026-09-22T11:19:29.453Z""",GET,/rest/v1/ConversationParticipant,200,2026-09-22T11:19:29.453000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/ConversationParticipant?select=conversationId&userId=eq.f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+91cc2817-67aa-429a-b9ac-6c905404bce4,"""2026-09-22T11:19:29.446Z""",GET,/rest/v1/ConversationParticipant,200,2026-09-22T11:19:29.446000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/ConversationParticipant?select=userId&conversationId=eq.f029fcbe-cfd7-4727-97b7-fddbc6667799&userId=eq.f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+06bf241c-90f4-4d9f-b867-84e295639c9b,"""2026-09-22T11:19:29.133Z""",GET,/auth/v1/user,200,2026-09-22T11:19:29.133000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+97fc3822-4459-43d3-a3cf-5cfe55bdebe7,"""2026-09-22T11:19:27.740Z""",POST,/rest/v1/rpc/get_or_create_conversation,200,2026-09-22T11:19:27.740000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/rpc/get_or_create_conversation | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+995cf174-c06d-44fa-b368-de5fb2e410e4,"""2026-09-22T11:19:27.440Z""",GET,/auth/v1/user,200,2026-09-22T11:19:27.440000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+1122ef11-840c-4e82-be44-e839f5daf8bc,"""2026-09-22T11:19:20.245Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:19:20.245000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&id=eq.0dc3aeda-3c11-4f14-e75c-2ab7ff71f2f5 | node,edge,null,[],null
+5e94cc57-ebfc-4cfc-96cc-34293b35815d,"""2026-09-22T11:19:16.346Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:19:16.346000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+cfa59276-7747-44ec-8be3-56e47d53c391,"""2026-09-22T11:19:16.344Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:19:16.344000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+26d6e06a-33a7-45af-b8ad-9f7420d9ca1d,"""2026-09-22T11:19:16.342Z""",GET,/rest/v1/Post,400,2026-09-22T11:19:16.342000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+a23fb087-f3cf-46ca-aa66-d2bf8b37c94d,"""2026-09-22T11:19:04.868Z""",GET,/rest/v1/Transaction,400,2026-09-22T11:19:04.868000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Transaction?select=id%2Ctype%2Camount%2Cbalance%2Cdescription%2C%22createdAt%22%2Cwallet%3AWallet%21Transaction_walletId_fkey%21inner%28%22userId%22%29&wallet.userId=eq.f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb&order=createdAt.desc&limit=10 | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+9aa2115c-8583-416d-8e1f-45d679ba99a7,"""2026-09-22T11:19:04.860Z""",GET,/rest/v1/User,200,2026-09-22T11:19:04.860000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/User?select=*&id=eq.f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+cd1db7a8-2e26-40fe-be93-785b5f06c841,"""2026-09-22T11:19:03.800Z""",GET,/auth/v1/user,200,2026-09-22T11:19:03.800000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+1d23e8e1-bd66-4b2d-9b0a-b6496c2709dd,"""2026-09-22T11:19:03.759Z""",GET,/auth/v1/user,200,2026-09-22T11:19:03.759000,success,"GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+026bcb44-5e3d-43c9-934e-3d9b4cdc029c,"""2026-09-22T11:19:03.708Z""",OPTIONS,/auth/v1/user,200,2026-09-22T11:19:03.708000,success,"OPTIONS | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+d5cd22b1-dee7-47f7-b4b4-2e076635a57a,"""2026-09-22T11:19:00.055Z""",,,00000,2026-09-22T11:19:00.055000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+9ea473c2-04e8-416b-bc13-09dd90fef3ce,"""2026-09-22T11:19:00.054Z""",,,00000,2026-09-22T11:19:00.054000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+79f7a017-5ba1-4756-a722-f164fe731bf9,"""2026-09-22T11:19:00.039Z""",,,00000,2026-09-22T11:19:00.039000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+e011133d-b6a0-4fa5-83c5-f86e0b5afa44,"""2026-09-22T11:19:00.020Z""",,,00000,2026-09-22T11:19:00.020000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+ee76727b-17e8-4e84-a4cf-2817fcbdeb04,"""2026-09-22T11:19:00.002Z""",,,00000,2026-09-22T11:19:00.002000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+1c1d5000-5472-4c6e-8cab-286a61c7638f,"""2026-09-22T11:18:19.104Z""",GET,/rest/v1/ConversationParticipant,200,2026-09-22T11:18:19.104000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/ConversationParticipant?select=conversationId&userId=eq.f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+fe14c057-768c-47a6-a6b2-a9537bfc200b,"""2026-09-22T11:18:18.750Z""",GET,/auth/v1/user,200,2026-09-22T11:18:18.750000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+8808a86a-0ec2-4e92-ab9e-a7e483cc1037,"""2026-09-22T11:18:17.886Z""",GET,/realtime/v1/websocket,101,2026-09-22T11:18:17.886000,success,"GET | 101 | https://zyrunsnweznyrhuroduo.supabase.co/realtime/v1/websocket?apikey=REDACTED&vsn=2.0.0 | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+fae8068a-fa2b-4cfc-86ec-19b228234c29,"""2026-09-22T11:18:16.623Z""",GET,/rest/v1/User,400,2026-09-22T11:18:16.623000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/User?select=id%2Crole%2Cname%2Cavatar%2Cwallet%3AWallet%21Wallet_userId_fkey%28balance%29&id=eq.f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+0cc4aede-f820-4ff6-9cef-38f2aa23e21e,"""2026-09-22T11:18:15.784Z""",POST,/rest/v1/rpc/search_consultants,200,2026-09-22T11:18:15.784000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/rpc/search_consultants | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+c5086b07-98bf-4168-820d-a599bb4d3aa9,"""2026-09-22T11:18:15.782Z""",GET,/auth/v1/user,200,2026-09-22T11:18:15.782000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/user | node,edge,null,[],f39ca8ac-fb40-4a9a-8ca1-81737bab5dbb
+c9533bed-77f9-4b15-99a4-ac727173521b,"""2026-09-22T11:18:14.244Z""",POST,/auth/v1/token,200,2026-09-22T11:18:14.244000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/token?grant_type=pkce | node,edge,null,[],null
+2f356785-1924-44a4-9578-fe85afcce5db,"""2026-09-22T11:18:13.655Z""",GET,/auth/v1/callback,302,2026-09-22T11:18:13.655000,success,"GET | 302 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/callback?state=8ee4c409-4670-4668-b019-cb70fdddbee8&iss=https%3A%2F%2Faccounts.google.com&code=4%2F0ATsMZqAwMtHziwTY-Tz1wJ7nQiRLo9jJEYBzU3zg7BxmWN1x_f_fDZUzj7GfNSuBl1pVMQ&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid&authuser=0&prompt=consent | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+d4edb344-e567-4ad5-aa19-7ff7cc75a15f,"""2026-09-22T11:18:05.611Z""",GET,/auth/v1/authorize,302,2026-09-22T11:18:05.611000,success,"GET | 302 | https://zyrunsnweznyrhuroduo.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fzeal-web-red.vercel.app%2Fauth%2Fcallback%3Fnext%3D%252Fexplore%26intent%3Duser&code_challenge=kCVtyggc3w5QMLY9K17_l7XgdArI3heHyU9ZkfXBySk&code_challenge_method=s256&access_type=offline&prompt=consent | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+5b786ef8-1029-4507-85ce-3be12c9a6d8f,"""2026-09-22T11:18:00.096Z""",,,00000,2026-09-22T11:18:00.096000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+d2738cf6-0a09-413f-bc14-54f8194615d8,"""2026-09-22T11:18:00.095Z""",,,00000,2026-09-22T11:18:00.095000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+23cf4028-838e-4504-ab1e-72bb0033b960,"""2026-09-22T11:18:00.081Z""",,,00000,2026-09-22T11:18:00.081000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+e0c7995a-5883-447b-9ea0-607b37cf455a,"""2026-09-22T11:18:00.034Z""",,,00000,2026-09-22T11:18:00.034000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+15887b35-b311-43ab-945d-f4327b37ab73,"""2026-09-22T11:18:00.012Z""",,,00000,2026-09-22T11:18:00.012000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+2a48ac7b-d5d7-4c4e-b78f-f71528998385,"""2026-09-22T11:17:54.693Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:17:54.693000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&id=eq.610b2ec0-0410-2369-1ab2-d848d84849fb | node,edge,null,[],null
+c704673e-6bbc-47e4-9cd5-31f44e12048a,"""2026-09-22T11:17:50.654Z""",GET,/realtime/v1/websocket,101,2026-09-22T11:17:50.654000,success,"GET | 101 | https://zyrunsnweznyrhuroduo.supabase.co/realtime/v1/websocket?apikey=REDACTED&eventsPerSecond=20&vsn=2.0.0 | Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",edge,null,[],null
+489ff2f6-9326-4de4-bd28-19b493562056,"""2026-09-22T11:17:49.201Z""",,,00000,2026-09-22T11:17:49.201000,success,"starting logical decoding for slot ""supabase_realtime_messages_replication_slot_2_137_12_3e6fc57""",postgres,null,[],null
+242e4098-06a8-4c11-a393-23bbcbb14a85,"""2026-09-22T11:17:49.201Z""",,,00000,2026-09-22T11:17:49.201000,success,logical decoding found consistent point at 7/9B000D38,postgres,null,[],null
+8e514ead-0b9c-42b5-9a46-a68edf3bb4be,"""2026-09-22T11:17:49.200Z""",,,00000,2026-09-22T11:17:49.200000,success,logical decoding found consistent point at 7/9B000D38,postgres,null,[],null
+5d43d1f3-a259-45c8-900b-266425db7b17,"""2026-09-22T11:17:48.752Z""",GET,/realtime/v1/websocket,101,2026-09-22T11:17:48.752000,success,"GET | 101 | https://zyrunsnweznyrhuroduo.supabase.co/realtime/v1/websocket?apikey=REDACTED&eventsPerSecond=20&vsn=2.0.0 | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.0 Safari/537.36",edge,null,[],null
+63ed1982-8400-4473-af6b-d79811dd32eb,"""2026-09-22T11:17:48.364Z""",GET,/realtime/v1/websocket,101,2026-09-22T11:17:48.364000,success,"GET | 101 | https://zyrunsnweznyrhuroduo.supabase.co/realtime/v1/websocket?apikey=REDACTED&eventsPerSecond=20&vsn=2.0.0 | Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.0 Safari/537.36",edge,null,[],null
+194b9c0a-672c-410d-940b-d1a21dfd9aa5,"""2026-09-22T11:17:47.631Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:17:47.631000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+86d5b40b-f2e2-4fc8-8a83-795a2ada061e,"""2026-09-22T11:17:47.628Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:17:47.628000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+73c0c984-6947-43a2-8805-066d2000234c,"""2026-09-22T11:17:47.628Z""",GET,/rest/v1/Post,400,2026-09-22T11:17:47.628000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+055bdf98-22ec-4a9d-8012-a84c2ba2b8e4,"""2026-09-22T11:17:47.368Z""",GET,/rest/v1/Post,400,2026-09-22T11:17:47.368000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+cdde1064-9ce7-4e7f-b025-bf6ab28143fd,"""2026-09-22T11:17:47.367Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:17:47.367000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+95f0a920-f1df-4ab3-bd03-ade33890d079,"""2026-09-22T11:17:47.354Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:17:47.354000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+39f327d5-90d7-4fc1-ab59-d77058f9836c,"""2026-09-22T11:17:47.023Z""",GET,/rest/v1/Post,400,2026-09-22T11:17:47.023000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Post?select=id%2Ccontent%2C%22mediaUrls%22%2C%22cheerCount%22%2C%22commentCount%22%2C%22createdAt%22%2Cauthor%3AUser%21Post_authorId_fkey%28id%2Cname%2Cusername%2Cavatar%29&isFlagged=eq.false&order=createdAt.desc&limit=12 | node,edge,null,[],null
+f2cd3b0d-0119-45ee-a38c-9b9abef338f7,"""2026-09-22T11:17:47.019Z""",GET,/rest/v1/Consultant,400,2026-09-22T11:17:47.019000,warning,GET | 400 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/Consultant?select=id%2Ccategory%2Crating%2C%22sparkScore%22%2C%22perMinuteRate%22%2Cspecialties%2Cuser%3AUser%21Consultant_userId_fkey%28id%2Cname%2Cusername%2Cavatar%2Cis_online%29&status=eq.VERIFIED&isActive=eq.true&order=sparkScore.desc&limit=8 | node,edge,null,[],null
+9317cdb2-a88f-4d57-a7cf-104807884042,"""2026-09-22T11:17:47.018Z""",GET,/rest/v1/AIConsultant,200,2026-09-22T11:17:47.018000,success,GET | 200 | https://zyrunsnweznyrhuroduo.supabase.co/rest/v1/AIConsultant?select=*&isActive=eq.true&order=isFeatured.desc%2Crating.desc&limit=6 | node,edge,null,[],null
+0991e910-7fd0-480f-966f-3735099c9d9d,"""2026-09-22T11:17:00.038Z""",,,00000,2026-09-22T11:17:00.038000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+053b9820-9012-43b2-8314-2a9f7358dba8,"""2026-09-22T11:17:00.037Z""",,,00000,2026-09-22T11:17:00.037000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+756187a2-1f99-456b-8d23-5dbf13523096,"""2026-09-22T11:17:00.024Z""",,,00000,2026-09-22T11:17:00.024000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+a3ba7a8a-4218-454d-8454-f2320f71d8a6,"""2026-09-22T11:17:00.005Z""",,,00000,2026-09-22T11:17:00.005000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+09f59916-b4ca-4c68-9c08-c066eb135a51,"""2026-09-22T11:17:00.003Z""",,,00000,2026-09-22T11:17:00.003000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+a85900cd-1e93-4834-b2b9-2918b559f585,"""2026-09-22T11:16:16.691Z""",,,00000,2026-09-22T11:16:16.691000,success,"checkpoint complete: wrote 153 buffers (0.5%); 0 WAL file(s) added, 0 removed, 3 recycled; write=15.169 s, sync=0.016 s, total=15.213 s; sync files=82, longest=0.004 s, average=0.001 s; distance=49009 kB, estimate=49009 kB; lsn=7/9A00C5B8, redo lsn=7/9A00B470",postgres,null,[],null
+b2ec090e-321b-4f01-973b-9b48e868b9bc,"""2026-09-22T11:16:00.116Z""",,,00000,2026-09-22T11:16:00.116000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+dc1c2386-d77f-4921-849e-46fed44f1193,"""2026-09-22T11:16:00.115Z""",,,00000,2026-09-22T11:16:00.115000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+38faacc1-5e84-48b3-99a1-1ffd2ca0afca,"""2026-09-22T11:16:00.087Z""",,,00000,2026-09-22T11:16:00.087000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+26acb71b-478a-4d19-94bd-8537bd71c6bc,"""2026-09-22T11:16:00.046Z""",,,00000,2026-09-22T11:16:00.046000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+44afb612-aecd-4fc2-a10f-85006e112202,"""2026-09-22T11:16:00.018Z""",,,00000,2026-09-22T11:16:00.018000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+03c04b9b-9130-4ed4-a9b6-0e83110a194c,"""2026-09-22T11:15:05.339Z""",POST,/admin/v1/network-bans/retrieve,200,2026-09-22T11:15:05.339000,success,POST | 200 | https://zyrunsnweznyrhuroduo.supabase.co/admin/v1/network-bans/retrieve | @supabase-infra/mgmt-api/v1.340.0,edge,null,[],null
+bff9c8f1-5ae0-4b01-95f7-b125302e9078,"""2026-09-22T11:15:04.898Z""",,,00000,2026-09-22T11:15:04.898000,success,"AUDIT: SESSION,5,1,DDL,CREATE TRIGGER,TRIGGER,""trg_broadcast_consultant on public.""""Consultant"""""",""CREATE TRIGGER trg_broadcast_consultant
+  AFTER UPDATE ON public.""""Consultant""""
+  FOR EACH ROW EXECUTE FUNCTION public.broadcast_consultant_changes()"",<not logged>",postgres,null,[],null
+8845c85d-d1c6-427a-b9ee-1f9b3f89de9a,"""2026-09-22T11:15:04.896Z""",,,00000,2026-09-22T11:15:04.896000,success,"AUDIT: SESSION,4,1,DDL,DROP TRIGGER,,,""DROP TRIGGER IF EXISTS trg_broadcast_consultant ON public.""""Consultant"""""",<not logged>",postgres,null,[],null
+15cc5305-4b6c-488c-8915-12d66dd5f3b9,"""2026-09-22T11:15:04.892Z""",,,00000,2026-09-22T11:15:04.892000,success,"AUDIT: SESSION,3,1,DDL,CREATE FUNCTION,FUNCTION,public.broadcast_consultant_changes(),""-- ═══════════════════════════════════════════════════════════════════════════════
+-- §3. Recreate trg_broadcast_consultant
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Fires on every Consultant UPDATE. Two fanouts:
+--   • sparkScore changed → `consultant:{uid}:sparks`
+--   • status changed     → `admin:verification` + `user:{uid}:notifications`
+-- All wrapped in EXCEPTION so a broadcast failure never blocks the DML.
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.broadcast_consultant_changes()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $fn$
+BEGIN
+  BEGIN
+    IF NEW.""""sparkScore"""" IS DISTINCT FROM OLD.""""sparkScore"""" THEN
+      PERFORM realtime.broadcast_changes(
+        'consultant:' || NEW.""""userId""""::text || ':sparks',
+        TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, NEW, OLD
+      );
+    END IF;
+
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+      PERFORM realtime.broadcast_changes(
+        'admin:verification',
+        TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, NEW, OLD
+      );
+      PERFORM realtime.broadcast_changes(
+        'user:' || NEW.""""userId""""::text || ':notifications',
+        TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, NEW, OLD
+      );
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'broadcast_consultant_changes: %', SQLERRM;
+  END;
+
+  RETURN NEW;
+END;
+$fn$"",<not logged>",postgres,null,[],null
+60893e13-cc29-4292-a860-2da09c203c18,"""2026-09-22T11:15:04.891Z""",,,00000,2026-09-22T11:15:04.891000,success,"AUDIT: SESSION,2,1,DDL,CREATE FUNCTION,FUNCTION,public.billing_settle_v2(pg_catalog.uuid),""-- ═══════════════════════════════════════════════════════════════════════════════
+-- §2. billing_settle_v2
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Atomic final settlement. Called when a session ends.
+--   • Computes final cost from server clock
+--   • Refunds unused escrow to the seeker (human sessions only)
+--   • Credits the consultant earning (human sessions only)
+--   • Broadcasts ENDED to `session:{id}`
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.billing_settle_v2(p_session_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_caller      uuid := auth.uid();
+  v_sess        RECORD;
+  v_elapsed     int;
+  v_minutes     int;
+  v_rate        numeric := 0;
+  v_cost        numeric := 0;
+  v_fee         numeric := 0;
+  v_earning     numeric := 0;
+  v_held        numeric := 0;
+  v_refund      numeric := 0;
+  v_consultant_user uuid;
+BEGIN
+  IF v_caller IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'not_authenticated');
+  END IF;
+
+  SELECT * INTO v_sess FROM public.""""CallSession""""
+  WHERE id = p_session_id FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'session_not_found');
+  END IF;
+
+  -- Authorization
+  IF v_sess.""""userId"""" <> v_caller
+     AND NOT public.auth_is_admin()
+     AND NOT EXISTS (
+       SELECT 1 FROM public.""""Consultant"""" c
+       WHERE c.id = v_sess.""""consultantId"""" AND c.""""userId"""" = v_caller
+     )
+  THEN
+    RETURN jsonb_build_object('success', false, 'error', 'forbidden');
+  END IF;
+
+  -- Already ended
+  IF v_sess.status = 'ENDED' THEN
+    RETURN jsonb_build_object(
+      'success',          true,
+      'alreadyEnded',     true,
+      'durationSeconds',  v_sess.""""durationSeconds"""",
+      'totalCost',        v_sess.amount
+    );
+  END IF;
+
+  v_elapsed := EXTRACT(EPOCH FROM (now() - v_sess.""""startTime""""))::int;
+  v_minutes := CEIL(v_elapsed / 60.0)::int;
+
+  -- Rate lookup
+  IF v_sess.""""isAI"""" AND v_sess.""""aiConsultantId"""" IS NOT NULL THEN
+    SELECT """"perMinuteRate"""" INTO v_rate FROM public.""""AIConsultant""""
+    WHERE id = v_sess.""""aiConsultantId"""";
+  ELSIF v_sess.""""consultantId"""" IS NOT NULL THEN
+    SELECT """"perMinuteRate"""" INTO v_rate FROM public.""""Consultant""""
+    WHERE id = v_sess.""""consultantId"""";
+  END IF;
+  v_rate    := COALESCE(v_rate, 0);
+  v_cost    := v_minutes * v_rate;
+  v_fee     := v_cost * 0.10;
+  v_earning := v_cost - v_fee;
+  v_held    := COALESCE(v_sess.amount, 0);
+
+  -- Unused escrow refund (human only)
+  v_refund := GREATEST(0, v_held - v_cost);
+
+  -- Mark session ENDED
+  UPDATE public.""""CallSession""""
+  SET status            = 'ENDED',
+      """"endTime""""         = now(),
+      """"durationSeconds"""" = v_elapsed,
+      amount            = v_cost,
+      """"updatedAt""""       = now()
+  WHERE id = p_session_id;
+
+  -- Refund to seeker
+  IF v_refund > 0 AND NOT v_sess.""""isAI"""" THEN
+    PERFORM public.credit_funds_safe(
+      v_sess.""""userId""""::text,
+      v_refund,
+      'Session refund — unused balance',
+      'session-refund:' || p_session_id::text
+    );
+  END IF;
+
+  -- Credit consultant
+  IF NOT v_sess.""""isAI"""" AND v_earning > 0 AND v_sess.""""consultantId"""" IS NOT NULL THEN
+    SELECT c.""""userId"""" INTO v_consultant_user
+    FROM public.""""Consultant"""" c WHERE c.id = v_sess.""""consultantId"""";
+
+    IF v_consultant_user IS NOT NULL THEN
+      PERFORM public.credit_funds_safe(
+        v_consultant_user::text,
+        v_earning,
+        'Session earning — ' || v_minutes || ' min',
+        'session-earn:' || p_session_id::text
+      );
+    END IF;
+  END IF;
+
+  -- Broadcast
+  BEGIN
+    PERFORM realtime.broadcast_changes(
+      'session:' || p_session_id::text,
+      'ENDED', 'ENDED', 'CallSession', 'public',
+      jsonb_build_object(
+        'sessionId',       p_session_id,
+        'durationSeconds', v_elapsed,
+        'totalCost',       v_cost,
+        'refunded',        v_refund
+      ),
+      NULL
+    );
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  RETURN jsonb_build_object(
+    'success',           true,
+    'durationSeconds',   v_elapsed,
+    'minutes',           v_minutes,
+    'rate',              v_rate,
+    'totalCost',         v_cost,
+    'platformFee',       v_fee,
+    'consultantEarning', v_earning,
+    'refunded',          v_refund
+  );
+EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object('success', false, 'error', SQLERRM, 'code', SQLSTATE);
+END;
+$fn$"",<not logged>",postgres,null,[],null
+84131e9d-94c4-4682-af20-21e6252d0935,"""2026-09-22T11:15:04.890Z""",,,00000,2026-09-22T11:15:04.890000,success,"AUDIT: SESSION,1,1,DDL,CREATE FUNCTION,FUNCTION,public.billing_heartbeat_v2(pg_catalog.uuid),""-- ═══════════════════════════════════════════════════════════════════════════════
+-- §1. billing_heartbeat_v2
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Server-authoritative heartbeat. Called every 30 s by the client.
+--   • Resolves rate from Consultant (human) or AIConsultant (AI)
+--   • Computes elapsed from server clock — never trusts the client
+--   • Broadcasts state to `session:{id}` for realtime UI sync
+--   • Returns `terminate: true` when balance runs out or 4h cap reached
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.billing_heartbeat_v2(p_session_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_caller       uuid := auth.uid();
+  v_sess         RECORD;
+  v_elapsed      int;
+  v_minutes      int;
+  v_rate         numeric := 0;
+  v_wallet       RECORD;
+  v_remaining    numeric := 0;
+  v_minutes_left int := 0;
+  v_terminate    boolean := false;
+  v_reason       text;
+BEGIN
+  IF v_caller IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'not_authenticated');
+  END IF;
+
+  SELECT * INTO v_sess FROM public.""""CallSession""""
+  WHERE id = p_session_id FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'session_not_found');
+  END IF;
+
+  -- Authorization: owner OR consultant OR admin
+  IF v_sess.""""userId"""" <> v_caller
+     AND NOT public.auth_is_admin()
+     AND NOT EXISTS (
+       SELECT 1 FROM public.""""Consultant"""" c
+       WHERE c.id = v_sess.""""consultantId"""" AND c.""""userId"""" = v_caller
+     )
+  THEN
+    RETURN jsonb_build_object('success', false, 'error', 'forbidden');
+  END IF;
+
+  -- Already ended
+  IF v_sess.status = 'ENDED' THEN
+    RETURN jsonb_build_object(
+      'success', true, 'ended', true,
+      'elapsedSeconds', v_sess.""""durationSeconds"""",
+      'minutesBilled',  v_sess.""""durationSeconds"""" / 60,
+      'cost',           v_sess.amount,
+      'remaining',      0,
+      'minutesLeft',    0,
+      'terminate',      false
+    );
+  END IF;
+
+  -- Rate lookup: AI or human
+  IF v_sess.""""isAI"""" AND v_sess.""""aiConsultantId"""" IS NOT NULL THEN
+    SELECT """"perMinuteRate"""" INTO v_rate FROM public.""""AIConsultant""""
+    WHERE id = v_sess.""""aiConsultantId"""";
+  ELSIF v_sess.""""consultantId"""" IS NOT NULL THEN
+    SELECT """"perMinuteRate"""" INTO v_rate FROM public.""""Consultant""""
+    WHERE id = v_sess.""""consultantId"""";
+  END IF;
+  v_rate := COALESCE(v_rate, 0);
+
+  v_elapsed := EXTRACT(EPOCH FROM (now() - v_sess.""""startTime""""))::int;
+  v_minutes := v_elapsed / 60;
+
+  -- Hard cap: 4 hours
+  IF v_elapsed > 4 * 3600 THEN
+    v_terminate := true;
+    v_reason := 'Maximum session duration reached (4 hours).';
+  END IF;
+
+  -- Wallet
+  SELECT * INTO v_wallet FROM public.""""Wallet""""
+  WHERE """"userId"""" = v_sess.""""userId"""" FOR UPDATE;
+
+  IF FOUND THEN
+    v_remaining := COALESCE(v_wallet.balance, 0) + COALESCE(v_wallet.escrow, 0);
+    IF v_rate > 0 THEN
+      v_minutes_left := FLOOR(v_remaining / v_rate)::int;
+      IF v_minutes_left <= 0 THEN
+        v_terminate := true;
+        v_reason := COALESCE(v_reason, 'Insufficient balance.');
+      END IF;
+    ELSE
+      v_minutes_left := 999;
+    END IF;
+  END IF;
+
+  -- Broadcast (best-effort — never block the heartbeat)
+  BEGIN
+    PERFORM realtime.broadcast_changes(
+      'session:' || p_session_id::text,
+      'HEARTBEAT', 'HEARTBEAT', 'CallSession', 'public',
+      jsonb_build_object(
+        'sessionId',      p_session_id,
+        'elapsedSeconds', v_elapsed,
+        'minutesBilled',  v_minutes,
+        'rate',           v_rate,
+        'remaining',      v_remaining,
+        'minutesLeft',    v_minutes_left,
+        'terminate',      v_terminate
+      ),
+      NULL
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'billing_heartbeat_v2 broadcast failed: %', SQLERRM;
+  END;
+
+  RETURN jsonb_build_object(
+    'success',       true,
+    'ended',         false,
+    'elapsedSeconds', v_elapsed,
+    'minutesBilled',  v_minutes,
+    'rate',           v_rate,
+    'cost',           v_minutes * v_rate,
+    'remaining',      v_remaining,
+    'minutesLeft',    v_minutes_left,
+    'terminate',      v_terminate,
+    'reason',         v_reason
+  );
+EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object('success', false, 'error', SQLERRM, 'code', SQLSTATE);
+END;
+$fn$"",<not logged>",postgres,null,[],null
+ea076732-3ac6-4139-9217-50510517d77e,"""2026-09-22T11:15:04.884Z""",,,00000,2026-09-22T11:15:04.884000,success,"statement: -- ═══════════════════════════════════════════════════════════════════════════════
+-- 600_final_db_patch.sql
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Fills the last three gaps from the verification report:
+--   1. billing_heartbeat_v2  — atomic heartbeat + realtime broadcast
+--   2. billing_settle_v2     — atomic settle with escrow refund
+--   3. trg_broadcast_consultant — spark + verification change fanout
+--
+-- Idempotent. Safe to re-run.
+-- ═══════════════════════════════════════════════════════════════════════════════
+
+BEGIN;
+SET LOCAL statement_timeout = '3min';
+SET LOCAL lock_timeout = '20s';
+SET LOCAL client_min_messages = 'notice';
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- §1. billing_heartbeat_v2
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Server-authoritative heartbeat. Called every 30 s by the client.
+--   • Resolves rate from Consultant (human) or AIConsultant (AI)
+--   • Computes elapsed from server clock — never trusts the client
+--   • Broadcasts state to `session:{id}` for realtime UI sync
+--   • Returns `terminate: true` when balance runs out or 4h cap reached
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.billing_heartbeat_v2(p_session_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_caller       uuid := auth.uid();
+  v_sess         RECORD;
+  v_elapsed      int;
+  v_minutes      int;
+  v_rate         numeric := 0;
+  v_wallet       RECORD;
+  v_remaining    numeric := 0;
+  v_minutes_left int := 0;
+  v_terminate    boolean := false;
+  v_reason       text;
+BEGIN
+  IF v_caller IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'not_authenticated');
+  END IF;
+
+  SELECT * INTO v_sess FROM public.""CallSession""
+  WHERE id = p_session_id FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'session_not_found');
+  END IF;
+
+  -- Authorization: owner OR consultant OR admin
+  IF v_sess.""userId"" <> v_caller
+     AND NOT public.auth_is_admin()
+     AND NOT EXISTS (
+       SELECT 1 FROM public.""Consultant"" c
+       WHERE c.id = v_sess.""consultantId"" AND c.""userId"" = v_caller
+     )
+  THEN
+    RETURN jsonb_build_object('success', false, 'error', 'forbidden');
+  END IF;
+
+  -- Already ended
+  IF v_sess.status = 'ENDED' THEN
+    RETURN jsonb_build_object(
+      'success', true, 'ended', true,
+      'elapsedSeconds', v_sess.""durationSeconds"",
+      'minutesBilled',  v_sess.""durationSeconds"" / 60,
+      'cost',           v_sess.amount,
+      'remaining',      0,
+      'minutesLeft',    0,
+      'terminate',      false
+    );
+  END IF;
+
+  -- Rate lookup: AI or human
+  IF v_sess.""isAI"" AND v_sess.""aiConsultantId"" IS NOT NULL THEN
+    SELECT ""perMinuteRate"" INTO v_rate FROM public.""AIConsultant""
+    WHERE id = v_sess.""aiConsultantId"";
+  ELSIF v_sess.""consultantId"" IS NOT NULL THEN
+    SELECT ""perMinuteRate"" INTO v_rate FROM public.""Consultant""
+    WHERE id = v_sess.""consultantId"";
+  END IF;
+  v_rate := COALESCE(v_rate, 0);
+
+  v_elapsed := EXTRACT(EPOCH FROM (now() - v_sess.""startTime""))::int;
+  v_minutes := v_elapsed / 60;
+
+  -- Hard cap: 4 hours
+  IF v_elapsed > 4 * 3600 THEN
+    v_terminate := true;
+    v_reason := 'Maximum session duration reached (4 hours).';
+  END IF;
+
+  -- Wallet
+  SELECT * INTO v_wallet FROM public.""Wallet""
+  WHERE ""userId"" = v_sess.""userId"" FOR UPDATE;
+
+  IF FOUND THEN
+    v_remaining := COALESCE(v_wallet.balance, 0) + COALESCE(v_wallet.escrow, 0);
+    IF v_rate > 0 THEN
+      v_minutes_left := FLOOR(v_remaining / v_rate)::int;
+      IF v_minutes_left <= 0 THEN
+        v_terminate := true;
+        v_reason := COALESCE(v_reason, 'Insufficient balance.');
+      END IF;
+    ELSE
+      v_minutes_left := 999;
+    END IF;
+  END IF;
+
+  -- Broadcast (best-effort — never block the heartbeat)
+  BEGIN
+    PERFORM realtime.broadcast_changes(
+      'session:' || p_session_id::text,
+      'HEARTBEAT', 'HEARTBEAT', 'CallSession', 'public',
+      jsonb_build_object(
+        'sessionId',      p_session_id,
+        'elapsedSeconds', v_elapsed,
+        'minutesBilled',  v_minutes,
+        'rate',           v_rate,
+        'remaining',      v_remaining,
+        'minutesLeft',    v_minutes_left,
+        'terminate',      v_terminate
+      ),
+      NULL
+    );
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'billing_heartbeat_v2 broadcast failed: %', SQLERRM;
+  END;
+
+  RETURN jsonb_build_object(
+    'success',       true,
+    'ended',         false,
+    'elapsedSeconds', v_elapsed,
+    'minutesBilled',  v_minutes,
+    'rate',           v_rate,
+    'cost',           v_minutes * v_rate,
+    'remaining',      v_remaining,
+    'minutesLeft',    v_minutes_left,
+    'terminate',      v_terminate,
+    'reason',         v_reason
+  );
+EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object('success', false, 'error', SQLERRM, 'code', SQLSTATE);
+END;
+$fn$;
+
+GRANT EXECUTE ON FUNCTION public.billing_heartbeat_v2(uuid) TO authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- §2. billing_settle_v2
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Atomic final settlement. Called when a session ends.
+--   • Computes final cost from server clock
+--   • Refunds unused escrow to the seeker (human sessions only)
+--   • Credits the consultant earning (human sessions only)
+--   • Broadcasts ENDED to `session:{id}`
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.billing_settle_v2(p_session_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $fn$
+DECLARE
+  v_caller      uuid := auth.uid();
+  v_sess        RECORD;
+  v_elapsed     int;
+  v_minutes     int;
+  v_rate        numeric := 0;
+  v_cost        numeric := 0;
+  v_fee         numeric := 0;
+  v_earning     numeric := 0;
+  v_held        numeric := 0;
+  v_refund      numeric := 0;
+  v_consultant_user uuid;
+BEGIN
+  IF v_caller IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'not_authenticated');
+  END IF;
+
+  SELECT * INTO v_sess FROM public.""CallSession""
+  WHERE id = p_session_id FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('success', false, 'error', 'session_not_found');
+  END IF;
+
+  -- Authorization
+  IF v_sess.""userId"" <> v_caller
+     AND NOT public.auth_is_admin()
+     AND NOT EXISTS (
+       SELECT 1 FROM public.""Consultant"" c
+       WHERE c.id = v_sess.""consultantId"" AND c.""userId"" = v_caller
+     )
+  THEN
+    RETURN jsonb_build_object('success', false, 'error', 'forbidden');
+  END IF;
+
+  -- Already ended
+  IF v_sess.status = 'ENDED' THEN
+    RETURN jsonb_build_object(
+      'success',          true,
+      'alreadyEnded',     true,
+      'durationSeconds',  v_sess.""durationSeconds"",
+      'totalCost',        v_sess.amount
+    );
+  END IF;
+
+  v_elapsed := EXTRACT(EPOCH FROM (now() - v_sess.""startTime""))::int;
+  v_minutes := CEIL(v_elapsed / 60.0)::int;
+
+  -- Rate lookup
+  IF v_sess.""isAI"" AND v_sess.""aiConsultantId"" IS NOT NULL THEN
+    SELECT ""perMinuteRate"" INTO v_rate FROM public.""AIConsultant""
+    WHERE id = v_sess.""aiConsultantId"";
+  ELSIF v_sess.""consultantId"" IS NOT NULL THEN
+    SELECT ""perMinuteRate"" INTO v_rate FROM public.""Consultant""
+    WHERE id = v_sess.""consultantId"";
+  END IF;
+  v_rate    := COALESCE(v_rate, 0);
+  v_cost    := v_minutes * v_rate;
+  v_fee     := v_cost * 0.10;
+  v_earning := v_cost - v_fee;
+  v_held    := COALESCE(v_sess.amount, 0);
+
+  -- Unused escrow refund (human only)
+  v_refund := GREATEST(0, v_held - v_cost);
+
+  -- Mark session ENDED
+  UPDATE public.""CallSession""
+  SET status            = 'ENDED',
+      ""endTime""         = now(),
+      ""durationSeconds"" = v_elapsed,
+      amount            = v_cost,
+      ""updatedAt""       = now()
+  WHERE id = p_session_id;
+
+  -- Refund to seeker
+  IF v_refund > 0 AND NOT v_sess.""isAI"" THEN
+    PERFORM public.credit_funds_safe(
+      v_sess.""userId""::text,
+      v_refund,
+      'Session refund — unused balance',
+      'session-refund:' || p_session_id::text
+    );
+  END IF;
+
+  -- Credit consultant
+  IF NOT v_sess.""isAI"" AND v_earning > 0 AND v_sess.""consultantId"" IS NOT NULL THEN
+    SELECT c.""userId"" INTO v_consultant_user
+    FROM public.""Consultant"" c WHERE c.id = v_sess.""consultantId"";
+
+    IF v_consultant_user IS NOT NULL THEN
+      PERFORM public.credit_funds_safe(
+        v_consultant_user::text,
+        v_earning,
+        'Session earning — ' || v_minutes || ' min',
+        'session-earn:' || p_session_id::text
+      );
+    END IF;
+  END IF;
+
+  -- Broadcast
+  BEGIN
+    PERFORM realtime.broadcast_changes(
+      'session:' || p_session_id::text,
+      'ENDED', 'ENDED', 'CallSession', 'public',
+      jsonb_build_object(
+        'sessionId',       p_session_id,
+        'durationSeconds', v_elapsed,
+        'totalCost',       v_cost,
+        'refunded',        v_refund
+      ),
+      NULL
+    );
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  RETURN jsonb_build_object(
+    'success',           true,
+    'durationSeconds',   v_elapsed,
+    'minutes',           v_minutes,
+    'rate',              v_rate,
+    'totalCost',         v_cost,
+    'platformFee',       v_fee,
+    'consultantEarning', v_earning,
+    'refunded',          v_refund
+  );
+EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object('success', false, 'error', SQLERRM, 'code', SQLSTATE);
+END;
+$fn$;
+
+GRANT EXECUTE ON FUNCTION public.billing_settle_v2(uuid) TO authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- §3. Recreate trg_broadcast_consultant
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- Fires on every Consultant UPDATE. Two fanouts:
+--   • sparkScore changed → `consultant:{uid}:sparks`
+--   • status changed     → `admin:verification` + `user:{uid}:notifications`
+-- All wrapped in EXCEPTION so a broadcast failure never blocks the DML.
+-- ═══════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.broadcast_consultant_changes()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $fn$
+BEGIN
+  BEGIN
+    IF NEW.""sparkScore"" IS DISTINCT FROM OLD.""sparkScore"" THEN
+      PERFORM realtime.broadcast_changes(
+        'consultant:' || NEW.""userId""::text || ':sparks',
+        TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, NEW, OLD
+      );
+    END IF;
+
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+      PERFORM realtime.broadcast_changes(
+        'admin:verification',
+        TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, NEW, OLD
+      );
+      PERFORM realtime.broadcast_changes(
+        'user:' || NEW.""userId""::text || ':notifications',
+        TG_OP, TG_OP, TG_TABLE_NAME, TG_TABLE_SCHEMA, NEW, OLD
+      );
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'broadcast_consultant_changes: %', SQLERRM;
+  END;
+
+  RETURN NEW;
+END;
+$fn$;
+
+DROP TRIGGER IF EXISTS trg_broadcast_consultant ON public.""Consultant"";
+CREATE TRIGGER trg_broadcast_consultant
+  AFTER UPDATE ON public.""Consultant""
+  FOR EACH ROW EXECUTE FUNCTION public.broadcast_consultant_changes();
+
+-- ═══════════════════════════════════════════════════════════════════════════════
+-- §4. Post-flight verification
+-- ═══════════════════════════════════════════════════════════════════════════════
+DO $verify$
+DECLARE
+  v_hb   boolean;
+  v_sett boolean;
+  v_trig boolean;
+BEGIN
+  SELECT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname='public' AND p.proname='billing_heartbeat_v2'
+  ) INTO v_hb;
+
+  SELECT EXISTS (
+    SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname='public' AND p.proname='billing_settle_v2'
+  ) INTO v_sett;
+
+  SELECT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname='trg_broadcast_consultant' AND NOT tgisinternal
+  ) INTO v_trig;
+
+  RAISE NOTICE '';
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════';
+  RAISE NOTICE '  600_final_db_patch.sql — VERIFIED';
+  RAISE NOTICE '  billing_heartbeat_v2      : %', v_hb;
+  RAISE NOTICE '  billing_settle_v2         : %', v_sett;
+  RAISE NOTICE '  trg_broadcast_consultant  : %', v_trig;
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════';
+
+  IF NOT (v_hb AND v_sett AND v_trig) THEN
+    RAISE EXCEPTION '600_final_db_patch failed';
+  END IF;
+  RAISE NOTICE '  ✓ ALL CHECKS PASSED';
+  RAISE NOTICE '═══════════════════════════════════════════════════════════════';
+END $verify$;
+
+-- Flush PostgREST
+DO $drain$ BEGIN PERFORM pg_notification_queue_usage(); EXCEPTION WHEN undefined_function THEN NULL; END $drain$;
+NOTIFY pgrst, 'reload schema';
+NOTIFY pgrst, 'reload config';
+
+COMMIT;
+
+-- source: dashboard
+-- user: session:aa443cac-338e-47d7-b033-c4dd1eaffa8a
+-- date: 2026-09-22T11:15:04.862Z",postgres,null,[],null
+109293bd-a2bd-4b4e-9339-a227dd8bedff,"""2026-09-22T11:15:00.036Z""",,,00000,2026-09-22T11:15:00.036000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+c6bce163-5583-43b6-bef2-2d99da924a0a,"""2026-09-22T11:15:00.034Z""",,,00000,2026-09-22T11:15:00.034000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+49222375-a88f-4a5f-b0dc-5f4c689f5adc,"""2026-09-22T11:15:00.022Z""",,,00000,2026-09-22T11:15:00.022000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+1176e88e-d3b9-4bfd-828e-a796bb93b413,"""2026-09-22T11:15:00.004Z""",,,00000,2026-09-22T11:15:00.004000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+8af053d6-76c1-4eea-812b-ae997e19a761,"""2026-09-22T11:15:00.002Z""",,,00000,2026-09-22T11:15:00.002000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+7ad96806-eae9-464b-926f-9ba1edfcd6ba,"""2026-09-22T11:14:00.184Z""",,,00000,2026-09-22T11:14:00.184000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+6908f544-fec0-4191-a536-63b61a79d4fd,"""2026-09-22T11:14:00.182Z""",,,00000,2026-09-22T11:14:00.182000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+1a9e6010-0501-48c7-b0da-1e416dec8d9f,"""2026-09-22T11:14:00.150Z""",,,00000,2026-09-22T11:14:00.150000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+9126607d-e87e-46a5-b85a-2ede2460b6be,"""2026-09-22T11:14:00.084Z""",,,00000,2026-09-22T11:14:00.084000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
+ce45c688-bbe3-4e7c-bb3e-d6e68b377aff,"""2026-09-22T11:14:00.048Z""",,,00000,2026-09-22T11:14:00.048000,success,cron job 1 starting: SELECT public.cleanup_stale_online_users(120);,postgres,null,[],null
+44a1c3f4-6bd9-4a78-aa87-994c09e570d5,"""2026-09-22T11:13:00.032Z""",,,00000,2026-09-22T11:13:00.032000,success,"AUDIT: SESSION,1,2,WRITE,UPDATE,TABLE,public._mv_refresh_log,""UPDATE public._mv_refresh_log
+    SET last_refresh_at = now(),
+        refresh_count   = refresh_count + 1,
+        duration_ms     = (EXTRACT(EPOCH FROM (clock_timestamp() - v_t0)) * 1000)::int,
+        row_count       = v_rows
+    WHERE mv_name = 'mv_consultant_directory'"",<not logged>",postgres,null,[],null
+93dbeb06-22a0-4280-9d13-800087ff05b7,"""2026-09-22T11:13:00.031Z""",,,00000,2026-09-22T11:13:00.031000,success,"AUDIT: SESSION,1,1,DDL,REFRESH MATERIALIZED VIEW,MATERIALIZED VIEW,public.mv_consultant_directory,""REFRESH MATERIALIZED VIEW public.""""mv_consultant_directory"""""",<not logged>",postgres,null,[],null
+2d284dec-712e-478d-9d69-143a48c16987,"""2026-09-22T11:13:00.022Z""",,,00000,2026-09-22T11:13:00.022000,success,"AUDIT: SESSION,1,1,WRITE,UPDATE,TABLE,""public.""""User"""""",""UPDATE public.""""User""""
+  SET """"is_online"""" = false, """"updatedAt"""" = now()
+  WHERE """"is_online"""" = true
+    AND (""""lastSeenAt"""" IS NULL
+         OR """"lastSeenAt"""" < now() - (p_stale_after_seconds || ' seconds')::interval)"",<not logged>",postgres,null,[],null
+11c0a9f4-93c8-458e-b0a7-4cd55e1ba196,"""2026-09-22T11:13:00.004Z""",,,00000,2026-09-22T11:13:00.004000,success,"cron job 3 starting:  SELECT public.refresh_consultant_directory(); ",postgres,null,[],null
