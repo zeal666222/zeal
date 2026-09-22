@@ -1,26 +1,39 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL — AI Persona Loader (server context)
+// ZEAL — AI Persona Loader
 // ═══════════════════════════════════════════════════════════════════════════════
-// Loads AIConsultant row + assembles a rich system prompt. Only imported by
-// route handlers (server context). No `server-only` import — the subpath
-// export boundary and route-handler runtime are the guard.
+// Loads the AIConsultant row, then delegates prompt construction to
+// PersonaEngine (structured role contract).
+//
+// The returned PersonaContext is a STRICT SUPERSET of the type expected by
+// @zeal/database/ai-chat-handler. That handler declares its own minimal
+// PersonaContext; because this object includes every field it needs (and more),
+// TypeScript structurally accepts it.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {createAdminClient} from "@zeal/database/server";
+import { createAdminClient } from "@zeal/database/server";
+import {
+  PersonaEngine,
+  type PersonaInput,
+  type RoleContract,
+} from "./engine/persona-engine";
 
-export interface PersonaContext {
+export interface PersonaContext extends RoleContract {
   id: string;
   userId: string;
   name: string;
   category: string;
-  systemPrompt: string;
+  /** Raw free-form persona note from the DB (may be null). */
   persona: string | null;
   bio: string;
   specialties: string[];
   languages: string[];
   isPaid: boolean;
   perMinuteRate: number;
+  safetyLevel: "RELAXED" | "STANDARD" | "STRICT";
+  bannedPatterns: string[];
 }
+
+const MAX_SYSTEM_PROMPT_LENGTH = 6000;
 
 interface AIConsultantRow {
   id: string;
@@ -33,17 +46,21 @@ interface AIConsultantRow {
   systemPrompt: string | null;
   isPaid: boolean | null;
   perMinuteRate: number | null;
+  safetyLevel: string | null;
+  bannedPatterns: string[] | null;
+  isActive: boolean | null;
 }
 
 export async function loadPersona(
   consultantId: string,
+  seekerContext?: PersonaInput["seekerContext"],
 ): Promise<PersonaContext | null> {
   try {
     const admin = createAdminClient();
     const { data, error } = await admin
       .from("AIConsultant")
       .select(
-        'id, name, category, bio, specialties, languages, persona, "systemPrompt", "isPaid", "perMinuteRate"',
+        'id, name, category, bio, specialties, languages, persona, "systemPrompt", "isPaid", "perMinuteRate", "safetyLevel", "bannedPatterns", "isActive"',
       )
       .eq("id", consultantId)
       .eq("isActive", true)
@@ -51,29 +68,45 @@ export async function loadPersona(
 
     if (error || !data) return null;
 
-    const row = data as AIConsultantRow;
+    const row = data as unknown as AIConsultantRow;
 
-    const defaultSystemPrompt = [
-      `You are ${row.name}, an expert ${row.category} consultant on Zeal.`,
-      "You are NOT an AI assistant — you are a wise, empathetic, experienced guide.",
-      "Speak with warmth, authority, and practical insight.",
-      "Never break character. Never mention that you are an AI model.",
-      "Keep responses focused, under 200 words unless the user asks for depth.",
-      "If a user asks something outside your expertise, gently redirect to a topic you can help with.",
-    ].join("\n");
+    // Guard against runaway system prompts
+    if ((row.systemPrompt ?? "").length > MAX_SYSTEM_PROMPT_LENGTH) {
+      console.warn(`[persona-loader] systemPrompt too long for ${row.id} — using default`);
+      row.systemPrompt = null;
+    }
 
-    return {
+    // Build the structured role contract
+    const contract = PersonaEngine.build({
       id: row.id,
-      userId: row.id, // AI shadow User has the same id
       name: row.name,
       category: row.category,
-      systemPrompt: row.systemPrompt || defaultSystemPrompt,
+      bio: row.bio ?? "",
+      specialties: row.specialties ?? [],
+      languages: row.languages ?? [],
+      persona: row.persona,
+      systemPrompt: row.systemPrompt,
+      seekerContext,
+    });
+
+    return {
+      // RoleContract fields
+      systemPrompt: contract.systemPrompt,
+      prohibitions: contract.prohibitions,
+      fewShots: contract.fewShots,
+      // Identity
+      id: row.id,
+      userId: row.id,
+      name: row.name,
+      category: row.category,
       persona: row.persona,
       bio: row.bio ?? "",
       specialties: row.specialties ?? [],
       languages: row.languages ?? [],
       isPaid: row.isPaid ?? false,
       perMinuteRate: row.perMinuteRate ?? 0,
+      safetyLevel: (row.safetyLevel ?? "STANDARD") as PersonaContext["safetyLevel"],
+      bannedPatterns: row.bannedPatterns ?? [],
     };
   } catch (err) {
     console.error("[persona-loader] failed:", err);
@@ -81,39 +114,24 @@ export async function loadPersona(
   }
 }
 
-// ─── Build message array for a chat turn ──────────────────────────────────────
 export interface PriorMessage {
   senderId: string | null;
   content: string;
   createdAt: string;
 }
 
+/** Convert prior messages + new user message to AIMessage[] using the contract. */
 export function buildChatMessages(
   persona: PersonaContext,
   priorMessages: PriorMessage[],
   newUserMessage: string,
 ) {
-  const systemBlock = [
-    persona.systemPrompt,
-    "",
-    `Specialties: ${persona.specialties.join(", ") || "general guidance"}`,
-    `Languages: ${persona.languages.join(", ") || "English"}`,
-  ].join("\n");
-
-  const history = priorMessages.slice(-20).map((m) => ({
+  const history = priorMessages.map((m) => ({
     role: (m.senderId === persona.userId ? "assistant" : "user") as
       | "assistant"
       | "user",
     content: m.content,
   }));
 
-  return [
-    {
-      role: "system" as const,
-      content: systemBlock,
-      cache_control: { type: "ephemeral" as const },
-    },
-    ...history,
-    { role: "user" as const, content: newUserMessage },
-  ];
+  return PersonaEngine.buildMessages(persona, history, newUserMessage);
 }

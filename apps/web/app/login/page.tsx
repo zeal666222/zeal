@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "@zeal/ui";
 import { loginAction } from "@/actions/auth";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
 const ADMIN_URL =
   process.env.NEXT_PUBLIC_ADMIN_URL || "https://zeal-admin-rose.vercel.app";
@@ -285,6 +286,20 @@ function LoginContent() {
               )}
             </button>
           </form>
+          <div className="mt-6">
+            <div className="relative my-6 flex items-center justify-center">
+              <div className="border-t border-white/5 w-full" />
+              <span className="bg-[#0B0A14] px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
+                or
+              </span>
+              <div className="border-t border-white/5 w-full" />
+            </div>
+            <GoogleAuthButton
+              label="Continue with Google"
+              redirectPath="/explore"
+              intent="user"
+            />
+          </div>
 
           <div className="mt-8 pt-6 border-t border-white/5 text-center">
             <p className="text-[11px] text-slate-500">Want to offer guidance?</p>

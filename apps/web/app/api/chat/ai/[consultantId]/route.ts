@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// POST /api/chat/ai/[consultantId] — Streaming AI chat (SSE)
+// POST /api/chat/ai/[consultantId] — Streaming AI chat with fillers
 // ═══════════════════════════════════════════════════════════════════════════════
 import { NextResponse } from "next/server";
 import {
@@ -8,7 +8,7 @@ import {
 } from "@zeal/database/server";
 import { handleAIChat, AIChatError } from "@zeal/database/ai-chat-handler";
 import { loadPersona } from "@/lib/ai/persona-loader";
-import { callAI } from "@/lib/ai";
+import { callAI } from "@/lib/ai/engine";
 import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
 import { z } from "zod";
 
@@ -33,6 +33,7 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // ─── Global rate limit (per-user) ────────────────────────────────────
     const rl = await checkRateLimit(aiRateLimiter, `ai-chat:${user.id}`);
     if (!rl.ok) {
       return NextResponse.json(
@@ -41,8 +42,29 @@ export async function POST(
       );
     }
 
+    // ─── Per-AI rate limit (10 msg/min per user per AI) ──────────────────
+    const adminForRl = createAdminClient();
+    const { data: rl2 } = await adminForRl.rpc("check_ai_rate_limit", {
+      p_user_id: user.id,
+      p_ai_id: consultantId,
+      p_max_per_minute: 10,
+    });
+    const rlResult = rl2 as { ok?: boolean; retryAfter?: number } | null;
+    if (rlResult && rlResult.ok === false) {
+      return NextResponse.json(
+        { error: "Slow down a moment — try again in a few seconds." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rlResult.retryAfter ?? 10) },
+        },
+      );
+    }
+
+    // ─── Parse body ───────────────────────────────────────────────────────
     let body: unknown;
-    try { body = await req.json(); } catch {
+    try {
+      body = await req.json();
+    } catch {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
 
@@ -56,6 +78,7 @@ export async function POST(
 
     const { conversationId, content } = parsed.data;
 
+    // ─── Load persona (structured role contract) ─────────────────────────
     const persona = await loadPersona(consultantId);
     if (!persona) {
       return NextResponse.json(
@@ -65,9 +88,33 @@ export async function POST(
     }
 
     const admin = createAdminClient();
+
+    // ─── Detect filler locale from content (Hindi → "hi", else "hi-en") ──
+    const hasDevanagari = /[\u0900-\u097F]/.test(content);
+    const hasRomanHindi = /\b(hai|kya|nahi|haan|karo|kaise|mujhe|tum|aap)\b/i.test(content);
+    const fillerLocale = hasDevanagari ? "hi" : "hi-en";
+    void hasRomanHindi;
+
+    // ─── Stream ───────────────────────────────────────────────────────────
     const { stream } = await handleAIChat({
-      conversationId, consultantId, userId: user.id, content,
-      persona, admin, callAI,
+      conversationId,
+      consultantId,
+      userId: user.id,
+      content,
+      persona,
+      admin,
+      callAI: async (opts) => {
+        // The engine returns { response, provider, attempts }
+        const result = await callAI({
+          messages: opts.messages,
+          temperature: opts.temperature,
+          maxTokens: opts.maxTokens,
+          stream: true,
+          preferProvider: opts.preferProvider,
+        });
+        return result;
+      },
+      fillerLocale,
     });
 
     return new Response(stream, {

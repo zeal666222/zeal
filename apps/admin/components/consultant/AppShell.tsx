@@ -37,6 +37,7 @@ const NAV: NavItem[] = [
   { icon: Eye,      label: "Visibility", href: "/consultant/visibility", mobile: false },
   { icon: Clock,           label: "Schedule", href: "/consultant/availability", mobile: false },
   { icon: Settings,        label: "Settings", href: "/consultant/settings",     mobile: false },
+  { icon: DollarSign,      label: "Pricing",  href: "/consultant/pricing",  mobile: false },
 ];
 
 interface AppShellProps {

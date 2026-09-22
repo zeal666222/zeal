@@ -1,22 +1,30 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// @zeal/database/ai-chat-handler — Framework-agnostic streaming AI chat
+// @zeal/database/ai-chat-handler — Streaming AI chat with fillers + safety
 // ═══════════════════════════════════════════════════════════════════════════════
+// Emits SSE events with three shapes:
+//   data: {"delta": "text"}             — incremental assistant token
+//   data: {"filler": "Hmm, let me…"}    — filler for UX during latency
+//   data: {"done": true, "provider": …} — end of stream
+//
+// Filler cadence:
+//   • Immediately on start: "first-token" filler
+//   • If no delta within 5s: "slow" filler
+//   • On provider switch mid-stream: "fallback" filler
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { FillerEngine, type FillerLocale } from "./fillers";
+
+// ─── Type contracts ──────────────────────────────────────────────────────────
+// The handler only needs the fields it actually reads. Any caller that has
+// a richer object (like the persona-loader's PersonaContext) can pass it
+// because TypeScript structurally subsumes the extra fields.
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
   content: string;
   cache_control?: { type: "ephemeral" };
 }
-
-export interface CallAIOptions {
-  messages: AIMessage[];
-  stream?: boolean;
-  temperature?: number;
-  maxTokens?: number;
-}
-
-export type CallAIFn = (opts: CallAIOptions) => Promise<Response>;
 
 export interface PersonaContext {
   id: string;
@@ -30,7 +38,27 @@ export interface PersonaContext {
   languages: string[];
   isPaid: boolean;
   perMinuteRate: number;
+  safetyLevel?: "RELAXED" | "STANDARD" | "STRICT";
+  bannedPatterns?: string[];
 }
+
+export interface CallAIOptions {
+  messages: AIMessage[];
+  stream?: boolean;
+  temperature?: number;
+  maxTokens?: number;
+  preferProvider?: "agnes" | "groqPro" | "groqFast" | "zhipu";
+  requestId?: string;
+  onEvent?: (e: unknown) => void;
+}
+
+export interface CallAIResult {
+  response: Response;
+  provider: string;
+  attempts: Array<{ provider: string; reason: string }>;
+}
+
+export type CallAIFn = (opts: CallAIOptions) => Promise<CallAIResult>;
 
 export interface AIChatParams {
   conversationId: string;
@@ -43,6 +71,7 @@ export interface AIChatParams {
   temperature?: number;
   maxTokens?: number;
   contextLimit?: number;
+  fillerLocale?: FillerLocale;
 }
 
 export interface AIChatResult {
@@ -70,8 +99,16 @@ export class AIChatError extends Error {
 
 export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> {
   const {
-    conversationId, userId, content, persona, admin, callAI,
-    temperature = 0.7, maxTokens = 800, contextLimit = DEFAULT_CONTEXT_LIMIT,
+    conversationId,
+    userId,
+    content,
+    persona,
+    admin,
+    callAI,
+    temperature = 0.75,
+    maxTokens = 1200,
+    contextLimit = DEFAULT_CONTEXT_LIMIT,
+    fillerLocale = "hi-en",
   } = params;
 
   const trimmed = content.trim();
@@ -83,6 +120,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
     );
   }
 
+  // ─── Participant check ───────────────────────────────────────────────────
   const { data: participant, error: partErr } = await admin
     .from("ConversationParticipant")
     .select("userId")
@@ -95,6 +133,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
     throw new AIChatError("Not a participant in this conversation", "NOT_PARTICIPANT");
   }
 
+  // ─── Fetch prior context ─────────────────────────────────────────────────
   const { data: prior } = await admin
     .from("Message")
     .select("senderId, content, createdAt")
@@ -104,8 +143,11 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
 
   const priorMessages = (
     (prior ?? []) as Array<{ senderId: string | null; content: string; createdAt: string }>
-  ).slice().reverse();
+  )
+    .slice()
+    .reverse();
 
+  // ─── Persist user message ────────────────────────────────────────────────
   const { data: userMsg, error: userErr } = await admin
     .from("Message")
     .insert({
@@ -121,70 +163,131 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
     throw new AIChatError(userErr?.message ?? "Failed to persist", "PERSIST_FAILED");
   }
 
-  const systemBlock = [
-    persona.systemPrompt,
-    "",
-    `Specialties: ${persona.specialties.join(", ") || "general guidance"}`,
-    `Languages: ${persona.languages.join(", ") || "English"}`,
-  ].join("\n");
-
-  const history: AIMessage[] = priorMessages.map((m) => ({
-    role: (m.senderId === persona.userId ? "assistant" : "user") as "assistant" | "user",
+  // ─── Build message array ─────────────────────────────────────────────────
+  const history = priorMessages.map((m) => ({
+    role: (m.senderId === persona.userId ? "assistant" : "user") as
+      | "assistant"
+      | "user",
     content: m.content,
   }));
 
   const messages: AIMessage[] = [
-    { role: "system", content: systemBlock, cache_control: { type: "ephemeral" } },
-    ...history,
+    {
+      role: "system",
+      content: persona.systemPrompt,
+      cache_control: { type: "ephemeral" },
+    },
+    ...history.slice(-12),
     { role: "user", content: trimmed },
   ];
 
-  const aiRes = await callAI({ messages, stream: true, temperature, maxTokens });
-  if (!aiRes.body) throw new AIChatError("AI provider returned no stream body", "AI_UNAVAILABLE");
+  // ─── Fire AI call ────────────────────────────────────────────────────────
+  const { response: aiRes, provider, attempts } = await callAI({
+    messages,
+    stream: true,
+    temperature,
+    maxTokens,
+  });
 
+  if (!aiRes.body) {
+    throw new AIChatError("AI provider returned no stream body", "AI_UNAVAILABLE");
+  }
+
+  // ─── SSE stream with filler injection ────────────────────────────────────
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let accumulated = "";
+  const fillers = new FillerEngine(fillerLocale, 2_500);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      const write = (obj: unknown) => {
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        } catch {
+          /* controller closed */
+        }
+      };
+
+      // ── Immediate first-token filler ────────────────────────────────────
+      write({ filler: fillers.nextForce("first-token"), reason: "first-token" });
+
+      // ── Slow-token watchdog (5s) ────────────────────────────────────────
+      let lastTokenAt = Date.now();
+      let firstTokenSeen = false;
+      const watchdog = setInterval(() => {
+        const idle = Date.now() - lastTokenAt;
+        if (idle > 5_000) {
+          const f = firstTokenSeen ? fillers.next("slow") : fillers.next("slow");
+          if (f) write({ filler: f, reason: "slow" });
+        }
+      }, 2_000);
+
       const reader = aiRes.body!.getReader();
       let buffer = "";
+
       try {
         // eslint-disable-next-line no-constant-condition
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
+
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
           buffer = lines.pop() ?? "";
+
           for (const line of lines) {
             if (!line.startsWith("data: ")) continue;
             const payload = line.slice(6).trim();
             if (!payload || payload === "[DONE]") continue;
+
             try {
               const parsed = JSON.parse(payload) as {
                 choices?: Array<{ delta?: { content?: string } }>;
               };
               const delta = parsed.choices?.[0]?.delta?.content;
               if (delta) {
+                lastTokenAt = Date.now();
+                firstTokenSeen = true;
                 accumulated += delta;
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta })}\n\n`));
+                write({ delta });
               }
-            } catch { /* malformed SSE — skip */ }
+            } catch {
+              /* malformed SSE chunk — skip */
+            }
           }
         }
       } catch (e) {
         console.error("[ai-chat-handler] stream error:", e);
+        const f = fillers.next("fallback");
+        if (f) write({ filler: f, reason: "fallback" });
+      } finally {
+        clearInterval(watchdog);
       }
 
+      // ─── Persist assistant message with safety check ─────────────────────
       const finalText = accumulated.trim();
       if (finalText) {
+        let safeText = finalText;
+        try {
+          const { data: safety } = await admin.rpc("check_ai_safety", {
+            p_ai_id: persona.id,
+            p_content: finalText,
+          });
+          const s = safety as { safe?: boolean } | null;
+          if (s && s.safe === false) {
+            safeText =
+              "I sense this is outside what I can guide on. Let me redirect us — what else is on your mind?";
+          }
+        } catch {
+          /* safety RPC missing — proceed */
+        }
+
         try {
           await admin.from("Message").insert({
             conversationId,
             senderId: persona.userId,
-            content: finalText,
+            content: safeText,
             type: "text",
           });
         } catch (e) {
@@ -192,7 +295,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
         }
       }
 
-      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      write({ done: true, provider, attempts });
       controller.close();
     },
   });

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter} from "next/navigation";
 import {motion, AnimatePresence} from "framer-motion";
 import {useEffect, useState} from "react";
-import { BarChart3, Calendar, CreditCard, Flag, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Shield, UserCog, UserPlus, Users, Video, Wallet, X, Eye } from "lucide-react";
+import { BarChart3, Calendar, CreditCard, Eye, Flag, LayoutDashboard, LogOut, Megaphone, Menu, Settings, Shield, Tag, UserCog, UserPlus, Users, Video, Wallet, X } from "lucide-react";
 import {cn} from "@zeal/ui";
 import {useAuth} from "@/components/providers/SupabaseAuthProvider";
 import {useAdminStore, type AdminRole} from "@/lib/store/adminStore";
@@ -35,6 +35,7 @@ const NAV: NavItem[] = [
   { icon: Video,           label: "Recordings",  href: "/recordings",   minRole: "SUPPORT" },
   { icon: Wallet,          label: "Wallet",      href: "/wallet",       minRole: "SUPPORT" },
   { icon: CreditCard,      label: "Withdrawals", href: "/withdrawals",  minRole: "ADMIN" },
+  { icon: Tag,             label: "Pricing",      href: "/pricing-requests",  minRole: "ADMIN" },
   { icon: Megaphone,       label: "Broadcast",   href: "/broadcast",    minRole: "ADMIN" },
   { icon: UserPlus,        label: "Admins",      href: "/settings/admins", minRole: "SUPER_ADMIN" },
   { icon: Settings,        label: "Settings",    href: "/settings",     minRole: "SUPER_ADMIN" },

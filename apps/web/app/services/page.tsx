@@ -1,67 +1,55 @@
-import { createAdminClient } from "@zeal/database/server";
+// apps/web/app/services/page.tsx
 import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { AIChatDiscovery } from "@/components/discovery/AIChatDiscovery";
 import { SkeletonGrid } from "@zeal/ui";
+import { createServerClientFromCookies } from "@zeal/database/server";
 import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
+import { CategoryGridRealtime } from "./CategoryGridRealtime";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-async function getCategoryStats() {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("Consultant")
-    .select("category")
-    .eq("status", "VERIFIED")
-    .eq("isActive", true);
+async function getCategoryCounts() {
+  try {
+    const supabase = await createServerClientFromCookies();
+    const { data, error } = await supabase.rpc("category_counts");
+    if (error) return {} as Record<string, { count: number; onlineCount: number }>;
 
-  const counts = new Map<string, number>();
-  for (const c of (data ?? []) as Array<{ category: string }>) {
-    const key = String(c.category ?? "").toLowerCase().replace(/_/g, "-");
-    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const rows = (data ?? []) as Array<{
+      categoryId: string;
+      count: number;
+      onlineCount: number;
+    }>;
+    const map: Record<string, { count: number; onlineCount: number }> = {};
+    for (const r of rows) map[r.categoryId] = { count: r.count, onlineCount: r.onlineCount };
+    return map;
+  } catch {
+    return {} as Record<string, { count: number; onlineCount: number }>;
   }
-  return counts;
 }
 
 async function CategoryGrid() {
-  const counts = await getCategoryStats();
+  const counts = await getCategoryCounts();
   const categories = Object.entries(CATEGORY_ID_TO_NAME);
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-      {categories.map(([id, name]) => {
-        const count = counts.get(id) ?? 0;
-        return (
-          <Link
-            key={id}
-            href={`/services/${id}`}
-            className="group p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/40 hover:-translate-y-1 transition-all relative overflow-hidden"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-primary-hover)]/10 flex items-center justify-center text-xl mb-3">
-              ✨
-            </div>
-            <h3 className="font-bold text-[var(--color-foreground)] text-sm leading-tight mb-1.5 line-clamp-2">
-              {name}
-            </h3>
-            <p className="text-xs text-[var(--color-muted-foreground)]">
-              {count} guide{count !== 1 ? "s" : ""}
-            </p>
-            <div className="mt-3 flex items-center text-[var(--color-primary)] text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-              Explore <ArrowRight size={12} className="ml-1" />
-            </div>
-          </Link>
-        );
-      })}
-    </div>
+    <CategoryGridRealtime
+      initial={categories.map(([id, name]) => ({
+        id,
+        name,
+        count:       counts[id]?.count       ?? 0,
+        onlineCount: counts[id]?.onlineCount ?? 0,
+      }))}
+    />
   );
 }
 
-export default async function ServicesPage() {
+export default function ServicesPage() {
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
       <AIChatDiscovery />
-
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Sparkles size={18} className="text-[var(--color-primary)]" />
@@ -70,9 +58,9 @@ export default async function ServicesPage() {
           </h2>
         </div>
         <p className="text-sm text-[var(--color-muted-foreground)] mb-6">
-          From Vedic astrology to Islamic counseling, Buddhist meditation, Christian therapy, and modern wellness — 37 traditions, one platform.
+          37 traditions · verified guides · realtime counts
         </p>
-        <Suspense fallback={<SkeletonGrid count={8} />}>
+        <Suspense fallback={<SkeletonGrid count={12} />}>
           <CategoryGrid />
         </Suspense>
       </div>

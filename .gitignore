@@ -49,3 +49,8 @@ zeal_full_repository_dump.txt
 *.bak-*
 _archive/
 tsconfig.tsbuildinfo
+
+# Zeal tooling — never commit these
+.zeal-backup/
+.zeal-tmp-*/
+*.zeal-tmp-*

@@ -1,10 +1,13 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // ZEAL — AI Router (thin wrapper over unified callAI)
 // ═══════════════════════════════════════════════════════════════════════════════
-// Delegates everything to callAI which handles Agnes → Groq fallback.
+// Delegates everything to callAI which handles the provider fallback chain.
+//
+// NOTE: `callAI` returns `CallAIResult = { response, provider, attempts }`.
+// This module destructures `.response` before returning it to callers.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {callAI, type AIMessage} from "./index";
+import { callAI, type AIMessage } from "./index";
 
 export interface AIRequest {
   task:
@@ -38,18 +41,18 @@ export async function runAI(req: AIRequest): Promise<AIResponse> {
     { role: "user", content: req.userPrompt },
   ];
 
-  const res = await callAI({
+  const { response, provider } = await callAI({
     messages,
     stream: false,
     temperature: req.temperature,
     maxTokens: req.maxTokens,
   });
 
-  const data = await res.json();
+  const data = await response.json();
   return {
     content: data?.choices?.[0]?.message?.content ?? "",
     model: data?.model ?? "unknown",
-    provider: "agnes-or-groq",
+    provider: String(provider),
     cached: false,
   };
 }
@@ -58,13 +61,18 @@ export async function generateFaultTolerantStream(
   systemPrompt: string,
   userPrompt: string,
 ): Promise<Response> {
-  return callAI({
+  const { response } = await callAI({
     messages: [
-      { role: "system", content: systemPrompt, cache_control: { type: "ephemeral" } },
+      {
+        role: "system",
+        content: systemPrompt,
+        cache_control: { type: "ephemeral" },
+      },
       { role: "user", content: userPrompt },
     ],
     stream: true,
     temperature: 0.7,
     maxTokens: 1000,
   });
+  return response;
 }

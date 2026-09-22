@@ -33,6 +33,10 @@
     "./api-guard": {
       "types": "./src/api-guard.ts",
       "default": "./src/api-guard.ts"
+    },
+    "./fillers": {
+      "types": "./src/fillers.ts",
+      "default": "./src/fillers.ts"
     }
   },
   "dependencies": {

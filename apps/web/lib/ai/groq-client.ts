@@ -2,10 +2,13 @@
 // ZEAL — Groq Client (compat shim → routes through unified callAI)
 // ═══════════════════════════════════════════════════════════════════════════════
 // Kept for backward compatibility with older call sites. New code should use
-// `callAI` / `callAIJson` from `@/lib/ai`.
+// `callAI` / `callAIJson` from `@/lib/ai` directly.
+//
+// NOTE: `callAI` now returns `CallAIResult = { response, provider, attempts }`,
+// NOT a bare Response. This shim destructures `.response`.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {callAI, AIUnavailableError} from "./index";
+import { callAI, AIUnavailableError } from "./index";
 
 export interface GroqMessage {
   role: "system" | "user" | "assistant";
@@ -29,7 +32,7 @@ export interface GroqResult {
 }
 
 export async function callGroq(options: GroqOptions): Promise<GroqResult> {
-  const res = await callAI({
+  const { response } = await callAI({
     messages: options.messages,
     temperature: options.temperature,
     maxTokens: options.maxTokens,
@@ -37,7 +40,8 @@ export async function callGroq(options: GroqOptions): Promise<GroqResult> {
     preferProvider: "groqPro",
     maxRetriesPerProvider: options.maxRetries ?? 2,
   });
-  const data = await res.json();
+
+  const data = await response.json();
   const content = data?.choices?.[0]?.message?.content;
   if (!content) {
     throw new AIUnavailableError(
@@ -54,7 +58,7 @@ export async function callGroq(options: GroqOptions): Promise<GroqResult> {
 }
 
 export async function streamGroq(options: GroqOptions): Promise<Response> {
-  return callAI({
+  const { response } = await callAI({
     messages: options.messages,
     temperature: options.temperature,
     maxTokens: options.maxTokens,
@@ -62,4 +66,5 @@ export async function streamGroq(options: GroqOptions): Promise<Response> {
     preferProvider: "groqPro",
     maxRetriesPerProvider: options.maxRetries ?? 2,
   });
+  return response;
 }
