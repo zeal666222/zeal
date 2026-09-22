@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {useCallback, useEffect, useRef, useState} from "react";
+import { getCachedMessages } from "@/lib/chat/offline-store";
 import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 
 export interface ChatMessage {
@@ -67,6 +68,19 @@ export function useChat({
         const list = data.messages ?? [];
         list.forEach((m) => seenIds.current.add(m.id));
         setMessages(list);
+
+        // ─── IndexedDB write-through ─────────────────────────────────────
+        // Persist every server-originated load so cold-open is instant.
+        void (async () => {
+          try {
+            const { cacheConversation } = await import("@/lib/chat/offline-store");
+            await cacheConversation(
+              conversationId,
+              list as never,
+              { partnerId: "", partnerName: "", partnerAvatar: null, isAI: false },
+            );
+          } catch { /* cache failure is non-fatal */ }
+        })();
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load");

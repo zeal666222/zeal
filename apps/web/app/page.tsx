@@ -24,7 +24,7 @@ async function fetchHomeData() {
       .eq("status", "VERIFIED")
       .eq("isActive", true)
       .order("sparkScore", { ascending: false })
-      .limit(8),
+      .limit(12),
     admin
       .from("Post")
       .select(`

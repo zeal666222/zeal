@@ -204,7 +204,13 @@ export function HomeClient({ aiConsultants, experts, posts: initialPosts }: Prop
                     <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider mt-0.5 truncate">
                       {ex.category.toLowerCase().replace(/_/g, " ")}
                     </p>
-                    <div className="flex items-center justify-center gap-3 mt-3 text-xs">
+                    
+              <span className={`inline-block mt-2 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                online ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-500/15 text-slate-400"
+              }`}>
+                {online ? "● Online" : "○ Offline"}
+              </span>
+<div className="flex items-center justify-center gap-3 mt-3 text-xs">
                       <span className="flex items-center gap-1 text-amber-500">
                         <Star size={11} className="fill-amber-500" /> {ex.rating.toFixed(1)}
                       </span>

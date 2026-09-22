@@ -30,7 +30,7 @@ interface ConsultantRow {
 
 function evaluateCompleteness(c: ConsultantRow): number {
   let s = 0;
-  if ((c.bio ?? "").trim().length >= 20) s += 25;
+  if ((c.bio ?? "").trim().length >= 20) s += 30;
   if ((c.perMinuteRate ?? 0) >= 10) s += 15;
   if ((c.specialties ?? []).length >= 1) s += 15;
   if ((c.languages ?? []).length >= 1) s += 10;
@@ -38,7 +38,7 @@ function evaluateCompleteness(c: ConsultantRow): number {
   const av = c.availability;
   if (av && typeof av === "object" && Object.values(av).some(
     (b: unknown) => Array.isArray(b) && b.length > 0,
-  )) s += 30;
+  )) s += 25;
   return s;
 }
 

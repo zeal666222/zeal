@@ -444,7 +444,7 @@ export function evaluateConsultantProfile(c: any): CompletenessReport {
     {
       id: "bio",
       label: "Professional bio (20+ chars)",
-      weight: 25,
+      weight: 30,
       passed: bioOk,
       actionHref: "/consultant/settings",
     },
@@ -465,7 +465,7 @@ export function evaluateConsultantProfile(c: any): CompletenessReport {
     {
       id: "availability",
       label: "Weekly availability set",
-      weight: 20,
+      weight: 25,
       passed: avOk,
       actionHref: "/consultant/availability",
     },
