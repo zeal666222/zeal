@@ -19,11 +19,11 @@ export const POST = withErrorHandler(async (_req: Request, { params }: { params:
     .from("Booking")
     .select(`
       id, status, userId, consultantId, amount,
-      consultant:Consultant!Booking_consultantId_fkey(
+      consultant:Consultant!consultantId(
         id, userId,
-        user:User!Consultant_userId_fkey(id, name)
+        user:User!userId(id, name)
       ),
-      user:User!Booking_userId_fkey(id, name)
+      user:User!userId(id, name)
     `)
     .eq("id", id)
     .maybeSingle();
@@ -50,10 +50,10 @@ export const POST = withErrorHandler(async (_req: Request, { params }: { params:
     .eq("id", id)
     .select(`
       *,
-      consultant:Consultant!Booking_consultantId_fkey(
-        *, user:User!Consultant_userId_fkey(*)
+      consultant:Consultant!consultantId(
+        *, user:User!userId(*)
       ),
-      user:User!Booking_userId_fkey(*)
+      user:User!userId(*)
     `)
     .single();
 

@@ -22,10 +22,10 @@ export const GET = withErrorHandler(
       .from("Booking")
       .select(`
         *,
-        user:User!Booking_userId_fkey(id, name, username, avatar, email),
-        consultant:Consultant!Booking_consultantId_fkey(
+        user:User!userId(id, name, username, avatar, email),
+        consultant:Consultant!consultantId(
           id, category, perMinuteRate,
-          user:User!Consultant_userId_fkey(id, name, username, avatar)
+          user:User!userId(id, name, username, avatar)
         )
       `)
       .eq("id", id)

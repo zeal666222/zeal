@@ -13,7 +13,7 @@ export async function GET() {
     .select(`
       id, category, specialties, bio, "perMinuteRate", status, "createdAt",
       "verificationDocs",
-      user:User!Consultant_userId_fkey(id, name, email, username, avatar)
+      user:User!userId(id, name, email, username, avatar)
     `)
     .eq("status", "PENDING")
     .order("createdAt", {ascending: true});

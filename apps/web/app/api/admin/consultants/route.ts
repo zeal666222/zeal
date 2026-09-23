@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     .select(`
       id, category, specialties, languages, perMinuteRate, rating,
       status, isActive, isVerified, subdomain, subdomainActive, createdAt,
-      user:User!Consultant_userId_fkey(id, name, email, username, avatar)
+      user:User!userId(id, name, email, username, avatar)
     `, { count: "exact" })
     .order("createdAt", { ascending: false })
     .range(from, from + limit - 1);

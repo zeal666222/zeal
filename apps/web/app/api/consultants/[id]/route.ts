@@ -86,7 +86,7 @@ export async function GET(
       .select(
         `id, category, "perMinuteRate", rating, "totalConsultations", "sparkScore",
          specialties, languages, bio,
-         user:User!Consultant_userId_fkey(id, name, username, avatar, is_online)`,
+         user:User!userId(id, name, username, avatar, is_online)`,
       )
       .eq("id", id)
       .maybeSingle();

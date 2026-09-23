@@ -25,7 +25,7 @@ export default async function WhiteLabelBookPage({params}: Props) {
     .from("Consultant")
     .select(`
       "subdomainActive",
-      user:User!Consultant_userId_fkey(name, username)
+      user:User!userId(name, username)
     `)
     .eq("subdomain", subdomain)
     .eq("subdomainActive", true)

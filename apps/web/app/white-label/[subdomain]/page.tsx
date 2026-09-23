@@ -28,7 +28,7 @@ export default async function WhiteLabelHomePage({params}: Props) {
     .from("Consultant")
     .select(`
       bio, "chatRate", "audioRate", "videoRate", "subdomainActive",
-      user:User!Consultant_userId_fkey(name, username)
+      user:User!userId(name, username)
     `)
     .eq("subdomain", subdomain)
     .eq("subdomainActive", true)

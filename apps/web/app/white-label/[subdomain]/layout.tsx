@@ -53,7 +53,7 @@ export default async function WhiteLabelLayout({children, params}: Props) {
     .from("Consultant")
     .select(`
       theme, "subdomainActive",
-      user:User!Consultant_userId_fkey(id, name, username, avatar)
+      user:User!userId(id, name, username, avatar)
     `)
     .eq("subdomain", subdomain)
     .eq("subdomainActive", true)

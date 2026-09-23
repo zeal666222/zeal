@@ -11,7 +11,7 @@ export async function GET(_req: Request, {params}: {params: Promise<{id: string}
 
   const {data: consultant} = await admin
     .from("Consultant")
-    .select(`*, user:User!Consultant_userId_fkey(id, name, email, avatar)`)
+    .select(`*, user:User!userId(id, name, email, avatar)`)
     .eq("id", id)
     .maybeSingle();
 

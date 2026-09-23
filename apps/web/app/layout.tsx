@@ -69,7 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   if (user) {
     const { data } = await supabase
       .from("User")
-      .select("id, role, name, avatar, wallet:Wallet!Wallet_userId_fkey(balance)")
+      .select("id, role, name, avatar, wallet:Wallet!userId(balance)")
       .eq("id", user.id)
       .maybeSingle();
 

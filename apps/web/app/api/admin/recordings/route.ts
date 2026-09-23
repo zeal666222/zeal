@@ -13,9 +13,9 @@ export async function GET() {
     .from("CallSession")
     .select(`
       id, startTime, endTime, durationSeconds, recordingUrl, recordingReady, createdAt,
-      booking:Booking!CallSession_bookingId_fkey(
-        consultant:Consultant!Booking_consultantId_fkey(
-          user:User!Consultant_userId_fkey(name, username)
+      booking:Booking!bookingId(
+        consultant:Consultant!consultantId(
+          user:User!userId(name, username)
         )
       )
     `)

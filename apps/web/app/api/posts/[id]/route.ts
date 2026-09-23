@@ -12,7 +12,7 @@ export const GET = withErrorHandler(async (_req: Request, { params }: { params: 
     .from("Post")
     .select(`
       id, content, mediaUrls, cheerCount, commentCount, shareCount, createdAt,
-      author:User!Post_authorId_fkey(id, username, name, avatar)
+      author:User!authorId(id, username, name, avatar)
     `)
     .eq("id", id)
     .maybeSingle();

@@ -30,7 +30,7 @@ export async function getExploreFeed() {
 
   const {data: posts, error: postError} = await supabase
     .from("Post")
-    .select('id, content, "mediaUrls", "createdAt", "authorId", author:User!Post_authorId_fkey(name, avatar)')
+    .select('id, content, "mediaUrls", "createdAt", "authorId", author:User!authorId(name, avatar)')
     .eq("isFlagged", false)
     .order("createdAt", {ascending: false})
     .limit(20);

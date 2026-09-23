@@ -1,6 +1,16 @@
 "use client";
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AnimatedZealMark
+// ═══════════════════════════════════════════════════════════════════════════════
+// Path morphing is done with NATIVE SVG <animate> (SMIL) — not Framer Motion.
+// Framer Motion's `animate={{ d: [...] }}` interpolation is unreliable across
+// browsers and can emit `d="undefined"` when command sequences don't align.
+// Native SMIL is deterministic, GPU-composited, and requires no JS at runtime.
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { useId } from "react";
-import { m } from "framer-motion";
+import { m, useReducedMotion } from "framer-motion";
 import { cn } from "./utils";
 
 interface Props {
@@ -11,18 +21,18 @@ interface Props {
   variant?: "brand" | "mono";
 }
 
-const PATHS = {
-  z:        "M 8 10 L 40 10 L 8 38 L 40 38",
-  triangle: "M 24 8 L 40 34 L 8 34 L 40 34",
-  diamond:  "M 24 8 L 40 24 L 24 40 L 8 24",
-  square:   "M 8 8 L 40 8 L 40 40 L 8 40",
-} as const;
+// All paths are valid "M … L …" strings with equal command counts so SMIL
+// can morph between them without interpolation artifacts.
+const Z        = "M 8 10 L 40 10 L 8 38 L 40 38";
+const TRIANGLE = "M 24 8 L 40 34 L 8 34 L 40 34";
+const DIAMOND  = "M 24 8 L 40 24 L 24 40 L 8 24";
+const SQUARE   = "M 8 8 L 40 8 L 40 40 L 8 40";
 
-const SEQUENCE = [PATHS.z, PATHS.triangle, PATHS.diamond, PATHS.square, PATHS.z];
+const SEQUENCE_VALUES = `${Z}; ${TRIANGLE}; ${DIAMOND}; ${SQUARE}; ${Z}`;
 
 function safePath(d: string | undefined | null): string {
-  if (typeof d !== "string" || d.length === 0) return PATHS.z;
-  if (!/^[Mm]/.test(d.trim())) return PATHS.z;
+  if (typeof d !== "string" || d.length === 0) return Z;
+  if (!/^[Mm]/.test(d.trim())) return Z;
   return d;
 }
 
@@ -36,27 +46,35 @@ export function AnimatedZealMark({
   const raw = useId();
   const safe = raw.replace(/:/g, "");
   const gradientId = `zeal-mark-grad-${safe}`;
-  const glowId = `zeal-mark-glow-${safe}`;
+  const filterId   = `zeal-mark-glow-${safe}`;
   const stroke = variant === "brand" ? `url(#${gradientId})` : "currentColor";
-  const d0 = safePath(PATHS.z);
+  const d0 = safePath(Z);
+
+  const prefersReduced = useReducedMotion();
+  const shouldAnimate = animate && !prefersReduced;
 
   return (
     <span
       className={cn("relative inline-flex items-center justify-center", className)}
       style={{ width: size, height: size }}
       aria-label="Zeal"
+      role="img"
     >
       {glow && (
         <m.span
           aria-hidden
-          className="absolute inset-0 rounded-full pointer-events-none"
+          className="pointer-events-none absolute inset-0 rounded-full"
           style={{
             background:
               variant === "brand"
                 ? "radial-gradient(circle, rgba(157,125,197,0.5) 0%, rgba(83,58,253,0) 70%)"
                 : "radial-gradient(circle, currentColor 0%, transparent 70%)",
           }}
-          animate={animate ? { scale: [1, 1.4, 1], opacity: [0.5, 0.9, 0.5] } : undefined}
+          animate={
+            shouldAnimate
+              ? { scale: [1, 1.4, 1], opacity: [0.5, 0.9, 0.5] }
+              : undefined
+          }
           transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
         />
       )}
@@ -75,7 +93,7 @@ export function AnimatedZealMark({
             <stop offset="50%"  stopColor="#7A5A9E" />
             <stop offset="100%" stopColor="#533AFD" />
           </linearGradient>
-          <filter id={glowId} x="-50%" y="-50%" width="200%" height="200%">
+          <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="1.4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -84,32 +102,26 @@ export function AnimatedZealMark({
           </filter>
         </defs>
 
-        {animate ? (
-          <m.path
-            d={d0}
-            stroke={stroke}
-            strokeWidth={5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            filter={`url(#${glowId})`}
-            animate={{ d: SEQUENCE }}
-            transition={{
-              duration: 12,
-              repeat: Infinity,
-              times: [0, 0.25, 0.5, 0.75, 1],
-              ease: "easeInOut",
-            }}
-          />
-        ) : (
-          <path
-            d={d0}
-            stroke={stroke}
-            strokeWidth={5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            filter={`url(#${glowId})`}
-          />
-        )}
+        <path
+          d={d0}
+          stroke={stroke}
+          strokeWidth={5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter={`url(#${filterId})`}
+        >
+          {shouldAnimate && (
+            <animate
+              attributeName="d"
+              dur="12s"
+              repeatCount="indefinite"
+              values={SEQUENCE_VALUES}
+              keyTimes="0; 0.25; 0.5; 0.75; 1"
+              calcMode="spline"
+              keySplines="0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1"
+            />
+          )}
+        </path>
       </svg>
     </span>
   );

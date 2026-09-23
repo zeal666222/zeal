@@ -19,7 +19,7 @@ export const GET = withErrorHandler(async (req: Request) => {
       .from("Consultant")
       .select(`
         id, specialties, isActive,
-        user:User!Consultant_userId_fkey(id, name, username, avatar)
+        user:User!userId(id, name, username, avatar)
       `)
       .eq("isActive", true)
       .or(`specialties.cs.{${q}}`)
@@ -53,7 +53,7 @@ export const GET = withErrorHandler(async (req: Request) => {
       .from("Post")
       .select(`
         id, content,
-        author:User!Post_authorId_fkey(id, username, name, avatar)
+        author:User!authorId(id, username, name, avatar)
       `)
       .ilike("content", `%${q}%`)
       .limit(5);

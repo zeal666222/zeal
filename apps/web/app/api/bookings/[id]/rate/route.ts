@@ -28,8 +28,8 @@ export const POST = withErrorHandler(
       .from("Booking")
       .select(`
         id, status, userId, consultantId,
-        consultant:Consultant!Booking_consultantId_fkey(
-          id, userId, user:User!Consultant_userId_fkey(id, name)
+        consultant:Consultant!consultantId(
+          id, userId, user:User!userId(id, name)
         )
       `)
       .eq("id", id)

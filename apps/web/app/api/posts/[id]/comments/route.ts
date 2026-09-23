@@ -19,7 +19,7 @@ export const GET = withErrorHandler(async (_req: Request, { params }: { params: 
     .from("Comment")
     .select(`
       id, content, parentId, createdAt,
-      author:User!Comment_authorId_fkey(id, username, name, avatar)
+      author:User!authorId(id, username, name, avatar)
     `)
     .eq("postId", postId)
     .order("createdAt", { ascending: false })
@@ -47,7 +47,7 @@ export const POST = withErrorHandler(async (req: Request, { params }: { params: 
     .insert({ content, postId, authorId: userId, parentId: parentId || null })
     .select(`
       id, content, parentId, createdAt,
-      author:User!Comment_authorId_fkey(id, username, name, avatar)
+      author:User!authorId(id, username, name, avatar)
     `)
     .single();
 

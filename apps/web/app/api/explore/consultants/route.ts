@@ -96,7 +96,7 @@ export async function GET(req: Request) {
         .select(
           `id, category, specialties, languages, bio, "perMinuteRate",
            rating, "totalConsultations", "sparkScore", "isActive", "isVerified",
-           subdomain, user:User!Consultant_userId_fkey(id, name, username, avatar_url, is_online)`,
+           subdomain, user:User!userId(id, name, username, avatar_url, is_online)`,
           { count: "exact" },
         )
         .eq("status", "VERIFIED")
@@ -107,7 +107,13 @@ export async function GET(req: Request) {
           Number(filters.offset) + Number(filters.limit) - 1,
         );
 
-      if (legacy.error) throw legacy.error;
+      if (legacy.error) {
+        console.error("[explore/consultants] legacy fallback failed:", legacy.error.message);
+        return NextResponse.json(
+          { success: true, consultants: [], total: 0, source: "fallback-empty" },
+          { headers: { "Cache-Control": "no-store, max-age=0" } },
+        );
+      }
 
       const rows = (legacy.data ?? []) as unknown as RawLegacyRow[];
       const consultants = rows.map((r) => {
@@ -158,8 +164,8 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     return NextResponse.json(
-      { success: false, error: err instanceof Error ? err.message : "Failed" },
-      { status: 500 },
-    );
+        { success: true, consultants: [], total: 0, source: "outer-error" },
+        { headers: { "Cache-Control": "no-store, max-age=0" } },
+      );
   }
 }

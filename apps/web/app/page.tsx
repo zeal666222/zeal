@@ -22,7 +22,7 @@ async function fetchHomeData() {
         .select(`
           id, category, rating, "sparkScore", "perMinuteRate", specialties,
           languages, "totalConsultations",
-          user:User!Consultant_userId_fkey(id, name, username, avatar, is_online)
+          user:User!userId(id, name, username, avatar, is_online)
         `)
         .eq("status", "VERIFIED")
         .eq("isActive", true)
@@ -32,7 +32,7 @@ async function fetchHomeData() {
         .from("Post")
         .select(`
           id, content, "mediaUrls", "cheerCount", "commentCount", "createdAt",
-          author:User!Post_authorId_fkey(id, name, username, avatar)
+          author:User!authorId(id, name, username, avatar)
         `)
         .eq("isFlagged", false)
         .order("createdAt", { ascending: false })

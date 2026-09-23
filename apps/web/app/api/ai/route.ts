@@ -24,6 +24,17 @@ import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// ─── Error taxonomy ─────────────────────────────────────────────────────────
+// Handlers throw ValidationError for caller mistakes (bad input, short
+// query, missing fields). The top-level catch maps it to 400. Any other
+// Error is treated as infrastructure failure and returned as 500.
+class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
 // ─── Task type ──────────────────────────────────────────────────────────────
 type TaskName =
   | "search"
@@ -47,7 +58,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   // ─── SEARCH ─────────────────────────────────────────────────────────────
   search: async ({ body }) => {
     const query = String(body?.query ?? "").trim();
-    if (query.length < 3) throw new Error("Query too short");
+    if (query.length < 3) throw new ValidationError("Query too short");
 
     const categoryIds = Object.keys(CATEGORY_ID_TO_NAME);
     const catList = categoryIds
@@ -92,7 +103,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
           .select(`
             id, category, specialties, "perMinuteRate", rating, "sparkScore",
             "isActive", subdomain,
-            user:User!Consultant_userId_fkey(id, name, username, avatar, is_online)
+            user:User!userId(id, name, username, avatar, is_online)
           `)
           .eq("category", prismaCategory)
           .eq("status", "VERIFIED")
@@ -119,7 +130,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   // ─── HOROSCOPE ──────────────────────────────────────────────────────────
   horoscope: async ({ body }) => {
     const sign = String(body?.sign ?? "").trim();
-    if (!sign) throw new Error("Sign required");
+    if (!sign) throw new ValidationError("Sign required");
     const today = new Date().toISOString().slice(0, 10);
 
     const { value, cached } = await withAICache(
@@ -154,7 +165,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
     const cards: string[] = Array.isArray(body?.cards)
       ? (body.cards as string[])
       : [];
-    if (cards.length !== 3) throw new Error("Exactly 3 cards required");
+    if (cards.length !== 3) throw new ValidationError("Exactly 3 cards required");
 
     const { value, cached } = await withAICache(
       "tarot",
@@ -187,7 +198,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   numerology: async ({ body }) => {
     const fullName = String(body?.fullName ?? "").trim();
     const dob = String(body?.dob ?? "").trim();
-    if (!fullName || !dob) throw new Error("Name and DOB required");
+    if (!fullName || !dob) throw new ValidationError("Name and DOB required");
 
     const { value, cached } = await withAICache(
       "numerology",
@@ -219,7 +230,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   // ─── CHAT (non-streaming fallback) ──────────────────────────────────────
   chat: async ({ body }) => {
     const prompt = String(body?.prompt ?? "").trim();
-    if (!prompt) throw new Error("Prompt required");
+    if (!prompt) throw new ValidationError("Prompt required");
 
     const reply = await callAIJson({
       messages: [
@@ -240,7 +251,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   // ─── ASSIST (consultant reply suggestions) ──────────────────────────────
   assist: async ({ body }) => {
     const query = String(body?.query ?? "").trim();
-    if (!query) throw new Error("Query required");
+    if (!query) throw new ValidationError("Query required");
 
     const raw = await callAIJson({
       messages: [
@@ -277,7 +288,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   // ─── CONCIERGE (Phase 2) ────────────────────────────────────────────────
   concierge: async ({ body }) => {
     const query = String(body?.query ?? "").trim();
-    if (query.length < 3) throw new Error("Query too short");
+    if (query.length < 3) throw new ValidationError("Query too short");
 
     // 1. Cached directory (search_consultants MV)
     const { value: directory } = await withAICache(
@@ -497,8 +508,17 @@ export async function POST(req: Request) {
       { headers: rl.headers },
     );
   } catch (err) {
+    if (err instanceof ValidationError) {
+      return NextResponse.json(
+        { error: err.message, code: "VALIDATION" },
+        { status: 400 },
+      );
+    }
     const message = err instanceof Error ? err.message : "AI request failed";
     console.error(`[ai/${taskForLog}]`, message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: message, code: "INTERNAL" },
+      { status: 500 },
+    );
   }
 }

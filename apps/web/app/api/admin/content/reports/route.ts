@@ -10,7 +10,7 @@ export async function GET() {
 
   const {data, error} = await admin
     .from("Post")
-    .select('id, content, "mediaUrls", "createdAt", author:User!Post_authorId_fkey(id, name, username, avatar)')
+    .select('id, content, "mediaUrls", "createdAt", author:User!authorId(id, name, username, avatar)')
     .eq("isFlagged", true)
     .order("createdAt", {ascending: false})
     .limit(200);

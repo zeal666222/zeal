@@ -38,7 +38,7 @@ export async function GET() {
       ? admin.from("User").select("id, name, username").in("id", userIds)
       : Promise.resolve({ data: [] }),
     consultantIds.length
-      ? admin.from("Consultant").select("id, perMinuteRate, user:User!Consultant_userId_fkey(name)").in("id", consultantIds)
+      ? admin.from("Consultant").select("id, perMinuteRate, user:User!userId(name)").in("id", consultantIds)
       : Promise.resolve({ data: [] }),
     aiIds.length
       ? admin.from("AIConsultant").select('id, name, "perMinuteRate"').in("id", aiIds)

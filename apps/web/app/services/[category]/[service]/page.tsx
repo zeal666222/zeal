@@ -80,7 +80,7 @@ export default async function ServicePage({ params }: PageProps) {
     .select(`
       id, category, specialties, languages, bio, "perMinuteRate", rating,
       "totalConsultations", "sparkScore", "isActive", "isVerified", subdomain,
-      user:User!Consultant_userId_fkey(id, name, username, avatar, is_online)
+      user:User!userId(id, name, username, avatar, is_online)
     `)
     .eq("category", def.category)
     .eq("status", "VERIFIED")

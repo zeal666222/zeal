@@ -69,7 +69,7 @@ export async function generateMetadata({ params }: PageProps) {
   const admin = createAdminClient();
   const { data } = await admin
     .from("Consultant")
-    .select("user:User!Consultant_userId_fkey(name, username)")
+    .select("user:User!userId(name, username)")
     .eq("id", id)
     .maybeSingle();
 
@@ -89,7 +89,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
     .select(`
       id, "userId", category, specialties, languages, bio, "perMinuteRate",
       rating, "totalConsultations", "sparkScore", "isVerified", status, subdomain,
-      user:User!Consultant_userId_fkey(id, name, username, avatar, is_online)
+      user:User!userId(id, name, username, avatar, is_online)
     `)
     .eq("id", id)
     .eq("status", "VERIFIED")
@@ -112,7 +112,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
       .limit(30),
     admin
       .from("Booking")
-      .select('rating, review, "updatedAt", user:User!Booking_userId_fkey(name, avatar)')
+      .select('rating, review, "updatedAt", user:User!userId(name, avatar)')
       .eq("consultantId", profileRow.id)
       .eq("status", "COMPLETED")
       .not("rating", "is", null)

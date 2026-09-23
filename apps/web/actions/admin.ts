@@ -37,7 +37,7 @@ export async function getAdminMetrics() {
       supabase.from("User").select("*", {count: "exact", head: true}),
       supabase.from("Consultant").select("*", {count: "exact", head: true}).eq("status", "PENDING"),
       supabase.from("Consultant")
-        .select(`id, category, status, bio, "createdAt", user:User!Consultant_userId_fkey(id, name, email, avatar)`)
+        .select(`id, category, status, bio, "createdAt", user:User!userId(id, name, email, avatar)`)
         .order("createdAt", {ascending: false}).limit(100),
       supabase.from("AdminAuditLog").select("*").order("createdAt", {ascending: false}).limit(20),
     ]);

@@ -12,8 +12,8 @@ export async function GET() {
     .from("Booking")
     .select(`
       id, "scheduledAt", "durationMinutes", status, amount,
-      consultant:Consultant!Booking_consultantId_fkey(
-        user:User!Consultant_userId_fkey(name, username, avatar)
+      consultant:Consultant!consultantId(
+        user:User!userId(name, username, avatar)
       )
     `)
     .eq("userId", user.id)

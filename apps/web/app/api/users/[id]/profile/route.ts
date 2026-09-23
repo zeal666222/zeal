@@ -24,7 +24,7 @@ export const GET = withErrorHandler(
       .from("User")
       .select(`
         id, username, name, avatar, sparks, isVerified, role,
-        consultant:Consultant!Consultant_userId_fkey(
+        consultant:Consultant!userId(
           id, category, specialties, languages, bio, perMinuteRate,
           rating, totalConsultations, isActive, isVerified, subdomain
         )

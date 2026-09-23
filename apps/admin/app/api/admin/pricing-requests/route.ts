@@ -15,11 +15,11 @@ export async function GET(req: Request) {
     .from("PricingChangeRequest")
     .select(`
       *,
-      consultant:Consultant!PricingChangeRequest_consultantId_fkey(
+      consultant:Consultant!consultantId(
         id, category, "perMinuteRate", "chatRate", "audioRate", "videoRate",
-        user:User!Consultant_userId_fkey(id, name, email, avatar_url)
+        user:User!userId(id, name, email, avatar_url)
       ),
-      requester:User!PricingChangeRequest_requestedBy_fkey(id, name, email)
+      requester:User!requestedBy(id, name, email)
     `)
     .eq("status", status)
     .order("createdAt", { ascending: false })

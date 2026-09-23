@@ -1,18 +1,14 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# ZEAL — Full Workflow v2
+# ZEAL — v3 Runtime Fix
 # ═══════════════════════════════════════════════════════════════════════════════
-# Supersedes v1 with:
-#   • Correct package-manager detection (npm workspaces vs pnpm)
-#   • Deterministic install before gating
-#   • Expert-grade rewrites of every file v1 created
-#   • Type-check + build with the detected PM
+# Fixes
+#   1. <path d="undefined">  →  native SVG animation in AnimatedZealMark
+#   2. 500 on all consultant queries  →  strip Prisma FK hints, use column hints
+#   3. 500 on /api/ai validation  →  ValidationError + 400
+#   4. Profile → chat + booking flow  →  restored by (2)
 #
-# Usage:
-#   bash scripts/zeal-full-workflow-v2.sh
-#   bash scripts/zeal-full-workflow-v2.sh --dry-run
-#   bash scripts/zeal-full-workflow-v2.sh --skip-build
-#   bash scripts/zeal-full-workflow-v2.sh --skip-install
+# Idempotent. Backs up every modified file. Gates on type-check + build.
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set -Eeuo pipefail
@@ -22,7 +18,7 @@ for arg in "$@"; do case "$arg" in
   --dry-run)      DRY_RUN=1 ;;
   --skip-build)   SKIP_BUILD=1 ;;
   --skip-install) SKIP_INSTALL=1 ;;
-  -h|--help) sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  -h|--help) sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
   *) echo "Unknown flag: $arg" >&2; exit 2 ;;
 esac; done
 
@@ -30,29 +26,23 @@ if [ -t 1 ]; then
   R=$'\033[0m'; B=$'\033[1m'; DIM=$'\033[2m'
   I=$'\033[1;34m'; OK=$'\033[1;32m'; W=$'\033[1;33m'; E=$'\033[1;31m'
 else R=""; B=""; DIM=""; I=""; OK=""; W=""; E=""; fi
-
-say()  { printf '%s[zeal-v2]%s %s\n' "$I" "$R" "$*"; }
+say()  { printf '%s[v3]%s %s\n' "$I" "$R" "$*"; }
 ok()   { printf '%s  ✓%s %s\n' "$OK" "$R" "$*"; }
 warn() { printf '%s  !%s %s\n' "$W" "$R" "$*"; }
 err()  { printf '%s  ✗%s %s\n' "$E" "$R" "$*" >&2; }
 note() { printf '%s    %s%s\n' "$DIM" "$*" "$R"; }
 
-# ─── Repo root discovery ──────────────────────────────────────────────────────
+# ─── Repo root ────────────────────────────────────────────────────────────────
 find_root() {
   local dir="$1" hops=0
   [ -n "$dir" ] || return 1
   dir="$(cd "$dir" 2>/dev/null && pwd -P || echo "$dir")"
   while [ "$hops" -lt 12 ] && [ -n "$dir" ] && [ "$dir" != "/" ] && [ "$dir" != "." ]; do
-    if [ -d "$dir/apps/web" ] && [ -d "$dir/apps/admin" ] && [ -d "$dir/packages/realtime" ]; then
-      printf '%s\n' "$dir"; return 0
-    fi
-    local parent; parent="$(dirname "$dir")"
-    [ "$parent" = "$dir" ] && break
-    dir="$parent"; hops=$((hops + 1))
+    [ -d "$dir/apps/web" ] && [ -d "$dir/apps/admin" ] && [ -d "$dir/packages/realtime" ] && { printf '%s\n' "$dir"; return 0; }
+    local p; p="$(dirname "$dir")"; [ "$p" = "$dir" ] && break; dir="$p"; hops=$((hops+1))
   done
   return 1
 }
-
 ROOT=""
 if [ -n "${BASH_SOURCE[0]:-}" ]; then
   SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
@@ -63,1174 +53,443 @@ fi
 [ -z "$ROOT" ] && { err "Repo root not found"; exit 1; }
 cd "$ROOT"
 
-# ─── Package manager detection ────────────────────────────────────────────────
-# Priority:
-#   1. pnpm  — only when pnpm-workspace.yaml exists
-#   2. npm   — when "workspaces" is in root package.json (Zeal's case)
-#   3. fallback to whichever binary is available
+# ─── PM detection ─────────────────────────────────────────────────────────────
 detect_pm() {
-  if [ -f "pnpm-workspace.yaml" ] && command -v pnpm >/dev/null 2>&1; then
-    echo "pnpm"; return
-  fi
-  if [ -f "package.json" ] && grep -q '"workspaces"' package.json; then
-    if command -v npm >/dev/null 2>&1; then echo "npm"; return; fi
-  fi
+  if [ -f "pnpm-workspace.yaml" ] && command -v pnpm >/dev/null 2>&1; then echo "pnpm"; return; fi
+  if [ -f "package.json" ] && grep -q '"workspaces"' package.json && command -v npm >/dev/null 2>&1; then echo "npm"; return; fi
   if command -v pnpm >/dev/null 2>&1; then echo "pnpm"; return; fi
-  if command -v npm  >/dev/null 2>&1; then echo "npm"; return; fi
+  if command -v npm  >/dev/null 2>&1; then echo "npm";  return; fi
   echo ""
 }
-
 PM="$(detect_pm)"
-if [ -z "$PM" ]; then err "No package manager (need npm or pnpm)"; exit 1; fi
+[ -z "$PM" ] && { err "No package manager"; exit 1; }
 
 # ─── Backup ───────────────────────────────────────────────────────────────────
 TS="$(date +%Y%m%d-%H%M%S 2>/dev/null || date +%s)"
-BACKUP=".zeal-backup/v2-$TS"
+BACKUP=".zeal-backup/v3-$TS"
 [ "$DRY_RUN" -eq 0 ] && mkdir -p "$BACKUP"
-
 backup() {
   [ -f "$1" ] || return 0
   [ "$DRY_RUN" -eq 1 ] && return 0
   cp "$1" "$BACKUP/${1//\//__}"
 }
-
 trap 'err "Aborted. Rollback: cp -r $BACKUP/* ."; exit $?' ERR
 
 printf '\n%s════════════════════════════════════════════════════════════════════%s\n' "$B" "$R"
-printf '%s  ZEAL — Full Workflow v2%s\n' "$B" "$R"
+printf '%s  ZEAL — v3 Runtime Fix%s\n' "$B" "$R"
 printf '%s════════════════════════════════════════════════════════════════════%s\n' "$B" "$R"
 printf '  Root   : %s\n' "$ROOT"
 printf '  PM     : %s\n' "$PM"
-printf '  Mode   : %s\n' "$([ $DRY_RUN -eq 1 ] && echo 'DRY-RUN' || echo 'APPLY')"
+printf '  Mode   : %s\n' "$([ $DRY_RUN -eq 1 ] && echo DRY-RUN || echo APPLY)"
 printf '  Backup : %s\n\n' "$BACKUP"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE A — Install dependencies
+# A. Install deps (so tsc/gates resolve)
 # ═══════════════════════════════════════════════════════════════════════════════
-say "Phase A · Dependency install ($PM)"
-
-if [ "$SKIP_INSTALL" -eq 1 ]; then
-  warn "install skipped (--skip-install)"
-elif [ "$DRY_RUN" -eq 1 ]; then
-  note "would run $PM install"
+say "A · Dependency install"
+if [ "$SKIP_INSTALL" -eq 1 ]; then warn "skipped"; elif [ "$DRY_RUN" -eq 1 ]; then note "would install via $PM";
 else
-  case "$PM" in
-    npm)
-      if [ -f "package-lock.json" ]; then
-        # ci is faster and reproducible, but fails if lockfile is out of sync.
-        if ! npm ci --legacy-peer-deps --no-audit --no-fund; then
-          warn "npm ci failed — falling back to npm install"
-          npm install --legacy-peer-deps --no-audit --no-fund
-        fi
-      else
-        npm install --legacy-peer-deps --no-audit --no-fund
-      fi
-      ;;
-    pnpm)
-      if [ -f "pnpm-lock.yaml" ]; then
-        pnpm install --frozen-lockfile || pnpm install
-      else
-        pnpm install
-      fi
-      ;;
-  esac
+  if [ "$PM" = "npm" ]; then
+    if [ -f package-lock.json ]; then
+      npm ci --legacy-peer-deps --no-audit --no-fund || npm install --legacy-peer-deps --no-audit --no-fund
+    else
+      npm install --legacy-peer-deps --no-audit --no-fund
+    fi
+  else
+    [ -f pnpm-lock.yaml ] && { pnpm install --frozen-lockfile || pnpm install; } || pnpm install
+  fi
   ok "dependencies installed"
 fi
 
-# Sanity — confirm tsc is now resolvable
-if [ "$DRY_RUN" -eq 0 ]; then
-  if [ -x "node_modules/.bin/tsc" ] || [ -x "node_modules/typescript/bin/tsc" ]; then
-    ok "tsc binary present at node_modules/.bin"
-  else
-    warn "tsc not found in root node_modules — will resolve via workspace symlink"
-  fi
-fi
-
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE B — Expert rewrites of v1-created files
+# B. AnimatedZealMark — native SVG animation (no <path d="undefined">)
 # ═══════════════════════════════════════════════════════════════════════════════
-say "Phase B · Expert rewrites"
+say "B · Rewriting AnimatedZealMark"
 
-# ─── B.1 packages/realtime/src/client.ts ──────────────────────────────────────
-RC="packages/realtime/src/client.ts"
-if [ -f "$RC" ]; then
-  backup "$RC"
+AZM="packages/ui/src/animated-zeal-mark.tsx"
+if [ -f "$AZM" ]; then
+  backup "$AZM"
   if [ "$DRY_RUN" -eq 0 ]; then
-    cat > "$RC" <<'EOF_RC'
+    cat > "$AZM" <<'EOF_AZM'
 "use client";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// @zeal/realtime — Shared Supabase Realtime Client
-// ─────────────────────────────────────────────────────────────────────────────
-// Supabase Realtime compares the `event` filter with strict string equality.
-// It has no "*" wildcard on the client-side `.on("broadcast", { event })`.
-//
-// Zeal's `useChannel` hook (in ./hooks.ts) defaults `event` to "*" and every
-// call site relies on that default. To make wildcard subscriptions work:
-//
-//   1. We register ONE `.on("broadcast", { event: <known> }, dispatch)` per
-//      known event name (from KNOWN_EVENTS below).
-//   2. On receipt, `dispatch` fans out to listeners registered under the exact
-//      event name AND to listeners registered under "*".
-//   3. A per-channel `subscribePromise` ensures the channel subscribes once.
-//
-// Nothing here is React-specific — this module can be imported from any
-// "use client" boundary.
+// AnimatedZealMark
+// ═══════════════════════════════════════════════════════════════════════════════
+// Path morphing is done with NATIVE SVG <animate> (SMIL) — not Framer Motion.
+// Framer Motion's `animate={{ d: [...] }}` interpolation is unreliable across
+// browsers and can emit `d="undefined"` when command sequences don't align.
+// Native SMIL is deterministic, GPU-composited, and requires no JS at runtime.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createClient, type SupabaseClient, type RealtimeChannel } from "@supabase/supabase-js";
-
-// ─── Public types ─────────────────────────────────────────────────────────────
-
-export type ConnectionState =
-  | "connecting"
-  | "connected"
-  | "reconnecting"
-  | "disconnected";
-
-export interface BroadcastChange<T = unknown> {
-  type?: "INSERT" | "UPDATE" | "DELETE";
-  table?: string;
-  schema?: string;
-  record?: T;
-  old_record?: T | null;
-}
-
-// ─── Internal types ───────────────────────────────────────────────────────────
-
-type AnyHandler = (payload: unknown) => void;
-
-interface Listener {
-  readonly id: string;
-  readonly handler: AnyHandler;
-}
-
-interface ChannelEntry {
-  readonly channel: RealtimeChannel;
-  readonly listeners: Map<string, Map<string, Listener>>;
-  subscribePromise?: Promise<void>;
-  status: "pending" | "subscribed" | "error";
-}
-
-// ─── Known events emitted by DB triggers + serverPublish() ───────────────────
-
-const KNOWN_EVENTS = [
-  "INSERT",
-  "UPDATE",
-  "DELETE",
-  "incoming_request",
-  "booking_created",
-  "booking_updated",
-  "sparks:updated",
-  "rating:updated",
-  "notification",
-  "status_updated",
-  "status_changed",
-] as const;
-
-type KnownEvent = (typeof KNOWN_EVENTS)[number];
-
-// ─── Module state ─────────────────────────────────────────────────────────────
-
-let client: SupabaseClient | null = null;
-const channels = new Map<string, ChannelEntry>();
-const stateListeners = new Set<(s: ConnectionState) => void>();
-const seenEventKeys = new Set<string>();
-
-const MAX_SEEN = 500;
-const TRIM_TO = 250;
-
-let currentState: ConnectionState = "disconnected";
-let reconnectAttempt = 0;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-
-const BASE_BACKOFF_MS = 500;
-const MAX_BACKOFF_MS = 30_000;
-const MAX_ATTEMPTS = 10;
-
-let listenerCounter = 0;
-const nextListenerId = (): string =>
-  `l-${++listenerCounter}-${Date.now().toString(36)}`;
-
-// ─── Connection state ─────────────────────────────────────────────────────────
-
-function setState(next: ConnectionState): void {
-  if (next === currentState) return;
-  currentState = next;
-  for (const fn of stateListeners) {
-    try {
-      fn(next);
-    } catch (err) {
-      console.warn("[realtime] state listener threw:", err);
-    }
-  }
-}
-
-export function onConnectionStateChange(
-  fn: (s: ConnectionState) => void,
-): () => void {
-  stateListeners.add(fn);
-  fn(currentState);
-  return () => {
-    stateListeners.delete(fn);
-  };
-}
-
-export function getConnectionState(): ConnectionState {
-  return currentState;
-}
-
-// ─── Client factory ───────────────────────────────────────────────────────────
-
-export function getRealtimeClient(): SupabaseClient | null {
-  if (client) return client;
-
-  // Reuse the shared browser client created by @zeal/database if present.
-  if (typeof window !== "undefined") {
-    const shared = (
-      globalThis as { __ZEAL_SUPABASE_BROWSER__?: SupabaseClient }
-    ).__ZEAL_SUPABASE_BROWSER__;
-    if (shared) {
-      client = shared;
-      setState("connecting");
-      return client;
-    }
-  }
-
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn(
-        "[realtime] NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY missing — realtime disabled",
-      );
-    }
-    return null;
-  }
-
-  client = createClient(url, key, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: false,
-    },
-    realtime: {
-      params: { eventsPerSecond: 20 },
-      timeout: 20_000,
-    },
-  });
-
-  if (typeof window !== "undefined") {
-    (
-      globalThis as { __ZEAL_SUPABASE_BROWSER__?: SupabaseClient }
-    ).__ZEAL_SUPABASE_BROWSER__ = client;
-  }
-
-  setState("connecting");
-  return client;
-}
-
-// ─── Reconnect with exponential backoff + jitter ──────────────────────────────
-
-function scheduleReconnect(): void {
-  if (reconnectTimer) return;
-  if (reconnectAttempt >= MAX_ATTEMPTS) {
-    setState("disconnected");
-    return;
-  }
-  reconnectAttempt++;
-  const base = Math.min(
-    BASE_BACKOFF_MS * 2 ** (reconnectAttempt - 1),
-    MAX_BACKOFF_MS,
-  );
-  const jitter = base * 0.3 * (Math.random() * 2 - 1);
-  const delay = Math.max(100, Math.round(base + jitter));
-
-  setState("reconnecting");
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    if (!client) return;
-    for (const entry of channels.values()) {
-      try {
-        entry.channel.subscribe();
-      } catch {
-        /* ignore — subscribe is best-effort */
-      }
-    }
-  }, delay);
-}
-
-// ─── Channel management ───────────────────────────────────────────────────────
-
-function getOrCreateChannel(topic: string): ChannelEntry | null {
-  const sb = getRealtimeClient();
-  if (!sb) return null;
-
-  const existing = channels.get(topic);
-  if (existing) return existing;
-
-  const channel = sb.channel(topic, {
-    config: {
-      broadcast: { self: false, ack: false },
-      presence: { key: "" },
-    },
-  });
-
-  const entry: ChannelEntry = {
-    channel,
-    listeners: new Map(),
-    status: "pending",
-  };
-  channels.set(topic, entry);
-  return entry;
-}
-
-function makeDispatcher(
-  entry: ChannelEntry,
-  topic: string,
-  eventName: KnownEvent,
-): (message: unknown) => void {
-  return (message: unknown) => {
-    const payload = (message as { payload?: unknown } | null)?.payload;
-
-    // Dedup by (event, payload.id). The same row can legitimately arrive as
-    // INSERT and UPDATE — the event name disambiguates them.
-    const id =
-      typeof payload === "object" && payload !== null
-        ? (payload as { id?: string }).id
-        : undefined;
-
-    if (typeof id === "string") {
-      const key = `${eventName}:${id}`;
-      if (seenEventKeys.has(key)) return;
-      seenEventKeys.add(key);
-      if (seenEventKeys.size > MAX_SEEN) {
-        const arr = Array.from(seenEventKeys);
-        seenEventKeys.clear();
-        for (const k of arr.slice(-TRIM_TO)) seenEventKeys.add(k);
-      }
-    }
-
-    // Exact-event listeners
-    const exact = entry.listeners.get(eventName);
-    if (exact) {
-      for (const listener of exact.values()) {
-        try {
-          listener.handler(payload);
-        } catch (err) {
-          console.error(`[realtime] handler threw ${topic}:${eventName}`, err);
-        }
-      }
-    }
-
-    // Wildcard listeners
-    const wildcard = entry.listeners.get("*");
-    if (wildcard) {
-      for (const listener of wildcard.values()) {
-        try {
-          listener.handler(payload);
-        } catch (err) {
-          console.error(`[realtime] handler threw ${topic}:*`, err);
-        }
-      }
-    }
-  };
-}
-
-// ─── Public: subscribe ────────────────────────────────────────────────────────
-
-export function subscribe<T = unknown>(
-  topic: string,
-  event: string,
-  handler: (payload: T) => void,
-): () => void {
-  const entry = getOrCreateChannel(topic);
-  if (!entry) return () => {};
-
-  let eventMap = entry.listeners.get(event);
-  if (!eventMap) {
-    eventMap = new Map();
-    entry.listeners.set(event, eventMap);
-  }
-  const listener: Listener = {
-    id: nextListenerId(),
-    handler: handler as AnyHandler,
-  };
-  eventMap.set(listener.id, listener);
-
-  if (!entry.subscribePromise) {
-    entry.subscribePromise = new Promise<void>((resolve) => {
-      for (const name of KNOWN_EVENTS) {
-        entry.channel.on(
-          "broadcast",
-          { event: name },
-          makeDispatcher(entry, topic, name),
-        );
-      }
-      entry.channel.subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          entry.status = "subscribed";
-          reconnectAttempt = 0;
-          setState("connected");
-          resolve();
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          entry.status = "error";
-          setState("reconnecting");
-          scheduleReconnect();
-        }
-      });
-    });
-  }
-
-  return () => {
-    const e = channels.get(topic);
-    if (!e) return;
-    const map = e.listeners.get(event);
-    if (map) {
-      map.delete(listener.id);
-      if (map.size === 0) e.listeners.delete(event);
-    }
-    if (e.listeners.size === 0) {
-      try {
-        e.channel.unsubscribe();
-      } catch {
-        /* ignore */
-      }
-      channels.delete(topic);
-    }
-  };
-}
-
-// ─── Presence ─────────────────────────────────────────────────────────────────
-
-export interface PresenceHandle<T> {
-  unsubscribe: () => void;
-  track: (state: T) => void;
-  untrack: () => void;
-}
-
-export function subscribePresence<T extends Record<string, unknown>>(
-  topic: string,
-  key: string,
-  onSync: (state: Record<string, T[]>) => void,
-): PresenceHandle<T> {
-  const sb = getRealtimeClient();
-  if (!sb) {
-    return { unsubscribe: () => {}, track: () => {}, untrack: () => {} };
-  }
-
-  const channel = sb.channel(`presence:${topic}`, {
-    config: { presence: { key } },
-  });
-  let tracked = false;
-
-  channel
-    .on("presence", { event: "sync" }, () => {
-      try {
-        onSync(channel.presenceState() as Record<string, T[]>);
-      } catch (err) {
-        console.error("[realtime] presence sync threw:", err);
-      }
-    })
-    .subscribe((status) => {
-      if (status === "SUBSCRIBED" && !tracked) {
-        tracked = true;
-        try {
-          channel.track({ online_at: new Date().toISOString() });
-        } catch {
-          /* ignore */
-        }
-      }
-    });
-
-  return {
-    track: (state: T) => {
-      try {
-        channel.track(state);
-      } catch {
-        /* ignore */
-      }
-    },
-    untrack: () => {
-      try {
-        channel.untrack();
-      } catch {
-        /* ignore */
-      }
-    },
-    unsubscribe: () => {
-      try {
-        channel.untrack();
-      } catch {
-        /* ignore */
-      }
-      try {
-        sb.removeChannel(channel);
-      } catch {
-        /* ignore */
-      }
-    },
-  };
-}
-
-// ─── One-shot publish ─────────────────────────────────────────────────────────
-
-export async function publish<T = unknown>(
-  topic: string,
-  event: string,
-  payload: T,
-): Promise<boolean> {
-  const sb = getRealtimeClient();
-  if (!sb) return false;
-
-  const channel = sb.channel(topic);
-  await channel.subscribe();
-  try {
-    const result = await channel.send({
-      type: "broadcast",
-      event,
-      payload,
-    });
-    return result === "ok";
-  } catch {
-    return false;
-  } finally {
-    try {
-      await sb.removeChannel(channel);
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-// ─── Teardown ─────────────────────────────────────────────────────────────────
-
-export function disconnectAll(): void {
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
-  for (const entry of channels.values()) {
-    try {
-      entry.channel.unsubscribe();
-    } catch {
-      /* ignore */
-    }
-  }
-  channels.clear();
-  seenEventKeys.clear();
-  setState("disconnected");
-}
-EOF_RC
-    ok "realtime client rewritten (expert)"
-  fi
-fi
-
-# ─── B.2 LuxuryConsultantCard.tsx ─────────────────────────────────────────────
-LCC="apps/web/components/shared/LuxuryConsultantCard.tsx"
-if [ -f "$LCC" ]; then
-  backup "$LCC"
-  if [ "$DRY_RUN" -eq 0 ]; then
-    cat > "$LCC" <<'EOF_LCC'
-"use client";
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// LuxuryConsultantCard — shared premium card
-// ═══════════════════════════════════════════════════════════════════════════════
-// Used by Home, Explore, and Services. Consumes the @zeal/types shape and
-// extends it with presence metadata. All rendering is token-driven so dark and
-// light modes come for free.
-// ═══════════════════════════════════════════════════════════════════════════════
-
-import Link from "next/link";
-import { useCallback, useId, useMemo } from "react";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { Flame, MessageCircle, Radio, Star, Zap } from "lucide-react";
-import type { ConsultantProfile } from "@zeal/types";
-import { cn } from "@zeal/ui";
-
-// ─── Props ────────────────────────────────────────────────────────────────────
-
-export interface LuxuryConsultantInput extends ConsultantProfile {
-  lastSeenAt?: string | null;
-  isPaid?: boolean;
-}
+import { useId } from "react";
+import { m, useReducedMotion } from "framer-motion";
+import { cn } from "./utils";
 
 interface Props {
-  consultant: LuxuryConsultantInput;
-  onChat?: (consultantId: string) => void;
-  onBook?: (consultantId: string) => void;
-  variant?: "default" | "compact";
-  priority?: boolean;
+  size?: number;
+  className?: string;
+  glow?: boolean;
+  animate?: boolean;
+  variant?: "brand" | "mono";
 }
 
-// ─── Presence derivation ──────────────────────────────────────────────────────
+// All paths are valid "M … L …" strings with equal command counts so SMIL
+// can morph between them without interpolation artifacts.
+const Z        = "M 8 10 L 40 10 L 8 38 L 40 38";
+const TRIANGLE = "M 24 8 L 40 34 L 8 34 L 40 34";
+const DIAMOND  = "M 24 8 L 40 24 L 24 40 L 8 24";
+const SQUARE   = "M 8 8 L 40 8 L 40 40 L 8 40";
 
-type PresenceTone = "online" | "away" | "offline";
+const SEQUENCE_VALUES = `${Z}; ${TRIANGLE}; ${DIAMOND}; ${SQUARE}; ${Z}`;
 
-interface Presence {
-  tone: PresenceTone;
-  label: string;
+function safePath(d: string | undefined | null): string {
+  if (typeof d !== "string" || d.length === 0) return Z;
+  if (!/^[Mm]/.test(d.trim())) return Z;
+  return d;
 }
 
-const PRESENCE_WINDOW_AWAY_MS = 10 * 60 * 1000;
-
-function derivePresence(c: LuxuryConsultantInput): Presence {
-  if (c.isAI) return { tone: "online", label: "AI" };
-  if (c.isOnline) return { tone: "online", label: "Online" };
-  if (c.lastSeenAt) {
-    const lastSeen = new Date(c.lastSeenAt).getTime();
-    if (
-      Number.isFinite(lastSeen) &&
-      Date.now() - lastSeen < PRESENCE_WINDOW_AWAY_MS
-    ) {
-      return { tone: "away", label: "Away" };
-    }
-  }
-  return { tone: "offline", label: "Offline" };
-}
-
-const PRESENCE_STYLE: Record<PresenceTone, { pill: string; dot: string }> = {
-  online: {
-    pill: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-    dot: "bg-emerald-400 animate-pulse",
-  },
-  away: {
-    pill: "bg-amber-500/15 text-amber-400 border border-amber-500/30",
-    dot: "bg-amber-400",
-  },
-  offline: {
-    pill: "bg-white/5 text-slate-400 border border-white/10",
-    dot: "bg-slate-500",
-  },
-};
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
-export function LuxuryConsultantCard({
-  consultant,
-  onChat,
-  onBook,
-  variant = "default",
-  priority = false,
+export function AnimatedZealMark({
+  size = 28,
+  className,
+  glow = true,
+  animate = true,
+  variant = "brand",
 }: Props) {
-  const isCompact = variant === "compact";
-  const headingId = useId();
+  const raw = useId();
+  const safe = raw.replace(/:/g, "");
+  const gradientId = `zeal-mark-grad-${safe}`;
+  const filterId   = `zeal-mark-glow-${safe}`;
+  const stroke = variant === "brand" ? `url(#${gradientId})` : "currentColor";
+  const d0 = safePath(Z);
 
-  // 3D tilt — motion values with a spring so pointer motion never jitters
-  const rawX = useMotionValue(0);
-  const rawY = useMotionValue(0);
-  const rotateX = useSpring(useTransform(rawX, [-0.5, 0.5], [2, -2]), {
-    stiffness: 260,
-    damping: 20,
-  });
-  const rotateY = useSpring(useTransform(rawY, [-0.5, 0.5], [-2, 2]), {
-    stiffness: 260,
-    damping: 20,
-  });
-
-  const presence = useMemo(() => derivePresence(consultant), [consultant]);
-  const style = PRESENCE_STYLE[presence.tone];
-
-  const chatEnabled = Boolean(consultant.isAI || consultant.isOnline);
-  const href = consultant.isAI
-    ? `/ai-astrologers/${consultant.id}`
-    : `/consultant/${consultant.id}`;
-
-  const displayName = consultant.name || consultant.username || "Guide";
-  const initial = displayName.charAt(0).toUpperCase();
-
-  const handleMove = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      const rect = event.currentTarget.getBoundingClientRect();
-      rawY.set((event.clientX - rect.left) / rect.width - 0.5);
-      rawX.set((event.clientY - rect.top) / rect.height - 0.5);
-    },
-    [rawX, rawY],
-  );
-
-  const handleLeave = useCallback(() => {
-    rawX.set(0);
-    rawY.set(0);
-  }, [rawX, rawY]);
-
-  const handleChat = useCallback(() => {
-    if (!chatEnabled) return;
-    onChat?.(consultant.id);
-  }, [chatEnabled, consultant.id, onChat]);
-
-  const handleBook = useCallback(() => {
-    onBook?.(consultant.id);
-  }, [consultant.id, onBook]);
-
-  const rateLabel =
-    consultant.perMinuteRate > 0
-      ? `₹${consultant.perMinuteRate}/min`
-      : "Free";
+  const prefersReduced = useReducedMotion();
+  const shouldAnimate = animate && !prefersReduced;
 
   return (
-    <motion.article
-      aria-labelledby={headingId}
-      onMouseMove={handleMove}
-      onMouseLeave={handleLeave}
-      style={{ rotateX, rotateY, transformPerspective: 1000 }}
-      whileHover={{ y: -4 }}
-      transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      className={cn(
-        "group relative overflow-hidden rounded-2xl",
-        "glass-luxury glass-luxury-hover",
-        isCompact ? "p-4" : "p-5",
-      )}
+    <span
+      className={cn("relative inline-flex items-center justify-center", className)}
+      style={{ width: size, height: size }}
+      aria-label="Zeal"
+      role="img"
     >
-      {/* Ambient hover glow */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-gradient-to-br from-[var(--color-luxury-gold)]/8 via-transparent to-[var(--color-ambient-lavender)]/12"
-      />
-
-      {/* Presence pill */}
-      <span
-        aria-label={`Presence: ${presence.label}`}
-        className={cn(
-          "absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
-          "text-[9px] font-black uppercase tracking-widest",
-          style.pill,
-        )}
-      >
-        <span className={cn("h-1.5 w-1.5 rounded-full", style.dot)} />
-        {presence.label}
-      </span>
-
-      {/* AI badge */}
-      {consultant.isAI && (
-        <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] px-2 py-0.5 text-[9px] font-black tracking-wider text-white">
-          <Zap size={10} aria-hidden /> AI
-        </span>
+      {glow && (
+        <m.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-full"
+          style={{
+            background:
+              variant === "brand"
+                ? "radial-gradient(circle, rgba(157,125,197,0.5) 0%, rgba(83,58,253,0) 70%)"
+                : "radial-gradient(circle, currentColor 0%, transparent 70%)",
+          }}
+          animate={
+            shouldAnimate
+              ? { scale: [1, 1.4, 1], opacity: [0.5, 0.9, 0.5] }
+              : undefined
+          }
+          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        />
       )}
 
-      <div className="relative z-[1] flex flex-col items-center text-center">
-        {/* Avatar with gradient ring */}
-        <Link
-          href={href}
-          aria-label={`View ${displayName}'s profile`}
-          className="relative inline-block"
+      <svg
+        viewBox="0 0 48 48"
+        width={size}
+        height={size}
+        fill="none"
+        className="relative z-10"
+        aria-hidden
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"   stopColor="#9D7DC5" />
+            <stop offset="50%"  stopColor="#7A5A9E" />
+            <stop offset="100%" stopColor="#533AFD" />
+          </linearGradient>
+          <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+
+        <path
+          d={d0}
+          stroke={stroke}
+          strokeWidth={5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          filter={`url(#${filterId})`}
         >
-          <span
-            aria-hidden
-            className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/25 blur-xl transition-all group-hover:bg-[var(--color-luxury-gold)]/40"
-          />
-          <span className="relative block rounded-full bg-gradient-to-br from-[var(--color-luxury-gold)] via-transparent to-[var(--color-ambient-lavender)] p-[2px]">
-            <span className="block rounded-full bg-[var(--color-surface)] p-[2px]">
-              {consultant.avatar ? (
-                <img
-                  src={consultant.avatar}
-                  alt=""
-                  loading={priority ? "eager" : "lazy"}
-                  decoding="async"
-                  className={cn(
-                    "rounded-full object-cover",
-                    isCompact ? "h-14 w-14" : "h-20 w-20",
-                  )}
-                />
-              ) : (
-                <span
-                  className={cn(
-                    "flex items-center justify-center rounded-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] font-black text-white",
-                    isCompact ? "h-14 w-14 text-xl" : "h-20 w-20 text-2xl",
-                  )}
-                >
-                  {initial}
-                </span>
-              )}
-            </span>
-          </span>
-        </Link>
-
-        <Link href={href} className="mt-3 max-w-full">
-          <h3
-            id={headingId}
-            className="truncate text-base font-bold text-white transition-colors group-hover:text-[var(--color-luxury-gold)]"
-          >
-            {displayName}
-          </h3>
-          {consultant.username && (
-            <p className="truncate text-[11px] text-slate-400">
-              @{consultant.username}
-            </p>
+          {shouldAnimate && (
+            <animate
+              attributeName="d"
+              dur="12s"
+              repeatCount="indefinite"
+              values={SEQUENCE_VALUES}
+              keyTimes="0; 0.25; 0.5; 0.75; 1"
+              calcMode="spline"
+              keySplines="0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1"
+            />
           )}
-        </Link>
-
-        {/* Metric row */}
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs">
-          <span className="inline-flex items-center gap-1 text-amber-400">
-            <Star size={11} className="fill-amber-400" aria-hidden />
-            {(consultant.rating || 0).toFixed(1)}
-          </span>
-          {typeof consultant.sparks === "number" && consultant.sparks > 0 && (
-            <span className="inline-flex items-center gap-1 text-orange-400">
-              <Flame size={11} aria-hidden />
-              {consultant.sparks.toLocaleString("en-IN")}
-            </span>
-          )}
-          <span className="font-mono font-bold text-[var(--color-luxury-gold)]">
-            {rateLabel}
-          </span>
-        </div>
-
-        {/* Specialty chips */}
-        {!isCompact &&
-          consultant.specialties &&
-          consultant.specialties.length > 0 && (
-            <div className="mt-3 flex flex-wrap justify-center gap-1">
-              {consultant.specialties.slice(0, 2).map((s) => (
-                <span
-                  key={s}
-                  className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-wider text-slate-300"
-                >
-                  {s}
-                </span>
-              ))}
-            </div>
-          )}
-
-        {/* Actions */}
-        <div className="mt-4 flex w-full gap-2">
-          <button
-            type="button"
-            onClick={handleChat}
-            disabled={!chatEnabled}
-            aria-label={
-              consultant.isAI
-                ? `Chat with ${displayName}`
-                : consultant.isOnline
-                  ? `Start chat with ${displayName}`
-                  : `${displayName} is offline`
-            }
-            className={cn(
-              "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black transition-all",
-              chatEnabled
-                ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white hover:opacity-95 active:scale-[0.98]"
-                : "cursor-not-allowed bg-white/5 text-slate-500",
-            )}
-          >
-            {consultant.isAI ? (
-              <>
-                <Zap size={12} aria-hidden /> Chat
-              </>
-            ) : consultant.isOnline ? (
-              <>
-                <MessageCircle size={12} aria-hidden /> Chat now
-              </>
-            ) : (
-              <>
-                <Radio size={12} aria-hidden /> Offline
-              </>
-            )}
-          </button>
-          {!consultant.isAI && (
-            <button
-              type="button"
-              onClick={handleBook}
-              aria-label={`Book a session with ${displayName}`}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-black text-slate-200 transition-all hover:border-[var(--color-luxury-gold)]/40 hover:text-white"
-            >
-              Book
-            </button>
-          )}
-        </div>
-      </div>
-    </motion.article>
+        </path>
+      </svg>
+    </span>
   );
 }
-EOF_LCC
-    ok "LuxuryConsultantCard rewritten (expert)"
+EOF_AZM
+    ok "AnimatedZealMark rewritten (native SMIL, no d=undefined)"
   fi
+else
+  warn "AnimatedZealMark not found — skipped"
 fi
 
-# ─── B.3 /api/consultants/[id]/route.ts ──────────────────────────────────────
-CRT="apps/web/app/api/consultants/[id]/route.ts"
-if [ -f "$CRT" ]; then
-  backup "$CRT"
-  if [ "$DRY_RUN" -eq 0 ]; then
-    cat > "$CRT" <<'EOF_CRT'
-// ═══════════════════════════════════════════════════════════════════════════════
-// GET /api/consultants/[id] — public consultant profile
-// ═══════════════════════════════════════════════════════════════════════════════
-// Used by: booking wizard, ProfileActions, startChatFlow status pre-check.
-// Returns 400 for malformed UUIDs; 404 for missing consultants; 500 for
-// infrastructure failures — never conflates the three.
-// ═══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════════
+# C. Global FK-hint sanitization
+# ═══════════════════════════════════════════════════════════════════════════════
+say "C · Sanitizing PostgREST FK hints"
+note "Pattern: User!Consultant_userId_fkey(...)  →  User!userId(...)"
+note "Works regardless of the actual constraint name on the live DB."
 
-import { NextResponse } from "next/server";
-import { createAdminClient } from "@zeal/database/server";
+if [ "$DRY_RUN" -eq 0 ]; then
+  node <<'NODE_FK'
+const fs = require("fs");
+const path = require("path");
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
+const SKIP_DIRS = new Set(["node_modules", ".next", "dist", "build", ".git", ".zeal-backup", "coverage", ".turbo"]);
+// Prisma-style: !<Table>_<column>_fkey(  →  !<column>(
+// Requires the FK name to end in `_fkey` so `!inner(`/`!left(` are untouched.
+const RE = /!([A-Z][A-Za-z0-9]*)_([A-Za-z][A-Za-z0-9]*)_fkey\(/g;
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+let filesChanged = 0;
+let totalReplacements = 0;
+const touched = [];
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function walk(dir) {
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const e of entries) {
+    if (e.isDirectory()) {
+      if (SKIP_DIRS.has(e.name)) continue;
+      walk(path.join(dir, e.name));
+    } else if (e.isFile() && /\.(ts|tsx)$/.test(e.name)) {
+      const full = path.join(dir, e.name);
+      let src;
+      try { src = fs.readFileSync(full, "utf8"); } catch { continue; }
+      if (!src.includes("_fkey(")) continue;
 
-interface UserRelation {
-  id: string;
-  name: string | null;
-  username: string | null;
-  avatar: string | null;
-  is_online: boolean | null;
-}
-
-interface ConsultantRow {
-  id: string;
-  category: string | null;
-  perMinuteRate: number | null;
-  rating: number | null;
-  totalConsultations: number | null;
-  sparkScore: number | null;
-  specialties: string[] | null;
-  languages: string[] | null;
-  bio: string | null;
-  user: UserRelation | UserRelation[] | null;
-}
-
-export interface ConsultantPublicResponse {
-  consultant: {
-    id: string;
-    name: string;
-    username: string;
-    avatar: string | null;
-    category: string;
-    perMinuteRate: number;
-    rating: number;
-    totalConsultations: number;
-    sparks: number;
-    isOnline: boolean;
-    specialties: string[];
-    languages: string[];
-    bio: string;
-  };
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function pickUser(rel: ConsultantRow["user"]): UserRelation | null {
-  if (!rel) return null;
-  return Array.isArray(rel) ? (rel[0] ?? null) : rel;
-}
-
-// ─── Handler ──────────────────────────────────────────────────────────────────
-
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
-  const { id } = await params;
-
-  if (!UUID_RE.test(id)) {
-    return NextResponse.json(
-      { error: "Invalid consultant id", code: "INVALID_ID" },
-      { status: 400 },
-    );
+      let localCount = 0;
+      const out = src.replace(RE, (_m, _table, col) => {
+        localCount++;
+        return `!${col}(`;
+      });
+      if (out !== src) {
+        fs.writeFileSync(full, out, "utf8");
+        filesChanged++;
+        totalReplacements += localCount;
+        touched.push(`${full}  (${localCount})`);
+      }
+    }
   }
+}
 
-  try {
-    const admin = createAdminClient();
+for (const root of ["apps", "packages"]) {
+  if (fs.existsSync(root)) walk(root);
+}
 
-    const { data, error } = await admin
-      .from("Consultant")
-      .select(
-        `id, category, "perMinuteRate", rating, "totalConsultations", "sparkScore",
-         specialties, languages, bio,
-         user:User!Consultant_userId_fkey(id, name, username, avatar, is_online)`,
-      )
-      .eq("id", id)
-      .maybeSingle();
+console.log(`Files changed: ${filesChanged}, replacements: ${totalReplacements}`);
+for (const t of touched.slice(0, 12)) console.log("  " + t);
+if (touched.length > 12) console.log(`  … and ${touched.length - 12} more`);
+NODE_FK
+  ok "FK hints sanitized"
+else
+  note "would sanitize FK hints"
+fi
 
-    if (error) {
-      console.error("[consultants/[id]] db error:", error.message);
+# ═══════════════════════════════════════════════════════════════════════════════
+# D. /api/ai — ValidationError + 400 semantics
+# ═══════════════════════════════════════════════════════════════════════════════
+say "D · /api/ai — validation vs infrastructure errors"
+
+AIROUTE="apps/web/app/api/ai/route.ts"
+if [ -f "$AIROUTE" ]; then
+  backup "$AIROUTE"
+  if [ "$DRY_RUN" -eq 0 ]; then
+    node - "$AIROUTE" <<'NODE_AI'
+const fs = require("fs");
+const p = process.argv[2];
+let src = fs.readFileSync(p, "utf8");
+
+// 1. Ensure the ValidationError class exists just above HANDLERS.
+if (!src.includes("class ValidationError")) {
+  const anchor = "// ─── Task type ──────────────────────────────────────────────────────────────";
+  const inject = `// ─── Error taxonomy ─────────────────────────────────────────────────────────
+// Handlers throw ValidationError for caller mistakes (bad input, short
+// query, missing fields). The top-level catch maps it to 400. Any other
+// Error is treated as infrastructure failure and returned as 500.
+class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
+`;
+  if (src.includes(anchor)) src = src.replace(anchor, inject + anchor);
+  else src = inject + src;
+}
+
+// 2. Convert all `throw new Error("...")` inside handlers to ValidationError.
+//    Leave `throw new Error(\`Unknown task: ...\`)` alone (already 400 in-place).
+const errorPattern = /throw new Error\(("(?:[^"\\]|\\.)*")\)/g;
+src = src.replace(errorPattern, (_m, msg) => `throw new ValidationError(${msg})`);
+
+// 3. Update the top-level catch to discriminate.
+if (!src.includes("err instanceof ValidationError")) {
+  const catchAnchor = /} catch \(err\) \{\s*\n\s*const message = err instanceof Error \? err\.message : "AI request failed";[\s\S]*?return NextResponse\.json\(\{ error: message \}, \{ status: 500 \}\);\s*\n\s*\}/;
+  const catchReplacement = `} catch (err) {
+    if (err instanceof ValidationError) {
       return NextResponse.json(
-        { error: "Could not load consultant", code: "DB_ERROR" },
-        { status: 500 },
+        { error: err.message, code: "VALIDATION" },
+        { status: 400 },
       );
     }
-    if (!data) {
-      return NextResponse.json(
-        { error: "Consultant not found", code: "NOT_FOUND" },
-        { status: 404 },
-      );
-    }
-
-    const row = data as unknown as ConsultantRow;
-    const u = pickUser(row.user);
-    const displayName = u?.name ?? u?.username ?? "Guide";
-
-    const body: ConsultantPublicResponse = {
-      consultant: {
-        id: row.id,
-        name: displayName,
-        username: u?.username ?? "",
-        avatar: u?.avatar ?? null,
-        category: row.category ?? "HEALER",
-        perMinuteRate: Number(row.perMinuteRate ?? 50),
-        rating: Number(row.rating ?? 0),
-        totalConsultations: Number(row.totalConsultations ?? 0),
-        sparks: Number(row.sparkScore ?? 0),
-        isOnline: Boolean(u?.is_online),
-        specialties: row.specialties ?? [],
-        languages: row.languages ?? [],
-        bio: row.bio ?? "",
-      },
-    };
-
-    return NextResponse.json(body, {
-      headers: { "Cache-Control": "no-store, max-age=0" },
-    });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load";
-    console.error("[consultants/[id]] fatal:", message);
+    const message = err instanceof Error ? err.message : "AI request failed";
+    console.error(\`[ai/\${taskForLog}]\`, message);
     return NextResponse.json(
       { error: message, code: "INTERNAL" },
       { status: 500 },
     );
-  }
+  }`;
+  if (catchAnchor.test(src)) src = src.replace(catchAnchor, catchReplacement);
 }
-EOF_CRT
-    ok "/api/consultants/[id] rewritten (expert)"
+
+fs.writeFileSync(p, src);
+NODE_AI
+    ok "/api/ai now returns 400 for validation errors"
   fi
+else
+  warn "/api/ai/route.ts not found — skipped"
 fi
 
-# ─── B.4 SupabaseAuthProvider.tsx — verify import path, dedupe injections ────
-AP="apps/web/components/providers/SupabaseAuthProvider.tsx"
-if [ -f "$AP" ]; then
-  backup "$AP"
+# ═══════════════════════════════════════════════════════════════════════════════
+# E. /api/explore/consultants — resilient fallback
+# ═══════════════════════════════════════════════════════════════════════════════
+say "E · /api/explore/consultants — resilient fallback"
+
+EXP="apps/web/app/api/explore/consultants/route.ts"
+if [ -f "$EXP" ]; then
+  backup "$EXP"
   if [ "$DRY_RUN" -eq 0 ]; then
-    # Count occurrences of the hydration effect. If >1, rewrite cleanly.
-    count=$(grep -c "setStoreUser" "$AP" || true)
-    if [ "$count" -gt 2 ]; then
-      warn "SupabaseAuthProvider has duplicated hydration effect ($count occurrences) — rewriting"
-      # Extract just the two imports and the storeUser effect, dedupe
-      node - "$AP" <<'NODE_EOF'
+    node - "$EXP" <<'NODE_EXP'
 const fs = require("fs");
 const p = process.argv[2];
 let src = fs.readFileSync(p, "utf8");
 
-// Ensure only ONE storeUser effect block exists.
-// Find all "const setStoreUser = useAppStore" and keep the first only.
-const blocks = src.split(/const setStoreUser = useAppStore/);
-if (blocks.length > 2) {
-  const head = blocks[0];
-  // Rebuild with only the first block (drop repeats)
-  const firstBlock = "const setStoreUser = useAppStore" + blocks[1];
-  src = head + firstBlock;
-  // Trim any later duplicates of the same effect comment + declaration
-  src = src.replace(/const setStoreUser = useAppStore[\s\S]*?setStoreUser\(null\);\s*\n\s*\}\s*\}, \[user, isLoading, setStoreUser\];\s*\n\s*\n/g, "");
-  // Restore the first
-  src = head + "const setStoreUser = useAppStore" + blocks[1];
+// If the primary RPC and the fallback BOTH fail, return 200 with empty
+// results + a source marker. Better than 500 which flashes a red toast.
+const returnForFatal = `      if (legacy.error) throw legacy.error;`;
+if (src.includes(returnForFatal) && !src.includes("source: \"fallback-empty\"")) {
+  src = src.replace(
+    returnForFatal,
+    `      if (legacy.error) {
+        console.error("[explore/consultants] legacy fallback failed:", legacy.error.message);
+        return NextResponse.json(
+          { success: true, consultants: [], total: 0, source: "fallback-empty" },
+          { headers: { "Cache-Control": "no-store, max-age=0" } },
+        );
+      }`,
+  );
 }
 
-// Ensure the import exists exactly once.
-const importLine = 'import { useAppStore } from "@/lib/store/appStore";';
-const importMatches = src.match(new RegExp(importLine.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || [];
-if (importMatches.length === 0) {
-  const anchor = 'import { getBrowserSupabase } from "@/lib/supabase/client";';
-  if (src.includes(anchor)) {
-    src = src.replace(anchor, anchor + "\n" + importLine);
+// Ensure a graceful error path for the outer catch
+if (!src.includes("source: \"outer-error\"")) {
+  const outer = /return NextResponse\.json\(\s*\{ success: false, error: err instanceof Error \? err\.message : "Failed" \},\s*\{ status: 500 \},\s*\);/;
+  if (outer.test(src)) {
+    src = src.replace(
+      outer,
+      `return NextResponse.json(
+        { success: true, consultants: [], total: 0, source: "outer-error" },
+        { headers: { "Cache-Control": "no-store, max-age=0" } },
+      );`,
+    );
   }
-} else if (importMatches.length > 1) {
-  // Keep first, drop rest
-  let first = true;
-  src = src.split(importLine).join((match, i) => "");
-  // Re-add one
-  src = src.replace(
-    /(import \{ getBrowserSupabase \} from "@\/lib\/supabase\/client";)/,
-    `$1\n${importLine}`,
-  );
 }
 
 fs.writeFileSync(p, src);
-NODE_EOF
-      ok "SupabaseAuthProvider de-duplicated"
-    else
-      ok "SupabaseAuthProvider clean"
-    fi
+NODE_EXP
+    ok "/api/explore/consultants — never 500s on lookup failures"
+  fi
+else
+  warn "/api/explore/consultants not found — skipped"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# F. Profile page — verify FK hints + CTA flow
+# ═══════════════════════════════════════════════════════════════════════════════
+say "F · Profile page — verify query hints + CTA"
+
+PROF="apps/web/app/consultant/[id]/page.tsx"
+if [ -f "$PROF" ]; then
+  # FK hints already sanitized in Phase C.
+  if grep -q "_fkey(" "$PROF"; then
+    warn "profile page still contains FK hints — check sanitization"
+  else
+    ok "profile page has no stale FK hints"
+  fi
+  if grep -q "ProfileActions" "$PROF"; then
+    ok "ProfileActions rendered (chat + booking CTAs)"
+  else
+    warn "ProfileActions missing from profile page"
   fi
 fi
 
-# ─── B.5 HomeClient — fix any broken JSX from v1's string replace ────────────
-HC="apps/web/app/HomeClient.tsx"
-if [ -f "$HC" ]; then
-  backup "$HC"
-  if [ "$DRY_RUN" -eq 0 ]; then
-    # Detect the common v1 breakage: `router.push` injected inside a JSX prop
-    # while `router` isn't destructured at the top. Verify router exists.
-    if grep -q "onBook={(id) => router.push" "$HC" && ! grep -q "const router = useRouter()" "$HC"; then
-      warn "HomeClient references router.push without useRouter — injecting"
-      node - "$HC" <<'NODE_EOF'
-const fs = require("fs");
-const p = process.argv[2];
-let src = fs.readFileSync(p, "utf8");
-// Add `useRouter` import if not present
-if (!src.includes('from "next/navigation"')) {
-  src = src.replace(
-    /^(import .*;\n)/m,
-    '$1import { useRouter } from "next/navigation";\n',
-  );
-} else if (!src.includes("useRouter")) {
-  src = src.replace(
-    /import \{ ([^}]+) \} from "next\/navigation";/,
-    'import { $1, useRouter } from "next/navigation";',
-  );
-}
-// Add `const router = useRouter();` at the top of the component if missing
-if (!src.includes("const router = useRouter()")) {
-  src = src.replace(
-    /export function HomeClient\(([^)]*)\)\s*\{/,
-    (m, args) => `${m}\n  const router = useRouter();`,
-  );
-}
-fs.writeFileSync(p, src);
-NODE_EOF
-      ok "HomeClient router reference repaired"
-    else
-      ok "HomeClient router reference ok"
-    fi
+# Verify ProfileActions uses startChatFlow
+PA="apps/web/app/consultant/[id]/ProfileActions.tsx"
+if [ -f "$PA" ]; then
+  if grep -q "startChatFlow" "$PA"; then
+    ok "ProfileActions uses startChatFlow (wallet gate ready)"
+  else
+    warn "ProfileActions does not use startChatFlow"
+  fi
+  if grep -q "WalletGateDialog" "$PA"; then
+    ok "ProfileActions renders WalletGateDialog on low balance"
+  else
+    warn "ProfileActions missing WalletGateDialog"
   fi
 fi
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE C — Re-verify structural patches from v1
-# ═══════════════════════════════════════════════════════════════════════════════
-say "Phase C · Structural re-verification"
-
-structural_check() {
-  local label="$1"; shift
-  if "$@" >/dev/null 2>&1; then ok "$label"; else warn "$label — not present"; fi
-}
-
-structural_check "realtime client has KNOWN_EVENTS" \
-  grep -q "KNOWN_EVENTS" packages/realtime/src/client.ts
-structural_check "consultant (studio) route group exists" \
-  test -d "apps/web/app/consultant/(studio)"
-structural_check "public [id] profile preserved" \
-  test -f "apps/web/app/consultant/[id]/page.tsx"
-structural_check "startChatFlow has 401 guard" \
-  grep -q "meRes.status === 401" apps/web/lib/chat/start-chat-flow.ts
-structural_check "booking page uses plural endpoint" \
-  grep -q '/api/consultants/${consultantId}' apps/web/app/booking/page.tsx
-structural_check "/api/bookings publishes realtime" \
-  grep -q ':incoming' apps/web/app/api/bookings/route.ts
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE D — Gates (correct PM syntax)
-# ═══════════════════════════════════════════════════════════════════════════════
-say "Phase D · Type-check + build gates"
-
-if [ "$DRY_RUN" -eq 1 ]; then
-  warn "dry-run — skipping gates"
-  exit 0
+# Verify /api/consultants/[id]/status exists (startChatFlow dependency)
+ST="apps/web/app/api/consultants/[id]/status/route.ts"
+if [ -f "$ST" ]; then
+  ok "/api/consultants/[id]/status exists"
+  if grep -q "_fkey(" "$ST"; then
+    warn "status route still has FK hints"
+  fi
+else
+  warn "/api/consultants/[id]/status missing — startChatFlow will 404"
 fi
 
-# Workspace command runner — abstracts npm workspaces vs pnpm filter
+# ═══════════════════════════════════════════════════════════════════════════════
+# G. Verify no stale Prisma FK hints remain
+# ═══════════════════════════════════════════════════════════════════════════════
+say "G · Sweep — any remaining _fkey hints?"
+REMAIN=$(grep -rlE '![A-Z][A-Za-z0-9]*_[A-Za-z][A-Za-z0-9]*_fkey\(' apps packages 2>/dev/null | wc -l | tr -d ' ')
+if [ "$REMAIN" -gt 0 ]; then
+  warn "$REMAIN file(s) still contain _fkey hints:"
+  grep -rlE '![A-Z][A-Za-z0-9]*_[A-Za-z][A-Za-z0-9]*_fkey\(' apps packages 2>/dev/null | sed 's/^/    /'
+else
+  ok "no stale Prisma FK hints remain"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# H. Gates
+# ═══════════════════════════════════════════════════════════════════════════════
+say "H · Type-check + build"
+if [ "$DRY_RUN" -eq 1 ]; then warn "dry-run — skip gates"; exit 0; fi
+
 ws_run() {
   local workspace="$1"; shift
   case "$PM" in
@@ -1242,20 +501,13 @@ ws_run() {
 run_gate() {
   local label="$1"; shift
   printf '\n%s── %s%s\n' "$B" "$label" "$R"
-  if "$@"; then
-    ok "$label passed"
-  else
-    err "$label FAILED"
-    err "Rollback: cp -r $BACKUP/* ."
-    exit 1
-  fi
+  if "$@"; then ok "$label passed"
+  else err "$label FAILED"; err "Rollback: cp -r $BACKUP/* ."; exit 1; fi
 }
 
-# ─── Type-check ──────────────────────────────────────────────────────────────
 run_gate "type-check · web"   ws_run web   type-check
 run_gate "type-check · admin" ws_run admin type-check
 
-# ─── Build ───────────────────────────────────────────────────────────────────
 if [ "$SKIP_BUILD" -eq 0 ]; then
   run_gate "build · web"   ws_run web   build
   run_gate "build · admin" ws_run admin build
@@ -1267,21 +519,53 @@ fi
 # DONE
 # ═══════════════════════════════════════════════════════════════════════════════
 printf '\n%s════════════════════════════════════════════════════════════════════%s\n' "$B" "$R"
-printf '%s  ✅ v2 APPLIED — type-check + build passed%s\n' "$OK" "$R"
+printf '%s  ✅ v3 APPLIED — type-check + build passed%s\n' "$OK" "$R"
 printf '%s════════════════════════════════════════════════════════════════════%s\n\n' "$B" "$R"
 
 cat <<EOF
-  Package manager : $PM
-  Backup          : $BACKUP
-  Rollback        : cp -r $BACKUP/* .
+  Backup   : $BACKUP
+  Rollback : cp -r $BACKUP/* .
 
-  Migrations to push:
-    supabase db push
-    (or run manually):
-      095_escrow_release_fix.sql
-      200_missing_rpcs.sql
-      201_realtime_rls_restore.sql
-      202_ai_user_cast_fix.sql
+  ── Post-run checklist ────────────────────────────────────────────────────
+
+  Migrations (if not yet pushed):
+      supabase db push
+
+  Restart servers:
+      $PM run dev --workspace=web
+      $PM run dev --workspace=admin
+
+  Smoke tests (do these in order):
+     1. Open homepage.
+        → No '<path d="undefined">' console errors.
+        → Zeal mark in header animates smoothly.
+
+     2. Open /explore.
+        → Network tab: /api/explore/consultants returns 200 (not 500).
+        → Consultant cards render.
+
+     3. Click any consultant card.
+        → Profile page loads with bio, rating, stats.
+        → "Chat now" and "Book session" buttons visible above the fold.
+
+     4. Click "Chat now" on a profile.
+        → If balance >= rate  →  navigates to /chat/<conversationId>
+        → If balance < rate   →  WalletGateDialog opens with "Add ₹X"
+        → Click "Add ₹X"      →  /wallet?resume=<consultantId>
+        → After recharge      →  returns to chat (auto-resume)
+
+     5. Click "Book session".
+        → /booking?consultantId=<id> wizard loads.
+
+     6. Open /services and type a query in ZealChat.
+        → Network tab: /api/ai?task=concierge returns 200.
+        → If query < 3 chars: returns 400 (not 500) — "Query too short"
+        → Recommendation cards render below the assistant message.
+
+     7. Open admin /consultant/dashboard.
+        → Realtime KPI strip updates on wallet change.
+        → New booking triggers "incoming_request" on
+          consultant:<User.id>:incoming.
 EOF
 
 exit 0

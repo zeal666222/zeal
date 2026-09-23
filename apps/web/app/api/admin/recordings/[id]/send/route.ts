@@ -13,10 +13,10 @@ export async function POST(req: Request, {params}: {params: Promise<{id: string}
   const {data: session} = await admin
     .from("CallSession")
     .select(`id, recordingUrl,
-      booking:Booking!CallSession_bookingId_fkey(
+      booking:Booking!bookingId(
         userId,
-        user:User!Booking_userId_fkey(email),
-        consultant:Consultant!Booking_consultantId_fkey(userId, user:User!Consultant_userId_fkey(email))
+        user:User!userId(email),
+        consultant:Consultant!consultantId(userId, user:User!userId(email))
       )`)
     .eq("id", id)
     .maybeSingle();

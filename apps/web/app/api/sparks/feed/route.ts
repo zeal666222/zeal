@@ -25,8 +25,8 @@ export async function GET(req: Request) {
     .from("Cheer")
     .select(`
       id, createdAt,
-      user:User!Cheer_userId_fkey(id, username, avatar),
-      post:Post!Cheer_postId_fkey(id, content)
+      user:User!userId(id, username, avatar),
+      post:Post!postId(id, content)
     `)
     .eq("post.authorId", user.id)
     .order("createdAt", { ascending: false })

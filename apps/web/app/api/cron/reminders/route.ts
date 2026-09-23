@@ -29,10 +29,10 @@ export const GET = withErrorHandler(async (req: Request) => {
     .from("Booking")
     .select(`
       id, scheduledAt, userId,
-      user:User!Booking_userId_fkey(id, name),
-      consultant:Consultant!Booking_consultantId_fkey(
+      user:User!userId(id, name),
+      consultant:Consultant!consultantId(
         id, userId,
-        user:User!Consultant_userId_fkey(id, name)
+        user:User!userId(id, name)
       )
     `)
     .eq("status", "CONFIRMED")

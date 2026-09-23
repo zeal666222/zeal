@@ -53,7 +53,7 @@ export async function GET(req: Request) {
     consultantIds.length > 0
       ? admin
           .from("Consultant")
-          .select("id, user:User!Consultant_userId_fkey(name, username)")
+          .select("id, user:User!userId(name, username)")
           .in("id", consultantIds)
       : Promise.resolve({ data: [] }),
   ]);
