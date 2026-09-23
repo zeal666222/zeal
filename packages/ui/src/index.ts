@@ -65,3 +65,13 @@ export { ConfirmDialog } from "./confirm-dialog";
 
 // ─── Optimized image ───────────────────────────────────────────────────
 export { OptimizedImage, type OptimizedImageProps } from "./optimized-image";
+
+// ─── ZEAL_PHASE1_LUXURY_v1 — luxury exports ──────────────────────────────────
+export {
+  LuxuryCard,
+  cardHoverVariants,
+  staggerContainer,
+  fadeUp,
+  pulseGlow,
+} from "./motion";
+export type { LuxuryCardProps } from "./motion";

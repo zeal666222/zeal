@@ -1,14 +1,14 @@
+// ZEAL_PHASE1_V1
 "use client";
 // ZEAL_FIX_CARD_NORMALIZE
 
 import Link from "next/link";
-import {useState, memo} from "react";
-import {motion} from "framer-motion";
+import { useState, memo, useCallback } from "react";
+import { motion } from "framer-motion";
 import type { ConsultantProfile } from "@zeal/types";
-import {Badge, Button} from "@zeal/ui";
-import {cn} from "@zeal/ui";
-import {useAppStoreShallow} from "@/lib/store/appStore";
-import {useRouter} from "next/navigation";
+import { Badge, Button, cn } from "@zeal/ui";
+import { useAppStoreShallow } from "@/lib/store/appStore";
+import { useRouter } from "next/navigation";
 import { ChevronRight, Clock, Sparkles, Star, Zap } from "lucide-react";
 
 interface ConsultantCardProps {
@@ -29,8 +29,10 @@ const ConsultantCard = memo(function ConsultantCard({
   priority = false,
 }: ConsultantCardProps) {
   // ZEAL_FIX_CARD_NORMALIZE
-  // Normalize avatar vs avatar_url so callers can pass either.
-  const _c = consultant as unknown as { avatar?: string | null; avatar_url?: string | null };
+  const _c = consultant as unknown as {
+    avatar?: string | null;
+    avatar_url?: string | null;
+  };
   const _avatar = _c.avatar ?? _c.avatar_url ?? "";
 
   const router = useRouter();
@@ -38,52 +40,71 @@ const ConsultantCard = memo(function ConsultantCard({
     isAuthenticated: state.isAuthenticated,
   }));
   const [isLoading, setIsLoading] = useState(false);
+
   const isVertical = variant === "vertical";
   const isCompact = variant === "compact";
-
   const isAI = consultant.isAI === true;
+  const isOnline = consultant.isOnline === true;
 
-  const handleChat = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleChat = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
 
-    if (!isAuthenticated) {
-      router.push("/auth/login?redirect=/explore");
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      if (isAI) {
-        router.push(`/chat/ai-${consultant.id}`);
-      } else if (onChat) {
-        await onChat(consultant.id);
-      } else {
-        router.push(`/chat/${consultant.id}`);
+      if (!isAuthenticated) {
+        router.push("/login?redirect=/explore");
+        return;
       }
-    } catch (error) {
-      console.error("Failed to start chat:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handleBook = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isAI) {
-      router.push(`/ai-astrologers/${consultant.id}`);
-      return;
-    }
-    if (onBook) {
-      onBook(consultant.id);
-    } else {
-      router.push(`/booking?consultantId=${consultant.id}`);
-    }
-  };
+      // Offline human consultant: route to profile, never into chat.
+      if (!isOnline && !isAI) {
+        if (onChat) {
+          onChat(consultant.id);
+        } else {
+          router.push(`/consultant/${consultant.id}`);
+        }
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        if (isAI) {
+          router.push(`/ai-astrologers/${consultant.id}`);
+        } else if (onChat) {
+          await onChat(consultant.id);
+        } else {
+          router.push(`/consultant/${consultant.id}`);
+        }
+      } catch (err) {
+        console.error("[ConsultantCard] chat failed:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isAuthenticated, isOnline, isAI, onChat, consultant.id, router],
+  );
+
+  const handleBook = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isAI) {
+        router.push(`/ai-astrologers/${consultant.id}`);
+        return;
+      }
+      if (onBook) {
+        onBook(consultant.id);
+      } else {
+        router.push(`/booking?consultantId=${consultant.id}`);
+      }
+    },
+    [isAI, onBook, consultant.id, router],
+  );
 
   const rating = consultant.rating || 4.5;
-  const href = isAI ? `/ai-astrologers/${consultant.id}` : `/consultant/${consultant.id}`;
+  const href = isAI
+    ? `/ai-astrologers/${consultant.id}`
+    : `/consultant/${consultant.id}`;
 
   return (
     <motion.div
@@ -91,98 +112,133 @@ const ConsultantCard = memo(function ConsultantCard({
       whileTap={{ scale: 0.98 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       className={cn(
-        "glass-card-3d group relative overflow-hidden transition-all duration-300",
+        "glass-luxury glass-luxury-hover group relative overflow-hidden transition-all duration-300",
         isVertical ? "flex flex-col items-center text-center" : "flex items-start gap-4",
-        isCompact ? "p-3" : "p-4",
+        isCompact ? "p-3" : "p-5",
+        !isOnline && !isAI && "opacity-90",
       )}
     >
-      {/* ZEAL_FIX_PHASE2_LIVE_BADGE */}
-        {consultant.isOnline && (
-          <span className="absolute top-2 right-2 z-10 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Live
-          </span>
+      {/* Holographic gradient border on hover */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0
+                   group-hover:opacity-100 transition-opacity duration-500
+                   bg-gradient-to-br from-[var(--color-luxury-gold)]/10
+                   via-transparent to-[#9D7DC5]/15"
+      />
+
+      {/* Online / offline indicator */}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute top-3 right-3 z-10 w-2.5 h-2.5 rounded-full ring-2 ring-slate-950/80",
+          isAI || isOnline
+            ? "bg-emerald-500 animate-pulse"
+            : "bg-slate-500",
         )}
-        {consultant.isOnline && (
-        <div className="absolute top-2 right-2 z-10">
-          <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-700 dark:text-green-400 border border-green-500/30">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            {isAI ? "24/7" : "Online"}
-          </span>
-        </div>
+      />
+
+      {/* AI badge */}
+      {isAI && (
+        <span className="absolute top-3 left-3 z-10 px-1.5 py-0.5 rounded-full
+                         bg-gradient-to-r from-[#9D7DC5] to-[#533AFD]
+                         text-white text-[8px] font-black tracking-wider
+                         flex items-center gap-0.5">
+          <Sparkles className="w-2.5 h-2.5" /> AI
+        </span>
       )}
 
-      <div className="relative">
+      <div className="relative z-10 flex flex-col items-center">
         <div
           className={cn(
-            "rounded-full ring-2 ring-[#9D7DC5]/30 p-1",
+            "relative rounded-full ring-2 ring-[var(--color-luxury-gold)]/30 p-1",
             isCompact ? "w-12 h-12" : "w-20 h-20",
           )}
         >
+          <div
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/20 blur-md"
+          />
           <img
-            src={_avatar || "https://ui-avatars.com/api/?name=U&background=9D7DC5&color=fff"}
+            src={
+              _avatar ||
+              "https://ui-avatars.com/api/?name=U&background=9D7DC5&color=fff"
+            }
             alt={consultant.name}
-            className="w-full h-full rounded-full object-cover"
+            className="relative w-full h-full rounded-full object-cover"
             loading={priority ? "eager" : "lazy"}
           />
         </div>
-        {isAI && (
-          <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-[8px] font-bold rounded-full flex items-center gap-0.5">
-            <Sparkles className="w-2.5 h-2.5" /> AI
-          </span>
-        )}
+
         {consultant.isVerified && !isAI && (
-          <span className="absolute -bottom-1 -right-1 w-5 h-5 bg-[#9D7DC5] rounded-full flex items-center justify-center text-white text-xs border-2 border-white dark:border-gray-900">
+          <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full
+                           bg-[var(--color-luxury-gold)] text-slate-950 text-[10px]
+                           font-black flex items-center justify-center
+                           border-2 border-slate-950">
             ✓
           </span>
         )}
       </div>
 
-      <div className={cn("flex-1 min-w-0", isVertical ? "mt-2" : "mt-0")}>
+      <div className={cn("relative z-10 flex-1 min-w-0", isVertical ? "mt-3 w-full" : "mt-0")}>
         <Link href={href} className="block">
-          <h3 className="font-semibold text-[#5E4B8B] dark:text-white hover:text-[#9D7DC5] transition-colors">
+          <h3 className="font-bold text-white hover:text-[var(--color-luxury-gold)] transition-colors truncate">
             {consultant.name}
           </h3>
-          <p className="text-xs text-[#B8A1D9] dark:text-gray-400">@{consultant.username}</p>
+          <p className="text-xs text-slate-400 truncate">
+            @{consultant.username}
+          </p>
         </Link>
 
-        <div className="flex items-center gap-2 mt-1 text-xs flex-wrap">
-          <span className="text-yellow-500 flex items-center gap-0.5">
-            <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+        <div className="flex items-center justify-center gap-2 mt-2 text-xs flex-wrap">
+          <span className="inline-flex items-center gap-0.5 text-amber-400">
+            <Star className="w-3 h-3 fill-amber-400" />
             {rating.toFixed(1)}
           </span>
-          <span className="text-[#B8A1D9] dark:text-gray-400">•</span>
-          <span className="text-[#5E4B8B] dark:text-white font-medium">
-            {consultant.perMinuteRate === 0 ? "Free" : `₹${consultant.perMinuteRate}/min`}
-          </span>
-          {consultant.totalConsultations > 0 && (
-            <>
-              <span className="text-[#B8A1D9] dark:text-gray-400">•</span>
-              <span className="text-[#B8A1D9] dark:text-gray-400">
-                {consultant.totalConsultations} consults
-              </span>
-            </>
+          {typeof consultant.sparks === "number" && consultant.sparks > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-orange-400">
+              <span aria-hidden>🔥</span>
+              {consultant.sparks > 999
+                ? `${(consultant.sparks / 1000).toFixed(1)}k`
+                : consultant.sparks}
+            </span>
           )}
+          <span className="text-[var(--color-luxury-gold)] font-mono font-bold">
+            {consultant.perMinuteRate === 0
+              ? "Free"
+              : `₹${consultant.perMinuteRate}/min`}
+          </span>
         </div>
 
-        {consultant.specialties && consultant.specialties.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {consultant.specialties.slice(0, isCompact ? 1 : 2).map((s) => (
-              <Badge key={s} variant="outline" className="text-[8px] px-1.5 py-0">
-                {s}
-              </Badge>
-            ))}
-          </div>
+        {!isCompact &&
+          consultant.specialties &&
+          consultant.specialties.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1 mt-2">
+              {consultant.specialties.slice(0, 2).map((s) => (
+                <Badge key={s} variant="outline" className="text-[9px] px-1.5 py-0">
+                  {s}
+                </Badge>
+              ))}
+            </div>
+          )}
+
+        {!isCompact && !isAI && !isOnline && (
+          <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest font-bold">
+            Offline · View profile
+          </p>
         )}
 
         {showActions && (
-          <div className={cn("flex gap-2 mt-3", isVertical ? "flex-col w-full" : "flex-row")}>
+          <div className={cn("flex gap-2 mt-4", isVertical ? "flex-col w-full" : "flex-row")}>
             <Button
               variant="primary"
               size="sm"
               onClick={handleChat}
               disabled={isLoading}
-              className={cn("flex-1 text-xs py-1.5", isVertical ? "w-full" : "")}
+              className={cn(
+                "flex-1 text-xs py-2 rounded-xl",
+                isVertical && "w-full",
+              )}
             >
               {isLoading ? (
                 <span className="flex items-center gap-1">
@@ -191,7 +247,8 @@ const ConsultantCard = memo(function ConsultantCard({
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
-                  <Zap className="w-3 h-3" /> Chat Now
+                  <Zap className="w-3 h-3" />
+                  {isAI ? "Start chat" : isOnline ? "Chat now" : "View profile"}
                 </span>
               )}
             </Button>
@@ -199,15 +256,19 @@ const ConsultantCard = memo(function ConsultantCard({
               variant="secondary"
               size="sm"
               onClick={handleBook}
-              className={cn("flex-1 text-xs py-1.5", isVertical ? "w-full" : "")}
+              className={cn(
+                "flex-1 text-xs py-2 rounded-xl",
+                isVertical && "w-full",
+              )}
             >
-              <Clock className="w-3 h-3 mr-1" /> {isAI ? "View" : "Book"}
+              <Clock className="w-3 h-3 mr-1" />
+              {isAI ? "View" : "Book"}
             </Button>
           </div>
         )}
 
         {isCompact && !showActions && (
-          <ChevronRight className="w-4 h-4 text-[#B8A1D9] ml-auto" />
+          <ChevronRight className="w-4 h-4 text-slate-500 ml-auto" />
         )}
       </div>
     </motion.div>

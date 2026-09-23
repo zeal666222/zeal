@@ -241,3 +241,106 @@ html { transition: background-color 150ms ease-out, color 150ms ease-out; }
 }
 ::view-transition-old(root) { z-index: 1; }
 ::view-transition-new(root) { z-index: 9999; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ZEAL_PHASE1_LUXURY_v1
+   ─────────────────────────────────────────────────────────────────────────────
+   Luxury design layer. Additive — existing tokens above are untouched.
+   Provides:
+     • Champagne gold accents for CTAs, badges, and premium highlights
+     • Deep aubergine base for hero and ambient backdrops
+     • Glassmorphism utilities (.glass-luxury, .glass-luxury-hover)
+     • Gradient text (.text-luxury-gradient)
+     • Subtle SVG noise overlay (.noise-overlay)
+     • Luxury divider (.luxury-divider)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --color-luxury-base:          oklch(0.08 0.02 280);
+  --color-luxury-mid:           oklch(0.14 0.04 280);
+  --color-luxury-gold:          oklch(0.78 0.12 85);
+  --color-luxury-gold-muted:    oklch(0.78 0.12 85 / 0.15);
+  --color-luxury-gold-glow:     oklch(0.78 0.12 85 / 0.35);
+  --color-luxury-glass:         oklch(1 0 0 / 0.06);
+  --color-luxury-glass-border:  oklch(1 0 0 / 0.10);
+  --color-luxury-glass-hover:   oklch(1 0 0 / 0.10);
+  --shadow-luxury:              0 8px 32px oklch(0% 0 0 / 0.4), 0 0 0 1px oklch(1 0 0 / 0.05);
+  --shadow-luxury-glow:         0 0 40px oklch(0.78 0.12 85 / 0.15);
+  --font-display:               'Playfair Display', 'Times New Roman', Georgia, serif;
+}
+
+.dark {
+  --color-luxury-glass:         oklch(1 0 0 / 0.08);
+  --color-luxury-glass-border:  oklch(1 0 0 / 0.12);
+  --color-luxury-glass-hover:   oklch(1 0 0 / 0.12);
+}
+
+/* ─── Glassmorphism cards ─────────────────────────────────────────────────── */
+.glass-luxury {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  background: var(--color-luxury-glass);
+  border: 1px solid var(--color-luxury-glass-border);
+  box-shadow:
+    var(--shadow-luxury),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.06);
+  transition:
+    background 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-luxury-hover:hover {
+  background: var(--color-luxury-glass-hover);
+  border-color: var(--color-luxury-gold-muted);
+  box-shadow:
+    var(--shadow-luxury),
+    var(--shadow-luxury-glow),
+    inset 0 1px 0 0 oklch(1 0 0 / 0.08);
+}
+
+/* ─── Gradient text ────────────────────────────────────────────────────────── */
+.text-luxury-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--color-luxury-gold) 0%,
+    oklch(0.85 0.08 300) 50%,
+    oklch(0.78 0.12 85) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ─── Ambient noise overlay ────────────────────────────────────────────────── */
+.noise-overlay { position: relative; isolation: isolate; }
+
+.noise-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* ─── Luxury divider ───────────────────────────────────────────────────────── */
+.luxury-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--color-luxury-gold-muted) 50%,
+    transparent 100%
+  );
+}
+
+/* ─── Reduced motion ───────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .glass-luxury,
+  .glass-luxury-hover { transition: none !important; }
+}

@@ -1,24 +1,24 @@
+// ZEAL_PHASE2_V1
 // ═══════════════════════════════════════════════════════════════════════════════
-// Consultant Profile — server component
+// Consultant Profile — server component with premium hero + ProfileActions
 // ═══════════════════════════════════════════════════════════════════════════════
+
 import { createAdminClient } from "@zeal/database/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Calendar, Flame, MessageSquare, Star } from "lucide-react";
+import { ArrowLeft, Flame, Star } from "lucide-react";
 import { ConsultantTabs } from "./ConsultantTabs";
+import { ProfileActions } from "./ProfileActions";
 
 export const dynamic = "force-dynamic";
 
-// ─── Relation helper ─────────────────────────────────────────────────────────
 type Relation<T> = T | T[] | null | undefined;
-
 function pickOne<T>(relation: Relation<T>): T | null {
   if (relation == null) return null;
   if (Array.isArray(relation)) return relation[0] ?? null;
   return relation;
 }
 
-// ─── Row types ────────────────────────────────────────────────────────────────
 interface UserRelation {
   id: string;
   name: string | null;
@@ -64,7 +64,6 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// ─── Metadata ────────────────────────────────────────────────────────────────
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
   const admin = createAdminClient();
@@ -74,18 +73,17 @@ export async function generateMetadata({ params }: PageProps) {
     .eq("id", id)
     .maybeSingle();
 
-  const rel = (data as { user?: Relation<{ name?: string | null; username?: string }> } | null)?.user;
+  const rel = (data as { user?: Relation<{ name?: string | null; username?: string }> } | null)
+    ?.user;
   const user = pickOne(rel);
   const displayName = user?.name ?? user?.username ?? "Consultant";
   return { title: `${displayName} — Zeal` };
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
 export default async function ConsultantProfilePage({ params }: PageProps) {
   const { id } = await params;
   const admin = createAdminClient();
 
-  // ─── Stage 1: Load profile ───────────────────────────────────────────────
   const { data: profileData } = await admin
     .from("Consultant")
     .select(`
@@ -104,7 +102,6 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
   if (!userRel) notFound();
   const user: UserRelation = userRel;
 
-  // ─── Stage 2: Parallel fetches scoped by userId ──────────────────────────
   const [postsRes, reviewsRes, followRes] = await Promise.all([
     admin
       .from("Post")
@@ -113,7 +110,6 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
       .eq("isFlagged", false)
       .order("createdAt", { ascending: false })
       .limit(30),
-
     admin
       .from("Booking")
       .select('rating, review, "updatedAt", user:User!Booking_userId_fkey(name, avatar)')
@@ -122,7 +118,6 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
       .not("rating", "is", null)
       .order("updatedAt", { ascending: false })
       .limit(10),
-
     admin
       .from("UserActivity")
       .select("*", { count: "exact", head: true })
@@ -145,30 +140,34 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
     };
   });
 
-  // ─── Derived ─────────────────────────────────────────────────────────────
   const displayName = user.name ?? user.username;
   const initials = displayName.charAt(0).toUpperCase();
-  const coverFallback =
-    "bg-gradient-to-tr from-slate-900 via-[#533AFD]/30 to-[#9D7DC5]/30";
 
   return (
     <div className="min-h-screen-app bg-slate-950 text-slate-50 pb-24">
       {/* Cover */}
-      <div className={`relative w-full h-48 md:h-64 ${coverFallback}`}>
+      <div className="relative w-full h-56 md:h-72 noise-overlay overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0B0A14] via-[#1A1430] to-[#0B0A14]" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-[var(--color-luxury-gold)]/10 blur-[160px] pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#9D7DC5]/12 blur-[160px] pointer-events-none" />
         <Link
-          href="/services"
-          className="absolute top-4 left-4 p-2 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-all z-10"
-          aria-label="Back to services"
+          href="/explore"
+          aria-label="Back to explore"
+          className="absolute top-4 left-4 z-10 p-2.5 rounded-full bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-colors"
         >
           <ArrowLeft size={18} />
         </Link>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 -mt-16 md:-mt-20 relative z-10">
-        {/* Avatar + Name + CTAs */}
-        <div className="flex flex-col md:flex-row md:items-end gap-4 mb-6">
+      <div className="max-w-4xl mx-auto px-4 -mt-20 md:-mt-24 relative z-10">
+        {/* Avatar + identity */}
+        <div className="flex flex-col md:flex-row md:items-end gap-5 mb-8">
           <div className="relative inline-block">
-            <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-slate-950 bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white text-4xl font-black overflow-hidden">
+            <div
+              aria-hidden
+              className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/25 blur-xl"
+            />
+            <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-slate-950 bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white text-4xl font-black overflow-hidden">
               {user.avatar ? (
                 <img
                   src={user.avatar}
@@ -180,19 +179,23 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
               )}
             </div>
             <div
-              className={`absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-slate-950 ${
-                user.is_online ? "bg-emerald-500" : "bg-slate-500"
+              className={`absolute bottom-3 right-3 w-6 h-6 rounded-full border-4 border-slate-950 ${
+                user.is_online ? "bg-emerald-500 animate-pulse" : "bg-slate-500"
               }`}
               aria-label={user.is_online ? "Online" : "Offline"}
             />
           </div>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-3xl md:text-4xl font-black text-white truncate">
+            <h1
+              className="text-3xl md:text-4xl font-black text-white truncate"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
               {displayName}
             </h1>
             <p className="text-slate-400 text-sm mt-1">
-              @{user.username} · {profileRow.category.toLowerCase().replace(/_/g, " ")}
+              @{user.username} ·{" "}
+              {profileRow.category.toLowerCase().replace(/_/g, " ")}
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
               <span className="flex items-center gap-1 text-amber-400">
@@ -202,7 +205,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
               <span className="flex items-center gap-1 text-orange-400">
                 <Flame size={14} /> {profileRow.sparkScore.toLocaleString()}
               </span>
-              <span className="text-[#9D7DC5] font-mono">
+              <span className="text-[var(--color-luxury-gold)] font-mono font-bold">
                 ₹{profileRow.perMinuteRate}/min
               </span>
               {profileRow.isVerified && (
@@ -210,42 +213,36 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
               )}
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href={`/chat/new?consultantId=${profileRow.userId}`}
-              className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white rounded-2xl text-sm font-bold hover:shadow-lg hover:shadow-[#533AFD]/30 transition-all"
-            >
-              <MessageSquare size={16} /> Chat
-            </Link>
-            <Link
-              href={`/booking?consultantId=${profileRow.id}`}
-              className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 text-white rounded-2xl text-sm font-bold hover:bg-white/10 transition-all"
-            >
-              <Calendar size={16} /> Book
-            </Link>
-          </div>
         </div>
 
+        {/* CTAs — ProfileActions owns the wallet gate + realtime presence */}
+        <ProfileActions
+          consultantId={profileRow.id}
+          consultantName={displayName}
+          perMinuteRate={profileRow.perMinuteRate}
+          isOnline={Boolean(user.is_online)}
+          isAI={false}
+        />
+
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-3 p-5 bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl mb-6">
-          <StatCell label="Sessions"  value={profileRow.totalConsultations} />
+        <div className="grid grid-cols-4 gap-3 p-5 glass-luxury rounded-2xl mt-6">
+          <StatCell label="Sessions" value={profileRow.totalConsultations} />
           <StatCell label="Followers" value={followers} />
-          <StatCell label="Sparks"    value={profileRow.sparkScore} />
-          <StatCell label="Rating"    value={profileRow.rating.toFixed(1)} />
+          <StatCell label="Sparks" value={profileRow.sparkScore} />
+          <StatCell label="Rating" value={profileRow.rating.toFixed(1)} />
         </div>
 
         {/* Bio */}
         {profileRow.bio && (
-          <p className="text-slate-300 leading-relaxed mb-4">{profileRow.bio}</p>
+          <p className="text-slate-300 leading-relaxed mt-6">{profileRow.bio}</p>
         )}
 
         {/* Chips */}
-        <div className="flex flex-wrap gap-2 mb-8">
+        <div className="flex flex-wrap gap-2 mt-4">
           {(profileRow.specialties ?? []).map((s: string) => (
             <span
               key={s}
-              className="px-3 py-1 rounded-full bg-[#9D7DC5]/10 border border-[#9D7DC5]/20 text-[#9D7DC5] text-xs"
+              className="px-3 py-1 rounded-full bg-[var(--color-luxury-gold)]/10 border border-[var(--color-luxury-gold)]/20 text-[var(--color-luxury-gold)] text-xs"
             >
               {s}
             </span>
@@ -260,21 +257,22 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
           ))}
         </div>
 
-        {/* Tabs — client component (hooks live here) */}
-        <ConsultantTabs posts={posts} reviews={reviews} />
+        {/* Tabs */}
+        <div className="mt-8">
+          <ConsultantTabs posts={posts} reviews={reviews} />
+        </div>
       </div>
     </div>
   );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
 function StatCell({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="text-center">
       <div className="text-lg md:text-2xl font-black text-white font-mono">
         {typeof value === "number" ? value.toLocaleString() : value}
       </div>
-      <div className="text-[10px] md:text-xs text-slate-400 uppercase tracking-wider mt-1">
+      <div className="text-[10px] md:text-xs text-slate-500 uppercase tracking-wider mt-1">
         {label}
       </div>
     </div>

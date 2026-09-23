@@ -1,163 +1,288 @@
+// ZEAL_PHASE2_V1
 "use client";
-import {useState, useRef, useEffect} from "react";
-import {motion, AnimatePresence} from "framer-motion";
-import { Bot, Maximize2, Minimize2, Send, X } from "lucide-react";
+// ═══════════════════════════════════════════════════════════════════════════════
+// ZealChat — AI concierge with inline consultant recommendations
+// ─────────────────────────────────────────────────────────────────────────────
+// • Full-width luxury glass panel
+// • User/assistant bubbles
+// • Concierge responses render ConsultantRecommendationCard inline
+// • Wallet gate integrated via startChatFlow
+// • Quick prompts when empty
+// • Auto-scroll + reduced-motion aware
+// ═══════════════════════════════════════════════════════════════════════════════
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Loader2, Send, Sparkles } from "lucide-react";
+import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
+import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
+import {
+  ConsultantRecommendationCard,
+  type RecommendationConsultant,
+} from "./ConsultantRecommendationCard";
+
+interface Recommendation {
+  response: string;
+  categoryId: string;
+  categoryName: string;
+  reason?: string;
+  consultants: RecommendationConsultant[];
+  aiConsultants: RecommendationConsultant[];
+}
 
 interface Message {
   role: "user" | "assistant";
   content: string;
-  category?: string;
+  recommendation?: Recommendation;
 }
 
 const QUICK_PROMPTS = [
-  { label: "🔮 Relationship advice", value: "I need relationship advice" },
-  { label: "💼 Career guidance", value: "Help me with my career" },
-  { label: "🧠 Feeling anxious", value: "I feel anxious and need support" },
-  { label: "🌟 Daily horoscope", value: "What's my horoscope today?" },
+  { label: "💼 Career guidance", value: "I need clarity on my career path" },
+  { label: "💕 Relationships", value: "I'm navigating a relationship challenge" },
+  { label: "🌟 Vedic astrology", value: "I want a Vedic birth chart reading" },
+  { label: "🧘 Peace & calm", value: "I need help managing anxiety" },
 ];
 
 export function ZealChat() {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "👋 Hi, I'm Zeal! Tell me what you're looking for, and I'll guide you to the right service." },
+    {
+      role: "assistant",
+      content:
+        "Hello. I'm Zeal — tell me what you're looking for, and I'll find the right guide for you.",
+    },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [gateInfo, setGateInfo] = useState<LowBalanceInfo | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length, loading]);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg = { role: "user" as const, content: input };
-    setMessages((prev) => [...prev, userMsg]);
+  const showToast = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 3200);
+  };
+
+  const send = useCallback(async (text?: string) => {
+    const q = (text ?? input).trim();
+    if (!q || loading) return;
     setInput("");
+    setMessages((prev) => [...prev, { role: "user", content: q }]);
     setLoading(true);
+
     try {
-      const res = await fetch("/api/zeal/chat", {
+      const res = await fetch("/api/ai?task=concierge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input, history: messages }),
+        body: JSON.stringify({ query: q }),
       });
-      const data = await res.json();
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          (body as { error?: string }).error || `HTTP ${res.status}`,
+        );
+      }
+
+      const data = (await res.json()) as Recommendation & { success: boolean };
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.response, category: data.category },
+        {
+          role: "assistant",
+          content: data.response,
+          recommendation: {
+            response: data.response,
+            categoryId: data.categoryId,
+            categoryName: data.categoryName,
+            reason: data.reason,
+            consultants: data.consultants ?? [],
+            aiConsultants: data.aiConsultants ?? [],
+          },
+        },
       ]);
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I'm here to help. Please try again or select a quick prompt below." },
+        {
+          role: "assistant",
+          content:
+            "I'm having trouble connecting right now. Could you try again in a moment?",
+        },
       ]);
+      console.error("[ZealChat] error:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [input, loading]);
 
-  const handleQuickPrompt = (prompt: string) => {
-    setInput(prompt);
-    setTimeout(() => handleSend(), 100);
-  };
+  const handleChat = useCallback(
+    async (consultantId: string) => {
+      await startChatFlow(consultantId, {
+        router,
+        onLowBalance: (info) => {
+          setGateInfo(info);
+          setGateOpen(true);
+        },
+        onOffline: ({ consultantName }) =>
+          showToast(`${consultantName} is currently offline.`),
+        onError: showToast,
+      });
+    },
+    [router],
+  );
 
-  if (isMinimized) {
-    return (
-      <button
-        onClick={() => setIsMinimized(false)}
-        className="fixed bottom-24 right-4 z-50 p-4 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white shadow-2xl shadow-[#9D7DC5]/30 hover:scale-105 transition-all"
-      >
-        <Bot className="w-6 h-6" />
-      </button>
-    );
-  }
+  const isStreamingResponse = loading;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass-card-3d p-4 space-y-3 relative"
-      style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)" }}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD]">
-            <Bot className="w-4 h-4 text-white" />
+    <>
+      <div className="glass-luxury rounded-3xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#9D7DC5] to-[#533AFD] flex items-center justify-center">
+            <Sparkles size={16} className="text-white" />
           </div>
-          <span className="font-semibold text-[#5E4B8B] dark:text-white">Zeal AI</span>
-          <span className="text-xs text-green-500 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-            Online
-          </span>
+          <div className="flex-1">
+            <p className="text-sm font-black text-white">Ask Zeal</p>
+            <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Online · powered by Agnes + Groq
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 rounded hover:bg-white/20 transition-colors">
-            {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-          <button onClick={() => setIsMinimized(true)} className="p-1 rounded hover:bg-white/20 transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
 
-      <div className={`${isExpanded ? "h-64" : "h-40"} overflow-y-auto space-y-2 text-sm transition-all duration-300`}>
-        {messages.map((msg, idx) => (
-          <div
-            key={idx}
-            className={`p-2.5 rounded-xl max-w-[85%] ${
-              msg.role === "user"
-                ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white ml-auto"
-                : "bg-[#F4E8F7] dark:bg-gray-800 text-[#5E4B8B] dark:text-white"
-            }`}
-          >
-            {msg.content}
-            {msg.category && <div className="mt-1 text-xs opacity-70">💡 Suggested: {msg.category}</div>}
-          </div>
-        ))}
-        {loading && (
-          <div className="flex items-center gap-2 text-[#B8A1D9] p-2">
-            <span className="w-1.5 h-1.5 bg-[#9D7DC5] rounded-full animate-bounce" />
-            <span className="w-1.5 h-1.5 bg-[#9D7DC5] rounded-full animate-bounce delay-75" />
-            <span className="w-1.5 h-1.5 bg-[#9D7DC5] rounded-full animate-bounce delay-150" />
+        {/* Messages */}
+        <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar">
+          {messages.map((m, i) => (
+            <div key={i} className="space-y-3">
+              <div
+                className={`flex ${
+                  m.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                    m.role === "user"
+                      ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white rounded-br-sm"
+                      : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-sm"
+                  }`}
+                >
+                  {m.content}
+                </div>
+              </div>
+
+              {m.recommendation &&
+                (m.recommendation.consultants.length > 0 ||
+                  m.recommendation.aiConsultants.length > 0) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[90%]">
+                    {m.recommendation.aiConsultants.map((c, idx) => (
+                      <ConsultantRecommendationCard
+                        key={c.id}
+                        consultant={{ ...c, isAI: true }}
+                        reason={m.recommendation?.reason}
+                        index={idx}
+                        onChat={handleChat}
+                      />
+                    ))}
+                    {m.recommendation.consultants.map((c, idx) => (
+                      <ConsultantRecommendationCard
+                        key={c.id}
+                        consultant={c}
+                        reason={m.recommendation?.reason}
+                        index={idx}
+                        onChat={handleChat}
+                      />
+                    ))}
+                  </div>
+                )}
+            </div>
+          ))}
+
+          {isStreamingResponse && (
+            <div className="flex justify-start">
+              <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white/5 border border-white/10">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-luxury-gold)] animate-bounce" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-luxury-gold)] animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-luxury-gold)] animate-bounce [animation-delay:300ms]" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Quick prompts */}
+        {messages.length === 1 && (
+          <div className="px-6 pb-3 flex flex-wrap gap-2">
+            {QUICK_PROMPTS.map((p) => (
+              <button
+                key={p.value}
+                type="button"
+                onClick={() => send(p.value)}
+                className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300 hover:border-[var(--color-luxury-gold)]/40 hover:text-white transition-colors"
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
         )}
-        <div ref={messagesEndRef} />
+
+        {/* Input */}
+        <div className="px-4 py-3 border-t border-white/5">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              send();
+            }}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Describe what you need..."
+              maxLength={500}
+              disabled={loading}
+              className="flex-1 bg-white/5 border border-white/10 rounded-full px-5 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-[var(--color-luxury-gold)] transition-colors"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || loading}
+              aria-label="Send"
+              className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                input.trim() && !loading
+                  ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white active:scale-95"
+                  : "bg-white/5 text-slate-500 cursor-not-allowed"
+              }`}
+            >
+              {loading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Send size={16} className="ml-0.5" />
+              )}
+            </button>
+          </form>
+        </div>
       </div>
 
-      {!isExpanded && (
-        <div className="flex flex-wrap gap-2">
-          {QUICK_PROMPTS.map((prompt) => (
-            <button
-              key={prompt.value}
-              onClick={() => handleQuickPrompt(prompt.value)}
-              className="text-xs px-3 py-1.5 rounded-full glass border border-[#E1C5E7]/30 hover:bg-white/10 transition-colors whitespace-nowrap"
-            >
-              {prompt.label}
-            </button>
-          ))}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-white shadow-2xl">
+          {toast}
         </div>
       )}
 
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSend()}
-          placeholder="Ask Zeal anything..."
-          className="flex-1 px-4 py-2.5 rounded-xl glass border border-[#E1C5E7]/30 focus:ring-2 focus:ring-[#9D7DC5] outline-none text-[#5E4B8B] dark:text-white placeholder:text-[#B8A1D9]"
-        />
-        <button
-          onClick={handleSend}
-          disabled={loading}
-          className="p-2.5 rounded-xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white shadow-lg shadow-[#9D7DC5]/25 hover:shadow-xl transition-all disabled:opacity-50"
-        >
-          <Send className="w-5 h-5" />
-        </button>
-      </div>
-    </motion.div>
+      <WalletGateDialog
+        open={gateOpen}
+        onOpenChange={setGateOpen}
+        info={gateInfo}
+      />
+    </>
   );
 }
-
-// ZEAL_HUB_COMPLETE_APPLIED

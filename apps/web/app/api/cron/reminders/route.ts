@@ -12,6 +12,15 @@ export const GET = withErrorHandler(async (req: Request) => {
     throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
   }
 
+  // ZEAL_PHASE1_PRESENCE_CLEANUP
+  // Mark stale online users offline (>120s since last heartbeat)
+  try {
+    const admin = createAdminClient();
+    await admin.rpc("cleanup_stale_online_users", { p_stale_after_seconds: 120 });
+  } catch (err) {
+    console.warn("[cron/reminders] presence cleanup failed:", err);
+  }
+
   const now = new Date();
   const in15Min = new Date(now.getTime() + 15 * 60 * 1000);
 

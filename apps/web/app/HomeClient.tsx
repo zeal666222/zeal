@@ -1,289 +1,276 @@
+// ZEAL_PHASE2_V1
 "use client";
 // ═══════════════════════════════════════════════════════════════════════════════
-// Homepage — realtime AI grid + expert grid + live feed
+// Homepage — luxury hero + realtime AI + realtime experts + feed
+// Phase 2: every Chat CTA routes through startChatFlow with WalletGateDialog.
 // ═══════════════════════════════════════════════════════════════════════════════
-
-import { useState, useCallback } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Flame, Plus, Radio, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Radio, Sparkles } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { EmptyState } from "@zeal/ui";
+import { cardHoverVariants, staggerContainer, fadeUp } from "@zeal/ui/motion";
+import { ConsultantCard } from "@/components/shared/ConsultantCard";
+import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
+import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
+import type { ConsultantProfile } from "@zeal/types";
 
 interface AIConsultant {
-  id: string; name: string; username: string; avatar: string; category: string;
-  bio: string; rating: number; isPaid: boolean; perMinuteRate: number;
-  specialties: string[] | null; isFeatured: boolean;
+  id: string; name: string; username: string; avatar: string;
+  category: string; bio: string; rating: number; isPaid: boolean;
+  perMinuteRate: number; specialties: string[] | null; isFeatured: boolean;
 }
-
 interface Expert {
   id: string; category: string; rating: number; sparkScore: number;
-  perMinuteRate: number; specialties: string[] | null;
-  user: { id: string; name: string | null; username: string; avatar: string | null; is_online: boolean | null } | null;
+  perMinuteRate: number; specialties: string[] | null; languages: string[] | null;
+  totalConsultations: number | null;
+  user: { id: string; name: string | null; username: string;
+          avatar: string | null; is_online: boolean | null } | null;
 }
-
 interface Post {
   id: string; content: string; mediaUrls?: string[] | null;
   cheerCount?: number | null; commentCount?: number | null; createdAt: string;
-  author: { id?: string; name: string | null; username: string | null; avatar: string | null } | null;
+  author: { id?: string; name: string | null; username: string | null;
+            avatar: string | null } | null;
 }
-
-interface Props {
+interface HomeProps {
   aiConsultants: AIConsultant[];
   experts: Expert[];
   posts: Post[];
+  stats: { traditions: number; consultants: number; aiConsultants: number };
 }
 
-export function HomeClient({ aiConsultants, experts, posts: initialPosts }: Props) {
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+function toProfile(ex: Expert): ConsultantProfile {
+  return {
+    id: ex.id, userId: ex.user?.id ?? "",
+    name: ex.user?.name ?? ex.user?.username ?? "Guide",
+    username: ex.user?.username ?? "", bio: "",
+    avatar: ex.user?.avatar ?? "", category: ex.category as never,
+    isVerified: true, isOnline: Boolean(ex.user?.is_online),
+    perMinuteRate: ex.perMinuteRate, experience: 0, rating: ex.rating,
+    totalConsultations: ex.totalConsultations ?? 0, sparks: ex.sparkScore,
+    languages: ex.languages ?? [], specialties: ex.specialties ?? [],
+    faith: "OTHER" as never, isAI: false,
+  };
+}
 
-  // Realtime feed — prepend new posts, drop flagged
+export function HomeClient({
+  aiConsultants, experts: initialExperts,
+  posts: initialPosts, stats,
+}: HomeProps) {
+  const router = useRouter();
+  const [experts, setExperts] = useState<Expert[]>(initialExperts);
+  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [aiList, setAiList] = useState<AIConsultant[]>(aiConsultants);
+  const [gateOpen, setGateOpen] = useState(false);
+  const [gateInfo, setGateInfo] = useState<LowBalanceInfo | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  const handleChat = useCallback(async (consultantId: string) => {
+    await startChatFlow(consultantId, {
+      router,
+      onLowBalance: (info) => { setGateInfo(info); setGateOpen(true); },
+      onOffline: ({ consultantName }) => showToast(`${consultantName} is currently offline.`),
+      onError: showToast,
+    });
+  }, [router, showToast]);
+
+  useChannel<BroadcastChange<{ consultantId?: string; is_online?: boolean; userId?: string }>>({
+    channel: channels.consultantsLive(),
+    event: "*",
+    onMessage: useCallback((p) => {
+      const pl = p as unknown as {
+        consultantId?: string; is_online?: boolean;
+        record?: { userId?: string; is_online?: boolean };
+      };
+      const id = pl.consultantId ?? pl.record?.userId;
+      const st = pl.is_online ?? pl.record?.is_online;
+      if (typeof id === "string" && typeof st === "boolean") {
+        setExperts((prev) => prev.map((e) =>
+          e.user?.id === id ? { ...e, user: { ...e.user!, is_online: st } } : e));
+      }
+    }, []),
+  });
+
+  useChannel<BroadcastChange<AIConsultant>>({
+    channel: channels.consultantAiUpdates(),
+    event: "*",
+    onMessage: useCallback((p) => {
+      const { type, record, old_record } = p ?? {};
+      if (type === "INSERT" && record) {
+        setAiList((prev) => prev.some((x) => x.id === record.id)
+          ? prev : [record, ...prev].slice(0, 6));
+      } else if (type === "UPDATE" && record) {
+        setAiList((prev) => prev.map((x) => x.id === record.id ? record : x));
+      } else if (type === "DELETE" && old_record?.id) {
+        setAiList((prev) => prev.filter((x) => x.id !== old_record.id));
+      }
+    }, []),
+  });
+
   useChannel<BroadcastChange<Post>>({
     channel: "feed:posts",
     event: "*",
-    onMessage: useCallback((payload) => {
-      const { type, record, old_record } = payload ?? {};
+    onMessage: useCallback((p) => {
+      const { type, record, old_record } = p ?? {};
       if (type === "INSERT" && record) {
-        setPosts((prev) => prev.some((p) => p.id === record.id) ? prev : [record, ...prev].slice(0, 50));
+        setPosts((prev) => prev.some((x) => x.id === record.id)
+          ? prev : [record, ...prev].slice(0, 50));
       } else if (type === "UPDATE" && record) {
-        setPosts((prev) => prev.map((p) => (p.id === record.id ? record : p)));
+        setPosts((prev) => prev.map((x) => x.id === record.id ? record : x));
       } else if (type === "DELETE" && old_record?.id) {
-        setPosts((prev) => prev.filter((p) => p.id !== old_record.id));
+        setPosts((prev) => prev.filter((x) => x.id !== old_record.id));
       }
     }, []),
   });
 
   return (
-    <div className="space-y-12 pb-12">
+    <div className="space-y-16 pb-16">
       {/* HERO */}
-      <section className="relative overflow-hidden rounded-3xl mx-4 md:mx-6 lg:mx-auto lg:max-w-7xl mt-6 border border-[var(--color-border)]">
-        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/15 via-transparent to-[var(--color-primary)]/5 pointer-events-none" />
-        <div className="relative p-8 md:p-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-primary-muted)] border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold uppercase tracking-widest mb-5">
-            <Sparkles size={12} /> Multi-faith · 37 traditions · 24/7 AI + verified humans
-          </div>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-[var(--color-foreground)] leading-[1.05] max-w-3xl">
-            Every tradition.
-              <br />
-              <span className="bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] bg-clip-text text-transparent">
-                One platform.
-              </span>
-          </h1>
-          <p className="text-[var(--color-muted-foreground)] mt-5 max-w-xl text-base">
-            Multi-faith wellness & healing — Vedic astrology, Islamic counseling,
-            Buddhist meditation, Christian therapy, Tarot, energy healing, and modern wellness coaching.
-          </p>
-          <div className="flex flex-wrap gap-3 mt-8">
-            <Link
-              href="/services"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-[var(--color-primary-foreground)] font-black text-sm shadow-lg shadow-[var(--color-primary)]/20 hover:scale-[1.02] active:scale-[0.98] transition-transform"
-            >
-              Explore services <ArrowRight size={15} />
+      <section className="relative overflow-hidden rounded-3xl mx-4 md:mx-6 lg:mx-auto lg:max-w-7xl mt-6 noise-overlay border border-[var(--color-luxury-glass-border)]">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0B0A14] via-[#1A1430] to-[#0B0A14]" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-[var(--color-luxury-gold)]/8 blur-[160px] pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#9D7DC5]/10 blur-[160px] pointer-events-none" />
+        <motion.div variants={staggerContainer} initial="hidden" animate="show"
+          className="relative z-10 p-8 md:p-16">
+          <motion.div variants={fadeUp}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-luxury-gold)]/10 border border-[var(--color-luxury-gold)]/20 text-[var(--color-luxury-gold)] text-xs font-bold uppercase tracking-widest mb-6">
+            <Sparkles size={12} />
+            Multi-faith · {stats.traditions} traditions · 24/7 AI + verified humans
+          </motion.div>
+          <motion.h1 variants={fadeUp}
+            className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white leading-[1.05] max-w-3xl"
+            style={{ fontFamily: "var(--font-display)" }}>
+            Every tradition.<br />
+            <span className="text-luxury-gradient">One sanctuary.</span>
+          </motion.h1>
+          <motion.p variants={fadeUp}
+            className="text-slate-300 mt-6 max-w-xl text-base md:text-lg leading-relaxed">
+            Vedic astrology, Islamic counseling, Buddhist meditation, Christian
+            therapy, Tarot, energy healing, and modern wellness — on one
+            platform, in one calm room.
+          </motion.p>
+          <motion.div variants={fadeUp} className="flex flex-wrap gap-3 mt-10">
+            <Link href="/explore"
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white font-black text-sm shadow-xl shadow-[#533AFD]/25 hover:scale-[1.02] active:scale-[0.98] transition-transform">
+              Find your guide <ArrowRight size={15} />
             </Link>
-            <Link
-              href="/ai-astrologers"
-              className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-foreground)] font-bold text-sm hover:border-[var(--color-primary)]/40 transition-colors"
-            >
-              Try AI consultant
+            <Link href="/services"
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl glass-luxury glass-luxury-hover text-white font-bold text-sm">
+              Ask Zeal AI
             </Link>
-          </div>
-        </div>
+          </motion.div>
+          <motion.div variants={fadeUp}
+            className="flex flex-wrap items-center gap-6 mt-10 pt-8 border-t border-white/5">
+            <Stat value={stats.consultants} label="Verified guides" />
+            <div className="luxury-divider w-px h-8 hidden sm:block" />
+            <Stat value={stats.aiConsultants} label="AI consultants" />
+            <div className="luxury-divider w-px h-8 hidden sm:block" />
+            <Stat value={stats.traditions} label="Traditions" />
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* AI CONSULTANTS */}
       <section className="mx-4 md:mx-6 lg:mx-auto lg:max-w-7xl">
-        <div className="flex items-center justify-between gap-4 mb-5">
-          <div>
-            <h2 className="text-xl md:text-2xl font-black text-[var(--color-foreground)] flex items-center gap-2">
-              <Sparkles size={20} className="text-[var(--color-primary)]" />
-              AI Consultants
-            </h2>
-            <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              Instant answers, 24/7 · Powered by Agnes + Groq
-            </p>
-          </div>
-          <Link href="/ai-astrologers" className="text-sm font-bold text-[var(--color-primary)] hover:underline whitespace-nowrap">
-            View all →
-          </Link>
-        </div>
-
-        {aiConsultants.length === 0 ? (
+        <SectionHeader eyebrow="Instant answers · 24/7" title="AI Consultants"
+          icon={<Sparkles size={20} className="text-[var(--color-luxury-gold)]" />}
+          href="/ai-astrologers" hrefLabel="View all" />
+        {aiList.length === 0 ? (
           <EmptyState title="No AI consultants yet" description="Check back soon." />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {aiConsultants.map((ai, idx) => (
-              <motion.div
-                key={ai.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(idx * 0.05, 0.3) }}
-              >
-                <Link
-                  href={`/ai-astrologers/${ai.id}`}
-                  className="block p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/40 hover:shadow-lg transition-all group"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="relative shrink-0">
-                      <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] overflow-hidden ring-2 ring-[var(--color-primary)]/30">
-                        {ai.avatar ? <img src={ai.avatar} alt="" className="w-full h-full object-cover" /> : null}
-                      </div>
-                      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-[var(--color-primary-foreground)] text-[8px] font-black rounded-full">
-                        AI
-                      </span>
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[var(--color-surface)] rounded-full animate-pulse" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-bold text-[var(--color-foreground)] text-sm truncate">{ai.name}</h3>
-                      <p className="text-xs text-[var(--color-muted-foreground)] capitalize truncate">{ai.category.toLowerCase()}</p>
-                      <div className="flex items-center gap-2 mt-1.5 text-xs">
-                        <span className="flex items-center gap-1 text-amber-500">
-                          <Star size={11} className="fill-amber-500" /> {ai.rating.toFixed(1)}
-                        </span>
-                        <span className="text-[var(--color-primary)] font-mono">
-                          {ai.isPaid ? `₹${ai.perMinuteRate}/min` : "Free"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-[var(--color-muted-foreground)] mt-3 line-clamp-2">{ai.bio}</p>
-                </Link>
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show"
+            viewport={{ once: true, margin: "-50px" }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {aiList.map((ai) => (
+              <motion.div key={ai.id} variants={fadeUp}>
+                <AICard consultant={ai} onChat={handleChat} />
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </section>
 
       {/* VERIFIED EXPERTS */}
       <section className="mx-4 md:mx-6 lg:mx-auto lg:max-w-7xl">
-        <div className="flex items-center justify-between gap-4 mb-5">
-          <div>
-            <h2 className="text-xl md:text-2xl font-black text-[var(--color-foreground)] flex items-center gap-2">
-              <Radio size={20} className="text-emerald-500" />
-              Verified Experts
-            </h2>
-            <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-              Real humans · Real-time presence
-            </p>
-          </div>
-          <Link href="/explore" className="text-sm font-bold text-[var(--color-primary)] hover:underline whitespace-nowrap">
-            Directory →
-          </Link>
-        </div>
-
+        <SectionHeader eyebrow="Real humans · Realtime presence" title="Verified Experts"
+          icon={<Radio size={20} className="text-emerald-400" />}
+          href="/explore" hrefLabel="Directory" />
         {experts.length === 0 ? (
-          <EmptyState title="No experts online" description="Try again shortly." />
+          <EmptyState title="No experts yet" description="Try again shortly." />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {experts.map((ex, idx) => {
-              const name = ex.user?.name || ex.user?.username || "Guide";
-              const online = Boolean(ex.user?.is_online);
-              return (
-                <motion.div
-                  key={ex.id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(idx * 0.04, 0.3) }}
-                >
-                  <Link
-                    href={`/consultant/${ex.id}`}
-                    className="block p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/40 hover:shadow-lg transition-all text-center group"
-                  >
-                    <div className="relative w-16 h-16 mx-auto mb-3 rounded-full overflow-hidden bg-[var(--color-surface-raised)]">
-                      {ex.user?.avatar ? (
-                        <img src={ex.user.avatar} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xl font-black text-[var(--color-primary)]">
-                          {name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      {online && (
-                        <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-[var(--color-surface)] rounded-full" />
-                      )}
-                    </div>
-                    <h3 className="font-bold text-[var(--color-foreground)] text-sm truncate">{name}</h3>
-                    <p className="text-[10px] text-[var(--color-muted-foreground)] uppercase tracking-wider mt-0.5 truncate">
-                      {ex.category.toLowerCase().replace(/_/g, " ")}
-                    </p>
-                    
-              <span className={`inline-block mt-2 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                online ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-500/15 text-slate-400"
-              }`}>
-                {online ? "● Online" : "○ Offline"}
-              </span>
-<div className="flex items-center justify-center gap-3 mt-3 text-xs">
-                      <span className="flex items-center gap-1 text-amber-500">
-                        <Star size={11} className="fill-amber-500" /> {ex.rating.toFixed(1)}
-                      </span>
-                      <span className="flex items-center gap-1 text-orange-500">
-                        <Flame size={11} /> {ex.sparkScore.toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[var(--color-primary)] font-mono mt-2 font-bold">₹{ex.perMinuteRate}/min</p>
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
+          <motion.div variants={staggerContainer} initial="hidden" whileInView="show"
+            viewport={{ once: true, margin: "-50px" }}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {experts.map((ex) => (
+              <motion.div key={ex.id} variants={fadeUp}>
+                <ConsultantCard consultant={toProfile(ex)} variant="vertical" onChat={handleChat} />
+              </motion.div>
+            ))}
+          </motion.div>
         )}
       </section>
 
       {/* LIVE FEED */}
       <section className="mx-4 md:mx-6 lg:mx-auto lg:max-w-3xl">
-        <div className="flex items-center justify-between gap-4 mb-5">
-          <h2 className="text-xl md:text-2xl font-black text-[var(--color-foreground)] flex items-center gap-2">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
             </span>
             Live Cosmos Feed
           </h2>
-          <Link
-            href="/create"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--color-primary)] hover:underline"
-          >
-            <Plus size={13} /> Post
+          <Link href="/create" className="text-xs font-bold text-[var(--color-luxury-gold)] hover:underline">
+            + Post
           </Link>
         </div>
-
         {posts.length === 0 ? (
           <EmptyState title="No posts yet" description="Be the first to share." />
         ) : (
           <div className="space-y-4">
             {posts.map((p) => (
-              <motion.article
-                key={p.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)]"
-              >
+              <motion.article key={p.id}
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className="glass-luxury glass-luxury-hover rounded-2xl p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-[var(--color-surface-raised)] overflow-hidden shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-slate-800 overflow-hidden shrink-0 ring-1 ring-[var(--color-luxury-gold)]/20">
                     {p.author?.avatar ? (
                       <img src={p.author.avatar} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[var(--color-primary)]">
+                      <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
                         {(p.author?.name || p.author?.username || "?").charAt(0).toUpperCase()}
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-[var(--color-foreground)] truncate">
+                    <p className="text-sm font-bold text-white truncate">
                       {p.author?.name || p.author?.username || "Anonymous"}
                     </p>
-                    <p className="text-[10px] text-[var(--color-muted-foreground)]">
-                      {new Date(p.createdAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", month: "short", day: "numeric" })}
+                    <p className="text-[10px] text-slate-500">
+                      {new Date(p.createdAt).toLocaleString([], {
+                        hour: "2-digit", minute: "2-digit",
+                        month: "short", day: "numeric",
+                      })}
                     </p>
                   </div>
                 </div>
-                <p className="text-sm text-[var(--color-foreground)] leading-relaxed whitespace-pre-wrap break-words">
+                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
                   {p.content}
                 </p>
                 {Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0 && (
-                  <div className="mt-3 rounded-xl overflow-hidden border border-[var(--color-border)] max-h-96">
+                  <div className="mt-3 rounded-xl overflow-hidden border border-white/5 max-h-96">
                     <img src={p.mediaUrls[0]} alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
-                <div className="flex items-center gap-5 mt-4 pt-3 border-t border-[var(--color-border)] text-xs text-[var(--color-muted-foreground)]">
+                <div className="flex items-center gap-5 mt-4 pt-3 border-t border-white/5 text-xs text-slate-500">
                   <span>❤️ {p.cheerCount ?? 0}</span>
                   <span>💬 {p.commentCount ?? 0}</span>
                 </div>
@@ -292,6 +279,118 @@ export function HomeClient({ aiConsultants, experts, posts: initialPosts }: Prop
           </div>
         )}
       </section>
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-white shadow-2xl">
+          {toast}
+        </div>
+      )}
+      <WalletGateDialog open={gateOpen} onOpenChange={setGateOpen} info={gateInfo} />
     </div>
+  );
+}
+
+function Stat({ value, label }: { value: number; label: string }) {
+  return (
+    <div>
+      <p className="text-2xl font-black text-white font-mono tracking-tight">
+        {value.toLocaleString()}
+      </p>
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-0.5">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function SectionHeader({
+  eyebrow, title, icon, href, hrefLabel,
+}: {
+  eyebrow: string; title: string; icon: React.ReactNode;
+  href: string; hrefLabel: string;
+}) {
+  return (
+    <div className="flex items-end justify-between gap-4 mb-6">
+      <div>
+        <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-luxury-gold)] font-bold mb-1">
+          {eyebrow}
+        </p>
+        <h2 className="text-2xl md:text-3xl font-black text-white flex items-center gap-2.5">
+          {icon}
+          {title}
+        </h2>
+      </div>
+      <Link href={href}
+        className="text-sm font-bold text-slate-300 hover:text-[var(--color-luxury-gold)] transition-colors whitespace-nowrap">
+        {hrefLabel} →
+      </Link>
+    </div>
+  );
+}
+
+function AICard({
+  consultant, onChat,
+}: {
+  consultant: AIConsultant;
+  onChat: (id: string) => void;
+}) {
+  return (
+    <motion.div variants={cardHoverVariants} initial="rest" whileHover="hover"
+      className="glass-luxury glass-luxury-hover group relative overflow-hidden rounded-2xl p-5">
+      <div aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[var(--color-luxury-gold)]/10 via-transparent to-[#9D7DC5]/20" />
+      <span className="absolute top-3 right-3 z-10 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse ring-2 ring-slate-950/80" />
+      {consultant.isFeatured && (
+        <span className="absolute top-3 left-3 z-10 px-1.5 py-0.5 rounded-full bg-[var(--color-luxury-gold)]/20 border border-[var(--color-luxury-gold)]/40 text-[var(--color-luxury-gold)] text-[8px] font-black uppercase tracking-widest">
+          Featured
+        </span>
+      )}
+      <div className="relative z-10">
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <div aria-hidden className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/25 blur-md" />
+            <div className="relative w-16 h-16 rounded-full overflow-hidden ring-2 ring-[var(--color-luxury-gold)]/30">
+              {consultant.avatar ? (
+                <img src={consultant.avatar} alt={consultant.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white font-black">
+                  {consultant.name.charAt(0)}
+                </div>
+              )}
+            </div>
+            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-[8px] font-black flex items-center gap-0.5">
+              <Sparkles className="w-2.5 h-2.5" /> AI
+            </span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold text-white text-sm truncate group-hover:text-[var(--color-luxury-gold)] transition-colors">
+              {consultant.name}
+            </h3>
+            <p className="text-xs text-slate-400 capitalize truncate">
+              {consultant.category.toLowerCase()}
+            </p>
+            <div className="flex items-center gap-2 mt-2 text-xs">
+              <span className="text-amber-400">⭐ {consultant.rating.toFixed(1)}</span>
+              <span className="text-[var(--color-luxury-gold)] font-mono font-bold">
+                {consultant.isPaid ? `₹${consultant.perMinuteRate}/min` : "Free"}
+              </span>
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-slate-400 mt-3 line-clamp-2 leading-relaxed">
+          {consultant.bio}
+        </p>
+        <div className="flex gap-2 mt-4">
+          <button type="button" onClick={() => onChat(consultant.id)}
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-xs font-black hover:opacity-95 active:scale-[0.98] transition-all">
+            Start chat →
+          </button>
+          <Link href={`/ai-astrologers/${consultant.id}`}
+            className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-bold hover:text-white transition-colors">
+            Profile
+          </Link>
+        </div>
+      </div>
+    </motion.div>
   );
 }
