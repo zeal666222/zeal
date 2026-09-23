@@ -5,6 +5,10 @@ import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
 
+// Vercel maxDuration
+export const maxDuration = 30;
+
+
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 

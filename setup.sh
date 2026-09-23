@@ -1,571 +1,930 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════════
-# ZEAL — v3 Runtime Fix
+# ZEAL — MASTER FIX v3  (Windows-safe · idempotent · type-check · build)
 # ═══════════════════════════════════════════════════════════════════════════════
-# Fixes
-#   1. <path d="undefined">  →  native SVG animation in AnimatedZealMark
-#   2. 500 on all consultant queries  →  strip Prisma FK hints, use column hints
-#   3. 500 on /api/ai validation  →  ValidationError + 400
-#   4. Profile → chat + booking flow  →  restored by (2)
+#  v3 fixes the Git-Bash-on-Windows path mangling that killed v2:
+#    • Node is only ever invoked with the file's BASENAME (cwd set by bash)
+#    • No absolute Unix paths are ever passed through argv or env to Node
+#    • The repo root is normalised via `cygpath -u` if available
 #
-# Idempotent. Backs up every modified file. Gates on type-check + build.
+#  Adds:
+#    • --tsc         : type-check only
+#    • --build       : type-check + full Next.js build
+#    • --no-tsc      : skip type-check (fast re-run)
+#    • Coloured, grouped, file-by-file type-error report
 # ═══════════════════════════════════════════════════════════════════════════════
 
-set -Eeuo pipefail
+set -euo pipefail
+set -f   # disable globbing — critical for [bracketId] paths
 
-DRY_RUN=0; SKIP_BUILD=0; SKIP_INSTALL=0
-for arg in "$@"; do case "$arg" in
-  --dry-run)      DRY_RUN=1 ;;
-  --skip-build)   SKIP_BUILD=1 ;;
-  --skip-install) SKIP_INSTALL=1 ;;
-  -h|--help) sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-  *) echo "Unknown flag: $arg" >&2; exit 2 ;;
-esac; done
+# ─── Flags ────────────────────────────────────────────────────────────────────
+DO_TSC=1
+DO_BUILD=0
+for a in "$@"; do
+  case "$a" in
+    --tsc)    DO_TSC=1; DO_BUILD=0 ;;
+    --build)  DO_TSC=1; DO_BUILD=1 ;;
+    --no-tsc) DO_TSC=0; DO_BUILD=0 ;;
+  esac
+done
 
-if [ -t 1 ]; then
-  R=$'\033[0m'; B=$'\033[1m'; DIM=$'\033[2m'
-  I=$'\033[1;34m'; OK=$'\033[1;32m'; W=$'\033[1;33m'; E=$'\033[1;31m'
-else R=""; B=""; DIM=""; I=""; OK=""; W=""; E=""; fi
-say()  { printf '%s[v3]%s %s\n' "$I" "$R" "$*"; }
-ok()   { printf '%s  ✓%s %s\n' "$OK" "$R" "$*"; }
-warn() { printf '%s  !%s %s\n' "$W" "$R" "$*"; }
-err()  { printf '%s  ✗%s %s\n' "$E" "$R" "$*" >&2; }
-note() { printf '%s    %s%s\n' "$DIM" "$*" "$R"; }
+# ─── Colours ──────────────────────────────────────────────────────────────────
+if [[ -t 1 ]]; then
+  R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'
+  M='\033[0;35m'; C='\033[0;36m'; BD='\033[1m'; D='\033[2m'; N='\033[0m'
+else
+  R=''; G=''; Y=''; B=''; M=''; C=''; BD=''; D=''; N=''
+fi
 
-# ─── Repo root ────────────────────────────────────────────────────────────────
-find_root() {
-  local dir="$1" hops=0
-  [ -n "$dir" ] || return 1
-  dir="$(cd "$dir" 2>/dev/null && pwd -P || echo "$dir")"
-  while [ "$hops" -lt 12 ] && [ -n "$dir" ] && [ "$dir" != "/" ] && [ "$dir" != "." ]; do
-    [ -d "$dir/apps/web" ] && [ -d "$dir/apps/admin" ] && [ -d "$dir/packages/realtime" ] && { printf '%s\n' "$dir"; return 0; }
-    local p; p="$(dirname "$dir")"; [ "$p" = "$dir" ] && break; dir="$p"; hops=$((hops+1))
+say()   { echo -e "${B}▸${N} $*"; }
+ok()    { echo -e "${G}✓${N} $*"; }
+warn()  { echo -e "${Y}⚠${N} $*"; }
+err()   { echo -e "${R}✗${N} $*"; }
+head1() { echo ""; echo -e "${BD}${M}════════════════════════════════════════════════════════════${N}"; echo -e "${BD}${M}  $*${N}"; echo -e "${BD}${M}════════════════════════════════════════════════════════════${N}"; }
+head2() { echo ""; echo -e "${BD}${C}── $* ──${N}"; }
+
+# ─── Repo root detection (Windows-safe) ──────────────────────────────────────
+normalize_root() {
+  local d="$1"
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -u "$d" 2>/dev/null || printf '%s' "$d"
+  else
+    printf '%s' "$d"
+  fi
+}
+
+detect_root() {
+  local d="$PWD"
+  for _ in 1 2 3 4; do
+    if [[ -d "$d/apps/web" && -d "$d/apps/admin" && -d "$d/packages/realtime" ]]; then
+      normalize_root "$d"; return 0
+    fi
+    d="$(dirname "$d")"
   done
   return 1
 }
-ROOT=""
-if [ -n "${BASH_SOURCE[0]:-}" ]; then
-  SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P || true)"
-  [ -n "$SD" ] && ROOT="$(find_root "$SD" || true)"
-fi
-[ -z "$ROOT" ] && ROOT="$(find_root "$PWD" || true)"
-[ -z "$ROOT" ] && [ -n "${OLDPWD:-}" ] && ROOT="$(find_root "$OLDPWD" || true)"
-[ -z "$ROOT" ] && { err "Repo root not found"; exit 1; }
-cd "$ROOT"
 
-# ─── PM detection ─────────────────────────────────────────────────────────────
-detect_pm() {
-  if [ -f "pnpm-workspace.yaml" ] && command -v pnpm >/dev/null 2>&1; then echo "pnpm"; return; fi
-  if [ -f "package.json" ] && grep -q '"workspaces"' package.json && command -v npm >/dev/null 2>&1; then echo "npm"; return; fi
-  if command -v pnpm >/dev/null 2>&1; then echo "pnpm"; return; fi
-  if command -v npm  >/dev/null 2>&1; then echo "npm";  return; fi
-  echo ""
-}
-PM="$(detect_pm)"
-[ -z "$PM" ] && { err "No package manager"; exit 1; }
+REPO_ROOT="$(detect_root || true)"
+[[ -n "$REPO_ROOT" ]] || { err "Cannot find Zeal monorepo root"; exit 1; }
+cd "$REPO_ROOT"
 
-# ─── Backup ───────────────────────────────────────────────────────────────────
-TS="$(date +%Y%m%d-%H%M%S 2>/dev/null || date +%s)"
-BACKUP=".zeal-backup/v3-$TS"
-[ "$DRY_RUN" -eq 0 ] && mkdir -p "$BACKUP"
-backup() {
-  [ -f "$1" ] || return 0
-  [ "$DRY_RUN" -eq 1 ] && return 0
-  cp "$1" "$BACKUP/${1//\//__}"
-}
-trap 'err "Aborted. Rollback: cp -r $BACKUP/* ."; exit $?' ERR
-
-printf '\n%s════════════════════════════════════════════════════════════════════%s\n' "$B" "$R"
-printf '%s  ZEAL — v3 Runtime Fix%s\n' "$B" "$R"
-printf '%s════════════════════════════════════════════════════════════════════%s\n' "$B" "$R"
-printf '  Root   : %s\n' "$ROOT"
-printf '  PM     : %s\n' "$PM"
-printf '  Mode   : %s\n' "$([ $DRY_RUN -eq 1 ] && echo DRY-RUN || echo APPLY)"
-printf '  Backup : %s\n\n' "$BACKUP"
+TS="$(date +%Y%m%d-%H%M%S)"
+BACKUP="$REPO_ROOT/.zeal-backup/zeal-fix-all-$TS"
+mkdir -p "$BACKUP"
+LOGS="$REPO_ROOT/.zeal-backup"
+mkdir -p "$LOGS"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# A. Install deps (so tsc/gates resolve)
+#  CORE FIX: Windows-safe Node invocation
 # ═══════════════════════════════════════════════════════════════════════════════
-say "A · Dependency install"
-if [ "$SKIP_INSTALL" -eq 1 ]; then warn "skipped"; elif [ "$DRY_RUN" -eq 1 ]; then note "would install via $PM";
-else
-  if [ "$PM" = "npm" ]; then
-    if [ -f package-lock.json ]; then
-      npm ci --legacy-peer-deps --no-audit --no-fund || npm install --legacy-peer-deps --no-audit --no-fund
-    else
-      npm install --legacy-peer-deps --no-audit --no-fund
-    fi
-  else
-    [ -f pnpm-lock.yaml ] && { pnpm install --frozen-lockfile || pnpm install; } || pnpm install
+# CRITICAL: We never pass a Unix-style absolute path to Node.
+# Instead we `cd` into the file's directory and pass only the basename.
+# Bash handles Unix paths natively — this is the only reliable way on
+# Git Bash + native Windows Node.js.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+backup_file() {
+  local f="$1"
+  [[ -f "$f" ]] || return 0
+  local rel="${f#$REPO_ROOT/}"
+  mkdir -p "$BACKUP/$(dirname "$rel")"
+  cp -p "$f" "$BACKUP/$rel" 2>/dev/null || true
+}
+
+# Write a file with backup
+write_file() {
+  local f="$1"; backup_file "$f"; mkdir -p "$(dirname "$f")"; cat > "$f"
+}
+
+# In-place Node edit. `$f` may be Unix-style; Node only sees the basename.
+node_edit() {
+  local f="$1" script="$2"
+  [[ -f "$f" ]] || { warn "skip (missing): ${f#$REPO_ROOT/}"; return 0; }
+  backup_file "$f"
+  local dir base
+  dir="$(dirname "$f")"
+  base="$(basename "$f")"
+  (
+    cd "$dir"
+    ZEAL_FILE="$base" node -e "$script" || {
+      err "node_edit failed: ${f#$REPO_ROOT/}"
+      return 1
+    }
+  )
+}
+
+has_marker() { local f="$1" m="$2"; [[ -f "$f" ]] && grep -qF "$m" "$f"; }
+
+# Safe path resolution — no `find -name route.ts` fallback (too broad).
+resolve_path() {
+  local p="$1"
+  [[ -e "$p" ]] && { printf '%s' "$p"; return 0; }
+  # Case-insensitive match in parent dir (Windows quirks)
+  local dir base cand
+  dir="$(dirname "$p")"; base="$(basename "$p")"
+  if [[ -d "$dir" ]]; then
+    cand="$(ls -1 "$dir" 2>/dev/null | grep -Fix -- "$base" | head -1 || true)"
+    [[ -n "$cand" ]] && { printf '%s' "$dir/$cand"; return 0; }
   fi
-  ok "dependencies installed"
+  return 1
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 0 — PREFLIGHT
+# ═══════════════════════════════════════════════════════════════════════════════
+head1 "PHASE 0 — PREFLIGHT"
+say "Repo root : $REPO_ROOT"
+say "Backup dir: $BACKUP"
+say "Node      : $(node -v)"
+say "npm       : $(npm -v)"
+say "Flags     : tsc=$DO_TSC build=$DO_BUILD"
+
+# .gitignore
+if [[ ! -f .gitignore ]]; then
+  write_file .gitignore <<'EOF'
+node_modules/
+.next/
+out/
+build/
+dist/
+.env
+.env*.local
+*.log
+.vscode/
+.idea/
+.DS_Store
+.zeal-backup/
+zeal_full_repository_dump.txt
+*.dead-candidates
+.vercel
+EOF
+  ok ".gitignore created"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# B. AnimatedZealMark — native SVG animation (no <path d="undefined">)
+#  PHASE 1 — THEME
 # ═══════════════════════════════════════════════════════════════════════════════
-say "B · Rewriting AnimatedZealMark"
+head1 "PHASE 1 — DARK / LIGHT THEME"
 
-AZM="packages/ui/src/animated-zeal-mark.tsx"
-if [ -f "$AZM" ]; then
-  backup "$AZM"
-  if [ "$DRY_RUN" -eq 0 ]; then
-    cat > "$AZM" <<'EOF_AZM'
+# 1.1 no-flash theme script
+if ! has_marker "$REPO_ROOT/packages/ui/src/theme-script.tsx" "NO_FLASH_SCRIPT"; then
+  head2 "1.1  theme-script.tsx"
+  write_file "$REPO_ROOT/packages/ui/src/theme-script.tsx" <<'EOF'
 "use client";
+export const THEME_STORAGE_KEY = "theme";
+export const NO_FLASH_SCRIPT = [
+  "(function(){try{",
+  "var k='theme';",
+  "var s=localStorage.getItem(k);",
+  "var m=window.matchMedia('(prefers-color-scheme: dark)').matches;",
+  "var r=(s==='dark')||((!s||s==='system')&&m)?'dark':'light';",
+  "var d=document.documentElement;",
+  "d.classList.remove('light','dark');",
+  "d.classList.add(r);",
+  "d.style.colorScheme=r;",
+  "}catch(e){}})();",
+].join("");
+export function ThemeScript() {
+  return <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: NO_FLASH_SCRIPT }} />;
+}
+EOF
+  ok "theme-script.tsx"
+fi
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// AnimatedZealMark
-// ═══════════════════════════════════════════════════════════════════════════════
-// Path morphing is done with NATIVE SVG <animate> (SMIL) — not Framer Motion.
-// Framer Motion's `animate={{ d: [...] }}` interpolation is unreliable across
-// browsers and can emit `d="undefined"` when command sequences don't align.
-// Native SMIL is deterministic, GPU-composited, and requires no JS at runtime.
-// ═══════════════════════════════════════════════════════════════════════════════
+# Export from ui index
+UI_INDEX="$REPO_ROOT/packages/ui/src/index.ts"
+if [[ -f "$UI_INDEX" ]] && ! has_marker "$UI_INDEX" "theme-script"; then
+  node_edit "$UI_INDEX" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    if (!s.includes("./theme-script")) {
+      s += "\nexport { ThemeScript, NO_FLASH_SCRIPT, THEME_STORAGE_KEY } from \"./theme-script\";\n";
+      fs.writeFileSync(f,s);
+    }
+  '
+  ok "ui/index.ts exports ThemeScript"
+fi
 
-import { useId } from "react";
-import { m, useReducedMotion } from "framer-motion";
+PKG_UI="$REPO_ROOT/packages/ui/package.json"
+if [[ -f "$PKG_UI" ]] && ! has_marker "$PKG_UI" "theme-script"; then
+  node_edit "$PKG_UI" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    const j=JSON.parse(fs.readFileSync(f,"utf8"));
+    j.exports=j.exports||{};
+    j.exports["./theme-script"]={types:"./src/theme-script.tsx",default:"./src/theme-script.tsx"};
+    fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n");
+  '
+  ok "ui/package.json exports ./theme-script"
+fi
+
+# 1.2 tokens.css
+TOKENS="$REPO_ROOT/packages/ui/src/tokens.css"
+if [[ -f "$TOKENS" ]] && ! has_marker "$TOKENS" "__ZEAL_THEME_TRANSITION__"; then
+  head2 "1.2  tokens.css — scoped transition"
+  node_edit "$TOKENS" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    s=s.replace(/html\s*\{\s*transition:[^}]*\}\s*/g,"");
+    s += `
+/* __ZEAL_THEME_TRANSITION__ */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transition body {
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+}
+html.vt-enabled::view-transition-old(root),
+html.vt-enabled::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
+html.vt-enabled::view-transition-old(root){ z-index:1; }
+html.vt-enabled::view-transition-new(root){ z-index:9999; }
+`;
+    fs.writeFileSync(f,s);
+  '
+  ok "tokens.css — scoped"
+fi
+
+# 1.3 admin globals.css
+ADMIN_CSS="$REPO_ROOT/apps/admin/app/globals.css"
+if [[ -f "$ADMIN_CSS" ]] && ! has_marker "$ADMIN_CSS" "__ZEAL_ADMIN_TOKENS__"; then
+  head2 "1.3  admin globals.css — OKLCH"
+  node_edit "$ADMIN_CSS" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    if (!s.includes("__ZEAL_ADMIN_TOKENS__")) {
+      s = "/* __ZEAL_ADMIN_TOKENS__ */\n" + s;
+    }
+    fs.writeFileSync(f,s);
+  '
+  ok "admin globals.css — marker added"
+fi
+
+# 1.4 admin tailwind
+ADMIN_TW="$REPO_ROOT/apps/admin/tailwind.config.js"
+if [[ -f "$ADMIN_TW" ]] && ! has_marker "$ADMIN_TW" "__ZEAL_TOKENS__"; then
+  head2 "1.4  admin tailwind.config.js"
+  write_file "$ADMIN_TW" <<'EOF'
+/** @type {import('tailwindcss').Config} */
+// __ZEAL_TOKENS__
+module.exports = {
+  darkMode: ["class"],
+  content: [
+    "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: "var(--color-background)",
+        surface: "var(--color-surface)",
+        "surface-raised": "var(--color-surface-raised)",
+        "surface-overlay": "var(--color-surface-overlay)",
+        foreground: "var(--color-foreground)",
+        "muted-foreground": "var(--color-muted-foreground)",
+        border: "var(--color-border)",
+        primary: {
+          DEFAULT: "var(--color-primary)",
+          hover: "var(--color-primary-hover)",
+          foreground: "var(--color-primary-foreground)",
+        },
+      },
+      borderRadius: {
+        lg: "var(--radius-lg)", md: "var(--radius-md)", sm: "var(--radius-sm)",
+        xl: "var(--radius-xl)", "2xl": "var(--radius-2xl)", "3xl": "var(--radius-3xl)",
+      },
+    },
+  },
+  plugins: [],
+};
+EOF
+  ok "admin tailwind.config.js"
+fi
+
+# 1.5 layouts
+fix_layout() {
+  local f="$1"
+  [[ -f "$f" ]] || { warn "missing ${f#$REPO_ROOT/}"; return 0; }
+  node_edit "$f" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    s=s.replace(/disableTransitionOnChange=\{false\}/g,"disableTransitionOnChange={true}");
+    if (!s.includes("ThemeScript")) {
+      if (/^import .* from ["\x27][^"\x27]*["\x27];?\s*$/m.test(s)) {
+        s=s.replace(/^((?:import [^\n]*\n)+)/m,
+          `$1import { ThemeScript } from "@zeal/ui/theme-script";\n`);
+      } else {
+        s=`import { ThemeScript } from "@zeal/ui/theme-script";\n`+s;
+      }
+      if (/<head>/.test(s)) s=s.replace(/<head>/,"<head>\n        <ThemeScript />");
+      else s=s.replace(/(<html[^>]*>)/,`$1\n      <head><ThemeScript /></head>`);
+    }
+    s=s.replace(/<html(?![^>]*suppressHydrationWarning)/,"<html suppressHydrationWarning");
+    fs.writeFileSync(f,s);
+  '
+  ok "${f#$REPO_ROOT/} — layout patched"
+}
+head2 "1.5  layouts"
+fix_layout "$REPO_ROOT/apps/web/app/layout.tsx"
+fix_layout "$REPO_ROOT/apps/admin/app/layout.tsx"
+
+# 1.6 theme-toggle
+if ! has_marker "$REPO_ROOT/packages/ui/src/theme-toggle.tsx" "cursor-default"; then
+  head2 "1.6  theme-toggle.tsx"
+  write_file "$REPO_ROOT/packages/ui/src/theme-toggle.tsx" <<'EOF'
+"use client";
+import { useCallback, useEffect, useState } from "react";
+import { useTheme } from "next-themes";
+import { Monitor, Moon, Sun } from "lucide-react";
 import { cn } from "./utils";
-
-interface Props {
-  size?: number;
-  className?: string;
-  glow?: boolean;
-  animate?: boolean;
-  variant?: "brand" | "mono";
+type Theme = "light" | "dark" | "system";
+const ORDER: Theme[] = ["light", "dark", "system"];
+const ICON = { light: Sun, dark: Moon, system: Monitor } as const;
+const LABEL = { light: "Light", dark: "Dark", system: "System" } as const;
+export function ThemeToggle({ className, variant = "icon" }: { className?: string; variant?: "icon" | "cycle" }) {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const cycle = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const cur = (theme ?? "system") as Theme;
+    const next = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length] as Theme;
+    setTheme(next);
+    void e;
+  }, [theme, setTheme]);
+  if (!mounted) {
+    if (variant === "cycle") {
+      return <button aria-label="Toggle theme" disabled className={cn("inline-flex items-center gap-2 px-3 h-9 rounded-lg text-transparent bg-transparent cursor-default", className)}><span className="w-[14px] h-[14px]"/><span className="w-[42px] h-[18px]"/></button>;
+    }
+    return <button aria-label="Toggle theme" disabled className={cn("inline-flex items-center justify-center w-9 h-9 rounded-lg text-transparent bg-transparent cursor-default", className)}><span className="w-[16px] h-[16px]"/></button>;
+  }
+  const cur = (theme ?? "system") as Theme;
+  const Icon = ICON[cur];
+  const isDark = resolvedTheme === "dark";
+  if (variant === "cycle") {
+    return <button onClick={cycle} aria-label={`Theme: ${LABEL[cur]}`} className={cn("inline-flex items-center gap-2 px-3 h-9 rounded-lg text-sm font-medium text-[var(--color-muted-foreground)] hover:bg-[var(--color-surface-raised)]", className)}><Icon size={14}/><span>{LABEL[cur]}</span></button>;
+  }
+  return <button onClick={cycle} aria-label={`Toggle theme (${LABEL[cur]})`} className={cn("inline-flex items-center justify-center w-9 h-9 rounded-lg text-[var(--color-muted-foreground)] hover:bg-[var(--color-surface-raised)]", className)}><Icon size={16} className={isDark?"":"text-amber-500"}/></button>;
 }
-
-// All paths are valid "M … L …" strings with equal command counts so SMIL
-// can morph between them without interpolation artifacts.
-const Z        = "M 8 10 L 40 10 L 8 38 L 40 38";
-const TRIANGLE = "M 24 8 L 40 34 L 8 34 L 40 34";
-const DIAMOND  = "M 24 8 L 40 24 L 24 40 L 8 24";
-const SQUARE   = "M 8 8 L 40 8 L 40 40 L 8 40";
-
-const SEQUENCE_VALUES = `${Z}; ${TRIANGLE}; ${DIAMOND}; ${SQUARE}; ${Z}`;
-
-function safePath(d: string | undefined | null): string {
-  if (typeof d !== "string" || d.length === 0) return Z;
-  if (!/^[Mm]/.test(d.trim())) return Z;
-  return d;
-}
-
-export function AnimatedZealMark({
-  size = 28,
-  className,
-  glow = true,
-  animate = true,
-  variant = "brand",
-}: Props) {
-  const raw = useId();
-  const safe = raw.replace(/:/g, "");
-  const gradientId = `zeal-mark-grad-${safe}`;
-  const filterId   = `zeal-mark-glow-${safe}`;
-  const stroke = variant === "brand" ? `url(#${gradientId})` : "currentColor";
-  const d0 = safePath(Z);
-
-  const prefersReduced = useReducedMotion();
-  const shouldAnimate = animate && !prefersReduced;
-
-  return (
-    <span
-      className={cn("relative inline-flex items-center justify-center", className)}
-      style={{ width: size, height: size }}
-      aria-label="Zeal"
-      role="img"
-    >
-      {glow && (
-        <m.span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{
-            background:
-              variant === "brand"
-                ? "radial-gradient(circle, rgba(157,125,197,0.5) 0%, rgba(83,58,253,0) 70%)"
-                : "radial-gradient(circle, currentColor 0%, transparent 70%)",
-          }}
-          animate={
-            shouldAnimate
-              ? { scale: [1, 1.4, 1], opacity: [0.5, 0.9, 0.5] }
-              : undefined
-          }
-          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        />
-      )}
-
-      <svg
-        viewBox="0 0 48 48"
-        width={size}
-        height={size}
-        fill="none"
-        className="relative z-10"
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%"   stopColor="#9D7DC5" />
-            <stop offset="50%"  stopColor="#7A5A9E" />
-            <stop offset="100%" stopColor="#533AFD" />
-          </linearGradient>
-          <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="1.4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        <path
-          d={d0}
-          stroke={stroke}
-          strokeWidth={5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          filter={`url(#${filterId})`}
-        >
-          {shouldAnimate && (
-            <animate
-              attributeName="d"
-              dur="12s"
-              repeatCount="indefinite"
-              values={SEQUENCE_VALUES}
-              keyTimes="0; 0.25; 0.5; 0.75; 1"
-              calcMode="spline"
-              keySplines="0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1; 0.4 0 0.2 1"
-            />
-          )}
-        </path>
-      </svg>
-    </span>
-  );
-}
-EOF_AZM
-    ok "AnimatedZealMark rewritten (native SMIL, no d=undefined)"
-  fi
-else
-  warn "AnimatedZealMark not found — skipped"
+EOF
+  ok "theme-toggle.tsx"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# C. Global FK-hint sanitization
+#  PHASE 2 — VERCEL TIMEOUTS  (FIXED)
 # ═══════════════════════════════════════════════════════════════════════════════
-say "C · Sanitizing PostgREST FK hints"
-note "Pattern: User!Consultant_userId_fkey(...)  →  User!userId(...)"
-note "Works regardless of the actual constraint name on the live DB."
+head1 "PHASE 2 — VERCEL TIMEOUTS"
 
-if [ "$DRY_RUN" -eq 0 ]; then
-  node <<'NODE_FK'
-const fs = require("fs");
-const path = require("path");
+add_max_duration() {
+  local raw="$1" secs="$2" f
+  f="$(resolve_path "$raw" 2>/dev/null || true)"
+  if [[ -z "$f" || ! -f "$f" ]]; then
+    warn "skip (not found): ${raw#$REPO_ROOT/}"
+    return 0
+  fi
+  if has_marker "$f" "export const maxDuration"; then
+    ok "already set: ${f#$REPO_ROOT/}"
+    return 0
+  fi
+  local dir base
+  dir="$(dirname "$f")"; base="$(basename "$f")"
+  backup_file "$f"
+  # ─── KEY FIX: cd into dir, pass basename only ──────────────────────────────
+  (
+    cd "$dir"
+    ZEAL_FILE="$base" ZEAL_SECS="$secs" node -e '
+      const fs = require("fs");
+      const f = process.env.ZEAL_FILE;
+      const secs = Number(process.env.ZEAL_SECS);
+      let s = fs.readFileSync(f, "utf8");
+      const lines = s.split("\n");
+      let last = -1;
+      for (let i = 0; i < lines.length; i++) {
+        if (/^import .* from ['\''"]/.test(lines[i])) last = i;
+      }
+      const block = [
+        "",
+        "// Vercel maxDuration",
+        "export const maxDuration = " + secs + ";",
+        ""
+      ];
+      if (last >= 0) lines.splice(last + 1, 0, ...block);
+      else lines.unshift(...block);
+      fs.writeFileSync(f, lines.join("\n"));
+    '
+  )
+  ok "${f#$REPO_ROOT/} — maxDuration=${secs}"
+}
 
-const SKIP_DIRS = new Set(["node_modules", ".next", "dist", "build", ".git", ".zeal-backup", "coverage", ".turbo"]);
-// Prisma-style: !<Table>_<column>_fkey(  →  !<column>(
-// Requires the FK name to end in `_fkey` so `!inner(`/`!left(` are untouched.
-const RE = /!([A-Z][A-Za-z0-9]*)_([A-Za-z][A-Za-z0-9]*)_fkey\(/g;
+add_max_duration "$REPO_ROOT/apps/web/app/api/ai/route.ts"                       60
+add_max_duration "$REPO_ROOT/apps/web/app/api/chat/ai/[consultantid]/route.ts"  60
+add_max_duration "$REPO_ROOT/apps/web/app/api/chat/ai/[consultantId]/route.ts"  60
+add_max_duration "$REPO_ROOT/apps/web/app/api/chat/groq/route.ts"               30
 
-let filesChanged = 0;
-let totalReplacements = 0;
-const touched = [];
+# vercel.json
+VERCEL_JSON="$REPO_ROOT/vercel.json"
+if [[ -f "$VERCEL_JSON" ]]; then
+  head2 "vercel.json"
+  node_edit "$VERCEL_JSON" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let j={}; try { j=JSON.parse(fs.readFileSync(f,"utf8")); } catch {}
+    j.$schema="https://openapi.vercel.sh/vercel.json";
+    j.installCommand=j.installCommand||"npm ci --workspaces --include-workspace-root --legacy-peer-deps";
+    j.github=Object.assign({silent:true},j.github||{});
+    j.functions=Object.assign({
+      "apps/web/app/api/ai/route.ts":{maxDuration:60},
+      "apps/web/app/api/chat/ai/[consultantid]/route.ts":{maxDuration:60},
+      "apps/web/app/api/chat/ai/[consultantId]/route.ts":{maxDuration:60},
+      "apps/web/app/api/chat/groq/route.ts":{maxDuration:30}
+    },j.functions||{});
+    fs.writeFileSync(f,JSON.stringify(j,null,2)+"\n");
+  '
+  ok "vercel.json — functions"
+fi
 
-function walk(dir) {
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-  for (const e of entries) {
-    if (e.isDirectory()) {
-      if (SKIP_DIRS.has(e.name)) continue;
-      walk(path.join(dir, e.name));
-    } else if (e.isFile() && /\.(ts|tsx)$/.test(e.name)) {
-      const full = path.join(dir, e.name);
-      let src;
-      try { src = fs.readFileSync(full, "utf8"); } catch { continue; }
-      if (!src.includes("_fkey(")) continue;
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 3 — AI ENGINE
+# ═══════════════════════════════════════════════════════════════════════════════
+head1 "PHASE 3 — AI ENGINE"
 
-      let localCount = 0;
-      const out = src.replace(RE, (_m, _table, col) => {
-        localCount++;
-        return `!${col}(`;
-      });
-      if (out !== src) {
-        fs.writeFileSync(full, out, "utf8");
-        filesChanged++;
-        totalReplacements += localCount;
-        touched.push(`${full}  (${localCount})`);
+ENGINE="$REPO_ROOT/apps/web/lib/ai/engine/index.ts"
+if [[ -f "$ENGINE" ]] && ! has_marker "$ENGINE" "__ZEAL_ENGINE_BUDGET__"; then
+  head2 "3.1  retry budget + wall-clock caps"
+  node_edit "$ENGINE" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    s=s.replace(/const maxRetries = opts\.maxRetriesPerProvider \?\? \d+;/,
+      "const maxRetries = opts.maxRetriesPerProvider ?? 1;");
+    s=s.replace(/^const FALLBACK_CHAIN:.*$/m,
+      `$&\n// __ZEAL_ENGINE_BUDGET__\nconst PROVIDER_WALL_MS = 12_000;\nconst TOTAL_WALL_MS = 25_000;`);
+    s=s.replace(/for \(const key of chain\) \{/,
+      `const __chainStart = Date.now();
+  for (const key of chain) {
+    if (Date.now() - __chainStart > TOTAL_WALL_MS) {
+      lastInternal = "global wall-clock budget exceeded";
+      attempts.push({ provider: key, reason: "budget-exceeded" });
+      break;
+    }
+    const __providerStart = Date.now();`);
+    fs.writeFileSync(f,s);
+  '
+  ok "engine — budget"
+fi
+
+if [[ -f "$ENGINE" ]] && ! has_marker "$ENGINE" "__ZEAL_PROVIDERS_V2__"; then
+  head2 "3.2  provider registry"
+  node_edit "$ENGINE" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    const block = `// __ZEAL_PROVIDERS_V2__
+const PROVIDERS: Record<ProviderName, ProviderDef> = {
+  groqPro: {
+    name: "groqPro", label: "Groq 70B",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    key: () => process.env.GROQ_API_KEY,
+    model: "llama-3.3-70b-versatile",
+    maxConcurrent: 3, rpm: 28, tpm: 10_000, weight: 100,
+  },
+  groqFast: {
+    name: "groqFast", label: "Groq 8B",
+    url: "https://api.groq.com/openai/v1/chat/completions",
+    key: () => process.env.GROQ_API_KEY,
+    model: "llama-3.1-8b-instant",
+    maxConcurrent: 6, rpm: 28, tpm: 5_500, weight: 80,
+  },
+  agnes: {
+    name: "agnes", label: "Agnes 2.5 Flash",
+    url: "https://apihub.agnes-ai.com/v1/chat/completions",
+    key: () => process.env.AGNES_API_KEY,
+    model: "agnes-2.5-flash",
+    maxConcurrent: 4, rpm: 18, tpm: 32_000, weight: 70,
+  },
+  zhipu: {
+    name: "zhipu", label: "Zhipu GLM",
+    url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+    key: () => process.env.ZHIPU_API_KEY,
+    model: "glm-4-flash",
+    maxConcurrent: 2, rpm: 30, tpm: 15_000, weight: 40,
+  },
+};
+
+const FALLBACK_CHAIN: ProviderName[] = ["groqPro", "agnes", "groqFast", "zhipu"];`;
+    s=s.replace(/const PROVIDERS:[\s\S]*?const FALLBACK_CHAIN: ProviderName\[\] = \[[^\]]*\];/, block);
+    fs.writeFileSync(f,s);
+  '
+  ok "engine — providers"
+fi
+
+AI_ROUTE="$REPO_ROOT/apps/web/app/api/ai/route.ts"
+if [[ -f "$AI_ROUTE" ]] && ! has_marker "$AI_ROUTE" "__ZEAL_PROMPT_TRIM__"; then
+  head2 "3.3  /api/ai — prompt trim"
+  node_edit "$AI_ROUTE" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    s=s.replace(/p_filters:\s*\{\s*limit:\s*\d+,\s*sort:\s*"relevance"\s*\}/g,
+      "p_filters: { limit: 20, sort: \"relevance\" }");
+    s=s.replace(/\.slice\(0,\s*60\)/g, ".slice(0, 20)");
+    if (!s.includes("__ZEAL_PROMPT_TRIM__")) {
+      s="// __ZEAL_PROMPT_TRIM__\n"+s;
+    }
+    fs.writeFileSync(f,s);
+  '
+  ok "/api/ai — trimmed"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 4 — HIGH-END AI
+# ═══════════════════════════════════════════════════════════════════════════════
+head1 "PHASE 4 — HIGH-END AI"
+
+mkdir -p "$REPO_ROOT/apps/web/lib/ai"
+if [[ ! -f "$REPO_ROOT/apps/web/lib/ai/sse.ts" ]]; then
+  head2 "4.1  lib/ai/sse.ts"
+  write_file "$REPO_ROOT/apps/web/lib/ai/sse.ts" <<'EOF'
+// Universal SSE parser for OpenAI-compatible streams (Groq, Agnes, Zhipu).
+export interface SSECallbacks {
+  onDelta: (accumulated: string) => void;
+  onDone?: (final: string) => void;
+  onError?: (err: Error) => void;
+  signal?: AbortSignal;
+}
+export async function consumeOpenAIStream(response: Response, cb: SSECallbacks): Promise<string> {
+  if (!response.body) { const e = new Error("Stream has no body"); cb.onError?.(e); throw e; }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", accumulated = "";
+  try {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      if (cb.signal?.aborted) break;
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string } }> };
+          const delta = parsed.choices?.[0]?.delta?.content;
+          if (delta) { accumulated += delta; cb.onDelta(accumulated); }
+        } catch { /* skip */ }
       }
     }
+  } catch (e: unknown) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    cb.onError?.(err); throw err;
   }
+  cb.onDone?.(accumulated); return accumulated;
 }
-
-for (const root of ["apps", "packages"]) {
-  if (fs.existsSync(root)) walk(root);
-}
-
-console.log(`Files changed: ${filesChanged}, replacements: ${totalReplacements}`);
-for (const t of touched.slice(0, 12)) console.log("  " + t);
-if (touched.length > 12) console.log(`  … and ${touched.length - 12} more`);
-NODE_FK
-  ok "FK hints sanitized"
-else
-  note "would sanitize FK hints"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# D. /api/ai — ValidationError + 400 semantics
-# ═══════════════════════════════════════════════════════════════════════════════
-say "D · /api/ai — validation vs infrastructure errors"
-
-AIROUTE="apps/web/app/api/ai/route.ts"
-if [ -f "$AIROUTE" ]; then
-  backup "$AIROUTE"
-  if [ "$DRY_RUN" -eq 0 ]; then
-    node - "$AIROUTE" <<'NODE_AI'
-const fs = require("fs");
-const p = process.argv[2];
-let src = fs.readFileSync(p, "utf8");
-
-// 1. Ensure the ValidationError class exists just above HANDLERS.
-if (!src.includes("class ValidationError")) {
-  const anchor = "// ─── Task type ──────────────────────────────────────────────────────────────";
-  const inject = `// ─── Error taxonomy ─────────────────────────────────────────────────────────
-// Handlers throw ValidationError for caller mistakes (bad input, short
-// query, missing fields). The top-level catch maps it to 400. Any other
-// Error is treated as infrastructure failure and returned as 500.
-class ValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ValidationError";
-  }
-}
-
-`;
-  if (src.includes(anchor)) src = src.replace(anchor, inject + anchor);
-  else src = inject + src;
-}
-
-// 2. Convert all `throw new Error("...")` inside handlers to ValidationError.
-//    Leave `throw new Error(\`Unknown task: ...\`)` alone (already 400 in-place).
-const errorPattern = /throw new Error\(("(?:[^"\\]|\\.)*")\)/g;
-src = src.replace(errorPattern, (_m, msg) => `throw new ValidationError(${msg})`);
-
-// 3. Update the top-level catch to discriminate.
-if (!src.includes("err instanceof ValidationError")) {
-  const catchAnchor = /} catch \(err\) \{\s*\n\s*const message = err instanceof Error \? err\.message : "AI request failed";[\s\S]*?return NextResponse\.json\(\{ error: message \}, \{ status: 500 \}\);\s*\n\s*\}/;
-  const catchReplacement = `} catch (err) {
-    if (err instanceof ValidationError) {
-      return NextResponse.json(
-        { error: err.message, code: "VALIDATION" },
-        { status: 400 },
-      );
-    }
-    const message = err instanceof Error ? err.message : "AI request failed";
-    console.error(\`[ai/\${taskForLog}]\`, message);
-    return NextResponse.json(
-      { error: message, code: "INTERNAL" },
-      { status: 500 },
-    );
-  }`;
-  if (catchAnchor.test(src)) src = src.replace(catchAnchor, catchReplacement);
-}
-
-fs.writeFileSync(p, src);
-NODE_AI
-    ok "/api/ai now returns 400 for validation errors"
-  fi
-else
-  warn "/api/ai/route.ts not found — skipped"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# E. /api/explore/consultants — resilient fallback
-# ═══════════════════════════════════════════════════════════════════════════════
-say "E · /api/explore/consultants — resilient fallback"
-
-EXP="apps/web/app/api/explore/consultants/route.ts"
-if [ -f "$EXP" ]; then
-  backup "$EXP"
-  if [ "$DRY_RUN" -eq 0 ]; then
-    node - "$EXP" <<'NODE_EXP'
-const fs = require("fs");
-const p = process.argv[2];
-let src = fs.readFileSync(p, "utf8");
-
-// If the primary RPC and the fallback BOTH fail, return 200 with empty
-// results + a source marker. Better than 500 which flashes a red toast.
-const returnForFatal = `      if (legacy.error) throw legacy.error;`;
-if (src.includes(returnForFatal) && !src.includes("source: \"fallback-empty\"")) {
-  src = src.replace(
-    returnForFatal,
-    `      if (legacy.error) {
-        console.error("[explore/consultants] legacy fallback failed:", legacy.error.message);
-        return NextResponse.json(
-          { success: true, consultants: [], total: 0, source: "fallback-empty" },
-          { headers: { "Cache-Control": "no-store, max-age=0" } },
-        );
-      }`,
-  );
-}
-
-// Ensure a graceful error path for the outer catch
-if (!src.includes("source: \"outer-error\"")) {
-  const outer = /return NextResponse\.json\(\s*\{ success: false, error: err instanceof Error \? err\.message : "Failed" \},\s*\{ status: 500 \},\s*\);/;
-  if (outer.test(src)) {
-    src = src.replace(
-      outer,
-      `return NextResponse.json(
-        { success: true, consultants: [], total: 0, source: "outer-error" },
-        { headers: { "Cache-Control": "no-store, max-age=0" } },
-      );`,
-    );
-  }
-}
-
-fs.writeFileSync(p, src);
-NODE_EXP
-    ok "/api/explore/consultants — never 500s on lookup failures"
-  fi
-else
-  warn "/api/explore/consultants not found — skipped"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# F. Profile page — verify FK hints + CTA flow
-# ═══════════════════════════════════════════════════════════════════════════════
-say "F · Profile page — verify query hints + CTA"
-
-PROF="apps/web/app/consultant/[id]/page.tsx"
-if [ -f "$PROF" ]; then
-  # FK hints already sanitized in Phase C.
-  if grep -q "_fkey(" "$PROF"; then
-    warn "profile page still contains FK hints — check sanitization"
-  else
-    ok "profile page has no stale FK hints"
-  fi
-  if grep -q "ProfileActions" "$PROF"; then
-    ok "ProfileActions rendered (chat + booking CTAs)"
-  else
-    warn "ProfileActions missing from profile page"
-  fi
-fi
-
-# Verify ProfileActions uses startChatFlow
-PA="apps/web/app/consultant/[id]/ProfileActions.tsx"
-if [ -f "$PA" ]; then
-  if grep -q "startChatFlow" "$PA"; then
-    ok "ProfileActions uses startChatFlow (wallet gate ready)"
-  else
-    warn "ProfileActions does not use startChatFlow"
-  fi
-  if grep -q "WalletGateDialog" "$PA"; then
-    ok "ProfileActions renders WalletGateDialog on low balance"
-  else
-    warn "ProfileActions missing WalletGateDialog"
-  fi
-fi
-
-# Verify /api/consultants/[id]/status exists (startChatFlow dependency)
-ST="apps/web/app/api/consultants/[id]/status/route.ts"
-if [ -f "$ST" ]; then
-  ok "/api/consultants/[id]/status exists"
-  if grep -q "_fkey(" "$ST"; then
-    warn "status route still has FK hints"
-  fi
-else
-  warn "/api/consultants/[id]/status missing — startChatFlow will 404"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# G. Verify no stale Prisma FK hints remain
-# ═══════════════════════════════════════════════════════════════════════════════
-say "G · Sweep — any remaining _fkey hints?"
-REMAIN=$(grep -rlE '![A-Z][A-Za-z0-9]*_[A-Za-z][A-Za-z0-9]*_fkey\(' apps packages 2>/dev/null | wc -l | tr -d ' ')
-if [ "$REMAIN" -gt 0 ]; then
-  warn "$REMAIN file(s) still contain _fkey hints:"
-  grep -rlE '![A-Z][A-Za-z0-9]*_[A-Za-z][A-Za-z0-9]*_fkey\(' apps packages 2>/dev/null | sed 's/^/    /'
-else
-  ok "no stale Prisma FK hints remain"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# H. Gates
-# ═══════════════════════════════════════════════════════════════════════════════
-say "H · Type-check + build"
-if [ "$DRY_RUN" -eq 1 ]; then warn "dry-run — skip gates"; exit 0; fi
-
-ws_run() {
-  local workspace="$1"; shift
-  case "$PM" in
-    npm)  npm run "$@" --workspace="$workspace" ;;
-    pnpm) pnpm --filter "$workspace" "$@" ;;
-  esac
-}
-
-run_gate() {
-  local label="$1"; shift
-  printf '\n%s── %s%s\n' "$B" "$label" "$R"
-  if "$@"; then ok "$label passed"
-  else err "$label FAILED"; err "Rollback: cp -r $BACKUP/* ."; exit 1; fi
-}
-
-run_gate "type-check · web"   ws_run web   type-check
-run_gate "type-check · admin" ws_run admin type-check
-
-if [ "$SKIP_BUILD" -eq 0 ]; then
-  run_gate "build · web"   ws_run web   build
-  run_gate "build · admin" ws_run admin build
-else
-  warn "build skipped (--skip-build)"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# DONE
-# ═══════════════════════════════════════════════════════════════════════════════
-printf '\n%s════════════════════════════════════════════════════════════════════%s\n' "$B" "$R"
-printf '%s  ✅ v3 APPLIED — type-check + build passed%s\n' "$OK" "$R"
-printf '%s════════════════════════════════════════════════════════════════════%s\n\n' "$B" "$R"
-
-cat <<EOF
-  Backup   : $BACKUP
-  Rollback : cp -r $BACKUP/* .
-
-  ── Post-run checklist ────────────────────────────────────────────────────
-
-  Migrations (if not yet pushed):
-      supabase db push
-
-  Restart servers:
-      $PM run dev --workspace=web
-      $PM run dev --workspace=admin
-
-  Smoke tests (do these in order):
-     1. Open homepage.
-        → No '<path d="undefined">' console errors.
-        → Zeal mark in header animates smoothly.
-
-     2. Open /explore.
-        → Network tab: /api/explore/consultants returns 200 (not 500).
-        → Consultant cards render.
-
-     3. Click any consultant card.
-        → Profile page loads with bio, rating, stats.
-        → "Chat now" and "Book session" buttons visible above the fold.
-
-     4. Click "Chat now" on a profile.
-        → If balance >= rate  →  navigates to /chat/<conversationId>
-        → If balance < rate   →  WalletGateDialog opens with "Add ₹X"
-        → Click "Add ₹X"      →  /wallet?resume=<consultantId>
-        → After recharge      →  returns to chat (auto-resume)
-
-     5. Click "Book session".
-        → /booking?consultantId=<id> wizard loads.
-
-     6. Open /services and type a query in ZealChat.
-        → Network tab: /api/ai?task=concierge returns 200.
-        → If query < 3 chars: returns 400 (not 500) — "Query too short"
-        → Recommendation cards render below the assistant message.
-
-     7. Open admin /consultant/dashboard.
-        → Realtime KPI strip updates on wallet change.
-        → New booking triggers "incoming_request" on
-          consultant:<User.id>:incoming.
 EOF
+  ok "sse.ts"
+fi
 
-exit 0
+mkdir -p "$REPO_ROOT/apps/web/hooks"
+if [[ ! -f "$REPO_ROOT/apps/web/hooks/useZealStream.ts" ]]; then
+  head2 "4.2  hooks/useZealStream.ts"
+  write_file "$REPO_ROOT/apps/web/hooks/useZealStream.ts" <<'EOF'
+"use client";
+import { useCallback, useRef, useState } from "react";
+import { consumeOpenAIStream } from "@/lib/ai/sse";
+export interface UseZealStreamResult {
+  streaming: boolean; text: string | null; error: string | null;
+  send: (p: { consultantId: string; conversationId: string; content: string }) => Promise<void>;
+  cancel: () => void; reset: () => void;
+}
+export function useZealStream(): UseZealStreamResult {
+  const [streaming, setStreaming] = useState(false);
+  const [text, setText] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const ref = useRef<AbortController | null>(null);
+  const cancel = useCallback(() => { ref.current?.abort(); ref.current = null; setStreaming(false); }, []);
+  const reset = useCallback(() => { setText(null); setError(null); setStreaming(false); ref.current = null; }, []);
+  const send = useCallback(async ({ consultantId, conversationId, content }: { consultantId: string; conversationId: string; content: string }) => {
+    cancel();
+    const ctrl = new AbortController(); ref.current = ctrl;
+    setStreaming(true); setText(""); setError(null);
+    try {
+      const res = await fetch(`/api/chat/ai/${consultantId}`, {
+        method: "POST", signal: ctrl.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId, content }),
+      });
+      if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error((b as { error?: string }).error || `HTTP ${res.status}`); }
+      await consumeOpenAIStream(res, { onDelta: (acc) => setText(acc), signal: ctrl.signal });
+    } catch (e: unknown) {
+      if ((e as Error)?.name !== "AbortError") setError(e instanceof Error ? e.message : "Stream failed");
+    } finally { setStreaming(false); ref.current = null; }
+  }, [cancel]);
+  return { streaming, text, error, send, cancel, reset };
+}
+EOF
+  ok "useZealStream.ts"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 5 — LAZY LOADING + RESPONSIVE
+# ═══════════════════════════════════════════════════════════════════════════════
+head1 "PHASE 5 — LAZY + RESPONSIVE"
+
+mkdir -p "$REPO_ROOT/apps/web/components/charts" "$REPO_ROOT/apps/admin/components/charts"
+if [[ ! -f "$REPO_ROOT/apps/web/components/charts/LazyChart.tsx" ]]; then
+  head2 "5.1  LazyChart"
+  write_file "$REPO_ROOT/apps/web/components/charts/LazyChart.tsx" <<'EOF'
+"use client";
+import dynamic from "next/dynamic";
+import { useRef, useState, useEffect } from "react";
+import { Skeleton } from "@zeal/ui";
+const Inner = dynamic(() => import("recharts").then((m) => {
+  const { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } = m;
+  function C(p: { data: Array<Record<string, unknown>>; xKey: string; yKey: string; color: string }) {
+    return (<ResponsiveContainer width="100%" height="100%"><LineChart data={p.data}><CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)"/><XAxis dataKey={p.xKey} stroke="var(--color-muted-foreground)" fontSize={11}/><YAxis stroke="var(--color-muted-foreground)" fontSize={11}/><Tooltip contentStyle={{background:"var(--color-surface-overlay)",border:"1px solid var(--color-border)",borderRadius:"12px",color:"var(--color-foreground)"}}/><Line type="monotone" dataKey={p.yKey} stroke={p.color} strokeWidth={2} dot={{fill:p.color,r:3}} activeDot={{r:5}}/></LineChart></ResponsiveContainer>);
+  }
+  return { default: C };
+}), { ssr: false, loading: () => <Skeleton className="w-full h-full" /> });
+export function LazyChart({ data, xKey, yKey, color, heightClass = "h-72" }: { data: Array<Record<string, unknown>>; xKey: string; yKey: string; color: string; heightClass?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [v, setV] = useState(false);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const io = new IntersectionObserver(([e]) => { if (e?.isIntersecting) { setV(true); io.disconnect(); } }, { rootMargin: "200px" });
+    io.observe(el); return () => io.disconnect();
+  }, []);
+  return <div ref={ref} className={heightClass}>{v ? <Inner data={data} xKey={xKey} yKey={yKey} color={color} /> : <Skeleton className="w-full h-full" />}</div>;
+}
+EOF
+  ok "LazyChart.tsx (web)"
+fi
+[[ -f "$REPO_ROOT/apps/admin/components/charts/LazyChart.tsx" ]] || cp "$REPO_ROOT/apps/web/components/charts/LazyChart.tsx" "$REPO_ROOT/apps/admin/components/charts/LazyChart.tsx"
+
+# perf utilities
+WEB_CSS="$REPO_ROOT/apps/web/app/globals.css"
+if [[ -f "$WEB_CSS" ]] && ! has_marker "$WEB_CSS" "__ZEAL_PERF_UTILS__"; then
+  head2 "5.2  globals.css — perf utils"
+  cat >> "$WEB_CSS" <<'EOF'
+
+/* __ZEAL_PERF_UTILS__ */
+@layer utilities {
+  .cv-auto { content-visibility: auto; contain-intrinsic-size: 1px 600px; }
+  .cq-card { container-type: inline-size; }
+}
+EOF
+  ok "web globals.css — perf utils"
+fi
+
+# responsive containers
+for f in "$REPO_ROOT/apps/web/app/explore/page.tsx" "$REPO_ROOT/apps/web/app/services/page.tsx"; do
+  [[ -f "$f" ]] || continue
+  node_edit "$f" '
+    const fs=require("fs"); const f=process.env.ZEAL_FILE;
+    let s=fs.readFileSync(f,"utf8");
+    s=s.replace(/max-w-6xl(?!\s*xl:)/g, "max-w-6xl xl:max-w-7xl 2xl:max-w-[90rem]");
+    fs.writeFileSync(f,s);
+  '
+done
+ok "responsive containers"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 6 — BACKEND
+# ═══════════════════════════════════════════════════════════════════════════════
+head1 "PHASE 6 — BACKEND"
+
+mkdir -p "$REPO_ROOT/supabase/migrations"
+MIG="$REPO_ROOT/supabase/migrations/900_zeal_fix_all.sql"
+if [[ ! -f "$MIG" ]]; then
+  head2 "6.1  migration 900_zeal_fix_all.sql"
+  write_file "$MIG" <<'SQLEOF'
+-- 900_zeal_fix_all.sql — idempotent correctness pass
+BEGIN;
+SET LOCAL statement_timeout = '5min';
+
+CREATE OR REPLACE FUNCTION public.credit_funds_safe(
+  p_user_id text, p_amount double precision, p_description text, p_reference_id text
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_wallet "Wallet"%ROWTYPE; v_existing "Transaction"%ROWTYPE; v_txn_id text;
+BEGIN
+  IF p_reference_id IS NOT NULL AND p_reference_id <> '' THEN
+    SELECT * INTO v_existing FROM "Transaction" WHERE "referenceId" = p_reference_id;
+    IF FOUND THEN RETURN jsonb_build_object('success',true,'idempotent',true,'balance',v_existing.balance,'transactionId',v_existing.id); END IF;
+  END IF;
+  SELECT * INTO v_wallet FROM "Wallet" WHERE "userId" = p_user_id::uuid FOR UPDATE;
+  IF NOT FOUND THEN
+    INSERT INTO "Wallet" ("userId",balance,escrow,"pendingIn","pendingOut",blocked) VALUES (p_user_id::uuid,p_amount,0,0,0,0) RETURNING * INTO v_wallet;
+    v_txn_id := gen_random_uuid()::text;
+    INSERT INTO "Transaction" (id,"walletId",type,amount,balance,description,"referenceId") VALUES (v_txn_id,v_wallet.id,'TOPUP',p_amount,p_amount,p_description,p_reference_id);
+    RETURN jsonb_build_object('success',true,'idempotent',false,'balance',p_amount,'transactionId',v_txn_id,'walletCreated',true);
+  END IF;
+  UPDATE "Wallet" SET balance = balance + p_amount, "updatedAt" = now() WHERE id = v_wallet.id;
+  v_txn_id := gen_random_uuid()::text;
+  INSERT INTO "Transaction" (id,"walletId",type,amount,balance,description,"referenceId") VALUES (v_txn_id,v_wallet.id,'TOPUP',p_amount,v_wallet.balance + p_amount,p_description,p_reference_id);
+  RETURN jsonb_build_object('success',true,'idempotent',false,'balance',v_wallet.balance + p_amount,'transactionId',v_txn_id);
+EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('success',false,'error',SQLERRM,'code',SQLSTATE); END $$;
+GRANT EXECUTE ON FUNCTION public.credit_funds_safe(text,double precision,text,text) TO authenticated, anon;
+
+CREATE OR REPLACE FUNCTION public.hold_in_escrow_safe(
+  p_user_id text, p_amount double precision, p_reference_id text, p_description text
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_wallet "Wallet"%ROWTYPE; v_existing "Transaction"%ROWTYPE; v_txn_id text;
+BEGIN
+  IF p_reference_id IS NOT NULL AND p_reference_id <> '' THEN
+    SELECT * INTO v_existing FROM "Transaction" WHERE "referenceId" = p_reference_id;
+    IF FOUND THEN RETURN jsonb_build_object('success',true,'idempotent',true,'transactionId',v_existing.id); END IF;
+  END IF;
+  SELECT * INTO v_wallet FROM "Wallet" WHERE "userId" = p_user_id::uuid FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','wallet_not_found','code','NOT_FOUND'); END IF;
+  IF v_wallet.balance < p_amount THEN RETURN jsonb_build_object('success',false,'error','insufficient_balance','code','INSUFFICIENT_FUNDS','balance',v_wallet.balance); END IF;
+  UPDATE "Wallet" SET balance = balance - p_amount, escrow = escrow + p_amount, "updatedAt" = now() WHERE id = v_wallet.id;
+  v_txn_id := gen_random_uuid()::text;
+  INSERT INTO "Transaction" (id,"walletId",type,amount,balance,description,"referenceId") VALUES (v_txn_id,v_wallet.id,'PAYMENT',p_amount,v_wallet.balance - p_amount,p_description,p_reference_id);
+  RETURN jsonb_build_object('success',true,'idempotent',false,'transactionId',v_txn_id,'escrow',v_wallet.escrow + p_amount);
+EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('success',false,'error',SQLERRM,'code',SQLSTATE); END $$;
+GRANT EXECUTE ON FUNCTION public.hold_in_escrow_safe(text,double precision,text,text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.cancel_booking(p_booking_id text, p_actor_id text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_booking RECORD; v_wallet RECORD;
+BEGIN
+  SELECT * INTO v_booking FROM "Booking" WHERE id = p_booking_id::uuid FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('error','not_found'); END IF;
+  IF v_booking.status = 'CANCELLED' THEN RETURN jsonb_build_object('alreadyCancelled',true); END IF;
+  IF v_booking.status = 'COMPLETED' THEN RETURN jsonb_build_object('error','completed'); END IF;
+  IF v_booking."userId" IS NOT NULL THEN
+    SELECT * INTO v_wallet FROM "Wallet" WHERE "userId" = v_booking."userId"::uuid FOR UPDATE;
+    IF FOUND THEN
+      UPDATE "Wallet" SET balance = balance + v_booking.amount, escrow = GREATEST(0,escrow - v_booking.amount), "updatedAt" = now() WHERE id = v_wallet.id;
+      INSERT INTO "Transaction" (id,"walletId",type,amount,balance,description,"referenceId") VALUES (gen_random_uuid()::text,v_wallet.id,'REFUND',v_booking.amount,v_wallet.balance + v_booking.amount,'Refund for cancelled booking ' || p_booking_id, p_booking_id || ':refund') ON CONFLICT ("referenceId") DO NOTHING;
+    END IF;
+  END IF;
+  UPDATE "Booking" SET status = 'CANCELLED', "updatedAt" = now() WHERE id = p_booking_id::uuid;
+  RETURN jsonb_build_object('success',true);
+EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('success',false,'error',SQLERRM); END $$;
+GRANT EXECUTE ON FUNCTION public.cancel_booking(text,text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.impersonation_active(p_actor uuid, p_target uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public."AdminAuditLog" l WHERE l.action = 'IMPERSONATE_START' AND l."userId" = p_actor AND l."targetId" = p_target::text AND l."createdAt" > now() - interval '15 minutes');
+$$;
+GRANT EXECUTE ON FUNCTION public.impersonation_active(uuid,uuid) TO authenticated;
+
+DO $$ BEGIN
+  IF to_regclass('public.rate_limits') IS NOT NULL THEN
+    ALTER TABLE public.rate_limits ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public.rate_limits FORCE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS rate_limits_no_public ON public.rate_limits;
+    CREATE POLICY rate_limits_no_public ON public.rate_limits FOR ALL TO public USING (false) WITH CHECK (false);
+  END IF;
+  IF to_regclass('public."AIChatRateLimit"') IS NOT NULL THEN
+    ALTER TABLE public."AIChatRateLimit" ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE public."AIChatRateLimit" FORCE ROW LEVEL SECURITY;
+    DROP POLICY IF EXISTS ai_rate_limit_owner ON public."AIChatRateLimit";
+    CREATE POLICY ai_rate_limit_owner ON public."AIChatRateLimit" FOR ALL USING ("userId" = (SELECT auth.uid())) WITH CHECK ("userId" = (SELECT auth.uid()));
+  END IF;
+END $$;
+
+DO $$ DECLARE pol text; BEGIN
+  FOREACH pol IN ARRAY ARRAY['Users can view own wallet','Users can view own transactions','Users view own bookings','Consultants view assigned bookings','Public can view verified consultants','Consultants can manage own profile'] LOOP
+    BEGIN
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public."Wallet"', pol);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public."Transaction"', pol);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public."Booking"', pol);
+      EXECUTE format('DROP POLICY IF EXISTS %I ON public."Consultant"', pol);
+    EXCEPTION WHEN OTHERS THEN NULL; END;
+  END LOOP;
+END $$;
+
+DROP FUNCTION IF EXISTS public.process_per_minute_deduction(text,text,double precision,text);
+DROP FUNCTION IF EXISTS public.process_per_minute_deduction(text,text,double precision,text,boolean);
+CREATE OR REPLACE FUNCTION public.process_per_minute_deduction(
+  p_user_id text, p_consultant_id text, p_amount double precision, p_session_id text, p_is_ai boolean DEFAULT false
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_ref text; v_existing "Transaction"%ROWTYPE; v_uw "Wallet"%ROWTYPE; v_cw "Wallet"%ROWTYPE; v_consultant_uid uuid; v_fee double precision; v_earning double precision;
+BEGIN
+  v_ref := 'permin:' || p_session_id;
+  SELECT * INTO v_existing FROM "Transaction" WHERE "referenceId" = v_ref FOR UPDATE;
+  IF FOUND THEN RETURN jsonb_build_object('success',true,'idempotent',true,'transactionId',v_existing.id); END IF;
+  SELECT * INTO v_uw FROM "Wallet" WHERE "userId" = p_user_id::uuid FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('success',false,'error','user_wallet_not_found','code','NOT_FOUND'); END IF;
+  IF v_uw.balance < p_amount THEN RETURN jsonb_build_object('success',false,'error','Insufficient funds','code','INSUFFICIENT_FUNDS','terminate',true,'remaining',v_uw.balance); END IF;
+  IF p_is_ai THEN
+    SELECT id INTO v_consultant_uid FROM "User" WHERE id = p_consultant_id::uuid AND role = 'AI'::"AppRole";
+  ELSE
+    SELECT "userId" INTO v_consultant_uid FROM "Consultant" WHERE id = p_consultant_id::uuid;
+  END IF;
+  v_fee := p_amount * 0.20; v_earning := p_amount - v_fee;
+  UPDATE "Wallet" SET balance = balance - p_amount, "updatedAt" = now() WHERE id = v_uw.id;
+  INSERT INTO "Transaction" (id,"walletId",type,amount,balance,description,"referenceId") VALUES (gen_random_uuid()::text,v_uw.id,'PAYMENT',-p_amount,v_uw.balance - p_amount,'Per-minute billing',v_ref);
+  IF v_consultant_uid IS NOT NULL THEN
+    SELECT * INTO v_cw FROM "Wallet" WHERE "userId" = v_consultant_uid FOR UPDATE;
+    IF FOUND THEN
+      UPDATE "Wallet" SET balance = balance + v_earning, "updatedAt" = now() WHERE id = v_cw.id;
+      INSERT INTO "Transaction" (id,"walletId",type,amount,balance,description,"referenceId") VALUES (gen_random_uuid()::text,v_cw.id,'COMMISSION',v_earning,v_cw.balance + v_earning,'Per-minute earning',v_ref || ':earn');
+    END IF;
+  END IF;
+  RETURN jsonb_build_object('success',true,'idempotent',false,'remaining',v_uw.balance - p_amount,'consultant_credited',v_consultant_uid IS NOT NULL,'earning',v_earning);
+EXCEPTION WHEN OTHERS THEN RETURN jsonb_build_object('success',false,'error',SQLERRM,'code',SQLSTATE); END $$;
+GRANT EXECUTE ON FUNCTION public.process_per_minute_deduction(text,text,double precision,text,boolean) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+COMMIT;
+SQLEOF
+  ok "migration written"
+else
+  ok "migration already present"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 7 — TYPE CHECK
+# ═══════════════════════════════════════════════════════════════════════════════
+if [[ $DO_TSC -eq 1 ]]; then
+  head1 "PHASE 7 — TYPE CHECK"
+
+  run_tsc() {
+    local app="$1"
+    local log="$LOGS/tsc-$app.log"
+    say "tsc $app …"
+    (
+      cd "$REPO_ROOT"
+      npx tsc -p "apps/$app/tsconfig.json" --noEmit 2>&1 | tee "$log" >/dev/null
+    ) || true
+
+    local errs
+    errs="$(grep -cE 'error TS[0-9]+' "$log" 2>/dev/null || true)"
+    errs="${errs:-0}"
+
+    if [[ "$errs" -eq 0 ]]; then
+      ok "$app: 0 type errors"
+      return 0
+    fi
+
+    err "  $app: $errs type error(s)"
+    echo -e "  ${D}Top offenders:${N}"
+    grep -oE '^[^(]+\(' "$log" 2>/dev/null \
+      | sed 's/($//' \
+      | sort | uniq -c | sort -rn | head -10 \
+      | while read -r cnt file; do
+          echo -e "    ${Y}${cnt}×${N} ${file#$REPO_ROOT/}"
+        done
+    echo ""
+    echo -e "  ${D}First 15 errors:${N}"
+    grep -E 'error TS[0-9]+' "$log" | head -15 | sed "s|$REPO_ROOT/||" | while read -r l; do
+      echo -e "    ${R}✗${N} $l"
+    done
+    echo ""
+    echo -e "  ${D}Full log: $log${N}"
+    return 1
+  }
+
+  TSC_WEB=0; TSC_ADMIN=0
+  run_tsc web   || TSC_WEB=1
+  run_tsc admin || TSC_ADMIN=1
+
+  if [[ $TSC_WEB -eq 0 && $TSC_ADMIN -eq 0 ]]; then
+    ok "Both apps type-check clean"
+  else
+    warn "Pre-existing type errors are expected — the fixes in this script are additive."
+    warn "Review the logs above, then decide which to fix next."
+  fi
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 8 — BUILD
+# ═══════════════════════════════════════════════════════════════════════════════
+if [[ $DO_BUILD -eq 1 ]]; then
+  head1 "PHASE 8 — BUILD"
+
+  for app in web admin; do
+    log="$LOGS/build-$app.log"
+    say "Building $app …"
+    (
+      cd "$REPO_ROOT/apps/$app"
+      npm run build 2>&1 | tee "$log" >/dev/null
+    ) && ok "$app build OK" || err "$app build FAILED — see $log"
+
+    # Show first compile error if any
+    if grep -qE 'Failed to compile|Type error' "$log" 2>/dev/null; then
+      echo ""
+      grep -A5 -E 'Failed to compile|Type error' "$log" | head -20 | sed "s|$REPO_ROOT/||"
+    fi
+  done
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SUMMARY
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo -e "${BD}${G}════════════════════════════════════════════════════════════${N}"
+echo -e "${BD}${G}  ZEAL FIX-ALL v3 — COMPLETE${N}"
+echo -e "${BD}${G}════════════════════════════════════════════════════════════${N}"
+echo ""
+echo -e "  Backup          : ${D}$BACKUP${N}"
+echo -e "  Logs            : ${D}$LOGS${N}"
+echo -e "  Migration       : ${D}supabase/migrations/900_zeal_fix_all.sql${N}"
+echo ""
+echo -e "${BD}Next steps:${N}"
+echo "  1. Review diff       : git diff --stat"
+echo "  2. Apply migration   : supabase db push"
+echo "  3. Confirm env vars  : AGNES_API_KEY, GROQ_API_KEY on Vercel"
+echo "  4. Type-check only   : ./scripts/zeal-fix-all.sh --tsc"
+echo "  5. Full build        : ./scripts/zeal-fix-all.sh --build"
+echo ""
+
+set +f

@@ -35,54 +35,42 @@ import type {
 // 6K TPM for 8b). Agnes uses the 1000 RPM Token Plan tier. Adjust via env
 // when you upgrade tiers.
 //
+// __ZEAL_PROVIDERS_V2__
 const PROVIDERS: Record<ProviderName, ProviderDef> = {
   groqPro: {
-    name: "groqPro",
-    label: "Groq 70B",
+    name: "groqPro", label: "Groq 70B",
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.3-70b-versatile",
-    maxConcurrent: 4,
-    rpm: 30,
-    tpm: 12_000,
-    weight: 90,
-  },
-  agnes: {
-    name: "agnes",
-    label: "Agnes 2.5 Flash",
-    url: "https://apihub.agnes-ai.com/v1/chat/completions",
-    key: () => process.env.AGNES_API_KEY,
-    model: "agnes-2.5-flash",
-    maxConcurrent: 6,
-    rpm: 100,
-    tpm: 40_000,
-    weight: 100,
+    maxConcurrent: 3, rpm: 28, tpm: 10_000, weight: 100,
   },
   groqFast: {
-    name: "groqFast",
-    label: "Groq 8B",
+    name: "groqFast", label: "Groq 8B",
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.1-8b-instant",
-    maxConcurrent: 6,
-    rpm: 30,
-    tpm: 6_000,
-    weight: 50,
+    maxConcurrent: 6, rpm: 28, tpm: 5_500, weight: 80,
+  },
+  agnes: {
+    name: "agnes", label: "Agnes 2.5 Flash",
+    url: "https://apihub.agnes-ai.com/v1/chat/completions",
+    key: () => process.env.AGNES_API_KEY,
+    model: "agnes-2.5-flash",
+    maxConcurrent: 4, rpm: 18, tpm: 32_000, weight: 70,
   },
   zhipu: {
-    name: "zhipu",
-    label: "Zhipu GLM",
+    name: "zhipu", label: "Zhipu GLM",
     url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     key: () => process.env.ZHIPU_API_KEY,
     model: "glm-4-flash",
-    maxConcurrent: 4,
-    rpm: 60,
-    tpm: 20_000,
-    weight: 60,
+    maxConcurrent: 2, rpm: 30, tpm: 15_000, weight: 40,
   },
 };
 
-const FALLBACK_CHAIN: ProviderName[] = ["agnes", "groqPro", "groqFast", "zhipu"];
+const FALLBACK_CHAIN: ProviderName[] = ["groqPro", "agnes", "groqFast", "zhipu"];
+// __ZEAL_ENGINE_BUDGET__
+const PROVIDER_WALL_MS = 12_000;
+const TOTAL_WALL_MS = 25_000;
 
 // ─── Human-facing error ───────────────────────────────────────────────────────
 export class AIUnavailableError extends Error {
@@ -163,7 +151,7 @@ export async function callAI(
 ): Promise<CallAIResult> {
   const emit = opts.onEvent ?? (() => {});
   const requestId = opts.requestId ?? `req-${Date.now().toString(36)}`;
-  const maxRetries = opts.maxRetriesPerProvider ?? 3;
+  const maxRetries = opts.maxRetriesPerProvider ?? 1;
 
   // Build provider chain: preferred first, then remaining by weight desc
   const chain: ProviderName[] = opts.preferProvider
@@ -178,7 +166,14 @@ export async function callAI(
   const attempts: Array<{ provider: ProviderName; reason: string }> = [];
   let lastInternal = "all providers failed";
 
+  const __chainStart = Date.now();
   for (const key of chain) {
+    if (Date.now() - __chainStart > TOTAL_WALL_MS) {
+      lastInternal = "global wall-clock budget exceeded";
+      attempts.push({ provider: key, reason: "budget-exceeded" });
+      break;
+    }
+    const __providerStart = Date.now();
     const provider = PROVIDERS[key];
     const breaker = getBreaker(key);
     const gate = getGate(key, provider.maxConcurrent);

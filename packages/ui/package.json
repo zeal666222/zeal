@@ -70,6 +70,10 @@
     "./confirm-dialog": {
       "types": "./src/confirm-dialog.tsx",
       "default": "./src/confirm-dialog.tsx"
+    },
+    "./theme-script": {
+      "types": "./src/theme-script.tsx",
+      "default": "./src/theme-script.tsx"
     }
   },
   "dependencies": {

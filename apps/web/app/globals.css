@@ -88,3 +88,24 @@ body {
 .morph-line-1 { animation: line-top 9s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55); }
 .morph-line-2 { animation: line-mid 9s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55); }
 .morph-line-3 { animation: line-bot 9s infinite cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+
+/* __ZEAL_PERF_UTILS__ — performance + responsive utilities */
+@layer utilities {
+  /* Defer rendering of below-fold sections. */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 600px;
+  }
+  .cv-auto-sm {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 240px;
+  }
+  /* Card-level container query context. */
+  .cq-card { container-type: inline-size; }
+}
+
+/* Fluid typography inside cards (falls back to rem on unsupported browsers) */
+@container (max-width: 320px) {
+  .cq-card h3 { font-size: 0.875rem; }
+  .cq-card p  { font-size: 0.75rem; }
+}

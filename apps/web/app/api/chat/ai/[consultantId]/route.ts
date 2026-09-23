@@ -12,6 +12,10 @@ import { callAI } from "@/lib/ai/engine";
 import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
 import { z } from "zod";
 
+// Vercel maxDuration
+export const maxDuration = 60;
+
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 

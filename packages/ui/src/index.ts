@@ -43,6 +43,7 @@ export { Skeleton, SkeletonText, SkeletonCard, SkeletonGrid } from "./Skeleton";
 export { VisuallyHidden, LiveRegion, SkipLink } from "./a11y";
 
 // ─── Theme ────────────────────────────────────────────────────────────────
+export { ThemeScript, NO_FLASH_SCRIPT, THEME_STORAGE_KEY } from "./theme-script";
 export { ThemeProvider } from "./theme-provider";
 export { ThemeToggle } from "./theme-toggle";
 

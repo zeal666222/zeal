@@ -1,3 +1,4 @@
+// __ZEAL_PROMPT_TRIM__
 // ZEAL_PHASE2_V1
 // apps/web/app/api/ai/route.ts
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -20,6 +21,13 @@ import {
 import { checkRateLimit, aiRateLimiter, aiStrictLimiter } from "@/lib/rate-limit";
 import { callAIJson, withAICache } from "@/lib/ai";
 import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
+
+// ═══════════════════════════════════════════════════════════════════
+// Vercel maxDuration — extends the default 10s/15s limit.
+// See https://vercel.com/docs/functions/configuring-functions/duration
+// ═══════════════════════════════════════════════════════════════════
+export const maxDuration = 60;
+
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -298,7 +306,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
       async () => {
         const admin = createAdminClient();
         const { data } = await admin.rpc("search_consultants", {
-          p_filters: { limit: 100, sort: "relevance" },
+          p_filters: { limit: 20, sort: "relevance" },
         });
         return (data as { consultants?: unknown[] } | null)?.consultants ?? [];
       },
@@ -335,7 +343,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
         is_online: boolean;
       }>
     )
-      .slice(0, 60)
+      .slice(0, 20)
       .map((c) => ({
         id: c.id,
         name: c.name,

@@ -5,6 +5,7 @@ import { SupabaseAuthProvider } from "@/components/providers/SupabaseAuthProvide
 import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
 import { QueryProvider } from "@/lib/query/provider";
 import "./globals.css";
+import { ThemeScript } from "@zeal/ui/theme-script";
 
 export const dynamic = "force-dynamic";
 
@@ -31,13 +32,14 @@ const mono = JetBrains_Mono({
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`} suppressHydrationWarning>
+      <head><ThemeScript /></head>
       <body className="antialiased">
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem
-          disableTransitionOnChange={false}
+          disableTransitionOnChange={true}
           themes={["light", "dark"]}
         >
           <QueryProvider>

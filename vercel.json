@@ -3,5 +3,19 @@
   "installCommand": "npm ci --workspaces --include-workspace-root --legacy-peer-deps",
   "github": {
     "silent": true
+  },
+  "functions": {
+    "apps/web/app/api/ai/route.ts": {
+      "maxDuration": 60
+    },
+    "apps/web/app/api/chat/ai/[consultantid]/route.ts": {
+      "maxDuration": 60
+    },
+    "apps/web/app/api/chat/ai/[consultantId]/route.ts": {
+      "maxDuration": 60
+    },
+    "apps/web/app/api/chat/groq/route.ts": {
+      "maxDuration": 30
+    }
   }
 }

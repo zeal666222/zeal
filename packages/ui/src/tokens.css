@@ -193,8 +193,6 @@ body {
 }
 
 /* Smooth theme transition */
-html { transition: background-color 150ms ease-out, color 150ms ease-out; }
-
 /* ═══════════════════════════════════════════════════════════════════════════════
    ACCESSIBILITY
    ═══════════════════════════════════════════════════════════════════════════════ */
@@ -234,14 +232,6 @@ html { transition: background-color 150ms ease-out, color 150ms ease-out; }
 }
 
 /* View-transition for theme toggle */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-::view-transition-old(root) { z-index: 1; }
-::view-transition-new(root) { z-index: 9999; }
-
 /* ═══════════════════════════════════════════════════════════════════════════════
    ZEAL_PHASE1_LUXURY_v1
    ─────────────────────────────────────────────────────────────────────────────
@@ -422,3 +412,13 @@ html { transition: background-color 150ms ease-out, color 150ms ease-out; }
     transparent, var(--color-luxury-gold-muted), transparent);
   margin-block: 3rem;
 }
+
+/* __ZEAL_THEME_TRANSITION__ — scoped, single-property, 150ms only */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transition body {
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+}
+
+/* View Transitions — opt-in only when .vt-enabled is on <html> */
+html.vt-enabled

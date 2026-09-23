@@ -9,6 +9,20 @@ module.exports = {
   ],
   theme: {
     extend: {
+        // __ZEAL_TOKENS__ — CSS variable aliases
+        colors: Object.assign({
+          background:        "var(--color-background)",
+          surface:           "var(--color-surface)",
+          "surface-raised":  "var(--color-surface-raised)",
+          "surface-overlay": "var(--color-surface-overlay)",
+          "surface-sunken":  "var(--color-surface-sunken)",
+          foreground:        "var(--color-foreground)",
+          "muted-foreground":   "var(--color-muted-foreground)",
+          "subtle-foreground":  "var(--color-subtle-foreground)",
+          border:            "var(--color-border)",
+          "border-strong":   "var(--color-border-strong)",
+          "border-subtle":   "var(--color-border-subtle)",
+        }, {}),
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

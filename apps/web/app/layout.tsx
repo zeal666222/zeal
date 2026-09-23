@@ -11,6 +11,7 @@ import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
 import { QueryProvider } from "@/lib/query/provider";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { ThemeScript } from "@zeal/ui/theme-script";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -95,13 +96,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`${inter.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
+      <head><ThemeScript /></head>
       <body className="antialiased">
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           enableSystem
-          disableTransitionOnChange={false}
+          disableTransitionOnChange={true}
           themes={["light", "dark"]}
         >
           <QueryProvider>

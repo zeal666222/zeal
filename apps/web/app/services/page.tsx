@@ -54,7 +54,7 @@ async function CategoryGrid() {
 
 export default function ServicesPage() {
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8 space-y-10">
+    <div className="max-w-6xl xl:max-w-7xl 2xl:max-w-[90rem] mx-auto px-4 py-8 space-y-10">
       {/* ─── AI concierge ──────────────────────────────────────────────── */}
       <section>
         <div className="mb-6">
