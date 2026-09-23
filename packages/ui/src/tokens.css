@@ -420,5 +420,23 @@ body {
   }
 }
 
-/* View Transitions — opt-in only when .vt-enabled is on <html> */
-html.vt-enabled
+/* __ZEAL_THEME_TRANSITION__ */
+/* Scoped body transition — only active while .theme-transition is on <html>.
+   Prevents the theme swap from racing with Framer Motion / next-themes. */
+@media (prefers-reduced-motion: no-preference) {
+  html.theme-transition body {
+    transition: background-color 150ms ease-out, color 150ms ease-out;
+  }
+}
+
+/* View Transitions — these pseudo-elements live on the document root and
+   CANNOT be prefixed by any selector (html.vt-enabled::view-transition-*
+   is a CSS syntax error). The runtime gate is document.startViewTransition()
+   in ThemeToggle; these rules only style the pseudo-elements when active. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) { z-index: 1; }
+::view-transition-new(root) { z-index: 9999; }
