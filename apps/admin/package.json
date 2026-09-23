@@ -14,7 +14,7 @@
     "@hookform/resolvers": "5.5.7",
     "@supabase/auth-helpers-nextjs": "0.15.0",
     "@supabase/ssr": "0.12.6",
-    "@supabase/supabase-js": "2.115.0",
+    "@supabase/supabase-js": "2.116.0",
     "@tanstack/react-query": "5.101.4",
     "@zeal/database": "*",
     "@zeal/types": "*",
