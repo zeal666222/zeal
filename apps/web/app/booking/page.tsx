@@ -68,7 +68,7 @@ function BookingContent() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/consultant/${consultantId}`, { cache: "no-store" });
+        const res = await fetch(`/api/consultants/${consultantId}`, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!cancelled) setConsultant(data.consultant || data);

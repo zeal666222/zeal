@@ -13,6 +13,7 @@ import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { EmptyState } from "@zeal/ui";
 import { cardHoverVariants, staggerContainer, fadeUp } from "@zeal/ui/motion";
 import { ConsultantCard } from "@/components/shared/ConsultantCard";
+import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
 import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 import type { ConsultantProfile } from "@zeal/types";
@@ -146,7 +147,7 @@ export function HomeClient({
             Multi-faith · {stats.traditions} traditions · 24/7 AI + verified humans
           </motion.div>
           <motion.h1 variants={fadeUp}
-            className="text-4xl md:text-6xl lg:text-7xl font-black tracking-tight text-white leading-[1.05] max-w-3xl"
+            className="text-editorial-xl text-white max-w-3xl"
             style={{ fontFamily: "var(--font-display)" }}>
             Every tradition.<br />
             <span className="text-luxury-gradient">One sanctuary.</span>
@@ -211,7 +212,11 @@ export function HomeClient({
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {experts.map((ex) => (
               <motion.div key={ex.id} variants={fadeUp}>
-                <ConsultantCard consultant={toProfile(ex)} variant="vertical" onChat={handleChat} />
+                <LuxuryConsultantCard
+                  consultant={toProfile(ex)}
+                  onChat={handleChat}
+                  onBook={(id) => router.push(`/booking?consultantId=${id}`)}
+                />
               </motion.div>
             ))}
           </motion.div>

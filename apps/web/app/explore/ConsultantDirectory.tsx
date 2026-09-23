@@ -8,6 +8,7 @@ import { Loader2, Search, SlidersHorizontal, X } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { staggerContainer, fadeUp } from "@zeal/ui/motion";
 import { ConsultantCard } from "@/components/shared/ConsultantCard";
+import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
 import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 import type { ConsultantProfile } from "@zeal/types";
@@ -192,7 +193,7 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {visible.map((c) => (
             <motion.div key={c.id} variants={fadeUp}>
-              <ConsultantCard consultant={toProfile(c)} variant="vertical" onChat={handleChat} />
+              <LuxuryConsultantCard consultant={toProfile(c)} onChat={handleChat} onBook={(id) => router.push(`/booking?consultantId=${id}`)} />
             </motion.div>
           ))}
         </motion.div>

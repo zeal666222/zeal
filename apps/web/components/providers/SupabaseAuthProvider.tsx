@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { getBrowserSupabase } from "@/lib/supabase/client";
+import { useAppStore } from "@/lib/store/appStore";
 
 interface AuthContextValue {
   user: User | null;
@@ -78,6 +79,24 @@ export function SupabaseAuthProvider({
       subscription.unsubscribe();
     };
   }, [supabase]);
+
+  // ─── Hydrate Zustand store (consultant/feed/chat CTA all read from it) ─
+  const setStoreUser = useAppStore((s) => s.setUser);
+  useEffect(() => {
+    if (isLoading) return;
+    if (user) {
+      setStoreUser({
+        id: user.id,
+        email: user.email ?? "",
+        username: (user.user_metadata?.username as string) ?? user.email?.split("@")[0] ?? "",
+        name: (user.user_metadata?.full_name as string) ?? (user.user_metadata?.name as string) ?? null,
+        avatar: (user.user_metadata?.avatar_url as string) ?? null,
+        bio: null, sparks: 0, role: "USER", isVerified: false,
+      });
+    } else {
+      setStoreUser(null);
+    }
+  }, [user, isLoading, setStoreUser]);
 
   const value: AuthContextValue = useMemo(
     () => ({

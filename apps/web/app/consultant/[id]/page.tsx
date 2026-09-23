@@ -159,7 +159,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
         </Link>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 -mt-20 md:-mt-24 relative z-10">
+      <div className="luxury-profile-hero max-w-4xl mx-auto px-4 -mt-20 md:-mt-24 relative z-10">
         {/* Avatar + identity */}
         <div className="flex flex-col md:flex-row md:items-end gap-5 mb-8">
           <div className="relative inline-block">

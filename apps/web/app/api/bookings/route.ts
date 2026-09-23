@@ -95,5 +95,45 @@ export async function POST(req: Request) {
     );
   }
 
+  // ─── Realtime fanout ──────────────────────────────────────────────────────
+  // Consultant dashboards listen on consultant:<User.id>:incoming
+  // Admin dashboards listen on      admin:bookings
+  // Must resolve Consultant.userId — publishing to Consultant.id would be a
+  // channel-name mismatch (different UUIDs).
+  try {
+    const { data: consultantRow } = await supabase
+      .from("Consultant")
+      .select("userId")
+      .eq("id", consultantId)
+      .maybeSingle();
+    const consultantUserId = (consultantRow as { userId?: string } | null)?.userId;
+    const { serverPublish } = await import("@/lib/realtime/server");
+
+    if (consultantUserId) {
+      await serverPublish(
+        `consultant:${consultantUserId}:incoming`,
+        "incoming_request",
+        {
+          id: bookingId,
+          seekerName: user.email?.split("@")[0] ?? "Seeker",
+          rate: amount,
+          modality: "chat",
+          receivedAt: new Date().toISOString(),
+        },
+      );
+    }
+
+    await serverPublish("admin:bookings", "booking_created", {
+      id: bookingId,
+      userId: user.id,
+      consultantId,
+      amount,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("[bookings] realtime publish failed:", err);
+  }
+
   return NextResponse.json({ success: true, bookingId });
 }

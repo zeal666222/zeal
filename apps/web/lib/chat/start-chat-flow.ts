@@ -70,11 +70,16 @@ export async function startChatFlow(
   try {
     // ─── 1. Auth ──────────────────────────────────────────────────────────
     const meRes = await fetch("/api/users/me/profile", { cache: "no-store" });
-    if (!meRes.ok) {
+    // 401 → genuinely unauth → redirect. Anything else → retryable error.
+    if (meRes.status === 401) {
       const redirect =
         typeof window !== "undefined" ? window.location.pathname : "/explore";
       router.push(`/login?redirect=${encodeURIComponent(redirect)}`);
       return { ok: false, reason: "auth" };
+    }
+    if (!meRes.ok) {
+      onError?.(`Could not load your profile (HTTP ${meRes.status}). Please retry.`);
+      return { ok: false, reason: "network" };
     }
 
     // ─── 2. Consultant ────────────────────────────────────────────────────
