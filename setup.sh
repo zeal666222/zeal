@@ -21,6 +21,7 @@
 # Usage:  ./setup.sh                       (full run incl. verify + commit)
 #         SKIP_COMMIT=1 ./setup.sh         (stop before committing)
 #         DRY_RUN=1 ./setup.sh             (assertions + report only)
+#         VERIFY_ONLY=1 ./setup.sh         (skip cleanup, only type-check + build)
 # ============================================================================
 set -Eeuo pipefail
 IFS=$'\n\t'
@@ -29,10 +30,12 @@ IFS=$'\n\t'
 REPO_ROOT="/d/zeal"
 DRY_RUN="${DRY_RUN:-0}"
 SKIP_COMMIT="${SKIP_COMMIT:-0}"
+VERIFY_ONLY="${VERIFY_ONLY:-0}"
 BUILD_LOG="/tmp/zeal-cleanup-build.log"
 DEPS_REMOVED=0
 FILES_REMOVED=0
 DIRS_REMOVED=0
+CLEANUP_RAN=0
 
 if [[ -t 1 ]]; then
   C_RESET=$'\033[0m'; C_RED=$'\033[31m'; C_GREEN=$'\033[32m'
@@ -75,8 +78,12 @@ TRACKED_BEFORE="$(git ls-files | wc -l | tr -d ' ')"
 log "repo        : $REPO_ROOT (branch $BRANCH @ $HEAD_BEFORE)"
 log "node/npm    : $(node -v) / $(npm -v)"
 log "tracked     : $TRACKED_BEFORE files"
-log "dry-run     : $DRY_RUN   skip-commit: $SKIP_COMMIT"
+log "dry-run     : $DRY_RUN   skip-commit: $SKIP_COMMIT   verify-only: $VERIFY_ONLY"
 log "rollback    : git reset --hard $HEAD_BEFORE  (after a committed run: git revert)"
+
+if [[ "$VERIFY_ONLY" == "1" ]]; then
+  log "VERIFY_ONLY=1 — skipping cleanup phases, running verification only"
+fi
 
 # Source trees scanned by the reference assertions (never node_modules/.next).
 SRC_TREES=(apps/web apps/admin packages scripts tooling docs supabase .github)
@@ -215,6 +222,9 @@ log "targets     : ${#TRACKED_DEAD_FILES[@]} tracked files, ${#UNTRACKED_JUNK[@]
 # ================================================================ phase 1
 header "PHASE 1 — remove tracked dead files (git rm, reversible)"
 
+if [[ "$VERIFY_ONLY" == "1" ]]; then
+  log "skipped (VERIFY_ONLY=1)"
+else
 for f in "${TRACKED_DEAD_FILES[@]}"; do
   if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
     if [[ "$DRY_RUN" == "1" ]]; then
@@ -239,10 +249,14 @@ if [[ "$DRY_RUN" != "1" ]]; then
   git add -u -- .migration 2>/dev/null || true
   ok "staged pre-existing deletions (.deploy-trigger, .migration backups)"
 fi
+fi
 
 # ================================================================ phase 2
 header "PHASE 2 — remove untracked junk"
 
+if [[ "$VERIFY_ONLY" == "1" ]]; then
+  log "skipped (VERIFY_ONLY=1)"
+else
 for f in "${UNTRACKED_JUNK[@]}"; do
   if [[ -e "$f" ]]; then
     size="$(du -h -- "$f" | cut -f1)"
@@ -257,10 +271,14 @@ for f in "${UNTRACKED_JUNK[@]}"; do
     warn "$f already absent — skipping"
   fi
 done
+fi
 
 # ================================================================ phase 3
 header "PHASE 3 — prune empty directories"
 
+if [[ "$VERIFY_ONLY" == "1" ]]; then
+  log "skipped (VERIFY_ONLY=1)"
+else
 # -delete implies depth-first, so nested empty dirs go in one pass; run twice
 # for parents that only became empty after the first pass. node_modules and
 # .next are pruned from traversal entirely.
@@ -276,11 +294,14 @@ for pass in 1 2; do
              \( -name node_modules -o -name .next -o -name .git \) -prune -o \
              -type d -empty -print 2>/dev/null)
 done
+fi
 
 # ================================================================ phase 4
 header "PHASE 4 — prune stale dependencies & sync lockfile"
 
-if [[ "$DRY_RUN" == "1" ]]; then
+if [[ "$VERIFY_ONLY" == "1" ]]; then
+  log "skipped (VERIFY_ONLY=1)"
+elif [[ "$DRY_RUN" == "1" ]]; then
   for pf in "${PKG_FILES[@]}"; do log "would prune deps in $pf"; done
 else
   DEPS_JSON="$(printf '"%s",' "${STALE_DEPS[@]}")"
@@ -317,6 +338,10 @@ NODE_EOF
   ok "npm install clean"
 fi
 
+if [[ "$VERIFY_ONLY" != "1" && "$DRY_RUN" != "1" ]]; then
+  CLEANUP_RAN=1
+fi
+
 # ================================================================ phase 5
 header "PHASE 5 — verify: type-check + production build"
 
@@ -344,6 +369,8 @@ header "PHASE 6 — commit"
 
 if [[ "$DRY_RUN" == "1" ]]; then
   log "would commit cleanup (skipped: DRY_RUN=1)"
+elif [[ "$VERIFY_ONLY" == "1" ]]; then
+  log "skipped (VERIFY_ONLY=1)"
 elif [[ "$SKIP_COMMIT" == "1" ]]; then
   warn "SKIP_COMMIT=1 — leaving all changes staged/unstaged for review"
   git status --short | head -40
@@ -390,6 +417,7 @@ TRACKED_AFTER="$(git ls-files | wc -l | tr -d ' ')"
 log "files removed      : $FILES_REMOVED (tracked before/after: $TRACKED_BEFORE → $TRACKED_AFTER)"
 log "empty dirs removed : $DIRS_REMOVED"
 log "dep entries pruned : $DEPS_REMOVED"
+log "cleanup ran        : $( [[ "$CLEANUP_RAN" == "1" ]] && echo yes || echo no )"
 log "verification       : type-check ✓  build web ✓  build admin ✓"
 log "head               : $HEAD_BEFORE → $(git rev-parse --short HEAD)"
 cat <<'NEXT'
