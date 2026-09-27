@@ -67,8 +67,8 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white">Platform Pulse</h1>
-        <p className="text-sm text-slate-400 mt-1">Real-time overview · updates instantly on bookings and verifications</p>
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground">Platform Pulse</h1>
+        <p className="text-sm text-muted-foreground mt-1">Real-time overview · updates instantly on bookings and verifications</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -78,13 +78,13 @@ export default function AdminDashboardPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.05 }}
-            className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4"
+            className="bg-surface backdrop-blur-xl border border-border rounded-2xl p-4"
           >
             <div className={`inline-flex p-2 rounded-lg ${c.bg} ${c.color} mb-2`}>
               <c.icon className="w-4 h-4" />
             </div>
-            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{c.label}</p>
-            <p className="text-2xl font-black text-white mt-1 font-mono">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{c.label}</p>
+            <p className="text-2xl font-black text-foreground mt-1 font-mono">
               {isLoading ? "—" : c.value}
             </p>
           </motion.div>
@@ -95,9 +95,9 @@ export default function AdminDashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 space-y-3"
+          className="bg-surface backdrop-blur-xl border border-border rounded-2xl p-5 space-y-3"
         >
-          <h2 className="text-base font-black text-white flex items-center gap-2">
+          <h2 className="text-base font-black text-foreground flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500" /> Action required
           </h2>
 

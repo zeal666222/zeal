@@ -100,7 +100,7 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
 
   return (
     <div className={`flex-none px-3 md:px-4 py-2 border-b ${
-      isWarning ? "bg-amber-500/10 border-amber-500/30" : "bg-slate-900/60 border-white/10"
+      isWarning ? "bg-amber-500/10 border-amber-500/30" : "bg-surface border-border"
     }`}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 text-xs">
@@ -110,12 +110,12 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
           <span className="flex items-center gap-1 text-purple-400 font-mono font-bold">
             <IndianRupee size={12} /> {state.cost.toFixed(2)}
           </span>
-          <span className="flex items-center gap-1 text-slate-400">
+          <span className="flex items-center gap-1 text-muted-foreground">
             <Wallet size={12} />
             <span className="font-mono">{state.remaining.toFixed(0)}</span>
           </span>
           {rate > 0 && (
-            <span className="text-slate-500">
+            <span className="text-muted-foreground">
               {minutesRemaining > 99 ? "∞" : `${minutesRemaining}m left`}
             </span>
           )}

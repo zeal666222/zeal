@@ -57,8 +57,8 @@ export function GlobalCallListener({ userId }: { userId: string }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
       <div className="glass-card-3d max-w-md w-full p-8 text-center border border-white/20">
         <div className="flex justify-center mb-4">
-          <div className="w-20 h-20 rounded-full bg-[#9D7DC5]/20 flex items-center justify-center animate-pulse">
-            <Icon className="w-12 h-12 text-[#9D7DC5]" />
+          <div className="w-20 h-20 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center animate-pulse">
+            <Icon className="w-12 h-12 text-[var(--color-primary)]" />
           </div>
         </div>
         <h2 className="text-2xl font-bold text-white">
@@ -81,7 +81,7 @@ export function GlobalCallListener({ userId }: { userId: string }) {
               setAlert(null);
               router.push(url);
             }}
-            className="px-8 py-3 rounded-xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white font-medium hover:shadow-lg hover:shadow-[#533AFD]/30 transition-all"
+            className="px-8 py-3 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-medium hover:shadow-lg hover:shadow-[var(--color-primary-hover)]/30 transition-all"
           >
             View
           </button>

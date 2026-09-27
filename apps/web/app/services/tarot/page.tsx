@@ -49,7 +49,7 @@ export default function TarotPage() {
   };
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen-app bg-background text-foreground py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-medium text-xs uppercase tracking-widest mb-6">
           <Layers size={14} /> Arcane Divination
@@ -57,7 +57,7 @@ export default function TarotPage() {
         <h1 className="text-4xl sm:text-6xl font-black tracking-tight mb-4">
           Three-Card Tarot
         </h1>
-        <p className="text-slate-400 font-light text-lg max-w-2xl mx-auto mb-12">
+        <p className="text-muted-foreground font-light text-lg max-w-2xl mx-auto mb-12">
           Draw your Past, Present, and Future for AI-synthesized interpretation.
         </p>
 
@@ -65,7 +65,7 @@ export default function TarotPage() {
           <button
             onClick={drawSpread}
             disabled={loading}
-            className="px-8 py-5 bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-[#533AFD]/30 transition-all inline-flex items-center gap-3 disabled:opacity-50"
+            className="px-8 py-5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-full font-bold text-lg hover:shadow-2xl hover:shadow-[var(--color-primary-hover)]/30 transition-all inline-flex items-center gap-3 disabled:opacity-50"
           >
             {loading ? (
               <><Loader2 size={22} className="animate-spin" /> Drawing...</>
@@ -82,15 +82,15 @@ export default function TarotPage() {
                   initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.2 }}
-                  className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-xl flex flex-col items-center justify-between min-h-[280px]"
+                  className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-6 shadow-xl flex flex-col items-center justify-between min-h-[280px]"
                 >
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#9D7DC5]">
+                  <span className="text-xs font-bold uppercase tracking-widest text-[var(--color-primary)]">
                     {idx === 0 ? "Past Energy" : idx === 1 ? "Present State" : "Future Horizon"}
                   </span>
-                  <div className="w-20 h-28 rounded-2xl bg-gradient-to-tr from-[#9D7DC5] to-[#533AFD] text-white flex items-center justify-center font-black text-3xl shadow-lg my-4">
+                  <div className="w-20 h-28 rounded-2xl bg-gradient-to-tr from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white flex items-center justify-center font-black text-3xl shadow-lg my-4">
                     {card.charAt(0)}
                   </div>
-                  <h2 className="text-xl font-bold text-white">{card}</h2>
+                  <h2 className="text-xl font-bold text-foreground">{card}</h2>
                 </motion.div>
               ))}
             </div>
@@ -101,23 +101,23 @@ export default function TarotPage() {
 
             {loading ? (
               <div className="flex justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-[#9D7DC5]" />
+                <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
               </div>
             ) : reading ? (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 sm:p-12 max-w-3xl mx-auto text-left"
+                className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-8 sm:p-12 max-w-3xl mx-auto text-left"
               >
-                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-white">
-                  <Sparkles className="text-[#9D7DC5]" /> Esoteric Synthesis
+                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-foreground">
+                  <Sparkles className="text-[var(--color-primary)]" /> Esoteric Synthesis
                 </h2>
-                <p className="text-slate-300 leading-relaxed whitespace-pre-line">
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
                   {reading}
                 </p>
                 <button
                   onClick={() => { setDrawnCards([]); setReading(""); }}
-                  className="mt-8 px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-sm font-medium hover:bg-white/10 transition-colors inline-flex items-center gap-2 text-slate-200"
+                  className="mt-8 px-6 py-3 bg-surface-raised border border-border rounded-xl text-sm font-medium hover:bg-surface-overlay transition-colors inline-flex items-center gap-2 text-foreground"
                 >
                   <RotateCcw size={16} /> Draw New Spread
                 </button>

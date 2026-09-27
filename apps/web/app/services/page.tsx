@@ -62,12 +62,12 @@ export default function ServicesPage() {
             Powered by Agnes + Groq
           </p>
           <h1
-            className="text-3xl md:text-4xl font-black text-white tracking-tight"
+            className="text-3xl md:text-4xl font-black text-foreground tracking-tight"
             style={{ fontFamily: "var(--font-display)" }}
           >
             Ask Zeal, find your guide
           </h1>
-          <p className="text-sm text-slate-400 mt-2 max-w-2xl">
+          <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
             Describe what you're looking for. Zeal reads the entire directory —
             human and AI — and connects you with the right match.
           </p>
@@ -79,11 +79,11 @@ export default function ServicesPage() {
       <section id="category-grid" className="pt-4">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles size={18} className="text-[var(--color-luxury-gold)]" />
-          <h2 className="text-2xl md:text-3xl font-black text-white">
+          <h2 className="text-2xl md:text-3xl font-black text-foreground">
             Explore every tradition
           </h2>
         </div>
-        <p className="text-sm text-slate-400 mb-6">
+        <p className="text-sm text-muted-foreground mb-6">
           37 traditions · verified guides · realtime counts
         </p>
         <Suspense fallback={<SkeletonGrid count={12} />}>

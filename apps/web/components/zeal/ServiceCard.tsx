@@ -29,20 +29,20 @@ export function ServiceCard({ id, name, icon, description, route, index = 0 }: S
       className="group"
     >
       <Link href={route} className="block h-full">
-        <div className="glass-card-3d p-4 h-full flex flex-col items-start gap-2 border border-white/10 hover:border-[#9D7DC5]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[#9D7DC5]/10">
+        <div className="glass-card-3d p-4 h-full flex flex-col items-start gap-2 border border-border hover:border-[var(--color-primary)]/30 transition-all duration-300 hover:shadow-xl hover:shadow-[var(--color-primary)]/10">
           <div className="flex items-center gap-3 w-full">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#9D7DC5]/20 to-[#533AFD]/10 flex items-center justify-center text-2xl flex-shrink-0">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-primary-hover)]/10 flex items-center justify-center text-2xl flex-shrink-0">
               {icon}
             </div>
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium text-[#5E4B8B] dark:text-white text-sm truncate">
+              <h4 className="font-medium text-[var(--color-muted-foreground)] dark:text-foreground text-sm truncate">
                 {name}
               </h4>
-              <p className="text-xs text-[#B8A1D9] dark:text-gray-400 line-clamp-1">
+              <p className="text-xs text-[var(--color-subtle-foreground)] dark:text-gray-400 line-clamp-1">
                 {description}
               </p>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#B8A1D9] group-hover:text-[#9D7DC5] transition-colors flex-shrink-0" />
+            <ChevronRight className="w-4 h-4 text-[var(--color-subtle-foreground)] group-hover:text-[var(--color-primary)] transition-colors flex-shrink-0" />
           </div>
         </div>
       </Link>

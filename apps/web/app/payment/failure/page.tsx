@@ -19,7 +19,7 @@ export default function PaymentFailure() {
         <XCircle className="w-10 h-10 text-red-600" />
       </div>
       <h1 className="text-2xl font-bold text-red-600">Payment Failed</h1>
-      <p className="text-[#B8A1D9] dark:text-gray-400 mt-2 max-w-md">
+      <p className="text-[var(--color-subtle-foreground)] dark:text-gray-400 mt-2 max-w-md">
         Your payment could not be processed. Please try again or use a different payment method.
       </p>
       <div className="flex gap-3 mt-6">

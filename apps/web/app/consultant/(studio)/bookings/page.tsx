@@ -17,7 +17,7 @@ const STATUS_STYLE: Record<string, string> = {
   PENDING: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   CONFIRMED: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   IN_PROGRESS: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  COMPLETED: "bg-slate-500/10 text-slate-400 border-slate-500/20",
+  COMPLETED: "bg-slate-500/10 text-muted-foreground border-slate-500/20",
   CANCELLED: "bg-rose-500/10 text-rose-400 border-rose-500/20",
 };
 
@@ -62,20 +62,20 @@ export default function ConsultantBookingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white">Bookings</h1>
-        <p className="text-sm text-slate-400 mt-1">Manage your incoming and upcoming sessions</p>
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground">Bookings</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage your incoming and upcoming sessions</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: "Total", value: stats.total, color: "text-white" },
+          { label: "Total", value: stats.total, color: "text-foreground" },
           { label: "Pending", value: stats.pending, color: "text-amber-400" },
           { label: "Confirmed", value: stats.confirmed, color: "text-emerald-400" },
-          { label: "Completed", value: stats.completed, color: "text-slate-400" },
+          { label: "Completed", value: stats.completed, color: "text-muted-foreground" },
         ].map((s) => (
-          <div key={s.label} className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{s.label}</p>
+          <div key={s.label} className="bg-surface backdrop-blur-xl border border-border rounded-2xl p-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{s.label}</p>
             <p className={`text-2xl font-black font-mono mt-1 ${s.color}`}>{s.value}</p>
           </div>
         ))}
@@ -84,12 +84,12 @@ export default function ConsultantBookingsPage() {
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)}
             placeholder="Search by client name..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-white/5 rounded-xl text-sm text-white placeholder:text-slate-500 outline-none focus:border-purple-500/50"
+            className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-purple-500/50"
           />
         </div>
         <div className="flex gap-2">
@@ -100,7 +100,7 @@ export default function ConsultantBookingsPage() {
               className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 filter === f
                   ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/20"
-                  : "bg-slate-900/60 border border-white/5 text-slate-400 hover:text-white"
+                  : "bg-surface border border-border text-muted-foreground hover:text-foreground"
               }`}
             >
               {f === "all" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
@@ -111,9 +111,9 @@ export default function ConsultantBookingsPage() {
 
       {/* List */}
       {filtered.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl">
-          <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400">{bookings.length === 0 ? "No bookings yet" : "No bookings match your filters"}</p>
+        <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl">
+          <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">{bookings.length === 0 ? "No bookings yet" : "No bookings match your filters"}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -121,7 +121,7 @@ export default function ConsultantBookingsPage() {
             <Link
               key={b.id}
               href={`/chat/${b.id}`}
-              className="block p-4 lg:p-5 bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl hover:border-purple-500/40 transition-all"
+              className="block p-4 lg:p-5 bg-surface backdrop-blur-xl border border-border rounded-2xl hover:border-purple-500/40 transition-all"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
@@ -129,8 +129,8 @@ export default function ConsultantBookingsPage() {
                     <User size={18} />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-white text-sm truncate">{b.userName || "Seeker"}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                    <p className="font-bold text-foreground text-sm truncate">{b.userName || "Seeker"}</p>
+                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
                         <Calendar size={12} /> {new Date(b.scheduledAt).toLocaleDateString()}
                       </span>

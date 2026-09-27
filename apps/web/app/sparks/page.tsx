@@ -101,30 +101,30 @@ export default function SparksPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen-app bg-slate-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" />
+      <div className="min-h-screen-app bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50 px-4 py-6 pb-24">
+    <div className="min-h-screen-app bg-background text-foreground px-4 py-6 pb-24">
       <div className="max-w-2xl mx-auto">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-[#9D7DC5] mb-4 transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-[var(--color-primary)] mb-4 transition-colors"
         >
           <ArrowLeft size={16} /> Back
         </Link>
 
         {/* Hero score */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-950/40 via-slate-900 to-slate-950 border border-orange-500/20 p-6 md:p-8 mb-6 shadow-2xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500/10 via-surface to-surface border border-orange-500/20 p-6 md:p-8 mb-6 shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 blur-[100px] rounded-full pointer-events-none" />
           <div className="relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs font-bold mb-4">
               <Sparkles size={12} /> Social Proof
             </div>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">
+            <p className="text-muted-foreground text-xs font-bold uppercase tracking-widest mb-1">
               Your Spark Score
             </p>
             <div className="flex items-baseline gap-3">
@@ -149,43 +149,43 @@ export default function SparksPage() {
                 )}
               </AnimatePresence>
             </div>
-            <p className="text-slate-500 text-xs mt-3">
+            <p className="text-muted-foreground text-xs mt-3">
               Earned from cheers, comments, and follows on your content
             </p>
           </div>
         </div>
 
         {/* Activity feed */}
-        <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-5 md:p-6">
+        <div className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-5 md:p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Activity size={18} className="text-[#9D7DC5]" />
-            <h2 className="text-base md:text-lg font-bold text-white">Recent Activity</h2>
+            <Activity size={18} className="text-[var(--color-primary)]" />
+            <h2 className="text-base md:text-lg font-bold text-foreground">Recent Activity</h2>
           </div>
 
           {activities.length === 0 ? (
             <div className="text-center py-12">
-              <Flame size={32} className="text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-500 text-sm">
+              <Flame size={32} className="text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground text-sm">
                 No activity yet — share a post to earn Sparks
               </p>
             </div>
           ) : (
             <div className="space-y-3">
               {activities.map((a) => (
-                <div key={a.id} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl">
-                  <div className="w-10 h-10 rounded-full bg-[#9D7DC5]/20 flex items-center justify-center flex-shrink-0 text-[#9D7DC5]">
+                <div key={a.id} className="flex items-start gap-3 p-3 bg-surface-raised rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center flex-shrink-0 text-[var(--color-primary)]">
                     <Heart size={16} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white">
+                    <p className="text-sm text-foreground">
                       <span className="font-bold">@{a.actor.username}</span> cheered your post
                     </p>
                     {a.target.content && (
-                      <p className="text-xs text-slate-400 truncate mt-0.5">
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
                         &quot;{a.target.content}&quot;
                       </p>
                     )}
-                    <p className="text-[10px] text-slate-500 mt-1">
+                    <p className="text-[10px] text-muted-foreground mt-1">
                       {formatRelative(a.createdAt)} · +{a.sparksEarned} Spark
                     </p>
                   </div>

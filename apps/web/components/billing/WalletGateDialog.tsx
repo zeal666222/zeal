@@ -49,7 +49,7 @@ export function WalletGateDialog({ open, onOpenChange, info }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-luxury max-w-md border-white/10">
+      <DialogContent className="glass-luxury max-w-md border-border">
         <AnimatePresence mode="wait">
           <motion.div
             key={isHardBlock ? "hard" : "soft"}
@@ -74,10 +74,10 @@ export function WalletGateDialog({ open, onOpenChange, info }: Props) {
                   )}
                 </div>
               </div>
-              <DialogTitle className="text-white text-lg font-bold text-center">
+              <DialogTitle className="text-foreground text-lg font-bold text-center">
                 {isHardBlock ? "Add funds to start chatting" : "Low balance"}
               </DialogTitle>
-              <DialogDescription className="text-slate-400 text-sm mt-2 text-center leading-relaxed">
+              <DialogDescription className="text-muted-foreground text-sm mt-2 text-center leading-relaxed">
                 {info
                   ? `Chat with ${info.consultantName} costs ₹${info.required.toFixed(0)}/min. ${
                       isHardBlock
@@ -89,20 +89,20 @@ export function WalletGateDialog({ open, onOpenChange, info }: Props) {
             </DialogHeader>
 
             {info && (
-              <div className="mt-5 p-4 rounded-xl bg-white/[0.03] border border-white/5 space-y-2">
+              <div className="mt-5 p-4 rounded-xl bg-white/[0.03] border border-border space-y-2">
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Current balance</span>
-                  <span className="text-white font-mono">
+                  <span className="text-muted-foreground">Current balance</span>
+                  <span className="text-foreground font-mono">
                     ₹{info.balance.toFixed(2)}
                   </span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-400">Required per minute</span>
-                  <span className="text-white font-mono">
+                  <span className="text-muted-foreground">Required per minute</span>
+                  <span className="text-foreground font-mono">
                     ₹{info.required.toFixed(2)}
                   </span>
                 </div>
-                <div className="flex justify-between text-xs pt-2 border-t border-white/5">
+                <div className="flex justify-between text-xs pt-2 border-t border-border">
                   <span className="text-[var(--color-luxury-gold)] font-bold">
                     Suggested top-up
                   </span>
@@ -117,16 +117,16 @@ export function WalletGateDialog({ open, onOpenChange, info }: Props) {
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
-                className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10
-                           text-slate-300 text-sm font-bold transition-colors"
+                className="flex-1 py-3 rounded-xl bg-surface-raised hover:bg-surface-overlay
+                           text-muted-foreground text-sm font-bold transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleRecharge}
-                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD]
-                           text-white text-sm font-bold shadow-lg shadow-[#533AFD]/20
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                           text-white text-sm font-bold shadow-lg shadow-[var(--color-primary-hover)]/20
                            hover:opacity-95 active:scale-[0.98] transition-all
                            flex items-center justify-center gap-1.5"
               >
@@ -136,7 +136,7 @@ export function WalletGateDialog({ open, onOpenChange, info }: Props) {
               </button>
             </div>
 
-            <p className="text-[10px] text-slate-500 text-center mt-4">
+            <p className="text-[10px] text-muted-foreground text-center mt-4">
               Funds are escrow-protected. Unused balance is always refundable.
             </p>
           </motion.div>

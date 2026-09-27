@@ -15,6 +15,7 @@ import { cardHoverVariants, staggerContainer, fadeUp } from "@zeal/ui/motion";
 import { ConsultantCard } from "@/components/shared/ConsultantCard";
 import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
 import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
+import { toast as pushToast } from "@/components/ui/toaster";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 import type { ConsultantProfile } from "@zeal/types";
 
@@ -67,11 +68,9 @@ export function HomeClient({
   const [aiList, setAiList] = useState<AIConsultant[]>(aiConsultants);
   const [gateOpen, setGateOpen] = useState(false);
   const [gateInfo, setGateInfo] = useState<LowBalanceInfo | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 3200);
+    pushToast({ title: msg });
   }, []);
 
   const handleChat = useCallback(async (consultantId: string) => {
@@ -136,9 +135,9 @@ export function HomeClient({
     <div className="space-y-16 pb-16">
       {/* HERO */}
       <section className="relative overflow-hidden rounded-3xl mx-4 md:mx-6 lg:mx-auto lg:max-w-7xl mt-6 noise-overlay border border-[var(--color-luxury-glass-border)]">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0B0A14] via-[#1A1430] to-[#0B0A14]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]" />
         <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-[var(--color-luxury-gold)]/8 blur-[160px] pointer-events-none" />
-        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#9D7DC5]/10 blur-[160px] pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-[var(--color-primary)]/10 blur-[160px] pointer-events-none" />
         <motion.div variants={staggerContainer} initial="hidden" animate="show"
           className="relative z-10 p-8 md:p-16">
           <motion.div variants={fadeUp}
@@ -147,29 +146,29 @@ export function HomeClient({
             Multi-faith · {stats.traditions} traditions · 24/7 AI + verified humans
           </motion.div>
           <motion.h1 variants={fadeUp}
-            className="text-editorial-xl text-white max-w-3xl"
+            className="text-editorial-xl text-foreground max-w-3xl"
             style={{ fontFamily: "var(--font-display)" }}>
             Every tradition.<br />
             <span className="text-luxury-gradient">One sanctuary.</span>
           </motion.h1>
           <motion.p variants={fadeUp}
-            className="text-slate-300 mt-6 max-w-xl text-base md:text-lg leading-relaxed">
+            className="text-muted-foreground mt-6 max-w-xl text-base md:text-lg leading-relaxed">
             Vedic astrology, Islamic counseling, Buddhist meditation, Christian
             therapy, Tarot, energy healing, and modern wellness — on one
             platform, in one calm room.
           </motion.p>
           <motion.div variants={fadeUp} className="flex flex-wrap gap-3 mt-10">
             <Link href="/explore"
-              className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white font-black text-sm shadow-xl shadow-[#533AFD]/25 hover:scale-[1.02] active:scale-[0.98] transition-transform">
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-sm shadow-xl shadow-[var(--color-primary-hover)]/25 hover:scale-[1.02] active:scale-[0.98] transition-transform">
               Find your guide <ArrowRight size={15} />
             </Link>
             <Link href="/services"
-              className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl glass-luxury glass-luxury-hover text-white font-bold text-sm">
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl glass-luxury glass-luxury-hover text-foreground font-bold text-sm">
               Ask Zeal AI
             </Link>
           </motion.div>
           <motion.div variants={fadeUp}
-            className="flex flex-wrap items-center gap-6 mt-10 pt-8 border-t border-white/5">
+            className="flex flex-wrap items-center gap-6 mt-10 pt-8 border-t border-border">
             <Stat value={stats.consultants} label="Verified guides" />
             <div className="luxury-divider w-px h-8 hidden sm:block" />
             <Stat value={stats.aiConsultants} label="AI consultants" />
@@ -226,7 +225,7 @@ export function HomeClient({
       {/* LIVE FEED */}
       <section className="mx-4 md:mx-6 lg:mx-auto lg:max-w-3xl">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+          <h2 className="text-xl md:text-2xl font-black text-foreground flex items-center gap-2">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
@@ -246,20 +245,20 @@ export function HomeClient({
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 className="glass-luxury glass-luxury-hover rounded-2xl p-5">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 overflow-hidden shrink-0 ring-1 ring-[var(--color-luxury-gold)]/20">
+                  <div className="w-10 h-10 rounded-full bg-surface-sunken overflow-hidden shrink-0 ring-1 ring-[var(--color-luxury-gold)]/20">
                     {p.author?.avatar ? (
                       <img src={p.author.avatar} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-sm font-bold text-white">
+                      <div className="w-full h-full flex items-center justify-center text-sm font-bold text-foreground">
                         {(p.author?.name || p.author?.username || "?").charAt(0).toUpperCase()}
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white truncate">
+                    <p className="text-sm font-bold text-foreground truncate">
                       {p.author?.name || p.author?.username || "Anonymous"}
                     </p>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[10px] text-muted-foreground">
                       {new Date(p.createdAt).toLocaleString([], {
                         hour: "2-digit", minute: "2-digit",
                         month: "short", day: "numeric",
@@ -267,15 +266,15 @@ export function HomeClient({
                     </p>
                   </div>
                 </div>
-                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
                   {p.content}
                 </p>
                 {Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0 && (
-                  <div className="mt-3 rounded-xl overflow-hidden border border-white/5 max-h-96">
+                  <div className="mt-3 rounded-xl overflow-hidden border border-border max-h-96">
                     <img src={p.mediaUrls[0]} alt="" className="w-full h-full object-cover" />
                   </div>
                 )}
-                <div className="flex items-center gap-5 mt-4 pt-3 border-t border-white/5 text-xs text-slate-500">
+                <div className="flex items-center gap-5 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
                   <span>❤️ {p.cheerCount ?? 0}</span>
                   <span>💬 {p.commentCount ?? 0}</span>
                 </div>
@@ -285,11 +284,6 @@ export function HomeClient({
         )}
       </section>
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-white shadow-2xl">
-          {toast}
-        </div>
-      )}
       <WalletGateDialog open={gateOpen} onOpenChange={setGateOpen} info={gateInfo} />
     </div>
   );
@@ -298,10 +292,10 @@ export function HomeClient({
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <div>
-      <p className="text-2xl font-black text-white font-mono tracking-tight">
+      <p className="text-2xl font-black text-foreground font-mono tracking-tight">
         {value.toLocaleString()}
       </p>
-      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-0.5">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mt-0.5">
         {label}
       </p>
     </div>
@@ -320,13 +314,13 @@ function SectionHeader({
         <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-luxury-gold)] font-bold mb-1">
           {eyebrow}
         </p>
-        <h2 className="text-2xl md:text-3xl font-black text-white flex items-center gap-2.5">
+        <h2 className="text-2xl md:text-3xl font-black text-foreground flex items-center gap-2.5">
           {icon}
           {title}
         </h2>
       </div>
       <Link href={href}
-        className="text-sm font-bold text-slate-300 hover:text-[var(--color-luxury-gold)] transition-colors whitespace-nowrap">
+        className="text-sm font-bold text-muted-foreground hover:text-[var(--color-luxury-gold)] transition-colors whitespace-nowrap">
         {hrefLabel} →
       </Link>
     </div>
@@ -343,8 +337,8 @@ function AICard({
     <motion.div variants={cardHoverVariants} initial="rest" whileHover="hover"
       className="glass-luxury glass-luxury-hover group relative overflow-hidden rounded-2xl p-5">
       <div aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[var(--color-luxury-gold)]/10 via-transparent to-[#9D7DC5]/20" />
-      <span className="absolute top-3 right-3 z-10 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse ring-2 ring-slate-950/80" />
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[var(--color-luxury-gold)]/10 via-transparent to-[var(--color-primary)]/20" />
+      <span className="absolute top-3 right-3 z-10 w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse ring-2 ring-background" />
       {consultant.isFeatured && (
         <span className="absolute top-3 left-3 z-10 px-1.5 py-0.5 rounded-full bg-[var(--color-luxury-gold)]/20 border border-[var(--color-luxury-gold)]/40 text-[var(--color-luxury-gold)] text-[8px] font-black uppercase tracking-widest">
           Featured
@@ -358,20 +352,20 @@ function AICard({
               {consultant.avatar ? (
                 <img src={consultant.avatar} alt={consultant.name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white font-black">
+                <div className="w-full h-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black">
                   {consultant.name.charAt(0)}
                 </div>
               )}
             </div>
-            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-[8px] font-black flex items-center gap-0.5">
+            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-[8px] font-black flex items-center gap-0.5">
               <Sparkles className="w-2.5 h-2.5" /> AI
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-white text-sm truncate group-hover:text-[var(--color-luxury-gold)] transition-colors">
+            <h3 className="font-bold text-foreground text-sm truncate group-hover:text-[var(--color-luxury-gold)] transition-colors">
               {consultant.name}
             </h3>
-            <p className="text-xs text-slate-400 capitalize truncate">
+            <p className="text-xs text-muted-foreground capitalize truncate">
               {consultant.category.toLowerCase()}
             </p>
             <div className="flex items-center gap-2 mt-2 text-xs">
@@ -382,16 +376,16 @@ function AICard({
             </div>
           </div>
         </div>
-        <p className="text-xs text-slate-400 mt-3 line-clamp-2 leading-relaxed">
+        <p className="text-xs text-muted-foreground mt-3 line-clamp-2 leading-relaxed">
           {consultant.bio}
         </p>
         <div className="flex gap-2 mt-4">
           <button type="button" onClick={() => onChat(consultant.id)}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-xs font-black hover:opacity-95 active:scale-[0.98] transition-all">
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black hover:opacity-95 active:scale-[0.98] transition-all">
             Start chat →
           </button>
           <Link href={`/ai-astrologers/${consultant.id}`}
-            className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-slate-300 text-xs font-bold hover:text-white transition-colors">
+            className="px-4 py-2.5 rounded-xl bg-surface-raised border border-border text-muted-foreground text-xs font-bold hover:text-foreground transition-colors">
             Profile
           </Link>
         </div>

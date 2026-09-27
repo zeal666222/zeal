@@ -27,7 +27,7 @@ export function AISpawnerClient() {
   };
 
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-purple-500/20 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden flex flex-col">
+    <div className="bg-surface backdrop-blur-xl border border-purple-500/20 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden flex flex-col">
       <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/10 blur-[80px] rounded-full pointer-events-none" />
       
       <h3 className="text-xl font-black mb-6 flex items-center gap-3 text-purple-400 relative z-10">
@@ -41,7 +41,7 @@ export function AISpawnerClient() {
             {result.msg}
           </div>
           {result.success && result.id && (
-            <Link href={`/consultant/${result.id}`} className="text-white underline text-xs ml-6">
+            <Link href={`/consultant/${result.id}`} className="text-foreground underline text-xs ml-6">
               View Public Profile →
             </Link>
           )}
@@ -51,12 +51,12 @@ export function AISpawnerClient() {
       <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Persona Name</label>
-            <input name="name" type="text" required placeholder="e.g. Aacharya Dev" className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200"  aria-label="e.g. Aacharya Dev"/>
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Persona Name</label>
+            <input name="name" type="text" required placeholder="e.g. Aacharya Dev" className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm focus:border-purple-500 outline-none text-foreground"  aria-label="e.g. Aacharya Dev"/>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Expertise Domain</label>
-            <select name="expertise" required className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200 appearance-none">
+            <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Expertise Domain</label>
+            <select name="expertise" required className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm focus:border-purple-500 outline-none text-foreground appearance-none">
               <option value="Vedic Astrology">Vedic Astrology</option>
               <option value="Tarot Reading">Tarot Reading</option>
               <option value="Numerology">Numerology</option>
@@ -66,21 +66,21 @@ export function AISpawnerClient() {
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Avatar URL (Optional)</label>
+          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Avatar URL (Optional)</label>
           <div className="relative">
-            <LinkIcon size={16} className="absolute left-4 top-3.5 text-slate-500" />
-            <input name="avatarUrl" type="url" placeholder="https://example.com/avatar.png" className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200"  aria-label="https://example.com/avatar.png"/>
+            <LinkIcon size={16} className="absolute left-4 top-3.5 text-muted-foreground" />
+            <input name="avatarUrl" type="url" placeholder="https://example.com/avatar.png" className="w-full pl-11 pr-4 py-3 bg-background border border-border rounded-2xl text-sm focus:border-purple-500 outline-none text-foreground"  aria-label="https://example.com/avatar.png"/>
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">System Prompt (LLM Instructions)</label>
+          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">System Prompt (LLM Instructions)</label>
           <textarea 
             name="systemPrompt" 
             required 
             rows={4}
             placeholder="You are Aacharya Dev, a strict and highly analytical Vedic Astrologer. You speak using ancient Sanskrit terminology..." 
-            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm focus:border-purple-500 outline-none text-slate-200 resize-none font-mono text-xs"
+            className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm focus:border-purple-500 outline-none text-foreground resize-none font-mono text-xs"
           />
         </div>
 

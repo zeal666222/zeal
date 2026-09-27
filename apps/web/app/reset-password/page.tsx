@@ -88,7 +88,7 @@ function ResetContent() {
       subtitle="Choose something strong and memorable"
       brandIcon={ShieldCheck}
       footer={
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-muted-foreground">
           <Link
             href="/login"
             className="text-purple-400 hover:text-purple-300 font-bold"
@@ -163,7 +163,7 @@ function ResetContent() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0B0A14]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-background)]" />}>
       <ResetContent />
     </Suspense>
   );

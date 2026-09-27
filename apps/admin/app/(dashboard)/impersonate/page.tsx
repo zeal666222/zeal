@@ -62,19 +62,19 @@ export default function ImpersonatePage() {
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
       className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white flex items-center gap-2">
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground flex items-center gap-2">
           <ShieldAlert className="w-6 h-6 text-rose-400" /> Impersonate User
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Act as any user for 15 minutes. Every action is audited.
         </p>
       </div>
 
       <div className="relative">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           placeholder="Search by email, name, or username..."
-          className="w-full pl-10 pr-4 py-3 bg-slate-900/60 border border-white/5 rounded-xl text-sm text-white placeholder:text-slate-500 outline-none focus:border-rose-500/50" />
+          className="w-full pl-10 pr-4 py-3 bg-surface border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-rose-500/50" />
       </div>
 
       {isLoading ? (
@@ -82,23 +82,23 @@ export default function ImpersonatePage() {
           <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
         </div>
       ) : users.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-3xl text-slate-500">
+        <div className="text-center py-16 border-2 border-dashed border-border rounded-3xl text-muted-foreground">
           No users found
         </div>
       ) : (
         <div className="space-y-2">
           {users.map((u) => (
             <div key={u.id}
-              className="flex items-center gap-3 p-4 bg-slate-900/60 border border-white/5 rounded-2xl hover:border-rose-500/30 transition-all">
+              className="flex items-center gap-3 p-4 bg-surface border border-border rounded-2xl hover:border-rose-500/30 transition-all">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center text-white font-bold overflow-hidden">
                 {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> :
                   (u.name || u.username || u.email).charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white truncate">{u.name || u.username || "—"}</p>
-                <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                <p className="text-sm font-bold text-foreground truncate">{u.name || u.username || "—"}</p>
+                <p className="text-xs text-muted-foreground truncate">{u.email}</p>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md bg-white/5 text-slate-400 border border-white/10">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-md bg-surface-raised text-muted-foreground border border-border">
                 {u.role}
               </span>
               <button onClick={() => start(u)} disabled={starting === u.id}

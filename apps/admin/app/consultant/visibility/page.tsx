@@ -104,7 +104,7 @@ export default function ConsultantVisibilityPage() {
         </div>
         <button
           onClick={load}
-          className="shrink-0 p-3 rounded-xl bg-slate-900/60 border border-white/5 hover:border-purple-500/40 text-slate-300"
+          className="shrink-0 p-3 rounded-xl bg-surface border border-border hover:border-purple-500/40 text-muted-foreground"
           aria-label="Refresh"
         >
           <RefreshCw size={16} />
@@ -139,7 +139,7 @@ export default function ConsultantVisibilityPage() {
       </div>
 
       {/* Checklist */}
-      <div className="rounded-3xl border border-white/5 bg-slate-900/40 p-5 space-y-2">
+      <div className="rounded-3xl border border-border bg-surface p-5 space-y-2">
         <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">
           Visibility Checks
         </h2>
@@ -157,7 +157,7 @@ export default function ConsultantVisibilityPage() {
                 ? <Check size={13} className="text-emerald-400" />
                 : <X size={13} className="text-rose-400" />}
             </div>
-            <span className={`text-sm ${ok ? "text-slate-300" : "text-slate-200 font-bold"}`}>
+            <span className={`text-sm ${ok ? "text-muted-foreground" : "text-slate-200 font-bold"}`}>
               {CHECK_LABEL[key] ?? key}
             </span>
           </div>
@@ -166,7 +166,7 @@ export default function ConsultantVisibilityPage() {
 
       {/* Quick facts */}
       {report.consultant && (
-        <div className="rounded-3xl border border-white/5 bg-slate-900/40 p-5">
+        <div className="rounded-3xl border border-border bg-surface p-5">
           <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">
             Profile Snapshot
           </h2>
@@ -185,7 +185,7 @@ export default function ConsultantVisibilityPage() {
       )}
 
       {/* Public URLs */}
-      <div className="rounded-3xl border border-white/5 bg-slate-900/40 p-5 space-y-3">
+      <div className="rounded-3xl border border-border bg-surface p-5 space-y-3">
         <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">
           Public URLs
         </h2>
@@ -203,7 +203,7 @@ export default function ConsultantVisibilityPage() {
           <p className="text-sm font-bold text-amber-400 flex items-center gap-2">
             <Sparkles size={14} /> How to fix
           </p>
-          <ul className="text-xs text-slate-300 space-y-1 list-disc list-inside">
+          <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
             {!checks.has_services && <li>Tag services on <a href="/consultant/services" className="text-purple-400 underline">/consultant/services</a></li>}
             {!checks.has_bio && <li>Write a 20+ character bio in <a href="/consultant/settings" className="text-purple-400 underline">/consultant/settings</a></li>}
             {!checks.has_specialties && <li>Add at least one specialty in settings</li>}
@@ -219,8 +219,8 @@ export default function ConsultantVisibilityPage() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="p-3 rounded-xl bg-slate-950/50">
-      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{label}</p>
+    <div className="p-3 rounded-xl bg-surface-raised/50">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{label}</p>
       <p className="text-sm text-white font-mono mt-0.5 truncate">{value}</p>
     </div>
   );
@@ -236,16 +236,16 @@ function URLRow({ label, url, absolute }: { label: string; url: string; absolute
     } catch { /* ignore */ }
   };
   return (
-    <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-950/50">
+    <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-raised/50">
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{label}</p>
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{label}</p>
         <p className="text-xs font-mono text-white truncate">{url}</p>
       </div>
-      <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-white/5 text-purple-400 text-xs font-bold">
+      <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-surface-raised text-purple-400 text-xs font-bold">
         {copied ? "Copied" : "Copy"}
       </button>
       <a href={absolute ? url : url} target="_blank" rel="noopener noreferrer"
-         className="p-2 rounded-lg hover:bg-white/5 text-purple-400" aria-label="Open">
+         className="p-2 rounded-lg hover:bg-surface-raised text-purple-400" aria-label="Open">
         <ExternalLink size={13} />
       </a>
     </div>

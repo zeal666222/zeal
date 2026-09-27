@@ -88,7 +88,7 @@ function RegisterContent() {
 
   if (needsConfirm) {
     return (
-      <div className="min-h-screen bg-[#0B0A14] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -97,9 +97,9 @@ function RegisterContent() {
           <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-6">
             <MailCheck size={32} className="text-emerald-400" />
           </div>
-          <h1 className="text-2xl font-black text-white mb-2">Check your inbox</h1>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            We sent a confirmation link to <strong className="text-white">{email}</strong>.
+          <h1 className="text-2xl font-black text-foreground mb-2">Check your inbox</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            We sent a confirmation link to <strong className="text-foreground">{email}</strong>.
             Click it, then come back and sign in.
           </p>
           <Link
@@ -114,7 +114,7 @@ function RegisterContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0A14] flex relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--color-background)] flex relative overflow-hidden">
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
@@ -122,16 +122,16 @@ function RegisterContent() {
       <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-500/10 blur-[160px] pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-purple-500/[0.08] blur-[160px] pointer-events-none" />
 
-      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 border-r border-white/[0.06]">
+      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 border-r border-border">
         <Link href="/" className="inline-flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center shadow-2xl shadow-purple-500/20">
             <Sparkles size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-white font-black tracking-wider text-lg leading-none">
+            <p className="text-foreground font-black tracking-wider text-lg leading-none">
               ZEAL
             </p>
-            <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
+            <p className="text-[10px] text-muted-foreground tracking-[0.2em] font-bold uppercase mt-0.5">
               Multi-Faith Wellness
             </p>
           </div>
@@ -142,7 +142,7 @@ function RegisterContent() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight"
+            className="text-5xl xl:text-6xl font-black text-foreground leading-[1.05] tracking-tight"
           >
             Begin your
             <br />
@@ -155,7 +155,7 @@ function RegisterContent() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-slate-400 text-base mt-6 max-w-md"
+            className="text-muted-foreground text-base mt-6 max-w-md"
           >
             Connect with verified guides across every tradition — Vedic
             astrology, Islamic counseling, Buddhist meditation, Christian
@@ -174,7 +174,7 @@ function RegisterContent() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.5, delay: 0.35 + i * 0.08 }}
-                className="flex items-center gap-3 text-sm text-slate-300"
+                className="flex items-center gap-3 text-sm text-muted-foreground"
               >
                 <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
                   <Check size={11} className="text-emerald-400" />
@@ -185,7 +185,7 @@ function RegisterContent() {
           </ul>
         </div>
 
-        <div className="flex items-center gap-6 text-[11px] text-slate-600">
+        <div className="flex items-center gap-6 text-[11px] text-muted-foreground">
           <span>© {new Date().getFullYear()} Zeal</span>
           <span>•</span>
           <span>SOC 2</span>
@@ -206,15 +206,15 @@ function RegisterContent() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
                 <Sparkles size={18} className="text-white" />
               </div>
-              <span className="text-white font-black tracking-wider text-lg">ZEAL</span>
+              <span className="text-foreground font-black tracking-wider text-lg">ZEAL</span>
             </Link>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-black text-white tracking-tight">
+            <h2 className="text-2xl font-black text-foreground tracking-tight">
               Create your account
             </h2>
-            <p className="text-sm text-slate-500 mt-1">Free to start · 60-second signup</p>
+            <p className="text-sm text-muted-foreground mt-1">Free to start · 60-second signup</p>
           </div>
 
           <AnimatePresence>
@@ -238,13 +238,13 @@ function RegisterContent() {
 
           <form onSubmit={submit} className="space-y-4" noValidate>
             <div>
-              <label htmlFor="reg-name" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label htmlFor="reg-name" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                 Full name
               </label>
               <div className="relative group">
                 <UserIcon
                   size={17}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                 />
                 <input
                   id="reg-name"
@@ -256,19 +256,19 @@ function RegisterContent() {
                   onChange={(e) => setFullName(e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                   placeholder="Your full name"
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
+                  className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface focus:border-purple-500 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="reg-email" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label htmlFor="reg-email" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                 Email
               </label>
               <div className="relative group">
                 <Mail
                   size={17}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                 />
                 <input
                   id="reg-email"
@@ -281,23 +281,23 @@ function RegisterContent() {
                   onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                   placeholder="you@example.com"
                   className={
-                    "w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 transition-colors " +
+                    "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface transition-colors " +
                     (touched.email && email.length > 0 && !emailOk
                       ? "border-rose-500/40 focus:border-rose-500"
-                      : "border-white/5 focus:border-purple-500")
+                      : "border-border focus:border-purple-500")
                   }
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="reg-pw" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label htmlFor="reg-pw" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                 Password
               </label>
               <div className="relative group">
                 <Lock
                   size={17}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                 />
                 <input
                   id="reg-pw"
@@ -309,19 +309,19 @@ function RegisterContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Min. 12 characters"
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
+                  className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface focus:border-purple-500 transition-colors"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="reg-confirm" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label htmlFor="reg-confirm" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                 Confirm password
               </label>
               <div className="relative group">
                 <Lock
                   size={17}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                 />
                 <input
                   id="reg-confirm"
@@ -334,10 +334,10 @@ function RegisterContent() {
                   onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
                   placeholder="Repeat password"
                   className={
-                    "w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 transition-colors " +
+                    "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface transition-colors " +
                     (touched.confirm && confirm.length > 0 && !matches
                       ? "border-rose-500/40 focus:border-rose-500"
-                      : "border-white/5 focus:border-purple-500")
+                      : "border-border focus:border-purple-500")
                   }
                 />
               </div>
@@ -356,11 +356,11 @@ function RegisterContent() {
                   onChange={(e) => setAgreed(e.target.checked)}
                   className="peer sr-only"
                 />
-                <div className="w-5 h-5 rounded-md border-2 border-white/10 bg-slate-900/60 peer-checked:bg-purple-600 peer-checked:border-purple-600 transition-all flex items-center justify-center">
+                <div className="w-5 h-5 rounded-md border-2 border-border bg-surface peer-checked:bg-purple-600 peer-checked:border-purple-600 transition-all flex items-center justify-center">
                   {agreed && <Check size={12} className="text-white" />}
                 </div>
               </div>
-              <span className="text-[11px] text-slate-500 leading-relaxed">
+              <span className="text-[11px] text-muted-foreground leading-relaxed">
                 I agree to Zeal&apos;s{" "}
                 <Link href="/terms" className="text-purple-400 hover:text-purple-300 font-bold">Terms</Link>{" "}
                 and{" "}
@@ -382,11 +382,11 @@ function RegisterContent() {
           </form>
           <div className="mt-6">
             <div className="relative my-6 flex items-center justify-center">
-              <div className="border-t border-white/5 w-full" />
-              <span className="bg-[#0B0A14] px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
+              <div className="border-t border-border w-full" />
+              <span className="bg-[var(--color-background)] px-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground font-bold">
                 or
               </span>
-              <div className="border-t border-white/5 w-full" />
+              <div className="border-t border-border w-full" />
             </div>
             <GoogleAuthButton
               label="Sign up with Google"
@@ -395,25 +395,25 @@ function RegisterContent() {
             />
           </div>
 
-          <p className="text-center text-xs text-slate-500 mt-7">
+          <p className="text-center text-xs text-muted-foreground mt-7">
             Already have an account?{" "}
             <Link href="/login" className="text-purple-400 hover:text-purple-300 font-bold">
               Sign in
             </Link>
           </p>
 
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-            <p className="text-[11px] text-slate-500">Want to offer guidance?</p>
+          <div className="mt-8 pt-6 border-t border-border text-center">
+            <p className="text-[11px] text-muted-foreground">Want to offer guidance?</p>
             <a
               href={`${ADMIN_URL}/register`}
-              className="mt-3 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-indigo-500/40 text-sm font-bold text-white transition-all"
+              className="mt-3 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface border border-border hover:border-indigo-500/40 text-sm font-bold text-foreground transition-all"
             >
               <Briefcase size={14} className="text-indigo-400" />
               Join as Consultant
             </a>
           </div>
 
-          <p className="text-center text-[10px] text-slate-600 mt-6 flex items-center justify-center gap-1.5">
+          <p className="text-center text-[10px] text-muted-foreground mt-6 flex items-center justify-center gap-1.5">
             <ShieldCheck size={10} /> Encrypted session · Rate-limited
           </p>
         </motion.div>
@@ -424,7 +424,7 @@ function RegisterContent() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0B0A14]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-background)]" />}>
       <RegisterContent />
     </Suspense>
   );

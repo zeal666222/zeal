@@ -68,11 +68,11 @@ interface RechartsTooltipProps {
 const CHART_GRID_STROKE = "rgba(255,255,255,0.05)";
 const CHART_AXIS_STROKE = "#64748b";
 const CHART_AXIS_FONT_SIZE = 11;
-const REVENUE_COLOR = "#9D7DC5";
+const REVENUE_COLOR = "var(--color-primary)";
 const BOOKINGS_COLOR = "#10b981";
 
 const TOOLTIP_CONTAINER_CLASS =
-  "rounded-xl border border-white/10 bg-slate-950/95 backdrop-blur-xl px-3 py-2 shadow-2xl";
+  "rounded-xl border border-border bg-surface-raised/95 backdrop-blur-xl px-3 py-2 shadow-2xl";
 
 const REFETCH_STATS_MS = 30_000;
 const REFETCH_SERIES_MS = 60_000;
@@ -136,15 +136,15 @@ function KpiCard({ label, value, icon: Icon, accent, bg, index, loading }: KpiCa
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-4"
+      className="bg-surface backdrop-blur-xl border border-border rounded-2xl p-4"
     >
       <div className={`inline-flex p-2 rounded-lg ${bg} ${accent} mb-2`}>
         <Icon className="w-4 h-4" />
       </div>
-      <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">
         {label}
       </p>
-      <p className="text-2xl font-black text-white mt-1 font-mono">
+      <p className="text-2xl font-black text-foreground mt-1 font-mono">
         {loading ? "—" : value}
       </p>
     </motion.div>
@@ -160,8 +160,8 @@ function ActionRequired({ pendingVerifications, liveSessions }: ActionRequiredPr
   if (pendingVerifications <= 0 && liveSessions <= 0) return null;
 
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5 space-y-2">
-      <h2 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+    <div className="bg-surface backdrop-blur-xl border border-border rounded-2xl p-5 space-y-2">
+      <h2 className="text-sm font-black text-foreground uppercase tracking-wider flex items-center gap-2">
         <AlertCircle className="w-4 h-4 text-amber-500" /> Action required
       </h2>
 
@@ -215,12 +215,12 @@ function ChartCard({
   children,
 }: ChartCardProps) {
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-2xl p-5">
+    <div className="bg-surface backdrop-blur-xl border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-black text-white flex items-center gap-2">
+        <h2 className="text-base font-black text-foreground flex items-center gap-2">
           <Icon className={`w-4 h-4 ${iconClass}`} /> {title}
         </h2>
-        {loading && <Loader2 className="w-4 h-4 animate-spin text-[#9D7DC5]" />}
+        {loading && <Loader2 className="w-4 h-4 animate-spin text-[var(--color-primary)]" />}
       </div>
 
       <div className={heightClass}>
@@ -230,7 +230,7 @@ function ChartCard({
             {error.message}
           </div>
         ) : empty && !loading ? (
-          <div className="h-full flex items-center justify-center text-slate-500 text-sm border-2 border-dashed border-white/5 rounded-xl gap-2">
+          <div className="h-full flex items-center justify-center text-muted-foreground text-sm border-2 border-dashed border-border rounded-xl gap-2">
             <BarChart3 className="w-5 h-5" />
             {emptyMessage}
           </div>
@@ -295,8 +295,8 @@ export default function AnalyticsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white">Analytics</h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground">Analytics</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Platform metrics · refreshed every {REFETCH_STATS_MS / 1000}s
         </p>
       </div>
@@ -351,7 +351,7 @@ export default function AnalyticsPage() {
       <ChartCard
         title={`Revenue — last ${SERIES_DAYS} days`}
         icon={TrendingUp}
-        iconClass="text-[#9D7DC5]"
+        iconClass="text-[var(--color-primary)]"
         loading={seriesQuery.isLoading}
         error={seriesQuery.error}
         empty={!hasRevenue}

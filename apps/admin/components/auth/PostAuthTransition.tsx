@@ -117,7 +117,7 @@ export function PostAuthTransition({ destination, email }: Props) {
                       ? "bg-emerald-500/20 border border-emerald-500/40"
                       : active
                       ? "bg-purple-500/20 border border-purple-500/40"
-                      : "bg-white/5 border border-white/10")
+                      : "bg-surface-raised border border-white/10")
                   }
                 >
                   {done ? (
@@ -156,7 +156,7 @@ export function PostAuthTransition({ destination, email }: Props) {
           transition={{ delay: 0.5 }}
           className="mt-8 max-w-xs mx-auto"
         >
-          <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-0.5 bg-surface-raised rounded-full overflow-hidden">
             <motion.div
               initial={{ width: "0%" }}
               animate={{ width: "100%" }}

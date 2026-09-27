@@ -52,7 +52,7 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
         <Link
           href="/explore"
           aria-label="Start new consultation"
-          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white active:scale-95 transition-colors"
+          className="p-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white active:scale-95 transition-colors"
         >
           <Edit3 size={18} />
         </Link>
@@ -132,7 +132,7 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
                   "flex items-center gap-3.5 px-4 py-3.5 transition-colors group relative",
                   on
                     ? "bg-purple-500/15 border-l-4 border-purple-500"
-                    : "hover:bg-white/[0.03]"
+                    : "hover:bg-surface-raised"
                 )}
               >
                 <div className="relative shrink-0">

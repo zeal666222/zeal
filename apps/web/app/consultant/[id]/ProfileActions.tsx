@@ -97,8 +97,8 @@ export function ProfileActions({
           disabled={busy || (!online && !isAI)}
           className={`inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl font-black text-sm transition-all active:scale-[0.97] ${
             !online && !isAI
-              ? "bg-white/5 text-slate-500 cursor-not-allowed"
-              : "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white shadow-xl shadow-[#533AFD]/25 hover:opacity-95"
+              ? "bg-surface-raised text-muted-foreground cursor-not-allowed"
+              : "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-xl shadow-[var(--color-primary-hover)]/25 hover:opacity-95"
           }`}
         >
           {busy ? (
@@ -117,7 +117,7 @@ export function ProfileActions({
           <button
             type="button"
             onClick={handleBook}
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl glass-luxury glass-luxury-hover text-white font-black text-sm"
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl glass-luxury glass-luxury-hover text-foreground font-black text-sm"
           >
             <Calendar size={16} />
             Book session · ₹{perMinuteRate}/min
@@ -126,7 +126,7 @@ export function ProfileActions({
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-white shadow-2xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-foreground shadow-2xl">
           {toast}
         </div>
       )}

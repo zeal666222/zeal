@@ -41,7 +41,7 @@ export default function HoroscopePage() {
   };
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen-app bg-background text-foreground py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 font-medium text-xs uppercase tracking-widest mb-6">
           <Star size={14} /> Daily Transit Forecast
@@ -49,7 +49,7 @@ export default function HoroscopePage() {
         <h1 className="text-4xl sm:text-6xl font-black tracking-tight mb-4">
           Daily Horoscope
         </h1>
-        <p className="text-slate-400 font-light text-lg mb-12">
+        <p className="text-muted-foreground font-light text-lg mb-12">
           Select your zodiac sign for real-time transit guidance.
         </p>
 
@@ -61,8 +61,8 @@ export default function HoroscopePage() {
               disabled={loading}
               className={`py-3.5 rounded-2xl font-bold text-sm transition-all border ${
                 selectedSign === sign
-                  ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white border-[#9D7DC5] shadow-lg"
-                  : "bg-slate-900/60 border-white/10 text-slate-300 hover:border-[#9D7DC5]/50"
+                  ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white border-[var(--color-primary)] shadow-lg"
+                  : "bg-surface border-border text-muted-foreground hover:border-[var(--color-primary)]/50"
               }`}
             >
               {sign}
@@ -73,21 +73,21 @@ export default function HoroscopePage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8 sm:p-12 text-left"
+          className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-8 sm:p-12 text-left"
         >
-          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-white">
-            <Sparkles className="text-[#9D7DC5]" /> {selectedSign} Forecast
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-foreground">
+            <Sparkles className="text-[var(--color-primary)]" /> {selectedSign} Forecast
           </h2>
 
           {loading ? (
-            <div className="flex items-center gap-3 text-slate-400">
+            <div className="flex items-center gap-3 text-muted-foreground">
               <Loader2 className="w-5 h-5 animate-spin" />
               Computing planetary degrees...
             </div>
           ) : error ? (
             <p className="text-rose-400 text-sm">{error}</p>
           ) : (
-            <p className="text-slate-300 leading-relaxed whitespace-pre-line">
+            <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
               {reading || "Click a sign above to load your forecast."}
             </p>
           )}

@@ -132,7 +132,7 @@ export function AppShell({
               className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all relative ${
                 on
                   ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/10 text-purple-300"
-                  : "text-slate-400 hover:bg-white/5 hover:text-white"
+                  : "text-slate-400 hover:bg-surface-raised hover:text-white"
               }`}
             >
               {on && (
@@ -152,7 +152,7 @@ export function AppShell({
 
       {/* Footer */}
       <div className="p-3 border-t border-white/5 space-y-2">
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-raised">
           <Zap className="w-4 h-4 text-purple-400" />
           <span className="text-xs text-slate-400">
             Role: <span className="text-white font-bold">{role.replace(/_/g, " ")}</span>
@@ -186,7 +186,7 @@ export function AppShell({
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-slate-950/95 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4">
         <button
           onClick={() => setDrawerOpen(true)}
-          className="p-2 -ml-2 rounded-lg hover:bg-white/5"
+          className="p-2 -ml-2 rounded-lg hover:bg-surface-raised"
           aria-label="Menu"
         >
           <Menu className="w-5 h-5 text-white" />
@@ -216,7 +216,7 @@ export function AppShell({
             >
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/5"
+                className="absolute top-4 right-4 p-2 rounded-lg hover:bg-surface-overlay"
                 aria-label="Close"
               >
                 <X className="w-5 h-5 text-white" />

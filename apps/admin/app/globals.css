@@ -1,24 +1,6 @@
-
-/* __ZEAL_ADMIN_TOKENS__ — OKLCH, mirrors @zeal/ui/tokens.css */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-.glass-card-3d {
-  @apply bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 shadow-xl transition-all duration-300;
-}
-.glass-card-3d:hover {
-  @apply shadow-2xl -translate-y-0.5;
-}
-.btn-luxury {
-  @apply px-6 py-3 rounded-xl font-medium text-[var(--color-primary-foreground)] transition-all duration-300 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] hover:shadow-lg hover:scale-[1.02] active:scale-[0.97];
-}
-
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  }
 
 @layer base {
   * {
@@ -26,20 +8,18 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 }
 
 .glass-card-3d {
-  @apply bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-white/20 dark:border-gray-700/30 rounded-xl p-4 shadow-xl transition-all duration-300;
+  @apply bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 shadow-xl transition-all duration-300;
 }
-
 .glass-card-3d:hover {
-  @apply shadow-2xl -translate-y-1;
+  @apply shadow-2xl -translate-y-0.5;
 }
 
 .btn-luxury {
-  @apply px-6 py-3 rounded-xl font-medium text-white transition-all duration-300 bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] hover:shadow-lg hover:shadow-[#533AFD]/30 hover:scale-[1.02] active:scale-[0.97];
+  @apply px-6 py-3 rounded-xl font-medium text-[var(--color-primary-foreground)] transition-all duration-300 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] hover:shadow-lg hover:scale-[1.02] active:scale-[0.97];
 }

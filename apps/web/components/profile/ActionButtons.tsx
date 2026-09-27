@@ -53,7 +53,7 @@ export function ActionButtons({
         <button
           type="button"
           onClick={() => setShowBooking(true)}
-          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[#9D7DC5] text-white rounded-xl hover:bg-[#533AFD] transition-all"
+          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--color-primary)] text-white rounded-xl hover:bg-[var(--color-primary-hover)] transition-all"
         >
           <BookOpen className="w-4 h-4" />
           Book {perMinuteRate > 0 && `(₹${perMinuteRate}/min)`}
@@ -63,7 +63,7 @@ export function ActionButtons({
           type="button"
           onClick={startChat}
           disabled={busy === "chat"}
-          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4E8F7] text-[#5E4B8B] rounded-xl hover:bg-[#E1C5E7] transition-all disabled:opacity-50"
+          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--color-surface-sunken)] text-[var(--color-muted-foreground)] rounded-xl hover:bg-[var(--color-primary-muted)] transition-all disabled:opacity-50"
         >
           {busy === "chat" ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -77,7 +77,7 @@ export function ActionButtons({
           type="button"
           onClick={startCall}
           disabled={!isAvailable}
-          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[#F4E8F7] text-[#5E4B8B] rounded-xl hover:bg-[#E1C5E7] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--color-surface-sunken)] text-[var(--color-muted-foreground)] rounded-xl hover:bg-[var(--color-primary-muted)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Phone className="w-4 h-4" />
           Call

@@ -131,14 +131,14 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
   return (
     <div className="space-y-6">
       <div className="relative max-w-2xl mx-auto">
-        <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+        <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <input type="search" value={query}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
           placeholder="Search by name, skill, or tradition…" aria-label="Search consultants"
-          className="w-full pl-14 pr-14 py-4 glass-luxury rounded-2xl text-base text-white placeholder:text-slate-500 outline-none focus:border-[var(--color-luxury-gold)] transition-colors" />
+          className="w-full pl-14 pr-14 py-4 glass-luxury rounded-2xl text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-luxury-gold)] transition-colors" />
         {query && (
           <button type="button" aria-label="Clear search" onClick={() => setQuery("")}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/5 transition-colors">
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-overlay transition-colors">
             <X size={15} />
           </button>
         )}
@@ -155,14 +155,14 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
           className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
             onlineOnly
               ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-              : "bg-white/5 border border-white/10 text-slate-400 hover:text-white"
+              : "bg-surface-raised border border-border text-muted-foreground hover:text-foreground"
           }`}>
           <span className={`w-1.5 h-1.5 rounded-full ${onlineOnly ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
           Online only
         </button>
         {isFiltered && (
           <button type="button" onClick={clearFilters}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors">
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold text-muted-foreground hover:text-rose-400 transition-colors">
             <SlidersHorizontal size={11} /> Clear
           </button>
         )}
@@ -177,9 +177,9 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
       ) : visible.length === 0 ? (
         <AnimatePresence>
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl">
-            <Search size={32} className="mx-auto mb-4 text-slate-600" />
-            <p className="text-slate-400">No consultants match your search.</p>
+            className="text-center py-20 border-2 border-dashed border-border rounded-3xl">
+            <Search size={32} className="mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">No consultants match your search.</p>
             {isFiltered && (
               <button type="button" onClick={clearFilters}
                 className="mt-4 text-xs text-[var(--color-luxury-gold)] font-bold hover:underline">
@@ -200,7 +200,7 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-white shadow-2xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-foreground shadow-2xl">
           {toast}
         </div>
       )}
@@ -216,8 +216,8 @@ function Chip({ active, onClick, children }: {
     <button type="button" onClick={onClick}
       className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
         active
-          ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white shadow-lg shadow-[#533AFD]/20"
-          : "bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-[var(--color-luxury-gold)]/30"
+          ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-lg shadow-[var(--color-primary-hover)]/20"
+          : "bg-surface-raised border border-border text-muted-foreground hover:text-foreground hover:border-[var(--color-luxury-gold)]/30"
       }`}>
       {children}
     </button>

@@ -59,37 +59,37 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-[#5E4B8B]">Book {healerName}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-[#F4E8F7] rounded-full">
-            <X className="w-5 h-5 text-[#B8A1D9]" />
+          <h2 className="text-xl font-bold text-[var(--color-muted-foreground)]">Book {healerName}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-[var(--color-surface-sunken)] rounded-full">
+            <X className="w-5 h-5 text-[var(--color-subtle-foreground)]" />
           </button>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#5E4B8B] mb-1">Date</label>
+            <label className="block text-sm font-medium text-[var(--color-muted-foreground)] mb-1">Date</label>
             <input
               type="date"
               value={selectedDate}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 border border-[#E1C5E7] rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none"
+              className="w-full px-3 py-2 border border-[var(--color-primary-muted)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#5E4B8B] mb-1">Time</label>
+            <label className="block text-sm font-medium text-[var(--color-muted-foreground)] mb-1">Time</label>
             <input
               type="time"
               value={selectedTime}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedTime(e.target.value)}
-              className="w-full px-3 py-2 border border-[#E1C5E7] rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none"
+              className="w-full px-3 py-2 border border-[var(--color-primary-muted)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-[#5E4B8B] mb-1">Duration</label>
+            <label className="block text-sm font-medium text-[var(--color-muted-foreground)] mb-1">Duration</label>
             <select
               value={duration}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDuration(Number(e.target.value))}
-              className="w-full px-3 py-2 border border-[#E1C5E7] rounded-xl focus:ring-2 focus:ring-[#9D7DC5] outline-none"
+              className="w-full px-3 py-2 border border-[var(--color-primary-muted)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
             >
               <option value={15}>15 min</option>
               <option value={30}>30 min</option>
@@ -98,25 +98,25 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
             </select>
           </div>
 
-          <div className="bg-[#F4E8F7] rounded-xl p-4">
+          <div className="bg-[var(--color-surface-sunken)] rounded-xl p-4">
             <div className="flex justify-between text-sm">
-              <span className="text-[#5E4B8B]">Rate</span>
-              <span className="text-[#5E4B8B]">₹{perMinuteRate}/min</span>
+              <span className="text-[var(--color-muted-foreground)]">Rate</span>
+              <span className="text-[var(--color-muted-foreground)]">₹{perMinuteRate}/min</span>
             </div>
             <div className="flex justify-between text-sm mt-1">
-              <span className="text-[#5E4B8B]">Duration</span>
-              <span className="text-[#5E4B8B]">{duration} min</span>
+              <span className="text-[var(--color-muted-foreground)]">Duration</span>
+              <span className="text-[var(--color-muted-foreground)]">{duration} min</span>
             </div>
-            <div className="flex justify-between font-bold mt-2 pt-2 border-t border-[#E1C5E7]">
-              <span className="text-[#5E4B8B]">Total</span>
-              <span className="text-[#9D7DC5]">₹{totalAmount.toFixed(2)}</span>
+            <div className="flex justify-between font-bold mt-2 pt-2 border-t border-[var(--color-primary-muted)]">
+              <span className="text-[var(--color-muted-foreground)]">Total</span>
+              <span className="text-[var(--color-primary)]">₹{totalAmount.toFixed(2)}</span>
             </div>
           </div>
 
           <button
             onClick={handlePayment}
             disabled={!selectedDate || !selectedTime || isProcessing}
-            className="w-full py-3 bg-[#9D7DC5] text-white rounded-xl font-medium hover:bg-[#533AFD] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[var(--color-primary)] text-white rounded-xl font-medium hover:bg-[var(--color-primary-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isProcessing ? (
               "Processing..."

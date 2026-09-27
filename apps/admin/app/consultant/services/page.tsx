@@ -111,7 +111,7 @@ export default function ServicesPickerPage() {
           <Sparkles className="w-6 h-6 text-purple-400" /> Your Services
         </h1>
         <p className="text-sm text-slate-400 mt-1">
-          Tag the services you offer. Tagged services appear on <code className="text-xs bg-slate-900 px-1.5 py-0.5 rounded">/services/[category]/[service]</code> pages.
+          Tag the services you offer. Tagged services appear on <code className="text-xs bg-surface px-1.5 py-0.5 rounded">/services/[category]/[service]</code> pages.
         </p>
       </div>
 
@@ -120,14 +120,14 @@ export default function ServicesPickerPage() {
         value={query}
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
         placeholder="Search services…"
-        className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-white/10 text-sm text-white placeholder:text-slate-500 outline-none focus:border-purple-500/60"
+        className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-purple-500/60"
       />
 
       <div className="space-y-4">
         {filtered.map((group) => (
           <motion.div key={group.categoryId}
             initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-white/5 bg-slate-900/40 p-4">
+            className="rounded-2xl border border-border bg-surface p-4">
             <h2 className="text-xs font-black uppercase tracking-widest text-purple-400 mb-3">
               {group.categoryName}
             </h2>
@@ -142,7 +142,7 @@ export default function ServicesPickerPage() {
                     className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
                       on
                         ? "bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-600/20"
-                        : "bg-slate-950 border-white/10 text-slate-300 hover:border-purple-500/40"
+                        : "bg-surface-raised border-border text-muted-foreground hover:border-purple-500/40"
                     }`}
                   >
                     {on && <Check size={11} className="inline mr-1" />}

@@ -52,20 +52,20 @@ export function AuthShell({
   const copy = COPY[mode];
 
   return (
-    <div className="min-h-screen bg-[#0B0A14] flex relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--color-background)] flex relative overflow-hidden">
       <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-500/10 blur-[160px] pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-purple-500/[0.08] blur-[160px] pointer-events-none" />
 
-      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 border-r border-white/[0.06]">
+      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 border-r border-border">
         <Link href="/" className="inline-flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center shadow-2xl shadow-purple-500/20">
             <BrandIcon size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-white font-black tracking-wider text-lg leading-none">
+            <p className="text-foreground font-black tracking-wider text-lg leading-none">
               {brandTitle}
             </p>
-            <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
+            <p className="text-[10px] text-muted-foreground tracking-[0.2em] font-bold uppercase mt-0.5">
               Zeal Platform
             </p>
           </div>
@@ -76,7 +76,7 @@ export function AuthShell({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight"
+            className="text-5xl xl:text-6xl font-black text-foreground leading-[1.05] tracking-tight"
           >
             {copy.headline[0]}
             <br />
@@ -89,7 +89,7 @@ export function AuthShell({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-slate-400 text-base mt-6 max-w-md"
+            className="text-muted-foreground text-base mt-6 max-w-md"
           >
             {copy.tagline}
           </motion.p>
@@ -102,7 +102,7 @@ export function AuthShell({
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.35 + i * 0.08 }}
-                  className="flex items-center gap-3 text-sm text-slate-300"
+                  className="flex items-center gap-3 text-sm text-muted-foreground"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
                     <Check size={11} className="text-emerald-400" />
@@ -114,7 +114,7 @@ export function AuthShell({
           )}
         </div>
 
-        <div className="flex items-center gap-6 text-[11px] text-slate-600">
+        <div className="flex items-center gap-6 text-[11px] text-muted-foreground">
           <span>© {new Date().getFullYear()} Zeal</span>
           <span>•</span>
           <span>SOC 2</span>
@@ -135,17 +135,17 @@ export function AuthShell({
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
                 <BrandIcon size={18} className="text-white" />
               </div>
-              <span className="text-white font-black tracking-wider text-lg">
+              <span className="text-foreground font-black tracking-wider text-lg">
                 {brandTitle}
               </span>
             </Link>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-black text-white tracking-tight">
+            <h2 className="text-2xl font-black text-foreground tracking-tight">
               {title}
             </h2>
-            <p className="text-sm text-slate-500 mt-1">{subtitle}</p>
+            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
           </div>
 
           {children}

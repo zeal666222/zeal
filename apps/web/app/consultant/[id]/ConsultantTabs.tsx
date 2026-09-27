@@ -37,14 +37,14 @@ export function ConsultantTabs({ posts, reviews }: Props) {
   return (
     <>
       {/* Tab header */}
-      <div className="mb-4 flex items-center gap-4 border-b border-white/5">
+      <div className="mb-4 flex items-center gap-4 border-b border-border">
         <button
           type="button"
           onClick={() => setTab("posts")}
           className={`pb-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all ${
             tab === "posts"
-              ? "text-white border-[#9D7DC5]"
-              : "text-slate-400 border-transparent hover:text-slate-200"
+              ? "text-foreground border-[var(--color-primary)]"
+              : "text-muted-foreground border-transparent hover:text-foreground"
           }`}
         >
           Posts ({posts.length})
@@ -54,8 +54,8 @@ export function ConsultantTabs({ posts, reviews }: Props) {
           onClick={() => setTab("reviews")}
           className={`pb-3 text-sm font-bold uppercase tracking-wider border-b-2 transition-all ${
             tab === "reviews"
-              ? "text-white border-[#9D7DC5]"
-              : "text-slate-400 border-transparent hover:text-slate-200"
+              ? "text-foreground border-[var(--color-primary)]"
+              : "text-muted-foreground border-transparent hover:text-foreground"
           }`}
         >
           Reviews ({reviews.length})
@@ -76,8 +76,8 @@ export function ConsultantTabs({ posts, reviews }: Props) {
 function PostsPanel({ posts }: { posts: PostItem[] }) {
   if (posts.length === 0) {
     return (
-      <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-3xl">
-        <p className="text-slate-400 text-sm">No posts yet</p>
+      <div className="text-center py-16 border-2 border-dashed border-border rounded-3xl">
+        <p className="text-muted-foreground text-sm">No posts yet</p>
       </div>
     );
   }
@@ -98,8 +98,8 @@ function PostsPanel({ posts }: { posts: PostItem[] }) {
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-950 flex items-center justify-center p-3">
-              <p className="text-[10px] text-slate-300 line-clamp-4 text-center">
+            <div className="w-full h-full bg-gradient-to-br from-surface to-background flex items-center justify-center p-3">
+              <p className="text-[10px] text-muted-foreground line-clamp-4 text-center">
                 {post.content}
               </p>
             </div>
@@ -118,8 +118,8 @@ function PostsPanel({ posts }: { posts: PostItem[] }) {
 function ReviewsPanel({ reviews }: { reviews: ReviewItem[] }) {
   if (reviews.length === 0) {
     return (
-      <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-3xl">
-        <p className="text-slate-400 text-sm">No reviews yet</p>
+      <div className="text-center py-16 border-2 border-dashed border-border rounded-3xl">
+        <p className="text-muted-foreground text-sm">No reviews yet</p>
       </div>
     );
   }
@@ -129,10 +129,10 @@ function ReviewsPanel({ reviews }: { reviews: ReviewItem[] }) {
       {reviews.slice(0, 10).map((r, i) => (
         <div
           key={i}
-          className="p-4 bg-slate-900/60 border border-white/5 rounded-2xl"
+          className="p-4 bg-surface border border-border rounded-2xl"
         >
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-white overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-surface-sunken flex items-center justify-center text-xs font-bold text-foreground overflow-hidden">
               {r.reviewerAvatar ? (
                 <img
                   src={r.reviewerAvatar}
@@ -143,14 +143,14 @@ function ReviewsPanel({ reviews }: { reviews: ReviewItem[] }) {
                 (r.reviewerName ?? "?").charAt(0).toUpperCase()
               )}
             </div>
-            <span className="text-sm font-medium text-white">
+            <span className="text-sm font-medium text-foreground">
               {r.reviewerName ?? "Anonymous"}
             </span>
             <span className="text-amber-400 text-xs ml-auto">
               {"⭐".repeat(Math.max(0, Math.min(5, r.rating ?? 0)))}
             </span>
           </div>
-          {r.review && <p className="text-sm text-slate-300">{r.review}</p>}
+          {r.review && <p className="text-sm text-muted-foreground">{r.review}</p>}
         </div>
       ))}
     </div>

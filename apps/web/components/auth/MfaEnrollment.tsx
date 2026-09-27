@@ -111,12 +111,12 @@ export function MfaEnrollment() {
   // ─── Render: idle ──────────────────────────────────────────────────────────
   if (state.kind === "idle") {
     return (
-      <div className="p-6 rounded-2xl bg-slate-900/60 border border-white/5">
+      <div className="p-6 rounded-2xl bg-surface border border-border">
         <div className="flex items-center gap-3 mb-4">
           <ShieldCheck className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-bold text-white">Two-Factor Authentication</h3>
+          <h3 className="font-bold text-foreground">Two-Factor Authentication</h3>
         </div>
-        <p className="text-sm text-slate-400 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Add an authenticator app (Google Authenticator, 1Password, Authy) for a second layer of security.
         </p>
         {error && (
@@ -137,7 +137,7 @@ export function MfaEnrollment() {
   // ─── Render: enrolling ─────────────────────────────────────────────────────
   if (state.kind === "enrolling") {
     return (
-      <div className="p-6 rounded-2xl bg-slate-900/60 border border-white/5 flex justify-center">
+      <div className="p-6 rounded-2xl bg-surface border border-border flex justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
       </div>
     );
@@ -146,28 +146,28 @@ export function MfaEnrollment() {
   // ─── Render: verifying ─────────────────────────────────────────────────────
   if (state.kind === "verifying") {
     return (
-      <div className="p-6 rounded-2xl bg-slate-900/60 border border-white/5 space-y-4">
-        <h3 className="font-bold text-white">Scan QR code</h3>
+      <div className="p-6 rounded-2xl bg-surface border border-border space-y-4">
+        <h3 className="font-bold text-foreground">Scan QR code</h3>
         <div className="flex flex-col sm:flex-row items-center gap-4">
           <div className="w-40 h-40 bg-white rounded-xl p-2 shrink-0">
             <img src={state.qr} alt="QR code" className="w-full h-full" />
           </div>
           <div className="flex-1 min-w-0 w-full">
-            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mb-1">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold mb-1">
               Manual entry key
             </p>
-            <code className="block text-xs text-purple-300 font-mono bg-slate-950 border border-white/5 rounded-lg px-3 py-2 break-all">
+            <code className="block text-xs text-purple-300 font-mono bg-background border border-border rounded-lg px-3 py-2 break-all">
               {state.secret}
             </code>
           </div>
         </div>
         <form onSubmit={verify} className="space-y-3">
-          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest">
+          <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest">
             Enter 6-digit code
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+              <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
                 inputMode="numeric"
@@ -177,7 +177,7 @@ export function MfaEnrollment() {
                   setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder="000000"
                 maxLength={6}
-                className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-sm font-mono tracking-[0.3em] text-center text-white outline-none focus:border-purple-500"
+                className="w-full pl-11 pr-4 py-3 bg-background border border-border rounded-xl text-sm font-mono tracking-[0.3em] text-center text-foreground outline-none focus:border-purple-500"
               />
             </div>
             <button
@@ -201,20 +201,20 @@ export function MfaEnrollment() {
   // ─── Render: recovery codes ────────────────────────────────────────────────
   if (state.kind === "recovery") {
     return (
-      <div className="p-6 rounded-2xl bg-slate-900/60 border border-amber-500/30 space-y-4">
+      <div className="p-6 rounded-2xl bg-surface border border-amber-500/30 space-y-4">
         <div className="flex items-center gap-2 text-amber-400">
           <AlertCircle size={18} />
           <h3 className="font-bold">Save your recovery codes</h3>
         </div>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-muted-foreground">
           These codes will only be shown once. Store them in a password manager.
         </p>
-        <div className="grid grid-cols-2 gap-2 p-4 rounded-xl bg-slate-950 border border-white/5 font-mono text-sm text-purple-300">
+        <div className="grid grid-cols-2 gap-2 p-4 rounded-xl bg-background border border-border font-mono text-sm text-purple-300">
           {state.codes.map((c) => <div key={c}>{c}</div>)}
         </div>
         <button
           onClick={copyCodes}
-          className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-sm font-bold flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-xl bg-surface-raised hover:bg-surface-overlay text-foreground text-sm font-bold flex items-center justify-center gap-2"
         >
           {copied ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy all</>}
         </button>

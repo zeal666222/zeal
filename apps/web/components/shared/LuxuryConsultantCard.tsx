@@ -66,7 +66,7 @@ const PRESENCE_STYLE: Record<PresenceTone, { pill: string; dot: string }> = {
     dot: "bg-amber-400",
   },
   offline: {
-    pill: "bg-white/5 text-slate-400 border border-white/10",
+    pill: "bg-surface-raised text-muted-foreground border border-border",
     dot: "bg-slate-500",
   },
 };
@@ -169,7 +169,7 @@ export function LuxuryConsultantCard({
 
       {/* AI badge */}
       {consultant.isAI && (
-        <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] px-2 py-0.5 text-[9px] font-black tracking-wider text-white">
+        <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] px-2 py-0.5 text-[9px] font-black tracking-wider text-white">
           <Zap size={10} aria-hidden /> AI
         </span>
       )}
@@ -201,7 +201,7 @@ export function LuxuryConsultantCard({
               ) : (
                 <span
                   className={cn(
-                    "flex items-center justify-center rounded-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] font-black text-white",
+                    "flex items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] font-black text-white",
                     isCompact ? "h-14 w-14 text-xl" : "h-20 w-20 text-2xl",
                   )}
                 >
@@ -215,12 +215,12 @@ export function LuxuryConsultantCard({
         <Link href={href} className="mt-3 max-w-full">
           <h3
             id={headingId}
-            className="truncate text-base font-bold text-white transition-colors group-hover:text-[var(--color-luxury-gold)]"
+            className="truncate text-base font-bold text-foreground transition-colors group-hover:text-[var(--color-luxury-gold)]"
           >
             {displayName}
           </h3>
           {consultant.username && (
-            <p className="truncate text-[11px] text-slate-400">
+            <p className="truncate text-[11px] text-muted-foreground">
               @{consultant.username}
             </p>
           )}
@@ -251,7 +251,7 @@ export function LuxuryConsultantCard({
               {consultant.specialties.slice(0, 2).map((s) => (
                 <span
                   key={s}
-                  className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-wider text-slate-300"
+                  className="rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground"
                 >
                   {s}
                 </span>
@@ -275,8 +275,8 @@ export function LuxuryConsultantCard({
             className={cn(
               "flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-black transition-all",
               chatEnabled
-                ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white hover:opacity-95 active:scale-[0.98]"
-                : "cursor-not-allowed bg-white/5 text-slate-500",
+                ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white hover:opacity-95 active:scale-[0.98]"
+                : "cursor-not-allowed bg-surface-raised text-muted-foreground",
             )}
           >
             {consultant.isAI ? (
@@ -298,7 +298,7 @@ export function LuxuryConsultantCard({
               type="button"
               onClick={handleBook}
               aria-label={`Book a session with ${displayName}`}
-              className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-xs font-black text-slate-200 transition-all hover:border-[var(--color-luxury-gold)]/40 hover:text-white"
+              className="rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-xs font-black text-foreground transition-all hover:border-[var(--color-luxury-gold)]/40 hover:text-foreground"
             >
               Book
             </button>

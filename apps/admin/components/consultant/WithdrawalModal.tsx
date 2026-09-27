@@ -64,7 +64,7 @@ export function WithdrawalModal({ open, balance, onClose, onSuccess }: Props) {
             <>
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-lg font-black text-white">Withdraw Funds</h3>
-                <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5" aria-label="Close">
+                <button onClick={onClose} className="p-2 rounded-lg hover:bg-surface-raised" aria-label="Close">
                   <X size={16} className="text-slate-400" />
                 </button>
               </div>
@@ -90,7 +90,7 @@ export function WithdrawalModal({ open, balance, onClose, onSuccess }: Props) {
                     {[500, 1000, Math.floor(balance)].map((amt) =>
                       amt >= 100 && amt <= balance && (
                         <button key={amt} onClick={() => setAmount(amt)}
-                          className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300">
+                          className="px-3 py-1 rounded-lg bg-surface-raised hover:bg-surface-overlay text-xs font-bold text-slate-300">
                           ₹{amt}
                         </button>
                       )

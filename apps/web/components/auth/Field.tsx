@@ -27,7 +27,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
     <div>
       <label
         htmlFor={inputId}
-        className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2"
+        className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2"
       >
         {label}
       </label>
@@ -36,7 +36,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
         {Icon && (
           <Icon
             size={17}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors pointer-events-none"
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400 transition-colors pointer-events-none"
           />
         )}
         <input
@@ -46,14 +46,14 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
           aria-invalid={Boolean(error)}
           aria-describedby={describedBy}
           className={[
-            "w-full py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white",
-            "placeholder:text-slate-600 outline-none transition-colors",
-            "focus:bg-slate-900/90",
+            "w-full py-3.5 bg-surface border rounded-2xl text-sm text-foreground",
+            "placeholder:text-muted-foreground outline-none transition-colors",
+            "focus:bg-surface",
             Icon ? "pl-12" : "pl-4",
             showToggle ? "pr-12" : "pr-4",
             error
               ? "border-rose-500/40 focus:border-rose-500"
-              : "border-white/5 focus:border-purple-500",
+              : "border-border focus:border-purple-500",
             className ?? "",
           ].join(" ")}
           {...rest}
@@ -64,7 +64,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
             tabIndex={-1}
             aria-label={reveal ? "Hide password" : "Show password"}
             onClick={() => setReveal((v) => !v)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-white/5 transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-muted-foreground hover:bg-surface-overlay transition-colors"
           >
             {reveal ? <EyeOff size={15} /> : <Eye size={15} />}
           </button>
@@ -80,7 +80,7 @@ export const Field = forwardRef<HTMLInputElement, FieldProps>(function Field(
           {error}
         </p>
       ) : hint ? (
-        <p id={`${inputId}-hint`} className="text-[10px] text-slate-500 mt-1.5">
+        <p id={`${inputId}-hint`} className="text-[10px] text-muted-foreground mt-1.5">
           {hint}
         </p>
       ) : null}

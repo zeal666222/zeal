@@ -72,7 +72,7 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/3 w-[500px] h-[500px] bg-purple-600/10 blur-[180px] rounded-full pointer-events-none" />
 
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
@@ -84,12 +84,12 @@ export default function OnboardingPage() {
               <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                 step >= n
                   ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30"
-                  : "bg-slate-900 text-slate-600 border border-white/5"
+                  : "bg-surface text-muted-foreground border border-border"
               }`}>
                 {step > n ? <Check size={14} /> : n}
               </div>
               {n < 3 && (
-                <div className={`w-12 h-0.5 ${step > n ? "bg-purple-500" : "bg-slate-800"}`} />
+                <div className={`w-12 h-0.5 ${step > n ? "bg-purple-500" : "bg-surface-sunken"}`} />
               )}
             </div>
           ))}
@@ -100,18 +100,18 @@ export default function OnboardingPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-8">
+            className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-8">
             {step === 1 && (
               <>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
                   <Sparkles size={12} /> Step 1 of 3
                 </div>
-                <h2 className="text-2xl font-black text-white mb-2">What should we call you?</h2>
-                <p className="text-sm text-slate-400 mb-6">This is how you'll appear to consultants.</p>
+                <h2 className="text-2xl font-black text-foreground mb-2">What should we call you?</h2>
+                <p className="text-sm text-muted-foreground mb-6">This is how you'll appear to consultants.</p>
                 <input type="text" value={displayName}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
                   placeholder="Your name" autoFocus
-                  className="w-full px-4 py-3.5 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white outline-none focus:border-purple-500" />
+                  className="w-full px-4 py-3.5 bg-background border border-border rounded-2xl text-sm text-foreground outline-none focus:border-purple-500" />
               </>
             )}
 
@@ -120,15 +120,15 @@ export default function OnboardingPage() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
                   <Sparkles size={12} /> Step 2 of 3
                 </div>
-                <h2 className="text-2xl font-black text-white mb-2">What interests you?</h2>
-                <p className="text-sm text-slate-400 mb-6">Pick at least one — we'll personalize your feed.</p>
+                <h2 className="text-2xl font-black text-foreground mb-2">What interests you?</h2>
+                <p className="text-sm text-muted-foreground mb-6">Pick at least one — we'll personalize your feed.</p>
                 <div className="flex flex-wrap gap-2">
                   {INTERESTS.map((i) => (
                     <button key={i} type="button" onClick={() => toggle(i)}
                       className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
                         picked.includes(i)
                           ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
-                          : "bg-slate-950 border border-white/10 text-slate-400 hover:border-purple-500/40"
+                          : "bg-background border border-border text-muted-foreground hover:border-purple-500/40"
                       }`}>
                       {i}
                     </button>
@@ -142,13 +142,13 @@ export default function OnboardingPage() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
                   <Sparkles size={12} /> Step 3 of 3
                 </div>
-                <h2 className="text-2xl font-black text-white mb-2">What brings you here?</h2>
-                <p className="text-sm text-slate-400 mb-6">Optional — helps us match you faster.</p>
+                <h2 className="text-2xl font-black text-foreground mb-2">What brings you here?</h2>
+                <p className="text-sm text-muted-foreground mb-6">Optional — helps us match you faster.</p>
                 <textarea value={goal}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setGoal(e.target.value)}
                   rows={3} maxLength={500}
                   placeholder="e.g. I'm navigating a career change and want clarity…"
-                  className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white resize-none outline-none focus:border-purple-500" />
+                  className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground resize-none outline-none focus:border-purple-500" />
               </>
             )}
 
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
         <div className="flex gap-3 mt-6">
           {step > 1 && (
             <button onClick={() => setStep(step - 1)} disabled={saving}
-              className="flex items-center gap-1 px-5 py-3 rounded-2xl bg-slate-900 border border-white/10 text-slate-300 font-bold text-sm">
+              className="flex items-center gap-1 px-5 py-3 rounded-2xl bg-surface border border-border text-muted-foreground font-bold text-sm">
               <ArrowLeft size={14} /> Back
             </button>
           )}

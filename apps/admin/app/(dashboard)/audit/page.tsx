@@ -42,48 +42,48 @@ export default function AuditPage() {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white flex items-center gap-2">
-          <ScrollText className="w-6 h-6 text-[#9D7DC5]" /> Audit Log
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground flex items-center gap-2">
+          <ScrollText className="w-6 h-6 text-[var(--color-primary)]" /> Audit Log
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           {items.length} event{items.length !== 1 ? "s" : ""} (latest 200)
         </p>
       </div>
 
       <div className="relative max-w-md">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           placeholder="Filter by action, actor, target..."
-          className="w-full pl-10 pr-4 py-2.5 bg-slate-900/60 border border-white/5 rounded-xl text-sm text-white placeholder:text-slate-500 outline-none focus:border-[#9D7DC5]" />
+          className="w-full pl-10 pr-4 py-2.5 bg-surface border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-primary)]" />
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[#9D7DC5]" />
+          <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
         </div>
       ) : items.length === 0 ? (
-        <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-3xl text-slate-500">
+        <div className="text-center py-16 border-2 border-dashed border-border rounded-3xl text-muted-foreground">
           No audit events yet
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/40">
+        <div className="overflow-x-auto rounded-2xl border border-border bg-surface/40">
           <table className="w-full text-sm">
-            <thead className="bg-white/[0.02] border-b border-white/5">
+            <thead className="bg-white/[0.02] border-b border-border">
               <tr>
                 {["Time", "Action", "Actor", "Target", "Status"].map((h) => (
-                  <th key={h} className="text-left p-3 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                  <th key={h} className="text-left p-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-border">
               {items.map((row) => (
-                <tr key={row.id} className="hover:bg-white/[0.02]">
-                  <td className="p-3 text-xs text-slate-400 font-mono whitespace-nowrap">
+                <tr key={row.id} className="hover:bg-surface-raised">
+                  <td className="p-3 text-xs text-muted-foreground font-mono whitespace-nowrap">
                     {new Date(row.createdAt).toLocaleString()}
                   </td>
-                  <td className="p-3 text-xs font-bold text-white">{row.action_name ?? "—"}</td>
+                  <td className="p-3 text-xs font-bold text-foreground">{row.action_name ?? "—"}</td>
                   <td className="p-3 text-xs text-slate-300 truncate max-w-[200px]">
                     {row.email ?? row.userId?.slice(0, 8) ?? "system"}
                   </td>

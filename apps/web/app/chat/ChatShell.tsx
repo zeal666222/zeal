@@ -26,11 +26,11 @@ export function ChatShell({
   const isRoomOpen = pathname !== "/chat";
 
   return (
-    <div className="flex h-screen-app bg-slate-950 overflow-hidden">
+    <div className="flex h-screen-app bg-background overflow-hidden">
       {/* Inbox list */}
       <aside
         className={cn(
-          "w-full md:w-80 lg:w-96 shrink-0 h-full border-r border-white/5",
+          "w-full md:w-80 lg:w-96 shrink-0 h-full border-r border-border",
           isRoomOpen && "hidden md:block"
         )}
       >
@@ -43,7 +43,7 @@ export function ChatShell({
       {/* Room / empty state */}
       <main
         className={cn(
-          "flex-1 h-full flex-col bg-slate-950",
+          "flex-1 h-full flex-col bg-background",
           isRoomOpen ? "flex" : "hidden md:flex"
         )}
       >

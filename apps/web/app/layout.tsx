@@ -12,6 +12,7 @@ import { QueryProvider } from "@/lib/query/provider";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { ThemeScript } from "@zeal/ui/theme-script";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -119,6 +120,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </SupabaseAuthProvider>
           </QueryProvider>
         </ThemeProvider>
+        <Toaster />
       </body>
     </html>
   );

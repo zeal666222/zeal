@@ -183,7 +183,7 @@ export default function ConsultantSettingsPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
       </div>
     );
   }
@@ -195,7 +195,7 @@ export default function ConsultantSettingsPage() {
         <p className="text-sm text-slate-400 mt-1">Update your public practice profile</p>
       </div>
 
-      <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-5 lg:p-6 space-y-5">
+      <div className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-5 lg:p-6 space-y-5">
         {/* Bio */}
         <div>
           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
@@ -205,10 +205,10 @@ export default function ConsultantSettingsPage() {
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={6}
-            className="w-full p-4 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white resize-none focus:border-indigo-500 outline-none"
+            className="w-full p-4 bg-surface-raised border border-border rounded-2xl text-sm text-white resize-none focus:border-indigo-500 outline-none"
             placeholder="Describe your practice, lineage, and approach…"
           />
-          <p className="text-xs text-slate-500 mt-1.5">
+          <p className="text-xs text-muted-foreground mt-1.5">
             {bio.trim().length}/1000 · {bio.trim().length >= 20 ? "✓ meets minimum" : "min 20 chars"}
           </p>
         </div>
@@ -221,7 +221,7 @@ export default function ConsultantSettingsPage() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white outline-none focus:border-indigo-500"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white outline-none focus:border-indigo-500"
           >
             <option value="">Select category…</option>
             {catalog.map((g) => (
@@ -237,9 +237,9 @@ export default function ConsultantSettingsPage() {
           <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
             Services You Offer
           </label>
-          <div className="max-h-64 overflow-y-auto space-y-3 p-3 rounded-2xl bg-slate-950 border border-white/5">
+          <div className="max-h-64 overflow-y-auto space-y-3 p-3 rounded-2xl bg-surface-raised border border-border">
             {catalog.length === 0 ? (
-              <p className="text-xs text-slate-500 py-4 text-center">Loading services…</p>
+              <p className="text-xs text-muted-foreground py-4 text-center">Loading services…</p>
             ) : (
               catalog.map((g) => (
                 <div key={g.categoryId}>
@@ -257,7 +257,7 @@ export default function ConsultantSettingsPage() {
                           className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
                             active
                               ? "bg-purple-600 text-white border-purple-500"
-                              : "bg-slate-950 border-white/10 text-slate-300 hover:border-purple-500/40"
+                              : "bg-surface-raised border-border text-muted-foreground hover:border-purple-500/40"
                           }`}
                         >
                           {active && <Check size={11} className="inline mr-1" />}
@@ -284,14 +284,14 @@ export default function ConsultantSettingsPage() {
               max={500}
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
-              className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+              className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
             />
           </div>
           <div>
             <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
               You earn
             </label>
-            <div className="px-4 py-3 bg-slate-950 border border-white/5 rounded-2xl text-sm text-emerald-400 font-black font-mono">
+            <div className="px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-emerald-400 font-black font-mono">
               ₹{Math.round(rate * 0.9)}/min (90%)
             </div>
           </div>
@@ -306,7 +306,7 @@ export default function ConsultantSettingsPage() {
             type="text"
             value={specialties}
             onChange={(e) => setSpecialties(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
             placeholder="Vedic Astrology, KP, Nadi"
           />
         </div>
@@ -320,15 +320,15 @@ export default function ConsultantSettingsPage() {
             type="text"
             value={languages}
             onChange={(e) => setLanguages(e.target.value)}
-            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
             placeholder="English, Hindi"
           />
         </div>
 
         {/* Subdomain */}
         {subdomain && (
-          <div className="p-4 rounded-2xl bg-[#9D7DC5]/10 border border-[#9D7DC5]/20">
-            <p className="text-[10px] uppercase tracking-widest text-[#9D7DC5] font-bold mb-1">
+          <div className="p-4 rounded-2xl bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20">
+            <p className="text-[10px] uppercase tracking-widest text-[var(--color-primary)] font-bold mb-1">
               Your white-label site
             </p>
             <div className="flex items-center gap-2">
@@ -338,7 +338,7 @@ export default function ConsultantSettingsPage() {
               <button
                 type="button"
                 onClick={copySubdomain}
-                className="p-2 rounded-lg hover:bg-white/10 text-[#9D7DC5]"
+                className="p-2 rounded-lg hover:bg-surface-overlay text-[var(--color-primary)]"
                 aria-label="Copy white-label URL"
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -387,13 +387,13 @@ export default function ConsultantSettingsPage() {
       {/* Pricing request modal */}
       {showPricingRequest && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="w-full max-w-md p-6 rounded-3xl bg-slate-900 border border-white/10">
+          <div className="w-full max-w-md p-6 rounded-3xl bg-surface border border-border">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-black text-white">Request Pricing Change</h3>
               <button
                 type="button"
                 onClick={() => setShowPricingRequest(false)}
-                className="p-1 rounded-lg hover:bg-white/10"
+                className="p-1 rounded-lg hover:bg-surface-overlay"
               >
                 <X size={16} className="text-slate-400" />
               </button>
@@ -410,7 +410,7 @@ export default function ConsultantSettingsPage() {
                     onChange={(e) =>
                       setRequestRates({ ...requestRates, [field]: Number(e.target.value) })
                     }
-                    className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white font-mono outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-white font-mono outline-none focus:border-indigo-500"
                   />
                 </div>
               ))}
@@ -422,9 +422,9 @@ export default function ConsultantSettingsPage() {
                   value={requestReason}
                   onChange={(e) => setRequestReason(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-sm text-white resize-none outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-white resize-none outline-none focus:border-indigo-500"
                 />
-                <p className="text-[10px] text-slate-500 mt-1">
+                <p className="text-[10px] text-muted-foreground mt-1">
                   {requestReason.length}/30 minimum
                 </p>
               </div>

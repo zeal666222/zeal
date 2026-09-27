@@ -49,7 +49,7 @@ export default function AdminContentPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" />
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
       </div>
     );
   }
@@ -58,7 +58,7 @@ export default function AdminContentPage() {
     return (
       <div className="glass-card-3d p-6 text-center text-red-500">
         <p>Failed to load reports: {(error as Error).message}</p>
-        <button onClick={() => refetch()} className="mt-2 text-[#9D7DC5] hover:underline">Retry</button>
+        <button onClick={() => refetch()} className="mt-2 text-[var(--color-primary)] hover:underline">Retry</button>
       </div>
     );
   }
@@ -67,7 +67,7 @@ export default function AdminContentPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl lg:text-3xl font-black text-white flex items-center gap-2">
-          <Flag className="w-6 h-6 text-[#9D7DC5]" /> Content Moderation
+          <Flag className="w-6 h-6 text-[var(--color-primary)]" /> Content Moderation
         </h1>
         <p className="text-sm text-slate-400 mt-1">
           {items.length} flagged post{items.length !== 1 ? "s" : ""} awaiting review
@@ -90,7 +90,7 @@ export default function AdminContentPage() {
               className="glass-card-3d p-5"
             >
               <div className="flex items-start gap-4 mb-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0">
                   {post.author?.avatar
                     ? <img src={post.author.avatar} alt="" className="w-full h-full object-cover" />
                     : (post.author?.name || post.author?.username || "?").charAt(0).toUpperCase()}
@@ -107,7 +107,7 @@ export default function AdminContentPage() {
                   href={`https://zeal-web-red.vercel.app/post/${post.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-[#9D7DC5] hover:underline flex items-center gap-1"
+                  className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
                 >
                   View <ExternalLink size={11} />
                 </a>

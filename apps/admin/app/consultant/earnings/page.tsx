@@ -136,7 +136,7 @@ export default function ConsultantEarningsPage() {
           <button
             onClick={() => setWithdrawOpen(true)}
             disabled={balance < 100}
-            className="mt-4 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm font-bold text-[var(--color-foreground)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="mt-4 px-5 py-2.5 rounded-xl bg-surface-raised hover:bg-surface-overlay border border-white/20 text-sm font-bold text-[var(--color-foreground)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Withdraw Funds
           </button>

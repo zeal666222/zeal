@@ -32,7 +32,7 @@ export function PasswordStrength({ value }: { value: string }) {
   return (
     <div className="mt-2 space-y-1.5">
       <div className="flex items-center gap-2">
-        <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+        <div className="flex-1 h-1 bg-surface-raised rounded-full overflow-hidden">
           <motion.div
             animate={{ width: meta.width }}
             transition={{ duration: 0.4 }}
@@ -54,7 +54,7 @@ export function PasswordStrength({ value }: { value: string }) {
           {meta.label}
         </span>
       </div>
-      <p className="text-[10px] text-slate-500">
+      <p className="text-[10px] text-muted-foreground">
         {remaining === 0
           ? "✓ 12-character minimum met"
           : `${remaining} more character${remaining === 1 ? "" : "s"}`}

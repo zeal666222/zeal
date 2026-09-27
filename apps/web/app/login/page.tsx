@@ -89,7 +89,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0A14] flex relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--color-background)] flex relative overflow-hidden">
       <div className="fixed top-4 right-4 z-50">
         <ThemeToggle />
       </div>
@@ -97,16 +97,16 @@ function LoginContent() {
       <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-500/10 blur-[160px] pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-purple-500/[0.08] blur-[160px] pointer-events-none" />
 
-      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 border-r border-white/[0.06]">
+      <aside className="hidden lg:flex lg:w-[52%] relative flex-col justify-between p-14 border-r border-border">
         <Link href="/" className="inline-flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center shadow-2xl shadow-purple-500/20">
             <Sparkles size={20} className="text-white" />
           </div>
           <div>
-            <p className="text-white font-black tracking-wider text-lg leading-none">
+            <p className="text-foreground font-black tracking-wider text-lg leading-none">
               ZEAL
             </p>
-            <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
+            <p className="text-[10px] text-muted-foreground tracking-[0.2em] font-bold uppercase mt-0.5">
               Multi-Faith Wellness
             </p>
           </div>
@@ -117,7 +117,7 @@ function LoginContent() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight"
+            className="text-5xl xl:text-6xl font-black text-foreground leading-[1.05] tracking-tight"
           >
             Every tradition.
             <br />
@@ -130,7 +130,7 @@ function LoginContent() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-slate-400 text-base mt-6 max-w-md"
+            className="text-muted-foreground text-base mt-6 max-w-md"
           >
             Vedic astrology · Islamic counseling · Buddhist meditation ·
             Christian therapy · Taoist wellness · Tarot · Energy healing ·
@@ -138,7 +138,7 @@ function LoginContent() {
           </motion.p>
         </div>
 
-        <div className="flex items-center gap-6 text-[11px] text-slate-600">
+        <div className="flex items-center gap-6 text-[11px] text-muted-foreground">
           <span>© {new Date().getFullYear()} Zeal</span>
           <span>•</span>
           <span>SOC 2</span>
@@ -159,17 +159,17 @@ function LoginContent() {
               <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
                 <Sparkles size={18} className="text-white" />
               </div>
-              <span className="text-white font-black tracking-wider text-lg">
+              <span className="text-foreground font-black tracking-wider text-lg">
                 ZEAL
               </span>
             </Link>
           </div>
 
           <div className="mb-8">
-            <h2 className="text-2xl font-black text-white tracking-tight">
+            <h2 className="text-2xl font-black text-foreground tracking-tight">
               Welcome back
             </h2>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Sign in to continue your journey
             </p>
           </div>
@@ -212,13 +212,13 @@ function LoginContent() {
 
           <form onSubmit={submit} className="space-y-4" noValidate>
             <div>
-              <label htmlFor="login-email" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+              <label htmlFor="login-email" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                 Email
               </label>
               <div className="relative group">
                 <Mail
                   size={17}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400 transition-colors"
                 />
                 <input
                   id="login-email"
@@ -231,10 +231,10 @@ function LoginContent() {
                   onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                   placeholder="you@example.com"
                   className={
-                    "w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-colors " +
+                    "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors " +
                     (touched.email && email.length > 0 && !emailValid
                       ? "border-rose-500/40 focus:border-rose-500"
-                      : "border-white/5 focus:bg-slate-900/90 focus:border-purple-500")
+                      : "border-border focus:bg-surface focus:border-purple-500")
                   }
                 />
               </div>
@@ -242,12 +242,12 @@ function LoginContent() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label htmlFor="login-password" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <label htmlFor="login-password" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                   Password
                 </label>
                 <Link
                   href="/forgot-password"
-                  className="text-[10px] text-slate-500 hover:text-purple-400 transition-colors"
+                  className="text-[10px] text-muted-foreground hover:text-purple-400 transition-colors"
                 >
                   Forgot?
                 </Link>
@@ -255,7 +255,7 @@ function LoginContent() {
               <div className="relative group">
                 <Lock
                   size={17}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400 transition-colors"
                 />
                 <input
                   id="login-password"
@@ -267,7 +267,7 @@ function LoginContent() {
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                   placeholder="••••••••••••"
-                  className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
+                  className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface focus:border-purple-500 transition-colors"
                 />
               </div>
             </div>
@@ -288,11 +288,11 @@ function LoginContent() {
           </form>
           <div className="mt-6">
             <div className="relative my-6 flex items-center justify-center">
-              <div className="border-t border-white/5 w-full" />
-              <span className="bg-[#0B0A14] px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
+              <div className="border-t border-border w-full" />
+              <span className="bg-[var(--color-background)] px-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground font-bold">
                 or
               </span>
-              <div className="border-t border-white/5 w-full" />
+              <div className="border-t border-border w-full" />
             </div>
             <GoogleAuthButton
               label="Continue with Google"
@@ -301,18 +301,18 @@ function LoginContent() {
             />
           </div>
 
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-            <p className="text-[11px] text-slate-500">Want to offer guidance?</p>
+          <div className="mt-8 pt-6 border-t border-border text-center">
+            <p className="text-[11px] text-muted-foreground">Want to offer guidance?</p>
             <a
               href={`${ADMIN_URL}/register`}
-              className="mt-3 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-indigo-500/40 text-sm font-bold text-white transition-all"
+              className="mt-3 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface border border-border hover:border-indigo-500/40 text-sm font-bold text-foreground transition-all"
             >
               <Briefcase size={14} className="text-indigo-400" />
               Join as Consultant
             </a>
           </div>
 
-          <p className="text-center text-xs text-slate-500 mt-6">
+          <p className="text-center text-xs text-muted-foreground mt-6">
             New to Zeal?{" "}
             <Link href="/register" className="text-purple-400 hover:text-purple-300 font-bold">
               Create an account
@@ -326,7 +326,7 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0B0A14]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-background)]" />}>
       <LoginContent />
     </Suspense>
   );

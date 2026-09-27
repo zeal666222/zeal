@@ -40,7 +40,7 @@ export default async function ConsultantLayout({ children }: { children: React.R
   });
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50">
+    <div className="min-h-screen-app bg-background text-foreground">
       <WorkspaceSidebar
         user={{ name: profile?.name ?? null, email: profile?.email ?? null, avatar: profile?.avatar ?? null }}
         consultant={{ status: consultant.status, subdomain: consultant.subdomain }}

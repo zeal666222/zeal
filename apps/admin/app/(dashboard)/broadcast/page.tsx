@@ -44,8 +44,8 @@ export default function AdminBroadcastPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h1 className="text-2xl font-bold text-[#5E4B8B] dark:text-white flex items-center gap-2">
-        <Megaphone className="w-6 h-6 text-[#9D7DC5]" /> Broadcast
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <Megaphone className="w-6 h-6 text-[var(--color-primary)]" /> Broadcast
       </h1>
 
       <motion.div
@@ -54,7 +54,7 @@ export default function AdminBroadcastPage() {
         className="glass-card-3d p-5 space-y-4"
       >
         <div>
-          <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Message
           </label>
           <textarea
@@ -63,15 +63,15 @@ export default function AdminBroadcastPage() {
             rows={4}
             maxLength={500}
             placeholder="Type your announcement..."
-            className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white resize-none"
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground resize-none"
           />
-          <p className="text-xs text-[#B8A1D9] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             {message.length}/500 characters
           </p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-2">
+          <label className="block text-sm font-medium text-foreground mb-2">
             Send to
           </label>
           <div className="grid grid-cols-3 gap-2">
@@ -81,8 +81,8 @@ export default function AdminBroadcastPage() {
                 onClick={() => setSegment(s.value)}
                 className={`py-2.5 rounded-xl text-sm font-medium transition-all ${
                   segment === s.value
-                    ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white shadow-lg"
-                    : "bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white"
+                    ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-lg"
+                    : "bg-surface border border-border text-foreground"
                 }`}
               >
                 {s.label}
@@ -95,7 +95,7 @@ export default function AdminBroadcastPage() {
           whileTap={{ scale: 0.97 }}
           onClick={handleSend}
           disabled={sending || !message.trim()}
-          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white font-medium shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-medium shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {sending ? (
             <>

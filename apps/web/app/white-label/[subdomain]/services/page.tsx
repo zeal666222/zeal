@@ -40,12 +40,12 @@ export default async function WhiteLabelServicesPage({params}: Props) {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-light text-[#5E4B8B] mb-8">Services</h1>
+      <h1 className="text-3xl font-light text-[var(--color-muted-foreground)] mb-8">Services</h1>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {services.map((s) => (
-          <div key={s.key} className="p-6 rounded-2xl border border-[#E1C5E7] bg-white">
-            <h2 className="font-semibold text-[#5E4B8B] mb-1">{s.label}</h2>
-            <p className="text-sm text-[#B8A1D9] mb-4">
+          <div key={s.key} className="p-6 rounded-2xl border border-[var(--color-primary-muted)] bg-white">
+            <h2 className="font-semibold text-[var(--color-muted-foreground)] mb-1">{s.label}</h2>
+            <p className="text-sm text-[var(--color-subtle-foreground)] mb-4">
               {s.rate ? `₹${s.rate}/min` : "Contact for pricing"}
             </p>
             <Link

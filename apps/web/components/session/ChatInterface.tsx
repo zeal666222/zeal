@@ -89,37 +89,37 @@ export function ChatInterface({
   const showStreaming = isAI && streamingText !== null;
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 relative">
+    <div className="flex flex-col h-full bg-background relative">
       {/* Header */}
-      <div className="flex-none h-16 bg-slate-900/80 backdrop-blur-2xl border-b border-white/10 px-3 md:px-4 flex items-center justify-between z-20">
+      <div className="flex-none h-16 bg-surface backdrop-blur-2xl border-b border-border px-3 md:px-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <button
             onClick={() => router.push("/chat")}
-            className="md:hidden p-2 -ml-1 rounded-lg hover:bg-white/5 active:scale-95"
+            className="md:hidden p-2 -ml-1 rounded-lg hover:bg-surface-raised active:scale-95"
             aria-label="Back"
           >
-            <ArrowLeft size={18} className="text-white" />
+            <ArrowLeft size={18} className="text-foreground" />
           </button>
-          <div className="relative w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-white overflow-hidden shrink-0">
+          <div className="relative w-10 h-10 rounded-full bg-surface-sunken flex items-center justify-center font-black text-foreground overflow-hidden shrink-0">
             {partnerAvatar ? (
               <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover" />
             ) : (
               partnerName.charAt(0).toUpperCase()
             )}
             {isAI && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-[8px] flex items-center justify-center">
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-[8px] flex items-center justify-center">
                 AI
               </span>
             )}
           </div>
           <div className="min-w-0">
-            <h2 className="font-bold text-white text-sm flex items-center gap-2 truncate">
+            <h2 className="font-bold text-foreground text-sm flex items-center gap-2 truncate">
               {partnerName}
-              {isAI && <Sparkles size={13} className="text-[#9D7DC5] shrink-0" />}
+              {isAI && <Sparkles size={13} className="text-[var(--color-primary)] shrink-0" />}
             </h2>
             <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold">
               {showTyping ? (
-                <><span className="w-1.5 h-1.5 rounded-full bg-[#9D7DC5] animate-pulse" /> typing…</>
+                <><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" /> typing…</>
               ) : (
                 <><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   {isAI ? "AI · 24/7" : "Secure Session"}</>
@@ -148,18 +148,18 @@ export function ChatInterface({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar">
-        <div className="text-center pb-6 border-b border-white/5">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#9D7DC5]/10 border border-[#9D7DC5]/20 text-[#9D7DC5] text-xs font-bold rounded-full mb-2">
+        <div className="text-center pb-6 border-b border-border">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold rounded-full mb-2">
             <ShieldCheck size={14} /> Encrypted Session
           </div>
-          <p className="text-slate-500 text-[11px]">
+          <p className="text-muted-foreground text-[11px]">
             {isAI ? "AI consultant ready." : "Your session has begun."}
           </p>
         </div>
 
         {isLoading && messages.length === 0 ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-[#9D7DC5]" />
+            <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
           </div>
         ) : (
           messages.map((msg: ChatMessage) => {
@@ -169,13 +169,13 @@ export function ChatInterface({
                 <div className={cn(
                   "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-lg break-words",
                   isMe
-                    ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white rounded-br-sm"
-                    : "bg-slate-800 text-slate-200 border border-white/5 rounded-bl-sm",
+                    ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm"
+                    : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
                   msg._optimistic && "opacity-70"
                 )}>
                   {msg.content}
                 </div>
-                <span className="text-[10px] text-slate-600 mt-1 px-1 font-medium">
+                <span className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
                   {formatTime(msg.createdAt)}
                 </span>
               </div>
@@ -185,18 +185,18 @@ export function ChatInterface({
 
         {showStreaming && (
           <div className="flex flex-col items-start">
-            <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-slate-800 text-slate-200 border border-white/5 text-sm leading-relaxed">
+            <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken text-foreground border border-border text-sm leading-relaxed">
               {streamingText}
-              <span className="inline-block w-1.5 h-4 ml-1 bg-[#9D7DC5] animate-pulse align-middle" />
+              <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--color-primary)] animate-pulse align-middle" />
             </div>
           </div>
         )}
 
         {showTyping && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/60 border border-white/5 rounded-2xl w-max">
-            <div className="w-1.5 h-1.5 bg-[#9D7DC5] rounded-full animate-bounce" />
-            <div className="w-1.5 h-1.5 bg-[#9D7DC5] rounded-full animate-bounce [animation-delay:150ms]" />
-            <div className="w-1.5 h-1.5 bg-[#9D7DC5] rounded-full animate-bounce [animation-delay:300ms]" />
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface-sunken border border-border rounded-2xl w-max">
+            <div className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce" />
+            <div className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:150ms]" />
+            <div className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:300ms]" />
           </div>
         )}
 
@@ -205,7 +205,7 @@ export function ChatInterface({
 
       {/* Input */}
       <div
-        className="flex-none p-3 md:p-4 bg-slate-950/90 backdrop-blur-3xl border-t border-white/10"
+        className="flex-none p-3 md:p-4 bg-background backdrop-blur-3xl border-t border-border"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
       >
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center gap-2 md:gap-3">
@@ -216,7 +216,7 @@ export function ChatInterface({
             onBlur={() => !isAI && setTyping(false)}
             placeholder={isAI ? `Message ${partnerName}…` : "Type your message…"}
             maxLength={4000}
-            className="flex-1 bg-slate-900 border border-white/10 rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-[#9D7DC5] text-slate-200 shadow-inner placeholder:text-slate-500"
+            className="flex-1 bg-surface border border-border rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground"
           />
           <button
             type="submit"
@@ -225,8 +225,8 @@ export function ChatInterface({
             className={cn(
               "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all shrink-0",
               input.trim() && !isSending && !showStreaming
-                ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white shadow-[0_0_15px_rgba(157,125,197,0.3)] active:scale-95"
-                : "bg-slate-800 text-slate-500 cursor-not-allowed"
+                ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-[0_0_15px_rgba(157,125,197,0.3)] active:scale-95"
+                : "bg-surface-sunken text-muted-foreground cursor-not-allowed"
             )}
           >
             {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}

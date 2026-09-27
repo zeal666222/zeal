@@ -59,20 +59,20 @@ export default function PricingRequestsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-black text-white flex items-center gap-2">
-          <Tag size={22} className="text-[#9D7DC5]" /> Pricing Requests
+        <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
+          <Tag size={22} className="text-[var(--color-primary)]" /> Pricing Requests
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Consultants submit rate changes. Only SUPER_ADMIN can approve.
         </p>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
         </div>
       ) : requests.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl text-slate-400">
+        <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl text-muted-foreground">
           No pending pricing requests
         </div>
       ) : (
@@ -80,11 +80,11 @@ export default function PricingRequestsPage() {
           {requests.map((r) => (
             <motion.div key={r.id}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl border border-white/5 bg-slate-900/60">
+              className="p-5 rounded-2xl border border-border bg-surface">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-bold text-white">{r.consultant.user.name ?? r.consultant.user.email}</p>
-                  <p className="text-xs text-slate-500">{r.consultant.category}</p>
+                  <p className="font-bold text-foreground">{r.consultant.user.name ?? r.consultant.user.email}</p>
+                  <p className="text-xs text-muted-foreground">{r.consultant.category}</p>
                 </div>
                 <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">
                   {r.status}
@@ -93,15 +93,15 @@ export default function PricingRequestsPage() {
 
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                 {Object.keys(r.requestedRates).map((key) => (
-                  <div key={key} className="p-3 rounded-xl bg-slate-950/60">
-                    <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">{key}</p>
-                    <p className="text-slate-500 line-through text-xs">₹{r.currentRates[key] ?? "—"}</p>
-                    <p className="text-white font-mono font-bold">₹{r.requestedRates[key]}</p>
+                  <div key={key} className="p-3 rounded-xl bg-surface-raised">
+                    <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{key}</p>
+                    <p className="text-muted-foreground line-through text-xs">₹{r.currentRates[key] ?? "—"}</p>
+                    <p className="text-foreground font-mono font-bold">₹{r.requestedRates[key]}</p>
                   </div>
                 ))}
               </div>
 
-              <p className="mt-3 text-xs text-slate-400 italic">&ldquo;{r.reason}&rdquo;</p>
+              <p className="mt-3 text-xs text-muted-foreground italic">&ldquo;{r.reason}&rdquo;</p>
 
               {rejecting === r.id ? (
                 <div className="mt-4 space-y-2">
@@ -110,11 +110,11 @@ export default function PricingRequestsPage() {
                     onChange={(e) => setReason(e.target.value)}
                     rows={2}
                     placeholder="Reason for rejection (min 10 chars)"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-white/10 text-sm text-white resize-none"
+                    className="w-full px-3 py-2 rounded-xl bg-surface-raised border border-border text-sm text-foreground resize-none"
                   />
                   <div className="flex gap-2">
                     <button onClick={() => { setRejecting(null); setReason(""); }}
-                      className="flex-1 py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-bold">
+                      className="flex-1 py-2 rounded-xl bg-surface-raised text-slate-300 text-sm font-bold">
                       Cancel
                     </button>
                     <button

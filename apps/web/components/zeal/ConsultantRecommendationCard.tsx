@@ -58,7 +58,7 @@ export function ConsultantRecommendationCard({
     >
       <span
         aria-hidden
-        className={`absolute top-3 right-3 w-2 h-2 rounded-full ring-2 ring-slate-950/80 ${
+        className={`absolute top-3 right-3 w-2 h-2 rounded-full ring-2 ring-background ${
           isOnline ? "bg-emerald-500 animate-pulse" : "bg-slate-500"
         }`}
       />
@@ -72,21 +72,21 @@ export function ConsultantRecommendationCard({
           {avatar ? (
             <img src={avatar} alt={name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white font-black text-sm">
+            <div className="w-full h-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-sm">
               {name.charAt(0).toUpperCase()}
             </div>
           )}
         </div>
         {consultant.isAI && (
-          <span className="absolute -top-1 -right-1 px-1 py-0.5 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-[7px] font-black flex items-center gap-0.5">
+          <span className="absolute -top-1 -right-1 px-1 py-0.5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-[7px] font-black flex items-center gap-0.5">
             <Sparkles className="w-2 h-2" /> AI
           </span>
         )}
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-white text-sm truncate">{name}</p>
-        <p className="text-[10px] uppercase tracking-wider text-slate-500 truncate">
+        <p className="font-bold text-foreground text-sm truncate">{name}</p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground truncate">
           {(consultant.category ?? "consultant").toString().toLowerCase().replace(/_/g, " ")}
         </p>
 
@@ -111,7 +111,7 @@ export function ConsultantRecommendationCard({
         </div>
 
         {reason && (
-          <p className="text-[11px] text-slate-400 mt-2 italic leading-snug line-clamp-2">
+          <p className="text-[11px] text-muted-foreground mt-2 italic leading-snug line-clamp-2">
             {reason}
           </p>
         )}
@@ -119,7 +119,7 @@ export function ConsultantRecommendationCard({
         <button
           type="button"
           onClick={() => onChat(consultant.id)}
-          className="mt-3 w-full py-2 rounded-xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-xs font-black hover:opacity-95 active:scale-[0.98] transition-all"
+          className="mt-3 w-full py-2 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black hover:opacity-95 active:scale-[0.98] transition-all"
         >
           Chat now →
         </button>

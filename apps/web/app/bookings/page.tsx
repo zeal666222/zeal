@@ -41,14 +41,14 @@ export default function BookingsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 py-16 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-12">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-purple-600 mb-4">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-purple-600 mb-4">
             <Home size={16} /> Home
           </Link>
-          <h1 className="text-4xl font-black tracking-tight text-white">Your Bookings</h1>
-          <p className="text-slate-400 mt-2">Manage your scheduled sessions.</p>
+          <h1 className="text-4xl font-black tracking-tight text-foreground">Your Bookings</h1>
+          <p className="text-muted-foreground mt-2">Manage your scheduled sessions.</p>
         </div>
 
         {loading ? (
@@ -58,9 +58,9 @@ export default function BookingsPage() {
         ) : error ? (
           <div className="text-center py-16 text-rose-400">{error}</div>
         ) : bookings.length === 0 ? (
-          <div className="text-center py-16 border-2 border-dashed border-white/5 rounded-3xl">
-            <Calendar className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-400">No bookings yet</p>
+          <div className="text-center py-16 border-2 border-dashed border-border rounded-3xl">
+            <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No bookings yet</p>
             <Link href="/services"
               className="inline-block mt-4 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-sm font-bold">
               Find a Consultant <ArrowRight size={14} className="inline ml-1" />
@@ -71,7 +71,7 @@ export default function BookingsPage() {
             {bookings.map((b, i) => (
               <motion.div key={b.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6">
+                className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center overflow-hidden">
                     {b.consultant?.user?.avatar ? (
@@ -83,17 +83,17 @@ export default function BookingsPage() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-white truncate">
+                    <p className="font-bold text-foreground truncate">
                       {b.consultant?.user?.name || b.consultant?.user?.username || "Consultant"}
                     </p>
                     <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md ${
                       b.status === "CONFIRMED" ? "bg-emerald-500/15 text-emerald-400" :
                       b.status === "PENDING" ? "bg-amber-500/15 text-amber-400" :
-                      "bg-slate-500/15 text-slate-400"
+                      "bg-slate-500/15 text-muted-foreground"
                     }`}>{b.status}</span>
                   </div>
                 </div>
-                <div className="space-y-2 text-sm text-slate-400 mb-4">
+                <div className="space-y-2 text-sm text-muted-foreground mb-4">
                   <div className="flex items-center gap-2">
                     <Calendar size={14} /> {new Date(b.scheduledAt).toLocaleDateString()}
                   </div>

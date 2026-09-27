@@ -47,25 +47,25 @@ export default function AdminInvitesPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-[#5E4B8B] dark:text-white flex items-center gap-2">
-        <Shield className="w-6 h-6 text-[#9D7DC5]" /> Invite Administrator
+      <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+        <Shield className="w-6 h-6 text-[var(--color-primary)]" /> Invite Administrator
       </h1>
 
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="glass-card-3d p-5 space-y-4">
         <div>
-          <label htmlFor="invite-email" className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-1">Email</label>
+          <label htmlFor="invite-email" className="block text-sm font-medium text-foreground mb-1">Email</label>
           <input
             id="invite-email"
             type="email"
             value={email}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             placeholder="new-admin@zeal.com"
-            className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-900 border border-[#E1C5E7] dark:border-gray-700 text-[#5E4B8B] dark:text-white focus:ring-2 focus:ring-[#9D7DC5] outline-none"
+            className="w-full px-4 py-3 rounded-xl bg-surface border border-border text-foreground focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#5E4B8B] dark:text-white mb-2">Role</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Role</label>
           <div className="grid grid-cols-2 gap-2">
             {ROLES.map((r) => (
               <button
@@ -74,12 +74,12 @@ export default function AdminInvitesPage() {
                 className={cn(
                   "p-3 rounded-xl text-left transition-all border-2",
                   role === r.value
-                    ? "bg-gradient-to-br from-[#9D7DC5]/20 to-[#533AFD]/10 border-[#9D7DC5]"
-                    : "bg-white dark:bg-gray-900 border-[#E1C5E7] dark:border-gray-700 hover:border-[#9D7DC5]",
+                    ? "bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-primary-hover)]/10 border-[var(--color-primary)]"
+                    : "bg-surface border-border hover:border-[var(--color-primary)]",
                 )}
               >
-                <p className="font-medium text-sm text-[#5E4B8B] dark:text-white">{r.label}</p>
-                <p className="text-xs text-[#B8A1D9] mt-0.5">{r.desc}</p>
+                <p className="font-medium text-sm text-foreground">{r.label}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{r.desc}</p>
               </button>
             ))}
           </div>
@@ -94,7 +94,7 @@ export default function AdminInvitesPage() {
         <button
           onClick={() => mutation.mutate()}
           disabled={!email || mutation.isPending}
-          className="w-full py-3 rounded-2xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {mutation.isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</> : <><UserPlus className="w-4 h-4" /> Create invite</>}
         </button>
@@ -106,7 +106,7 @@ export default function AdminInvitesPage() {
               <input
                 readOnly
                 value={inviteUrl}
-                className="flex-1 px-3 py-2 rounded-lg bg-white dark:bg-gray-900 border border-green-200 dark:border-green-800 text-xs font-mono"
+                className="flex-1 px-3 py-2 rounded-lg bg-surface border border-green-200 dark:border-green-800 text-xs font-mono text-foreground"
               />
               <button onClick={handleCopy} className="px-3 py-2 rounded-lg bg-green-600 text-white text-sm font-medium flex items-center gap-1">
                 {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}

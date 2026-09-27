@@ -143,12 +143,12 @@ export function ZealChat() {
     <>
       <div className="glass-luxury rounded-3xl overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#9D7DC5] to-[#533AFD] flex items-center justify-center">
+        <div className="px-6 py-4 border-b border-border flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center">
             <Sparkles size={16} className="text-white" />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-black text-white">Ask Zeal</p>
+            <p className="text-sm font-black text-foreground">Ask Zeal</p>
             <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               Online · powered by Agnes + Groq
@@ -168,8 +168,8 @@ export function ZealChat() {
                 <div
                   className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                     m.role === "user"
-                      ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white rounded-br-sm"
-                      : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-sm"
+                      ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm"
+                      : "bg-surface-raised border border-border text-foreground rounded-bl-sm"
                   }`}
                 >
                   {m.content}
@@ -205,7 +205,7 @@ export function ZealChat() {
 
           {isStreamingResponse && (
             <div className="flex justify-start">
-              <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-white/5 border border-white/10">
+              <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-surface-raised border border-border">
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-luxury-gold)] animate-bounce" />
                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-luxury-gold)] animate-bounce [animation-delay:150ms]" />
@@ -226,7 +226,7 @@ export function ZealChat() {
                 key={p.value}
                 type="button"
                 onClick={() => send(p.value)}
-                className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs text-slate-300 hover:border-[var(--color-luxury-gold)]/40 hover:text-white transition-colors"
+                className="px-3 py-1.5 rounded-full bg-surface-raised border border-border text-xs text-muted-foreground hover:border-[var(--color-luxury-gold)]/40 hover:text-foreground transition-colors"
               >
                 {p.label}
               </button>
@@ -235,7 +235,7 @@ export function ZealChat() {
         )}
 
         {/* Input */}
-        <div className="px-4 py-3 border-t border-white/5">
+        <div className="px-4 py-3 border-t border-border">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -250,7 +250,7 @@ export function ZealChat() {
               placeholder="Describe what you need..."
               maxLength={500}
               disabled={loading}
-              className="flex-1 bg-white/5 border border-white/10 rounded-full px-5 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-[var(--color-luxury-gold)] transition-colors"
+              className="flex-1 bg-surface-raised border border-border rounded-full px-5 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-luxury-gold)] transition-colors"
             />
             <button
               type="submit"
@@ -258,8 +258,8 @@ export function ZealChat() {
               aria-label="Send"
               className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shrink-0 ${
                 input.trim() && !loading
-                  ? "bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] text-white active:scale-95"
-                  : "bg-white/5 text-slate-500 cursor-not-allowed"
+                  ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white active:scale-95"
+                  : "bg-surface-raised text-muted-foreground cursor-not-allowed"
               }`}
             >
               {loading ? (
@@ -273,7 +273,7 @@ export function ZealChat() {
       </div>
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-white shadow-2xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-foreground shadow-2xl">
           {toast}
         </div>
       )}

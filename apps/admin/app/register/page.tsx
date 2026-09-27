@@ -94,7 +94,7 @@ function Content() {
 
   if (needsConfirm) {
     return (
-      <div className="min-h-screen bg-[#0B0A14] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center p-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -125,7 +125,7 @@ function Content() {
         {transition && <PostAuthTransition destination="studio" email={email} />}
       </AnimatePresence>
 
-      <div className="min-h-screen bg-[#0B0A14] flex relative overflow-hidden">
+      <div className="min-h-screen bg-[var(--color-background)] flex relative overflow-hidden">
         <div className="fixed top-4 right-4 z-50">
           <ThemeToggle />
         </div>
@@ -142,7 +142,7 @@ function Content() {
               <p className="text-white font-black tracking-wider text-lg leading-none">
                 ZEAL STUDIO
               </p>
-              <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
+              <p className="text-[10px] text-muted-foreground tracking-[0.2em] font-bold uppercase mt-0.5">
                 Consultant + Admin
               </p>
             </div>
@@ -185,7 +185,7 @@ function Content() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.35 + i * 0.08 }}
-                  className="flex items-center gap-3 text-sm text-slate-300"
+                  className="flex items-center gap-3 text-sm text-muted-foreground"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
                     <Check size={11} className="text-emerald-400" />
@@ -227,7 +227,7 @@ function Content() {
               <h2 className="text-2xl font-black text-white tracking-tight">
                 Create your account
               </h2>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Instant activation · 90% revenue share
               </p>
             </div>
@@ -261,7 +261,7 @@ function Content() {
             <form onSubmit={submit} className="space-y-4">
               {/* Name */}
               <div>
-                <label htmlFor="reg-name" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label htmlFor="reg-name" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                   Full Name
                 </label>
                 <div className="relative group">
@@ -278,14 +278,14 @@ function Content() {
                     onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                     placeholder="Your full name"
                     autoComplete="name"
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
+                    className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
                   />
                 </div>
               </div>
 
               {/* Email */}
               <div>
-                <label htmlFor="reg-email" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label htmlFor="reg-email" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                   Email
                 </label>
                 <div className="relative group">
@@ -303,10 +303,10 @@ function Content() {
                     placeholder="you@example.com"
                     autoComplete="email"
                     className={
-                      "w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 transition-colors " +
+                      "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 transition-colors " +
                       (touched.email && email.length > 0 && !emailOk
                         ? "border-rose-500/40 focus:border-rose-500"
-                        : "border-white/5 focus:border-purple-500")
+                        : "border-border focus:border-purple-500")
                     }
                   />
                 </div>
@@ -314,7 +314,7 @@ function Content() {
 
               {/* Password */}
               <div>
-                <label htmlFor="reg-pw" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label htmlFor="reg-pw" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                   Password
                 </label>
                 <div className="relative group">
@@ -331,14 +331,14 @@ function Content() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min. 12 characters"
                     autoComplete="new-password"
-                    className="w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
+                    className="w-full pl-12 pr-12 py-3.5 bg-surface border border-border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPw((v) => !v)}
                     tabIndex={-1}
                     aria-label={showPw ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-white/5 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-600 hover:text-muted-foreground hover:bg-surface-overlay transition-colors"
                   >
                     {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -346,7 +346,7 @@ function Content() {
                 {password.length > 0 && (
                   <div className="mt-2 space-y-1.5">
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div className="flex-1 h-1 bg-surface-raised rounded-full overflow-hidden">
                         <motion.div
                           animate={{ width: meta.width }}
                           transition={{ duration: 0.4 }}
@@ -362,7 +362,7 @@ function Content() {
                         {meta.label}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[10px] text-muted-foreground">
                       {pwOk ? "✓ 12-character minimum met"
                             : `${12 - password.length} more character${12 - password.length === 1 ? "" : "s"}`}
                     </p>
@@ -372,7 +372,7 @@ function Content() {
 
               {/* Confirm */}
               <div>
-                <label htmlFor="reg-confirm" className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label htmlFor="reg-confirm" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
                   Confirm Password
                 </label>
                 <div className="relative group">
@@ -389,10 +389,10 @@ function Content() {
                     placeholder="Repeat password"
                     autoComplete="new-password"
                     className={
-                      "w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 transition-colors " +
+                      "w-full pl-12 pr-12 py-3.5 bg-surface border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 transition-colors " +
                       (confirm.length > 0 && !matches
                         ? "border-rose-500/40 focus:border-rose-500"
-                        : "border-white/5 focus:border-purple-500")
+                        : "border-border focus:border-purple-500")
                     }
                   />
                   {matches && (
@@ -412,11 +412,11 @@ function Content() {
                     onChange={(e) => setAgreed(e.target.checked)}
                     className="peer sr-only"
                   />
-                  <div className="w-5 h-5 rounded-md border-2 border-white/10 bg-slate-900/60 peer-checked:bg-purple-600 peer-checked:border-purple-600 transition-all flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-md border-2 border-border bg-surface peer-checked:bg-purple-600 peer-checked:border-purple-600 transition-all flex items-center justify-center">
                     {agreed && <Check size={12} className="text-white" />}
                   </div>
                 </div>
-                <span className="text-[11px] text-slate-500 leading-relaxed">
+                <span className="text-[11px] text-muted-foreground leading-relaxed">
                   I agree to Zeal&apos;s{" "}
                   <Link href="/terms" className="text-purple-400 hover:text-purple-300 font-bold">
                     Terms
@@ -446,14 +446,14 @@ function Content() {
               </button>
             </form>
 
-            <p className="text-center text-xs text-slate-500 mt-7">
+            <p className="text-center text-xs text-muted-foreground mt-7">
               Already have an account?{" "}
               <Link href="/login" className="text-purple-400 hover:text-purple-300 font-bold">
                 Sign in
               </Link>
             </p>
 
-            <p className="text-center text-[10px] text-slate-600 mt-4 pt-4 border-t border-white/5">
+            <p className="text-center text-[10px] text-slate-600 mt-4 pt-4 border-t border-border">
               <Sparkles size={10} className="inline mr-1.5 text-purple-400" />
               Just looking for guidance?{" "}
               <a
@@ -472,7 +472,7 @@ function Content() {
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0B0A14]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-background)]" />}>
       <Content />
     </Suspense>
   );

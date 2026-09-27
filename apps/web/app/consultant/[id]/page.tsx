@@ -144,12 +144,12 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50 pb-24">
+    <div className="min-h-screen-app bg-background text-foreground pb-24">
       {/* Cover */}
       <div className="relative w-full h-56 md:h-72 noise-overlay overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0B0A14] via-[#1A1430] to-[#0B0A14]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]" />
         <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-[var(--color-luxury-gold)]/10 blur-[160px] pointer-events-none" />
-        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#9D7DC5]/12 blur-[160px] pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-[var(--color-primary)]/12 blur-[160px] pointer-events-none" />
         <Link
           href="/explore"
           aria-label="Back to explore"
@@ -167,7 +167,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
               aria-hidden
               className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/25 blur-xl"
             />
-            <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-slate-950 bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white text-4xl font-black overflow-hidden">
+            <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white text-4xl font-black overflow-hidden">
               {user.avatar ? (
                 <img
                   src={user.avatar}
@@ -179,7 +179,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
               )}
             </div>
             <div
-              className={`absolute bottom-3 right-3 w-6 h-6 rounded-full border-4 border-slate-950 ${
+              className={`absolute bottom-3 right-3 w-6 h-6 rounded-full border-4 border-background ${
                 user.is_online ? "bg-emerald-500 animate-pulse" : "bg-slate-500"
               }`}
               aria-label={user.is_online ? "Online" : "Offline"}
@@ -188,12 +188,12 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
 
           <div className="flex-1 min-w-0">
             <h1
-              className="text-3xl md:text-4xl font-black text-white truncate"
+              className="text-3xl md:text-4xl font-black text-foreground truncate"
               style={{ fontFamily: "var(--font-display)" }}
             >
               {displayName}
             </h1>
-            <p className="text-slate-400 text-sm mt-1">
+            <p className="text-muted-foreground text-sm mt-1">
               @{user.username} ·{" "}
               {profileRow.category.toLowerCase().replace(/_/g, " ")}
             </p>
@@ -234,7 +234,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
 
         {/* Bio */}
         {profileRow.bio && (
-          <p className="text-slate-300 leading-relaxed mt-6">{profileRow.bio}</p>
+          <p className="text-muted-foreground leading-relaxed mt-6">{profileRow.bio}</p>
         )}
 
         {/* Chips */}
@@ -250,7 +250,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
           {(profileRow.languages ?? []).map((l: string) => (
             <span
               key={l}
-              className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs"
+              className="px-3 py-1 rounded-full bg-surface-raised border border-border text-muted-foreground text-xs"
             >
               {l}
             </span>
@@ -269,10 +269,10 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
 function StatCell({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="text-center">
-      <div className="text-lg md:text-2xl font-black text-white font-mono">
+      <div className="text-lg md:text-2xl font-black text-foreground font-mono">
         {typeof value === "number" ? value.toLocaleString() : value}
       </div>
-      <div className="text-[10px] md:text-xs text-slate-500 uppercase tracking-wider mt-1">
+      <div className="text-[10px] md:text-xs text-muted-foreground uppercase tracking-wider mt-1">
         {label}
       </div>
     </div>

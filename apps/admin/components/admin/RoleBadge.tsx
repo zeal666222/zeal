@@ -9,7 +9,7 @@ const STYLE: Record<string, string> = {
   SUPPORT:      "bg-blue-500/15 text-blue-300 border-blue-500/30",
   VIEWER:       "bg-slate-500/15 text-slate-300 border-slate-500/30",
   CLIENT_ADMIN: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  USER:         "bg-white/5 text-slate-400 border-white/10",
+  USER:         "bg-surface-raised text-slate-400 border-white/10",
 };
 
 export function RoleBadge({ role, className }: { role: string; className?: string }) {

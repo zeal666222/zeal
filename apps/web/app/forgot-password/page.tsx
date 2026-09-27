@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
         subtitle="We sent a reset link if that account exists"
         brandIcon={ShieldCheck}
         footer={
-          <p className="text-center text-xs text-slate-500">
+          <p className="text-center text-xs text-muted-foreground">
             Back to{" "}
             <Link
               href="/login"
@@ -80,7 +80,7 @@ export default function ForgotPasswordPage() {
       subtitle="Enter your email and we'll send a reset link"
       brandIcon={ShieldCheck}
       footer={
-        <p className="text-center text-xs text-slate-500">
+        <p className="text-center text-xs text-muted-foreground">
           Remembered it?{" "}
           <Link
             href="/login"

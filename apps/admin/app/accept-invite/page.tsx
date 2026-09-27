@@ -85,24 +85,24 @@ function AcceptInviteContent() {
 
   if (verifying) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-raised flex items-center justify-center">
         <Loader2 className="animate-spin text-purple-500" size={32} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-surface-raised flex items-center justify-center p-6">
       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md">
-        <div className="bg-slate-900/60 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-8">
+        <div className="bg-surface backdrop-blur-3xl border border-border rounded-[2.5rem] p-8">
           <div className="text-center mb-8">
             <div className="w-16 h-16 mx-auto bg-gradient-to-tr from-purple-500/20 to-indigo-500/20 border border-purple-500/30 rounded-2xl flex items-center justify-center mb-4">
               <ShieldCheck className="text-purple-400" size={32} />
             </div>
-            <h1 className="text-2xl font-black text-white">Accept Admin Invite</h1>
+            <h1 className="text-2xl font-black text-foreground">Accept Admin Invite</h1>
             {email && (
-              <p className="text-sm text-slate-400 mt-2">
+              <p className="text-sm text-muted-foreground mt-2">
                 You&apos;ve been invited as{" "}
                 <strong className="text-purple-400">{role}</strong>
               </p>
@@ -116,37 +116,37 @@ function AcceptInviteContent() {
           ) : (
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
                   Email
                 </label>
                 <div className="relative">
-                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
+                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input value={email ?? ""} disabled
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-950/50 border border-white/5 rounded-2xl text-sm text-slate-400" />
+                    className="w-full pl-12 pr-4 py-3.5 bg-surface-raised/50 border border-border rounded-2xl text-sm text-muted-foreground" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
                   Password (min 12)
                 </label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input type="password" value={password}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)} required minLength={12}
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white focus:border-purple-500 outline-none" />
+                    className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground focus:border-purple-500 outline-none" />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-black text-slate-500 uppercase tracking-widest mb-2">
+                <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input type="password" value={confirm}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirm(e.target.value)} required minLength={12}
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white focus:border-purple-500 outline-none" />
+                    className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground focus:border-purple-500 outline-none" />
                 </div>
               </div>
 
@@ -175,7 +175,7 @@ function AcceptInviteContent() {
 export default function AcceptInvitePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-surface-raised flex items-center justify-center">
         <Loader2 className="animate-spin text-purple-500" size={32} />
       </div>
     }>

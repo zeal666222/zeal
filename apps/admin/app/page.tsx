@@ -33,7 +33,7 @@ export default async function AdminLandingPage() {
 
   // Unknown role: show a branded "not authorized" screen
   return (
-    <div className="min-h-screen bg-[#0B0A14] flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center p-6 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] rounded-full bg-rose-500/8 blur-[160px] pointer-events-none" />
 
       <div className="relative max-w-md w-full text-center">
@@ -51,21 +51,21 @@ export default async function AdminLandingPage() {
         <div className="grid grid-cols-2 gap-3 mb-8">
           <a
             href={process.env.NEXT_PUBLIC_APP_URL || "https://zeal-web-red.vercel.app"}
-            className="p-4 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-purple-500/40 transition-all text-left"
+            className="p-4 rounded-2xl bg-surface border border-border hover:border-purple-500/40 transition-all text-left"
           >
             <Sparkles size={16} className="text-purple-400 mb-3" />
             <p className="text-white font-bold text-sm">Go to Zeal</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">Seeker portal</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Seeker portal</p>
           </a>
 
           <form action={adminSignOutAction}>
             <button
               type="submit"
-              className="w-full h-full p-4 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-rose-500/40 transition-all text-left"
+              className="w-full h-full p-4 rounded-2xl bg-surface border border-border hover:border-rose-500/40 transition-all text-left"
             >
               <LogOut size={16} className="text-rose-400 mb-3" />
               <p className="text-white font-bold text-sm">Sign out</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">Try a different account</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Try a different account</p>
             </button>
           </form>
         </div>

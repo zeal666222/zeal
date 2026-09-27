@@ -39,7 +39,7 @@ function NavIcon({
       {active && (
         <motion.span
           layoutId="bottomnav-active"
-          className="absolute -top-0.5 w-10 h-0.5 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD]"
+          className="absolute -top-0.5 w-10 h-0.5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]"
           transition={{ type: "spring", stiffness: 500, damping: 32 }}
         />
       )}
@@ -143,7 +143,7 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
           className="absolute -inset-1 rounded-2xl opacity-70 pointer-events-none"
           style={{
             background:
-              "conic-gradient(from 0deg, #9D7DC5, #533AFD, #9D7DC5, #533AFD, #9D7DC5)",
+              "conic-gradient(from 0deg, var(--color-primary), var(--color-primary-hover), var(--color-primary), var(--color-primary-hover), var(--color-primary))",
             filter: "blur(6px)",
           }}
           animate={{ rotate: 360 }}
@@ -156,7 +156,7 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
           transition={{ type: "spring", stiffness: 420, damping: 16 }}
           className="relative w-16 h-16 sm:w-[68px] sm:h-[68px]
                      rounded-2xl
-                     bg-gradient-to-br from-[#9D7DC5] via-[#7A5A9E] to-[#533AFD]
+                     bg-gradient-to-br from-[var(--color-primary)] via-[#7A5A9E] to-[var(--color-primary-hover)]
                      border border-purple-400/40
                      flex items-center justify-center
                      shadow-[0_8px_24px_-6px_rgba(83,58,253,0.55),0_0_24px_-4px_rgba(157,125,197,0.55)]"

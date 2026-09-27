@@ -67,8 +67,8 @@ export default function ConsultantsPage() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-white">Consultants</h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <h1 className="text-2xl lg:text-3xl font-black text-foreground">Consultants</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {filtered.length} verified guide{filtered.length !== 1 ? "s" : ""} on the platform
           </p>
         </div>
@@ -90,21 +90,21 @@ export default function ConsultantsPage() {
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
             placeholder="Search by name, email, or category..."
-            className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-900/60 border border-white/10 text-sm text-white placeholder:text-slate-500 outline-none focus:border-[#9D7DC5]"
+            className="w-full pl-10 pr-4 py-3 rounded-xl bg-surface border border-border text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-primary)]"
           />
         </div>
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <select
             value={statusFilter}
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value)}
-            className="pl-10 pr-6 py-3 rounded-xl bg-slate-900/60 border border-white/10 text-sm text-white outline-none focus:border-[#9D7DC5] appearance-none"
+            className="pl-10 pr-6 py-3 rounded-xl bg-surface border border-border text-sm text-foreground outline-none focus:border-[var(--color-primary)] appearance-none"
           >
             <option value="all">All Status</option>
             <option value="VERIFIED">Verified</option>
@@ -118,7 +118,7 @@ export default function ConsultantsPage() {
       {/* Grid */}
       {isLoading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-[#9D7DC5]" />
+          <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState
@@ -135,11 +135,11 @@ export default function ConsultantsPage() {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.03 }}
-              className="glass-card-3d p-5 block hover:border-[#9D7DC5]/40 transition-all"
+              className="glass-card-3d p-5 block hover:border-[var(--color-primary)]/40 transition-all"
             >
               <div className="flex items-start gap-3 mb-4">
                 <div className="relative">
-                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+                  <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-bold text-lg overflow-hidden">
                     {c.user.avatar ? (
                       <img src={c.user.avatar} alt={c.user.name ?? ""} className="w-full h-full object-cover" />
                     ) : (
@@ -147,14 +147,14 @@ export default function ConsultantsPage() {
                     )}
                   </div>
                   {c.user.is_online && (
-                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+                    <div className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-surface-raised rounded-full" />
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-white text-sm truncate">
+                  <p className="font-bold text-foreground text-sm truncate">
                     {c.user.name || c.user.email.split("@")[0]}
                   </p>
-                  <p className="text-xs text-slate-400 capitalize truncate">
+                  <p className="text-xs text-muted-foreground capitalize truncate">
                     {c.category.toLowerCase().replace(/_/g, " ")}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5 text-xs">
@@ -170,7 +170,7 @@ export default function ConsultantsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-3 border-t border-white/5">
+              <div className="flex items-center justify-between pt-3 border-t border-border">
                 <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                   c.status === "VERIFIED" ? "bg-emerald-500/20 text-emerald-400" :
                   c.status === "PENDING" ? "bg-amber-500/20 text-amber-400" :
@@ -178,7 +178,7 @@ export default function ConsultantsPage() {
                 }`}>
                   {c.status}
                 </span>
-                <span className="text-sm font-bold text-[#9D7DC5]">
+                <span className="text-sm font-bold text-[var(--color-primary)]">
                   ₹{c.perMinuteRate}/min
                 </span>
               </div>

@@ -47,12 +47,12 @@ export default function ConsultantEarningsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white">Earnings</h1>
-        <p className="text-sm text-slate-400 mt-1">Real-time wallet and payout history</p>
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground">Earnings</h1>
+        <p className="text-sm text-muted-foreground mt-1">Real-time wallet and payout history</p>
       </div>
 
       {/* Balance card */}
-      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-950 border border-emerald-500/30 rounded-3xl shadow-2xl">
+      <div className="relative overflow-hidden p-6 lg:p-8 bg-gradient-to-br from-emerald-500/10 via-surface to-surface border border-emerald-500/30 rounded-3xl shadow-2xl">
         <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none" />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
@@ -61,28 +61,28 @@ export default function ConsultantEarningsPage() {
               Available Balance
             </span>
           </div>
-          <div className="flex items-center gap-2 text-white">
+          <div className="flex items-center gap-2 text-foreground">
             <IndianRupee className="w-8 h-8 text-emerald-400" />
             <span className="text-3xl lg:text-5xl font-black font-mono tracking-tight">
               {Number(balance).toFixed(2)}
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-white/5">
+          <div className="grid grid-cols-3 gap-3 mt-6 pt-6 border-t border-border">
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">Lifetime earned</p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Lifetime earned</p>
               <p className="text-sm font-black font-mono text-emerald-400 mt-1">
                 ₹{stats.earned.toFixed(0)}
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">Last 7 days</p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Last 7 days</p>
               <p className="text-sm font-black font-mono text-purple-400 mt-1 flex items-center gap-1">
                 <TrendingUp size={11} /> ₹{stats.last7.toFixed(0)}
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">Withdrawn</p>
-              <p className="text-sm font-black font-mono text-slate-300 mt-1">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Withdrawn</p>
+              <p className="text-sm font-black font-mono text-muted-foreground mt-1">
                 ₹{stats.paid.toFixed(0)}
               </p>
             </div>
@@ -91,11 +91,11 @@ export default function ConsultantEarningsPage() {
       </div>
 
       {/* Transactions */}
-      <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-5 lg:p-6">
-        <h2 className="text-base lg:text-lg font-bold text-white mb-4">Recent Transactions</h2>
+      <div className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-5 lg:p-6">
+        <h2 className="text-base lg:text-lg font-bold text-foreground mb-4">Recent Transactions</h2>
 
         {txs.length === 0 ? (
-          <p className="text-slate-500 text-sm text-center py-8">No transactions yet</p>
+          <p className="text-muted-foreground text-sm text-center py-8">No transactions yet</p>
         ) : (
           <div className="space-y-2">
             {txs.slice(0, 30).map((tx) => {
@@ -103,7 +103,7 @@ export default function ConsultantEarningsPage() {
               return (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors"
+                  className="flex items-center justify-between p-3 bg-surface-raised rounded-xl hover:bg-surface-overlay transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -112,14 +112,14 @@ export default function ConsultantEarningsPage() {
                       {credit ? <ArrowDownRight size={16} /> : <ArrowUpRight size={16} />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-white truncate">{tx.description}</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-sm font-bold text-foreground truncate">{tx.description}</p>
+                      <p className="text-xs text-muted-foreground">
                         {new Date(tx.createdAt).toLocaleString()}
                       </p>
                     </div>
                   </div>
                   <span className={`text-sm font-bold font-mono flex-shrink-0 ${
-                    credit ? "text-emerald-400" : "text-slate-300"
+                    credit ? "text-emerald-400" : "text-muted-foreground"
                   }`}>
                     {credit ? "+" : "-"}₹{Math.abs(tx.amount).toFixed(2)}
                   </span>

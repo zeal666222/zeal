@@ -38,7 +38,7 @@ export function RealtimeStatus() {
         "mb-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest",
         state === "online"
           ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-          : "bg-slate-500/10 text-slate-400 border border-slate-500/20",
+          : "bg-slate-500/10 text-muted-foreground border border-slate-500/20",
       ].join(" ")}
     >
       {state === "online" ? <Wifi size={11} /> : <WifiOff size={11} />}

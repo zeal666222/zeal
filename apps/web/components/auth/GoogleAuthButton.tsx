@@ -57,7 +57,7 @@ export function GoogleAuthButton({
       type="button"
       onClick={handleGoogleSignIn}
       disabled={loading}
-      className="btn-3d w-full py-3.5 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800/80 border border-white/10 text-white font-bold text-sm flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-black/40 group"
+      className="btn-3d w-full py-3.5 px-4 rounded-2xl bg-surface hover:bg-surface-sunken border border-border text-foreground font-bold text-sm flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-black/40 group"
     >
       {loading ? (
         <Loader2 size={18} className="animate-spin text-purple-400" />
@@ -69,7 +69,7 @@ export function GoogleAuthButton({
           <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
         </svg>
       )}
-      <span className="text-slate-200 group-hover:text-white transition-colors">
+      <span className="text-foreground group-hover:text-foreground transition-colors">
         {loading ? "Connecting to Google..." : label}
       </span>
     </button>

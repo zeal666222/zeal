@@ -46,10 +46,10 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
   };
 
   const Body = (
-    <div className="flex flex-col h-full bg-slate-950">
-      <div className="flex items-center gap-3 p-5 border-b border-white/5">
+    <div className="flex flex-col h-full bg-background">
+      <div className="flex items-center gap-3 p-5 border-b border-border">
         <div className="relative shrink-0">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white font-semibold overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-semibold overflow-hidden">
             {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : initial}
           </div>
           <svg className="absolute -inset-0.5 w-11 h-11 -rotate-90" viewBox="0 0 44 44" aria-hidden>
@@ -61,8 +61,8 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
           </svg>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-white truncate">{displayName}</p>
-          <p className="text-xs text-slate-400 truncate">
+          <p className="text-sm font-semibold text-foreground truncate">{displayName}</p>
+          <p className="text-xs text-muted-foreground truncate">
             {completeness.isLive ? "Verified Guide" : `${completeness.score}% complete`}
           </p>
         </div>
@@ -70,13 +70,13 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
 
       {consultant.subdomain && (
         <button onClick={copySubdomain}
-          className="mx-3 mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[#9D7DC5]/10 hover:bg-[#9D7DC5]/20 transition-colors text-left"
+          className="mx-3 mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-[var(--color-primary)]/10 hover:bg-[var(--color-primary)]/20 transition-colors text-left"
         >
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-[#9D7DC5]">Your Site</p>
-            <p className="text-xs font-medium text-white truncate">{consultant.subdomain}.zeal.app</p>
+            <p className="text-[10px] uppercase tracking-wider text-[var(--color-primary)]">Your Site</p>
+            <p className="text-xs font-medium text-foreground truncate">{consultant.subdomain}.zeal.app</p>
           </div>
-          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Copy className="w-3.5 h-3.5 text-[#9D7DC5] shrink-0" />}
+          {copied ? <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Copy className="w-3.5 h-3.5 text-[var(--color-primary)] shrink-0" />}
         </button>
       )}
 
@@ -88,7 +88,7 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
             <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
-                on ? "bg-gradient-to-r from-[#9D7DC5]/20 to-[#533AFD]/10 text-[#9D7DC5]" : "text-slate-300 hover:bg-white/5 hover:text-white",
+                on ? "bg-gradient-to-r from-[var(--color-primary)]/20 to-[var(--color-primary-hover)]/10 text-[var(--color-primary)]" : "text-muted-foreground hover:bg-surface-raised hover:text-foreground",
               )}
             >
               <Icon className="w-5 h-5 shrink-0" />
@@ -103,7 +103,7 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
         })}
       </nav>
 
-      <div className="p-3 border-t border-white/5">
+      <div className="p-3 border-t border-border">
         <button onClick={logout}
           className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-red-400 hover:bg-red-500/10 transition-colors">
           <LogOut className="w-5 h-5" />
@@ -115,34 +115,34 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
 
   return (
     <>
-      <aside className="hidden lg:flex lg:flex-col fixed top-0 left-0 w-64 h-screen bg-slate-950 border-r border-white/5 z-30">{Body}</aside>
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-slate-950/95 backdrop-blur-3xl border-b border-white/5 flex items-center justify-between px-4">
-        <button onClick={() => setOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-white/5" aria-label="Open menu">
-          <Menu className="w-5 h-5 text-white" />
+      <aside className="hidden lg:flex lg:flex-col fixed top-0 left-0 w-64 h-screen bg-background border-r border-border z-30">{Body}</aside>
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-background backdrop-blur-3xl border-b border-border flex items-center justify-between px-4">
+        <button onClick={() => setOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-surface-raised" aria-label="Open menu">
+          <Menu className="w-5 h-5 text-foreground" />
         </button>
-        <span className="text-sm font-bold text-white tracking-wide">Zeal Studio</span>
+        <span className="text-sm font-bold text-foreground tracking-wide">Zeal Studio</span>
         <div className="w-9" />
       </div>
       {open && (
         <>
           <button type="button" aria-label="Close overlay" onClick={() => setOpen(false)} className="lg:hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
-          <aside className="lg:hidden fixed top-0 left-0 z-50 w-72 h-screen bg-slate-950 shadow-2xl">
-            <button onClick={() => setOpen(false)} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/5" aria-label="Close menu">
-              <X className="w-5 h-5 text-white" />
+          <aside className="lg:hidden fixed top-0 left-0 z-50 w-72 h-screen bg-background shadow-2xl">
+            <button onClick={() => setOpen(false)} className="absolute top-4 right-4 p-2 rounded-lg hover:bg-surface-overlay" aria-label="Close menu">
+              <X className="w-5 h-5 text-foreground" />
             </button>
             {Body}
           </aside>
         </>
       )}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-slate-950/95 backdrop-blur-3xl border-t border-white/5 flex items-center justify-around px-2">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-background backdrop-blur-3xl border-t border-border flex items-center justify-around px-2">
         {NAV.filter((i) => i.mobile).map((item) => {
           const Icon = item.icon;
           const on = active(item.href);
           return (
             <Link key={item.href} href={item.href} className="relative flex flex-col items-center gap-1 min-w-[52px] py-1">
-              <span className={cn("absolute -top-0.5 w-6 h-0.5 rounded-full transition-all", on ? "bg-[#9D7DC5]" : "opacity-0")} />
-              <Icon className={cn("w-5 h-5", on ? "text-[#9D7DC5]" : "text-slate-500")} />
-              <span className={cn("text-[9px] font-bold uppercase tracking-wider", on ? "text-[#9D7DC5]" : "text-slate-600")}>{item.label}</span>
+              <span className={cn("absolute -top-0.5 w-6 h-0.5 rounded-full transition-all", on ? "bg-[var(--color-primary)]" : "opacity-0")} />
+              <Icon className={cn("w-5 h-5", on ? "text-[var(--color-primary)]" : "text-muted-foreground")} />
+              <span className={cn("text-[9px] font-bold uppercase tracking-wider", on ? "text-[var(--color-primary)]" : "text-muted-foreground")}>{item.label}</span>
               {item.href === "/consultant/bookings" && pendingBookings > 0 && (
                 <span className="absolute top-0 right-1 min-w-[16px] h-4 px-1 bg-rose-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center">
                   {pendingBookings > 9 ? "9+" : pendingBookings}

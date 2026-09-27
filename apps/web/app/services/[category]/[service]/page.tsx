@@ -115,7 +115,7 @@ export default async function ServicePage({ params }: PageProps) {
     <div className="max-w-6xl mx-auto px-4 py-8">
       <Link
         href={`/services/${category}`}
-        className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-[#9D7DC5] mb-6 transition-colors"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-[var(--color-primary)] mb-6 transition-colors"
       >
         <ArrowLeft size={14} /> {categoryName}
       </Link>
@@ -123,16 +123,16 @@ export default async function ServicePage({ params }: PageProps) {
       {/* Hero */}
       <div className="mb-8">
         <div className="text-5xl mb-4">{def.icon}</div>
-        <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2">
+        <h1 className="text-3xl md:text-5xl font-black text-foreground tracking-tight mb-2">
           {def.displayName}
         </h1>
-        <p className="text-slate-400 max-w-2xl">{def.description}</p>
+        <p className="text-muted-foreground max-w-2xl">{def.description}</p>
         <div className="flex flex-wrap items-center gap-4 mt-4 text-sm">
-          <span className="text-slate-400">
+          <span className="text-muted-foreground">
             {humanList.length} human guide{humanList.length !== 1 ? "s" : ""}
           </span>
           {aiConsultants.length > 0 && (
-            <span className="text-[#9D7DC5]">
+            <span className="text-[var(--color-primary)]">
               {aiConsultants.length} AI consultant{aiConsultants.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -142,7 +142,7 @@ export default async function ServicePage({ params }: PageProps) {
       {/* AI consultants first */}
       {aiConsultants.length > 0 && (
         <div className="mb-10">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-[#9D7DC5] mb-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--color-primary)] mb-4">
             ✨ AI Consultants · 24/7
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -156,7 +156,7 @@ export default async function ServicePage({ params }: PageProps) {
       {/* Human consultants */}
       {humanList.length > 0 && (
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">
             Verified Human Guides
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -190,11 +190,11 @@ export default async function ServicePage({ params }: PageProps) {
       )}
 
       {humanList.length === 0 && aiConsultants.length === 0 && (
-        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl">
-          <p className="text-slate-400">No consultants available for this service yet.</p>
+        <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl">
+          <p className="text-muted-foreground">No consultants available for this service yet.</p>
           <Link
             href={`/services/${category}`}
-            className="inline-block mt-4 px-5 py-2.5 bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white rounded-xl text-sm font-medium"
+            className="inline-block mt-4 px-5 py-2.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-xl text-sm font-medium"
           >
             Back to {categoryName}
           </Link>
@@ -209,28 +209,28 @@ function AIConsultantCard({ consultant }: { consultant: AIConsultantRow }) {
   return (
     <Link
       href={`/ai-astrologers/${consultant.id}`}
-      className="glass-card-3d p-5 hover:border-[#9D7DC5]/40 transition-all block"
+      className="glass-card-3d p-5 hover:border-[var(--color-primary)]/40 transition-all block"
     >
       <div className="flex items-start gap-3 mb-3">
         <div className="relative flex-shrink-0">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#9D7DC5] to-[#533AFD] flex items-center justify-center text-white font-bold text-lg overflow-hidden ring-2 ring-[#9D7DC5]/30">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-bold text-lg overflow-hidden ring-2 ring-[var(--color-primary)]/30">
             {consultant.avatar ? (
               <img src={consultant.avatar} alt={consultant.name} className="w-full h-full object-cover" />
             ) : (
               consultant.name.charAt(0).toUpperCase()
             )}
           </div>
-          <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-[8px] font-bold rounded-full">
+          <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-[8px] font-bold rounded-full">
             AI
           </span>
-          <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+          <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-background rounded-full" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-bold text-white text-sm truncate">{consultant.name}</h3>
-          <p className="text-xs text-slate-400 truncate">@{consultant.username}</p>
+          <h3 className="font-bold text-foreground text-sm truncate">{consultant.name}</h3>
+          <p className="text-xs text-muted-foreground truncate">@{consultant.username}</p>
           <div className="flex items-center gap-2 mt-1 text-xs">
             <span className="text-amber-400">⭐ {consultant.rating.toFixed(1)}</span>
-            <span className="text-[#9D7DC5]">
+            <span className="text-[var(--color-primary)]">
               {consultant.isPaid && consultant.perMinuteRate
                 ? `₹${consultant.perMinuteRate}/min`
                 : "Free"}
@@ -238,8 +238,8 @@ function AIConsultantCard({ consultant }: { consultant: AIConsultantRow }) {
           </div>
         </div>
       </div>
-      <p className="text-xs text-slate-400 line-clamp-2 mb-3">{consultant.bio}</p>
-      <div className="inline-flex items-center gap-1 text-[#9D7DC5] text-xs font-medium">
+      <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{consultant.bio}</p>
+      <div className="inline-flex items-center gap-1 text-[var(--color-primary)] text-xs font-medium">
         Start chat →
       </div>
     </Link>

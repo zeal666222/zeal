@@ -118,7 +118,7 @@ function BookingContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
       </div>
     );
@@ -126,14 +126,14 @@ function BookingContent() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
           className="max-w-md text-center">
           <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-6">
             <CheckCircle2 className="w-10 h-10 text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-black text-white mb-2">Booking Confirmed</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className="text-2xl font-black text-foreground mb-2">Booking Confirmed</h2>
+          <p className="text-sm text-muted-foreground">
             Redirecting to your bookings…
           </p>
         </motion.div>
@@ -142,10 +142,10 @@ function BookingContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background text-foreground py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
         <button onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-purple-400 mb-6">
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-purple-400 mb-6">
           <ArrowLeft size={16} /> Back
         </button>
 
@@ -153,10 +153,10 @@ function BookingContent() {
           <Calendar size={14} /> Book Consultation
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">
+        <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-foreground mb-2">
           Schedule your session
         </h1>
-        <p className="text-slate-400 mb-8">Pick a duration and slot. Payment is held in escrow until the session completes.</p>
+        <p className="text-muted-foreground mb-8">Pick a duration and slot. Payment is held in escrow until the session completes.</p>
 
         {error && (
           <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm flex items-start gap-2">
@@ -167,7 +167,7 @@ function BookingContent() {
 
         {/* Consultant card */}
         {consultant && (
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-5 mb-6 flex items-center gap-4">
+          <div className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-5 mb-6 flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-purple-500/20 overflow-hidden flex items-center justify-center">
               {consultant.avatar ? (
                 <img src={consultant.avatar} alt={consultant.name} className="w-full h-full object-cover" />
@@ -178,11 +178,11 @@ function BookingContent() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-white truncate">{consultant.name}</p>
-              <p className="text-xs text-slate-400 capitalize">{consultant.category.toLowerCase()}</p>
+              <p className="font-bold text-foreground truncate">{consultant.name}</p>
+              <p className="text-xs text-muted-foreground capitalize">{consultant.category.toLowerCase()}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Rate</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Rate</p>
               <p className="text-purple-400 font-bold font-mono">
                 {formatCurrency(consultant.perMinuteRate)}/min
               </p>
@@ -192,7 +192,7 @@ function BookingContent() {
 
         {/* Duration */}
         <div className="mb-6">
-          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+          <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">
             Duration
           </label>
           <div className="grid grid-cols-4 gap-2">
@@ -201,7 +201,7 @@ function BookingContent() {
                 className={`py-3 rounded-2xl text-sm font-bold transition-all ${
                   duration === d
                     ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
-                    : "bg-slate-900/60 border border-white/10 text-slate-300 hover:border-purple-500/40"
+                    : "bg-surface border border-border text-muted-foreground hover:border-purple-500/40"
                 }`}>
                 {d} min
               </button>
@@ -212,7 +212,7 @@ function BookingContent() {
         {/* Slot picker */}
         {consultant && (
           <div className="mb-6">
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3">
+            <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-3">
               Pick a time
             </label>
             <SlotPicker
@@ -226,19 +226,19 @@ function BookingContent() {
 
         {/* Summary */}
         {consultant && (
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-5 mb-6 space-y-3">
+          <div className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-5 mb-6 space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Service</span>
-              <span className="text-white font-medium">Live consultation</span>
+              <span className="text-muted-foreground">Service</span>
+              <span className="text-foreground font-medium">Live consultation</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-slate-400">Duration</span>
-              <span className="text-white font-medium">{duration} minutes</span>
+              <span className="text-muted-foreground">Duration</span>
+              <span className="text-foreground font-medium">{duration} minutes</span>
             </div>
             {selectedSlot && (
               <div className="flex justify-between text-sm">
-                <span className="text-slate-400">When</span>
-                <span className="text-white font-medium">
+                <span className="text-muted-foreground">When</span>
+                <span className="text-foreground font-medium">
                   {new Date(selectedSlot).toLocaleString("en-IN", {
                     weekday: "short", day: "numeric", month: "short",
                     hour: "2-digit", minute: "2-digit",
@@ -246,11 +246,11 @@ function BookingContent() {
                 </span>
               </div>
             )}
-            <div className="pt-3 mt-3 border-t border-white/5 flex justify-between font-bold text-lg">
-              <span className="text-white">Total</span>
+            <div className="pt-3 mt-3 border-t border-border flex justify-between font-bold text-lg">
+              <span className="text-foreground">Total</span>
               <span className="text-purple-400">{formatCurrency(total)}</span>
             </div>
-            <p className="text-xs text-slate-500 flex items-center gap-1.5 pt-1">
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5 pt-1">
               <ShieldCheck size={12} /> Held in escrow until session completes
             </p>
           </div>
@@ -272,7 +272,7 @@ function BookingContent() {
 export default function BookingPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
       </div>
     }>

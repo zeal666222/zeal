@@ -201,7 +201,7 @@ export default function ProfileDashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="animate-spin text-purple-500" size={32} />
       </div>
     );
@@ -212,7 +212,7 @@ export default function ProfileDashboardPage() {
   const hasMfa = mfaFactors.length > 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 p-4 sm:p-10 relative overflow-hidden">
+    <div className="min-h-screen bg-background text-foreground p-4 sm:p-10 relative overflow-hidden">
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-purple-600/10 blur-[150px] rounded-full pointer-events-none" />
       <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none" />
 
@@ -233,7 +233,7 @@ export default function ProfileDashboardPage() {
               className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all ${
                 activeTab === "general"
                   ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                  : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+                  : "bg-surface-raised text-muted-foreground hover:bg-surface-overlay hover:text-foreground"
               }`} aria-label="Button">
               <User size={18} /> General Info
             </button>
@@ -242,7 +242,7 @@ export default function ProfileDashboardPage() {
               className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all ${
                 activeTab === "billing"
                   ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
-                  : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+                  : "bg-surface-raised text-muted-foreground hover:bg-surface-overlay hover:text-foreground"
               }`} aria-label="Button">
               <Wallet size={18} /> Billing & Wallet
             </button>
@@ -251,7 +251,7 @@ export default function ProfileDashboardPage() {
               className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all ${
                 activeTab === "security"
                   ? "bg-rose-600 text-white shadow-lg shadow-rose-600/20"
-                  : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200"
+                  : "bg-surface-raised text-muted-foreground hover:bg-surface-overlay hover:text-foreground"
               }`} aria-label="Button">
               <Shield size={18} /> Security
             </button>
@@ -259,21 +259,21 @@ export default function ProfileDashboardPage() {
 
           <div className="lg:col-span-3">
             {activeTab === "general" && (
-              <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-8 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
                   <User className="text-purple-400" size={20} /> Identity & Profile
                 </h2>
 
                 <div className="space-y-6">
-                  <div className="p-6 bg-slate-950/50 rounded-3xl border border-white/5">
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Display Name</label>
+                  <div className="p-6 bg-surface-sunken rounded-3xl border border-border">
+                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Display Name</label>
                     {isEditing ? (
                       <form onSubmit={handleUpdateName} className="flex gap-3">
                         <input
                           type="text"
                           value={newName}
                           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
-                          className="flex-1 px-4 py-3 bg-slate-900 border border-purple-500/50 rounded-xl text-sm focus:outline-none focus:border-purple-500"
+                          className="flex-1 px-4 py-3 bg-surface border border-purple-500/50 rounded-xl text-sm focus:outline-none focus:border-purple-500"
                           required
                         />
                         <button type="submit" disabled={updatingName} className="px-5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center" aria-label="Save changes">
@@ -283,7 +283,7 @@ export default function ProfileDashboardPage() {
                     ) : (
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-semibold">{profile?.full_name}</span>
-                        <button onClick={() => setIsEditing(true)} aria-label="Edit profile" className="p-2 text-slate-400 hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors">
+                        <button onClick={() => setIsEditing(true)} aria-label="Edit profile" className="p-2 text-muted-foreground hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors">
                           <Edit3 size={18} />
                         </button>
                       </div>
@@ -291,12 +291,12 @@ export default function ProfileDashboardPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-6 bg-slate-950/50 rounded-3xl border border-white/5">
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
-                      <div className="text-sm font-medium text-slate-300">{data?.email || "Anonymous"}</div>
+                    <div className="p-6 bg-surface-sunken rounded-3xl border border-border">
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Email Address</label>
+                      <div className="text-sm font-medium text-muted-foreground">{data?.email || "Anonymous"}</div>
                     </div>
-                    <div className="p-6 bg-slate-950/50 rounded-3xl border border-white/5">
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Account Role Tier</label>
+                    <div className="p-6 bg-surface-sunken rounded-3xl border border-border">
+                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Account Role Tier</label>
                       <div className="inline-block px-3 py-1 rounded-lg bg-purple-500/20 text-purple-300 text-xs font-bold uppercase border border-purple-500/30">
                         {profile?.role}
                       </div>
@@ -308,12 +308,12 @@ export default function ProfileDashboardPage() {
 
             {activeTab === "billing" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-gradient-to-br from-slate-900/90 to-slate-900/50 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+                <div className="bg-gradient-to-br from-surface to-surface backdrop-blur-2xl border border-border rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none" />
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div>
-                      <p className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">Available Ledger Balance</p>
-                      <h2 className="text-5xl font-black font-mono flex items-center text-white">
+                      <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Available Ledger Balance</p>
+                      <h2 className="text-5xl font-black font-mono flex items-center text-foreground">
                         <IndianRupee size={40} className="text-emerald-400 mr-1" />
                         {Number(profile?.wallet_balance || 0).toLocaleString("en-IN", {
                           minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -321,7 +321,7 @@ export default function ProfileDashboardPage() {
                       </h2>
                     </div>
                     <div className="flex gap-3 w-full md:w-auto">
-                      <button aria-label="Add ₹500 to wallet" onClick={() => handleRecharge(500)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-sm font-bold transition-all cursor-pointer">
+                      <button aria-label="Add ₹500 to wallet" onClick={() => handleRecharge(500)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-surface-raised hover:bg-surface-overlay border border-border rounded-2xl text-sm font-bold transition-all cursor-pointer">
                         + ₹500
                       </button>
                       <button aria-label="Add ₹1000 to wallet" onClick={() => handleRecharge(1000)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 hover:opacity-90 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer">
@@ -331,26 +331,26 @@ export default function ProfileDashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-8 shadow-xl">
+                <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl">
                   <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                    <Clock className="text-slate-400" size={18} /> Financial Ledger
+                    <Clock className="text-muted-foreground" size={18} /> Financial Ledger
                   </h3>
                   <div className="space-y-4">
                     {transactions?.length === 0 ? (
-                      <div className="text-center text-slate-500 text-sm py-8">No transactions found.</div>
+                      <div className="text-center text-muted-foreground text-sm py-8">No transactions found.</div>
                     ) : (
                       transactions?.map((tx: any) => (
-                        <div key={tx.id} className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all">
+                        <div key={tx.id} className="flex items-center justify-between p-4 bg-surface-raised border border-border rounded-2xl hover:bg-surface-overlay transition-all">
                           <div className="flex items-center gap-4">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.transaction_type === "credit" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
                               {tx.transaction_type === "credit" ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
                             </div>
                             <div>
                               <p className="text-sm font-bold">{tx.description}</p>
-                              <p className="text-xs text-slate-400">{new Date(tx.created_at).toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleString()}</p>
                             </div>
                           </div>
-                          <div className={`font-mono font-bold ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-slate-300"}`}>
+                          <div className={`font-mono font-bold ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-muted-foreground"}`}>
                             {tx.transaction_type === "credit" ? "+" : "-"} ₹{Number(tx.amount).toFixed(2)}
                           </div>
                         </div>
@@ -363,13 +363,13 @@ export default function ProfileDashboardPage() {
 
             {activeTab === "security" && (
               <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-8 shadow-xl">
+                <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl">
                   <div className="flex items-start justify-between gap-4 mb-6">
                     <div>
-                      <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                      <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
                         <ShieldCheck className="text-emerald-400" size={20} /> Two-Factor Authentication
                       </h2>
-                      <p className="text-xs text-slate-400 mt-1.5">
+                      <p className="text-xs text-muted-foreground mt-1.5">
                         Add an extra layer of security using an authenticator app (Google Authenticator, 1Password, Authy).
                       </p>
                     </div>
@@ -397,35 +397,35 @@ export default function ProfileDashboardPage() {
                   ) : enrollState.kind === "verifying" ? (
                     <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
                       <div className="flex justify-between items-center">
-                        <p className="text-sm text-slate-300 font-medium">
+                        <p className="text-sm text-muted-foreground font-medium">
                           Scan this QR code with your authenticator app
                         </p>
-                        <button onClick={cancelEnrollment} className="p-1.5 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors" aria-label="Cancel">
+                        <button onClick={cancelEnrollment} className="p-1.5 rounded-lg hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-colors" aria-label="Cancel">
                           <X size={16} />
                         </button>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-slate-950/50 rounded-2xl border border-white/5">
+                      <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-surface-sunken rounded-2xl border border-border">
                         <div className="w-40 h-40 bg-white rounded-xl p-2 flex-shrink-0">
                           <img src={enrollState.qrCode} alt="MFA QR code" className="w-full h-full" />
                         </div>
                         <div className="flex-1 min-w-0 w-full">
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">
                             Manual entry key
                           </p>
-                          <code className="block text-xs text-purple-300 font-mono bg-slate-900 border border-white/5 rounded-lg px-3 py-2 break-all">
+                          <code className="block text-xs text-purple-300 font-mono bg-surface border border-border rounded-lg px-3 py-2 break-all">
                             {enrollState.secret}
                           </code>
                         </div>
                       </div>
 
                       <form onSubmit={verifyEnrollment} className="space-y-3">
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest">
                           Enter the 6-digit code
                         </label>
                         <div className="flex gap-3">
                           <div className="relative flex-1">
-                            <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                            <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <input
                               type="text"
                               inputMode="numeric"
@@ -435,7 +435,7 @@ export default function ProfileDashboardPage() {
                               onChange={handleCodeChange}
                               placeholder="000000"
                               maxLength={6}
-                              className="w-full pl-11 pr-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-sm font-mono tracking-[0.3em] text-center text-white outline-none focus:border-purple-500 transition-all"
+                              className="w-full pl-11 pr-4 py-3 bg-background border border-border rounded-xl text-sm font-mono tracking-[0.3em] text-center text-foreground outline-none focus:border-purple-500 transition-all"
                             />
                           </div>
                           <button
@@ -451,13 +451,13 @@ export default function ProfileDashboardPage() {
                   ) : hasMfa ? (
                     <div className="space-y-3">
                       {mfaFactors.map((f) => (
-                        <div key={f.id} className="flex items-center justify-between p-4 bg-slate-950/50 rounded-2xl border border-white/5">
+                        <div key={f.id} className="flex items-center justify-between p-4 bg-surface-sunken rounded-2xl border border-border">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
                               <KeyRound size={18} />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold truncate text-white">
+                              <p className="text-sm font-bold truncate text-foreground">
                                 {f.friendly_name || "Authenticator app"}
                               </p>
                               <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Verified</p>
@@ -486,12 +486,12 @@ export default function ProfileDashboardPage() {
                   )}
                 </div>
 
-                <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] p-8 shadow-xl">
+                <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl">
                   <div className="p-6 bg-rose-950/20 rounded-3xl border border-rose-500/10">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-sm font-bold text-white mb-1">Terminate Session</h3>
-                        <p className="text-xs text-slate-400">Securely log out of your Zeal account on this device.</p>
+                        <h3 className="text-sm font-bold text-foreground mb-1">Terminate Session</h3>
+                        <p className="text-xs text-muted-foreground">Securely log out of your Zeal account on this device.</p>
                       </div>
                       <form action={signOutAction}>
                         <button type="submit" className="px-6 py-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-sm font-bold transition-all flex items-center gap-2" aria-label="Submit">

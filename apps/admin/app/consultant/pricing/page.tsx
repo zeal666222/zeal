@@ -53,10 +53,10 @@ export default function ConsultantPricingPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <h1 className="text-2xl font-black text-white flex items-center gap-2">
-        <Tag size={22} className="text-[#9D7DC5]" /> Request Pricing Change
+        <Tag size={22} className="text-[var(--color-primary)]" /> Request Pricing Change
       </h1>
 
-      <div className="p-5 rounded-2xl border border-white/5 bg-slate-900/60 space-y-4">
+      <div className="p-5 rounded-2xl border border-border bg-surface space-y-4">
         {(["perMinuteRate", "chatRate", "audioRate", "videoRate"] as const).map((field) => (
           <div key={field}>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
@@ -66,7 +66,7 @@ export default function ConsultantPricingPage() {
               type="number" min={10} max={5000}
               value={rates[field]}
               onChange={(e) => setRates({ ...rates, [field]: Number(e.target.value) })}
-              className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-white font-mono outline-none focus:border-[#9D7DC5]"
+              className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-white font-mono outline-none focus:border-[var(--color-primary)]"
             />
           </div>
         ))}
@@ -79,34 +79,34 @@ export default function ConsultantPricingPage() {
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-sm text-white resize-none outline-none focus:border-[#9D7DC5]"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-white resize-none outline-none focus:border-[var(--color-primary)]"
           />
-          <p className="text-[10px] text-slate-500 mt-1">{reason.length}/30 minimum</p>
+          <p className="text-[10px] text-muted-foreground mt-1">{reason.length}/30 minimum</p>
         </div>
 
         <button
           disabled={reason.length < 30 || submit.isPending}
           onClick={() => submit.mutate()}
-          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+          className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
           {submit.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           Submit Request
         </button>
       </div>
 
-      <div className="p-5 rounded-2xl border border-white/5 bg-slate-900/60">
+      <div className="p-5 rounded-2xl border border-border bg-surface">
         <h2 className="text-sm font-black text-white uppercase tracking-wider mb-3">Your Requests</h2>
         {(data?.requests ?? []).length === 0 ? (
-          <p className="text-sm text-slate-500">No requests yet.</p>
+          <p className="text-sm text-muted-foreground">No requests yet.</p>
         ) : (
           (data?.requests ?? []).map((r) => (
-            <div key={r.id} className="p-3 rounded-xl bg-slate-950/60 mb-2">
+            <div key={r.id} className="p-3 rounded-xl bg-surface-raised mb-2">
               <div className="flex justify-between text-xs">
                 <span className={`font-bold ${
                   r.status === "APPROVED" ? "text-emerald-400"
                   : r.status === "REJECTED" ? "text-rose-400"
                   : "text-amber-400"
                 }`}>{r.status}</span>
-                <span className="text-slate-500">{new Date(r.createdAt).toLocaleDateString()}</span>
+                <span className="text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</span>
               </div>
               <p className="text-xs text-slate-400 mt-1 italic">&ldquo;{r.reason}&rdquo;</p>
             </div>

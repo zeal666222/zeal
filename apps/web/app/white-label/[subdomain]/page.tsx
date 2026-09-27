@@ -52,15 +52,15 @@ export default async function WhiteLabelHomePage({params}: Props) {
   return (
     <div className="max-w-5xl mx-auto px-4 py-12">
       <section className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-light text-[#5E4B8B] mb-4">Welcome to {name}</h1>
-        <p className="text-lg text-[#B8A1D9] max-w-2xl mx-auto">{bio}</p>
+        <h1 className="text-4xl md:text-5xl font-light text-[var(--color-muted-foreground)] mb-4">Welcome to {name}</h1>
+        <p className="text-lg text-[var(--color-subtle-foreground)] max-w-2xl mx-auto">{bio}</p>
       </section>
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
         {services.map((s) => (
-          <div key={s.title} className="p-6 rounded-2xl border border-[#E1C5E7] bg-white">
-            <h2 className="font-semibold text-[#5E4B8B] mb-1">{s.title}</h2>
-            <p className="text-sm text-[#B8A1D9] mb-3">{s.desc}</p>
+          <div key={s.title} className="p-6 rounded-2xl border border-[var(--color-primary-muted)] bg-white">
+            <h2 className="font-semibold text-[var(--color-muted-foreground)] mb-1">{s.title}</h2>
+            <p className="text-sm text-[var(--color-subtle-foreground)] mb-3">{s.desc}</p>
             <p className="text-lg font-bold" style={{color: "var(--wl-primary)"}}>
               ₹{s.price}/min
             </p>

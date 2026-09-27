@@ -17,12 +17,12 @@ export default function DashboardError({
       <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mb-4">
         <AlertCircle className="w-8 h-8 text-rose-400" />
       </div>
-      <h2 className="text-xl font-bold text-white mb-2">Something went wrong</h2>
-      <p className="text-sm text-slate-400 mb-4 max-w-md">
+      <h2 className="text-xl font-bold text-foreground mb-2">Something went wrong</h2>
+      <p className="text-sm text-muted-foreground mb-4 max-w-md">
         {error.message || "An unexpected error occurred."}
       </p>
       {error.digest && (
-        <p className="text-xs text-slate-600 font-mono mb-4">ID: {error.digest}</p>
+        <p className="text-xs text-muted-foreground font-mono mb-4">ID: {error.digest}</p>
       )}
       <Button variant="primary" onClick={reset}>
         <RefreshCw className="w-4 h-4 mr-2" /> Try again

@@ -175,7 +175,7 @@ export function ChatRoom({
       <div className="flex-none h-16 bg-slate-900/80 backdrop-blur-2xl border-b border-white/10 px-3 md:px-4 flex items-center gap-3">
         <button
           onClick={() => router.push("/consultant/chat")}
-          className="md:hidden p-2 -ml-1 rounded-lg hover:bg-white/5"
+          className="md:hidden p-2 -ml-1 rounded-lg hover:bg-surface-raised"
           aria-label="Back"
         >
           <ArrowLeft size={18} className="text-white" />
@@ -192,7 +192,7 @@ export function ChatRoom({
             partnerName.charAt(0).toUpperCase()
           )}
           {isAI && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-[8px] flex items-center justify-center text-white font-bold">
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-[8px] flex items-center justify-center text-white font-bold">
               AI
             </span>
           )}
@@ -201,7 +201,7 @@ export function ChatRoom({
         <div className="min-w-0 flex-1">
           <h2 className="font-bold text-white text-sm truncate flex items-center gap-1.5">
             {partnerName}
-            {isAI && <Sparkles size={12} className="text-[#9D7DC5]" />}
+            {isAI && <Sparkles size={12} className="text-[var(--color-primary)]" />}
           </h2>
           <div className="flex items-center gap-1.5 text-[10px] font-bold">
             {showTyping ? (

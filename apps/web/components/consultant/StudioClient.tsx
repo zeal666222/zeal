@@ -81,26 +81,26 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
   return (
     <div className="space-y-6">
       {!completeness.isLive && (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border border-amber-500/25 p-6 shadow-2xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-500/10 via-surface to-surface border border-amber-500/25 p-6 shadow-2xl">
           <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 blur-[80px] rounded-full pointer-events-none" />
           <div className="relative z-10">
             <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">
               <Sparkles size={13} /> Complete your profile
             </div>
-            <h2 className="text-xl font-black text-white mb-1">
+            <h2 className="text-xl font-black text-foreground mb-1">
               {completeness.score}% complete — unlock going live
             </h2>
-            <p className="text-sm text-slate-400 mb-4">Finish the checklist to accept sessions and earn.</p>
-            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden mb-5">
+            <p className="text-sm text-muted-foreground mb-4">Finish the checklist to accept sessions and earn.</p>
+            <div className="h-1.5 rounded-full bg-surface-raised overflow-hidden mb-5">
               <div className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all" style={{ width: `${completeness.score}%` }} />
             </div>
             <ul className="space-y-2 mb-5">
               {completeness.checks.map((c) => (
                 <li key={c.id} className="flex items-center gap-3 text-sm">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${c.passed ? "bg-emerald-500/15 text-emerald-400" : "bg-slate-800 text-slate-500"}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${c.passed ? "bg-emerald-500/15 text-emerald-400" : "bg-surface-sunken text-muted-foreground"}`}>
                     {c.passed ? "✓" : "○"}
                   </span>
-                  <span className={c.passed ? "text-slate-500 line-through" : "text-slate-200"}>{c.label}</span>
+                  <span className={c.passed ? "text-muted-foreground line-through" : "text-foreground"}>{c.label}</span>
                   {!c.passed && (
                     <a href={`${ADMIN_URL}${c.actionHref}`} className="ml-auto text-xs text-amber-400 hover:text-amber-300 font-bold">
                       Fix <ChevronRight size={11} className="inline" />
@@ -118,13 +118,13 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-white">Welcome back, {initialProfile.full_name}</h1>
-          <p className="text-sm text-slate-400 mt-1">Your practice at a glance</p>
+          <h1 className="text-2xl lg:text-3xl font-black text-foreground">Welcome back, {initialProfile.full_name}</h1>
+          <p className="text-sm text-muted-foreground mt-1">Your practice at a glance</p>
         </div>
         <button onClick={toggle} disabled={toggling || !completeness.isLive}
           title={!completeness.isLive ? "Complete profile to go live" : undefined}
           className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-            online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-slate-800 border-slate-700 text-slate-400"
+            online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-surface-sunken border-border text-muted-foreground"
           }`}
         >
           {toggling ? <Loader2 size={18} className="animate-spin" /> : <Power size={18} className={online ? "animate-pulse" : ""} />}
@@ -147,9 +147,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl min-h-[420px]">
+          <div className="bg-surface backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl min-h-[420px]">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-black text-white flex items-center gap-3">
+              <h2 className="text-lg font-black text-foreground flex items-center gap-3">
                 <Activity className="text-indigo-400 w-5 h-5" /> Live Seeker Queue
               </h2>
               {online && (
@@ -164,32 +164,32 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                 {incoming.map((r) => (
                   <div key={r.id} className="flex items-center justify-between gap-3 p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl">
                     <div className="min-w-0">
-                      <p className="font-bold text-white text-sm truncate">{r.seekerName}</p>
-                      <p className="text-xs text-slate-400">₹{r.rate}/min · {r.modality}</p>
+                      <p className="font-bold text-foreground text-sm truncate">{r.seekerName}</p>
+                      <p className="text-xs text-muted-foreground">₹{r.rate}/min · {r.modality}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button onClick={() => setIncoming((p) => p.filter((x) => x.id !== r.id))}
-                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold">Skip</button>
+                        className="px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-muted-foreground text-xs font-bold">Skip</button>
                       <button onClick={() => accept(r)}
-                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-xs font-bold">Accept</button>
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-bold">Accept</button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className={`flex items-center justify-center border-2 border-dashed rounded-3xl p-8 min-h-[340px] ${
-                online ? "border-indigo-500/30 bg-indigo-950/20" : "border-white/5 bg-slate-950/50"
+                online ? "border-indigo-500/30 bg-indigo-950/20" : "border-border bg-surface-sunken"
               }`}>
                 <div className="text-center">
                   <div className={`w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-white/5 text-slate-500"
+                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-surface-raised text-muted-foreground"
                   }`}>
                     {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
-                  <h2 className="text-base font-bold text-slate-200 mb-2">
+                  <h2 className="text-base font-bold text-foreground mb-2">
                     {online ? "Waiting for connections…" : completeness.isLive ? "You're offline" : "Studio locked"}
                   </h2>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                     {online
                       ? "Your profile is visible to seekers. Requests appear here instantly."
                       : completeness.isLive
@@ -203,9 +203,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
         </div>
 
         <div className="space-y-4">
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-            <h2 className="text-sm font-black mb-4 text-white uppercase tracking-wider flex items-center gap-2">
-              <MessageSquare className="text-slate-400" size={16} /> Quick Actions
+          <div className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl">
+            <h2 className="text-sm font-black mb-4 text-foreground uppercase tracking-wider flex items-center gap-2">
+              <MessageSquare className="text-muted-foreground" size={16} /> Quick Actions
             </h2>
             <div className="space-y-3">
               <Quick icon={Clock} label="Set Availability" href="/consultant/availability" />
@@ -214,11 +214,11 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
             </div>
           </div>
           {subdomain && (
-            <div className="bg-slate-900/60 backdrop-blur-xl border border-[#9D7DC5]/20 rounded-3xl p-6 shadow-2xl">
-              <p className="text-[10px] uppercase tracking-widest text-[#9D7DC5] font-bold mb-1">Your White-Label Site</p>
-              <p className="text-sm font-mono text-white break-all">{subdomain}.zeal.app</p>
+            <div className="bg-surface backdrop-blur-xl border border-[var(--color-primary)]/20 rounded-3xl p-6 shadow-2xl">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-primary)] font-bold mb-1">Your White-Label Site</p>
+              <p className="text-sm font-mono text-foreground break-all">{subdomain}.zeal.app</p>
               <a href={`/white-label/${subdomain}`} target="_blank"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#9D7DC5] hover:text-white font-bold">
+                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-foreground font-bold">
                 Open site <ChevronRight size={12} />
               </a>
             </div>
@@ -231,22 +231,22 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
 
 function Metric({ label, value, icon: Icon, accent, bg }: { label: string; value: string; icon: typeof IndianRupee; accent: string; bg: string }) {
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl">
+    <div className="bg-surface backdrop-blur-xl border border-border rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-slate-400 text-[10px] lg:text-xs font-bold uppercase tracking-wider">{label}</span>
+        <span className="text-muted-foreground text-[10px] lg:text-xs font-bold uppercase tracking-wider">{label}</span>
         <div className={`p-2 rounded-lg ${bg} ${accent}`}><Icon size={16} /></div>
       </div>
-      <div className="text-xl lg:text-3xl font-black font-mono tracking-tight text-white">{value}</div>
+      <div className="text-xl lg:text-3xl font-black font-mono tracking-tight text-foreground">{value}</div>
     </div>
   );
 }
 
 function Quick({ icon: Icon, label, href }: { icon: typeof Clock; label: string; href: string }) {
   return (
-    <a href={href} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors group">
-      <Icon size={16} className="text-[#9D7DC5]" />
-      <span className="text-sm text-slate-200 flex-1">{label}</span>
-      <ChevronRight size={12} className="text-slate-500 group-hover:text-[#9D7DC5]" />
+    <a href={href} className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl hover:bg-surface-overlay transition-colors group">
+      <Icon size={16} className="text-[var(--color-primary)]" />
+      <span className="text-sm text-foreground flex-1">{label}</span>
+      <ChevronRight size={12} className="text-muted-foreground group-hover:text-[var(--color-primary)]" />
     </a>
   );
 }

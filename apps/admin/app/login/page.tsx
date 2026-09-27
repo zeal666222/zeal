@@ -80,7 +80,7 @@ function Content() {
         {transition && <PostAuthTransition destination={transition} email={email} />}
       </AnimatePresence>
 
-      <div className="min-h-screen bg-[#0B0A14] flex relative overflow-hidden">
+      <div className="min-h-screen bg-[var(--color-background)] flex relative overflow-hidden">
         {/* Theme toggle — top right */}
         <div className="fixed top-4 right-4 z-50">
           <ThemeToggle />
@@ -99,7 +99,7 @@ function Content() {
               <p className="text-white font-black tracking-wider text-lg leading-none">
                 ZEAL STUDIO
               </p>
-              <p className="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase mt-0.5">
+              <p className="text-[10px] text-muted-foreground tracking-[0.2em] font-bold uppercase mt-0.5">
                 Consultant + Admin
               </p>
             </div>
@@ -142,7 +142,7 @@ function Content() {
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: 0.35 + i * 0.08 }}
-                  className="flex items-center gap-3 text-sm text-slate-300"
+                  className="flex items-center gap-3 text-sm text-muted-foreground"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
                     <Check size={11} className="text-emerald-400" />
@@ -185,7 +185,7 @@ function Content() {
               <h2 className="text-2xl font-black text-white tracking-tight">
                 Welcome back
               </h2>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Sign in to your consultant or admin account
               </p>
             </div>
@@ -231,7 +231,7 @@ function Content() {
               <div>
                 <label
                   htmlFor="admin-email"
-                  className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2"
+                  className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2"
                 >
                   Email
                 </label>
@@ -251,10 +251,10 @@ function Content() {
                     onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                     placeholder="you@example.com"
                     className={
-                      "w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-colors " +
+                      "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-colors " +
                       (touched.email && email.length > 0 && !emailValid
                         ? "border-rose-500/40 focus:border-rose-500"
-                        : "border-white/5 focus:bg-slate-900/90 focus:border-purple-500")
+                        : "border-border focus:bg-surface/90 focus:border-purple-500")
                     }
                   />
                 </div>
@@ -270,13 +270,13 @@ function Content() {
                 <div className="flex items-center justify-between mb-2">
                   <label
                     htmlFor="admin-password"
-                    className="block text-[10px] font-black text-slate-500 uppercase tracking-widest"
+                    className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest"
                   >
                     Password
                   </label>
                   <Link
                     href="/forgot-password"
-                    className="text-[10px] text-slate-500 hover:text-purple-400 transition-colors"
+                    className="text-[10px] text-muted-foreground hover:text-purple-400 transition-colors"
                   >
                     Forgot?
                   </Link>
@@ -296,14 +296,14 @@ function Content() {
                     onChange={(e) => setPassword(e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                     placeholder="••••••••••••"
-                    className="w-full pl-12 pr-12 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500 transition-colors"
+                    className="w-full pl-12 pr-12 py-3.5 bg-surface border border-border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShow((v) => !v)}
                     tabIndex={-1}
                     aria-label={show ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-white/5 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-600 hover:text-muted-foreground hover:bg-surface-overlay transition-colors"
                   >
                     {show ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -328,34 +328,34 @@ function Content() {
             </form>
 
             <div className="my-7 relative flex items-center justify-center">
-              <div className="border-t border-white/5 w-full" />
-              <span className="bg-[#0B0A14] px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
+              <div className="border-t border-border w-full" />
+              <span className="bg-[var(--color-background)] px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
                 new here?
               </span>
-              <div className="border-t border-white/5 w-full" />
+              <div className="border-t border-border w-full" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <Link
                 href="/register"
-                className="group p-4 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-indigo-500/40 hover:bg-slate-900/90 transition-all text-left"
+                className="group p-4 rounded-2xl bg-surface border border-border hover:border-indigo-500/40 hover:bg-surface/90 transition-all text-left"
               >
                 <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
                   <Briefcase size={15} className="text-indigo-400" />
                 </div>
                 <p className="text-white font-bold text-sm">Join as Guide</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Practice & earn</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Practice & earn</p>
               </Link>
 
               <a
                 href={WEB_URL}
-                className="group p-4 rounded-2xl bg-slate-900/60 border border-white/5 hover:border-purple-500/40 hover:bg-slate-900/90 transition-all text-left"
+                className="group p-4 rounded-2xl bg-surface border border-border hover:border-purple-500/40 hover:bg-surface/90 transition-all text-left"
               >
                 <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
                   <Sparkles size={15} className="text-purple-400" />
                 </div>
                 <p className="text-white font-bold text-sm">Looking for guidance?</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Join as Seeker</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Join as Seeker</p>
               </a>
             </div>
 
@@ -371,7 +371,7 @@ function Content() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0B0A14]" />}>
+    <Suspense fallback={<div className="min-h-screen bg-[var(--color-background)]" />}>
       <Content />
     </Suspense>
   );

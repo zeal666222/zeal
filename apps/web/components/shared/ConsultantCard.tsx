@@ -124,14 +124,14 @@ const ConsultantCard = memo(function ConsultantCard({
         className="pointer-events-none absolute inset-0 rounded-2xl opacity-0
                    group-hover:opacity-100 transition-opacity duration-500
                    bg-gradient-to-br from-[var(--color-luxury-gold)]/10
-                   via-transparent to-[#9D7DC5]/15"
+                   via-transparent to-[var(--color-primary)]/15"
       />
 
       {/* Online / offline indicator */}
       <span
         aria-hidden
         className={cn(
-          "absolute top-3 right-3 z-10 w-2.5 h-2.5 rounded-full ring-2 ring-slate-950/80",
+          "absolute top-3 right-3 z-10 w-2.5 h-2.5 rounded-full ring-2 ring-background",
           isAI || isOnline
             ? "bg-emerald-500 animate-pulse"
             : "bg-slate-500",
@@ -141,7 +141,7 @@ const ConsultantCard = memo(function ConsultantCard({
       {/* AI badge */}
       {isAI && (
         <span className="absolute top-3 left-3 z-10 px-1.5 py-0.5 rounded-full
-                         bg-gradient-to-r from-[#9D7DC5] to-[#533AFD]
+                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
                          text-white text-[8px] font-black tracking-wider
                          flex items-center gap-0.5">
           <Sparkles className="w-2.5 h-2.5" /> AI
@@ -182,10 +182,10 @@ const ConsultantCard = memo(function ConsultantCard({
 
       <div className={cn("relative z-10 flex-1 min-w-0", isVertical ? "mt-3 w-full" : "mt-0")}>
         <Link href={href} className="block">
-          <h3 className="font-bold text-white hover:text-[var(--color-luxury-gold)] transition-colors truncate">
+          <h3 className="font-bold text-foreground hover:text-[var(--color-luxury-gold)] transition-colors truncate">
             {consultant.name}
           </h3>
-          <p className="text-xs text-slate-400 truncate">
+          <p className="text-xs text-muted-foreground truncate">
             @{consultant.username}
           </p>
         </Link>
@@ -223,7 +223,7 @@ const ConsultantCard = memo(function ConsultantCard({
           )}
 
         {!isCompact && !isAI && !isOnline && (
-          <p className="text-[10px] text-slate-500 mt-2 uppercase tracking-widest font-bold">
+          <p className="text-[10px] text-muted-foreground mt-2 uppercase tracking-widest font-bold">
             Offline · View profile
           </p>
         )}
@@ -268,7 +268,7 @@ const ConsultantCard = memo(function ConsultantCard({
         )}
 
         {isCompact && !showActions && (
-          <ChevronRight className="w-4 h-4 text-slate-500 ml-auto" />
+          <ChevronRight className="w-4 h-4 text-muted-foreground ml-auto" />
         )}
       </div>
     </motion.div>

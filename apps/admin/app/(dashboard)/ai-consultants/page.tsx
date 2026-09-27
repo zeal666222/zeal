@@ -139,33 +139,33 @@ export default function AdminAiConsultantsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-[#9D7DC5]" /> AI Consultants
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Sparkles className="w-6 h-6 text-[var(--color-primary)]" /> AI Consultants
         </h1>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-400">{items.length} profiles</span>
+          <span className="text-sm text-muted-foreground">{items.length} profiles</span>
           <button onClick={startCreate}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-sm font-bold">
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-bold">
             <Plus size={14} /> Create New
           </button>
         </div>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input type="text" value={search} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           placeholder="Search by name or category..."
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-white/10 bg-slate-900/60 text-sm text-white placeholder:text-slate-500 outline-none focus:border-[#9D7DC5]" />
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-border bg-surface text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-primary)]" />
       </div>
 
       {loading ? (
         <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-[#9D7DC5]" />
+          <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
         </div>
       ) : error ? (
         <div className="text-center py-12 text-rose-400">
           Failed to load: {error}
-          <button onClick={load} className="ml-2 text-[#9D7DC5] hover:underline">Retry</button>
+          <button onClick={load} className="ml-2 text-[var(--color-primary)] hover:underline">Retry</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -175,8 +175,8 @@ export default function AdminAiConsultantsPage() {
               <div className="flex items-center gap-3">
                 <img src={c.avatar} alt={c.name} className="w-12 h-12 rounded-full object-cover" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-white truncate">{c.name}</p>
-                  <p className="text-xs text-slate-400 capitalize">{c.category.toLowerCase()}</p>
+                  <p className="font-semibold text-foreground truncate">{c.name}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{c.category.toLowerCase()}</p>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap ${
                   c.isActive ? "bg-green-500/20 text-green-400" : "bg-slate-500/20 text-slate-400"
@@ -184,12 +184,12 @@ export default function AdminAiConsultantsPage() {
               </div>
               <div className="mt-3 flex items-center justify-between text-xs">
                 <span className="text-yellow-400">⭐ {c.rating.toFixed(1)}</span>
-                <span className="text-[#9D7DC5]">{c.isPaid ? `₹${c.perMinuteRate}/min` : "Free"}</span>
+                <span className="text-[var(--color-primary)]">{c.isPaid ? `₹${c.perMinuteRate}/min` : "Free"}</span>
                 {c.isFeatured && <span className="text-amber-400 text-[10px]">Featured</span>}
               </div>
               <div className="mt-3 flex gap-2">
                 <button onClick={() => startEdit(c)}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold">
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 text-xs font-bold">
                   <Edit3 size={11} /> Edit
                 </button>
                 {c.isActive && (
@@ -212,62 +212,62 @@ export default function AdminAiConsultantsPage() {
             className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+              className="w-full max-w-lg bg-surface border border-border rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-black text-white">
+                <h2 className="text-lg font-black text-foreground">
                   {editingId ? "Edit AI Consultant" : "Create AI Consultant"}
                 </h2>
-                <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-white/5">
-                  <X size={16} className="text-slate-400" />
+                <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-surface-raised">
+                  <X size={16} className="text-muted-foreground" />
                 </button>
               </div>
 
               <div className="space-y-4">
                 {(["name", "avatar", "category"] as const).map((field) => (
                   <div key={field}>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                    <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-1.5">
                       {field}
                     </label>
                     <input type="text" value={form[field] as string}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [field]: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-sm text-white outline-none focus:border-[#9D7DC5]" />
+                      className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-foreground outline-none focus:border-[var(--color-primary)]" />
                   </div>
                 ))}
 
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-1.5">
                     Bio
                   </label>
                   <textarea value={form.bio} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, bio: e.target.value })}
-                    rows={3} className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-sm text-white outline-none focus:border-[#9D7DC5] resize-none" />
+                    rows={3} className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-foreground outline-none focus:border-[var(--color-primary)] resize-none" />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-1.5">
                     System Prompt
                   </label>
                   <textarea value={form.systemPrompt ?? ""} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm({ ...form, systemPrompt: e.target.value })}
                     rows={4} placeholder="Leave blank for default persona"
-                    className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-xs text-white font-mono outline-none focus:border-[#9D7DC5] resize-none" />
+                    className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-xs text-foreground font-mono outline-none focus:border-[var(--color-primary)] resize-none" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                    <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-1.5">
                       Rate (₹/min)
                     </label>
                     <input type="number" min={0} max={500} value={form.perMinuteRate}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, perMinuteRate: Number(e.target.value) })}
-                      className="w-full px-4 py-3 bg-slate-950 border border-white/10 rounded-xl text-sm text-white font-mono outline-none focus:border-[#9D7DC5]" />
+                      className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-foreground font-mono outline-none focus:border-[var(--color-primary)]" />
                   </div>
                   <div className="space-y-2 pt-6">
-                    <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                    <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                       <input type="checkbox" checked={form.isPaid}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isPaid: e.target.checked })}
                         className="rounded" />
                       Paid
                     </label>
-                    <label className="flex items-center gap-2 text-sm text-white cursor-pointer">
+                    <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                       <input type="checkbox" checked={form.isFeatured}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, isFeatured: e.target.checked })}
                         className="rounded" />
@@ -277,7 +277,7 @@ export default function AdminAiConsultantsPage() {
                 </div>
 
                 <button onClick={save} disabled={saving}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                   {saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> :
                    editingId ? <><Save size={16} /> Save Changes</> :
                    <><Plus size={16} /> Create AI Consultant</>}

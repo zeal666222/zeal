@@ -23,8 +23,8 @@ interface ConsultantRow {
 }
 
 const DEFAULT_THEME: Theme = {
-  primaryColor: "#9D7DC5",
-  accentColor: "#533AFD",
+  primaryColor: "var(--color-primary)",
+  accentColor: "var(--color-primary-hover)",
   welcomeMessage: "Welcome to my practice",
 };
 
@@ -76,7 +76,7 @@ export default async function WhiteLabelLayout({children, params}: Props) {
 
   return (
     <div style={style} className="min-h-screen bg-[#FDFBF7]">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-sm border-b border-[#E1C5E7]">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-sm border-b border-[var(--color-primary-muted)]">
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href={`/white-label/${subdomain}`} className="flex items-center gap-2">
             {theme.logoUrl ? (
@@ -89,13 +89,13 @@ export default async function WhiteLabelLayout({children, params}: Props) {
                 {initial}
               </div>
             )}
-            <span className="font-semibold text-[#5E4B8B]">{displayName}</span>
+            <span className="font-semibold text-[var(--color-muted-foreground)]">{displayName}</span>
           </Link>
           <nav className="flex items-center gap-4 text-sm">
-            <Link href={`/white-label/${subdomain}`} className="text-[#5E4B8B] hover:opacity-70">
+            <Link href={`/white-label/${subdomain}`} className="text-[var(--color-muted-foreground)] hover:opacity-70">
               Home
             </Link>
-            <Link href={`/white-label/${subdomain}/services`} className="text-[#5E4B8B] hover:opacity-70">
+            <Link href={`/white-label/${subdomain}/services`} className="text-[var(--color-muted-foreground)] hover:opacity-70">
               Services
             </Link>
             <Link
@@ -109,7 +109,7 @@ export default async function WhiteLabelLayout({children, params}: Props) {
         </div>
       </header>
       <main>{children}</main>
-      <footer className="border-t border-[#E1C5E7] py-6 text-center text-xs text-[#B8A1D9]">
+      <footer className="border-t border-[var(--color-primary-muted)] py-6 text-center text-xs text-[var(--color-subtle-foreground)]">
         Powered by Zeal
       </footer>
     </div>

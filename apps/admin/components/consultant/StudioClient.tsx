@@ -112,7 +112,7 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
               {completeness.score}% complete — unlock going live
             </h2>
             <p className="text-sm text-slate-400 mb-4">Finish the checklist to accept sessions and earn.</p>
-            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden mb-5">
+            <div className="h-1.5 rounded-full bg-surface-raised overflow-hidden mb-5">
               <div className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all" style={{ width: `${completeness.score}%` }} />
             </div>
             <ul className="space-y-2">
@@ -191,9 +191,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button onClick={() => setIncoming((p) => p.filter((x) => x.id !== r.id))}
-                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold">Skip</button>
+                        className="px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 text-xs font-bold">Skip</button>
                       <button onClick={() => accept(r)}
-                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white text-xs font-bold">Accept</button>
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-bold">Accept</button>
                     </div>
                   </div>
                 ))}
@@ -206,7 +206,7 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                 <div className="text-center">
                   <div className={cn(
                     "w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center",
-                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-white/5 text-slate-500",
+                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-surface-raised text-slate-500",
                   )}>
                     {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
@@ -236,11 +236,11 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
             </div>
           </div>
           {subdomain && (
-            <div className="bg-slate-900/60 backdrop-blur-xl border border-[#9D7DC5]/20 rounded-3xl p-6 shadow-2xl">
-              <p className="text-[10px] uppercase tracking-widest text-[#9D7DC5] font-bold mb-1">Your White-Label Site</p>
+            <div className="bg-slate-900/60 backdrop-blur-xl border border-[var(--color-primary)]/20 rounded-3xl p-6 shadow-2xl">
+              <p className="text-[10px] uppercase tracking-widest text-[var(--color-primary)] font-bold mb-1">Your White-Label Site</p>
               <p className="text-sm font-mono text-white break-all">{subdomain}.zeal.app</p>
               <a href={`/white-label/${subdomain}`} target="_blank"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#9D7DC5] hover:text-white font-bold">
+                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-white font-bold">
                 Open site <ChevronRight size={12} />
               </a>
             </div>
@@ -265,10 +265,10 @@ function Metric({ label, value, icon: Icon, accent, bg }: { label: string; value
 
 function Quick({ icon: Icon, label, href }: { icon: typeof Clock; label: string; href: string }) {
   return (
-    <a href={href} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors group">
-      <Icon size={16} className="text-[#9D7DC5]" />
+    <a href={href} className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl hover:bg-surface-overlay transition-colors group">
+      <Icon size={16} className="text-[var(--color-primary)]" />
       <span className="text-sm text-slate-200 flex-1">{label}</span>
-      <ChevronRight size={12} className="text-slate-500 group-hover:text-[#9D7DC5]" />
+      <ChevronRight size={12} className="text-slate-500 group-hover:text-[var(--color-primary)]" />
     </a>
   );
 }

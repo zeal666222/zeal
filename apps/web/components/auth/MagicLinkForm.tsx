@@ -37,8 +37,8 @@ export function MagicLinkForm({ onBack }: { onBack: () => void }) {
     return (
       <div className="p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
         <CheckCircle2 size={40} className="mx-auto text-emerald-400 mb-3" />
-        <h3 className="text-white font-bold mb-1">Check your inbox</h3>
-        <p className="text-sm text-slate-400">We sent a link to <strong className="text-white">{email}</strong>.</p>
+        <h3 className="text-foreground font-bold mb-1">Check your inbox</h3>
+        <p className="text-sm text-muted-foreground">We sent a link to <strong className="text-foreground">{email}</strong>.</p>
         <button onClick={onBack} className="mt-5 text-xs text-purple-400 hover:text-purple-300 font-bold">
           ← Back to password sign-in
         </button>
@@ -49,13 +49,13 @@ export function MagicLinkForm({ onBack }: { onBack: () => void }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div>
-        <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Email</label>
+        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Email</label>
         <div className="relative group">
-          <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400" />
+          <Mail size={17} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400" />
           <input type="email" required autoComplete="email"
             value={email} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full pl-12 pr-4 py-3.5 bg-slate-900/60 border border-white/5 rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-slate-900/90 focus:border-purple-500" />
+            className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface focus:border-purple-500" />
         </div>
       </div>
 
@@ -67,7 +67,7 @@ export function MagicLinkForm({ onBack }: { onBack: () => void }) {
       </button>
 
       <button type="button" onClick={onBack}
-        className="w-full py-3 text-xs text-slate-500 hover:text-slate-300 flex items-center justify-center gap-1.5">
+        className="w-full py-3 text-xs text-muted-foreground hover:text-muted-foreground flex items-center justify-center gap-1.5">
         <ArrowLeft size={12} /> Back to password
       </button>
     </form>

@@ -61,11 +61,11 @@ export default async function ExplorePage() {
   const onlineCount = consultants.filter((c) => c.is_online).length;
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50">
+    <div className="min-h-screen-app bg-background text-foreground">
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
         {/* Header */}
         <div className="relative overflow-hidden rounded-3xl border border-[var(--color-luxury-glass-border)] noise-overlay">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#0B0A14] via-[#1A1430] to-[#0B0A14]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]" />
           <div className="absolute top-0 right-0 w-80 h-80 bg-[var(--color-luxury-gold)]/8 blur-[120px] rounded-full pointer-events-none" />
           <div className="relative z-10 p-8 md:p-12">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full
@@ -74,12 +74,12 @@ export default async function ExplorePage() {
               <Compass size={14} /> Discovery
             </div>
             <h1
-              className="text-3xl sm:text-5xl font-black text-white tracking-tight"
+              className="text-3xl sm:text-5xl font-black text-foreground tracking-tight"
               style={{ fontFamily: "var(--font-display)" }}
             >
               Connect with verified guides
             </h1>
-            <p className="text-slate-400 text-sm mt-3 max-w-xl">
+            <p className="text-muted-foreground text-sm mt-3 max-w-xl">
               {consultants.length} consultant
               {consultants.length !== 1 ? "s" : ""} in the directory.
               {onlineCount > 0 && (
@@ -99,7 +99,7 @@ export default async function ExplorePage() {
         <ConsultantDirectory initialConsultants={consultants} />
 
         {/* Trust footer */}
-        <div className="text-center text-[11px] text-slate-600 flex items-center justify-center gap-2 pt-8">
+        <div className="text-center text-[11px] text-muted-foreground flex items-center justify-center gap-2 pt-8">
           <ShieldCheck size={11} /> Every consultant is identity-verified
         </div>
       </div>

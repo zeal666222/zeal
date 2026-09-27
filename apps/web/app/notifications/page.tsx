@@ -123,10 +123,10 @@ export default function NotificationsPage() {
       className="max-w-2xl mx-auto px-4 py-6"
     >
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-[#5E4B8B] dark:text-white flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-[var(--color-muted-foreground)] dark:text-foreground flex items-center gap-2">
           <Bell className="w-6 h-6" /> Notifications
           {unreadCount > 0 && (
-            <span className="bg-[#9D7DC5] text-white rounded-full px-2.5 py-0.5 text-xs">
+            <span className="bg-[var(--color-primary)] text-white rounded-full px-2.5 py-0.5 text-xs">
               {unreadCount}
             </span>
           )}
@@ -134,7 +134,7 @@ export default function NotificationsPage() {
         {unreadCount > 0 && (
           <button
             onClick={markAllAsRead}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm text-[#9D7DC5] hover:bg-white/10"
+            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-surface-raised border border-border text-sm text-[var(--color-primary)] hover:bg-surface-overlay"
           >
             <CheckCheck className="w-4 h-4" /> Mark all read
           </button>
@@ -148,8 +148,8 @@ export default function NotificationsPage() {
             onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-xl text-sm font-medium capitalize transition-all ${
               filter === f
-                ? "bg-gradient-to-r from-[#9D7DC5] to-[#533AFD] text-white"
-                : "bg-white/5 border border-white/10 text-slate-300"
+                ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white"
+                : "bg-surface-raised border border-border text-muted-foreground"
             }`}
           >
             {f}
@@ -159,15 +159,15 @@ export default function NotificationsPage() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="w-6 h-6 animate-spin text-[#9D7DC5]" />
+          <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[280px] text-center">
-          <div className="p-4 rounded-full bg-[#9D7DC5]/10 mb-4">
-            <Bell className="w-8 h-8 text-[#9D7DC5]" />
+          <div className="p-4 rounded-full bg-[var(--color-primary)]/10 mb-4">
+            <Bell className="w-8 h-8 text-[var(--color-primary)]" />
           </div>
-          <h2 className="text-lg font-semibold text-white">No notifications</h2>
-          <p className="text-sm text-slate-400 mt-1">
+          <h2 className="text-lg font-semibold text-foreground">No notifications</h2>
+          <p className="text-sm text-muted-foreground mt-1">
             {filter === "unread" ? "All caught up!" : "Nothing here yet."}
           </p>
         </div>
@@ -183,32 +183,32 @@ export default function NotificationsPage() {
                 transition={{ delay: Math.min(idx * 0.03, 0.3) }}
                 className={`flex items-start gap-3 p-4 rounded-xl border ${
                   !n.read
-                    ? "bg-[#9D7DC5]/10 border-[#9D7DC5]/30 border-l-4 border-l-[#9D7DC5]"
-                    : "bg-slate-900/60 border-white/5"
+                    ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/30 border-l-4 border-l-[var(--color-primary)]"
+                    : "bg-surface border-border"
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-[#9D7DC5]/20 flex items-center justify-center flex-shrink-0">
-                  <Bell className="w-4 h-4 text-[#9D7DC5]" />
+                <div className="w-10 h-10 rounded-full bg-[var(--color-primary)]/20 flex items-center justify-center flex-shrink-0">
+                  <Bell className="w-4 h-4 text-[var(--color-primary)]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white">{n.message}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-sm text-foreground">{n.message}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
                   </p>
                 </div>
                 {!n.read && (
                   <button
                     onClick={() => markAsRead(n.id)}
-                    className="p-1 rounded-full hover:bg-white/10"
+                    className="p-1 rounded-full hover:bg-surface-overlay"
                     aria-label="Mark read"
                   >
-                    <Check className="w-4 h-4 text-[#9D7DC5]" />
+                    <Check className="w-4 h-4 text-[var(--color-primary)]" />
                   </button>
                 )}
                 {n.redirectUrl && (
                   <Link
                     href={n.redirectUrl}
-                    className="text-xs text-[#9D7DC5] hover:underline ml-2 self-center"
+                    className="text-xs text-[var(--color-primary)] hover:underline ml-2 self-center"
                   >
                     View
                   </Link>
