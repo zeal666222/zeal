@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/ui/toaster";
 import {useState} from "react";
 import {processApplicationAction} from "@/actions/admin";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
@@ -19,7 +20,7 @@ export function ApplicationReviewBoard({ appId, userId }: { appId: string; userI
     if (res.success) {
       router.refresh();
     } else {
-      alert(res.error || "Action failed.");
+      toast({ title: res.error || "Action failed.", variant: "destructive" });
       setLoading(false);
     }
   };

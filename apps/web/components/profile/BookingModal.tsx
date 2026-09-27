@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/ui/toaster";
 import {useState} from "react";
 import { CreditCard, X } from "lucide-react";
 import {useAuth} from "@/components/providers/SupabaseAuthProvider";
@@ -45,11 +46,11 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
       if (data.payment_url) {
         window.location.href = data.payment_url;
       } else {
-        alert("Payment initiation failed. Please try again.");
+        toast({ title: "Payment initiation failed. Please try again.", variant: "destructive" });
       }
     } catch (error) {
       console.error("Payment error:", error);
-      alert("Something went wrong. Please try again.");
+      toast({ title: "Something went wrong. Please try again.", variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }

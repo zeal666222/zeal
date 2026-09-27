@@ -63,10 +63,7 @@ function NavIcon({
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 600, damping: 18 }}
-            className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full
-                       bg-rose-500 text-white text-[9px] font-black
-                       flex items-center justify-center
-                       shadow-md shadow-rose-500/40"
+            className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-md shadow-rose-500/40"
           >
             {badge > 9 ? "9+" : badge}
           </motion.span>
@@ -107,10 +104,7 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
       initial={{ y: 72, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
-      className="fixed bottom-0 left-0 right-0 z-50 h-20
-                 bg-[var(--color-surface)]/85 backdrop-blur-2xl
-                 border-t border-[var(--color-border)]
-                 flex items-center justify-around px-2"
+      className="fixed bottom-0 left-0 right-0 z-50 h-20 bg-[var(--color-surface)]/85 backdrop-blur-2xl border-t border-[var(--color-border)] flex items-center justify-around px-2"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}
     >
       <NavIcon href="/" icon={Home} label="Home" active={pathname === "/"} />
@@ -154,18 +148,11 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
           whileHover={{ scale: 1.08, rotate: 3 }}
           whileTap={{ scale: 0.88, rotate: -6 }}
           transition={{ type: "spring", stiffness: 420, damping: 16 }}
-          className="relative w-16 h-16 sm:w-[68px] sm:h-[68px]
-                     rounded-2xl
-                     bg-gradient-to-br from-[var(--color-primary)] via-[#7A5A9E] to-[var(--color-primary-hover)]
-                     border border-purple-400/40
-                     flex items-center justify-center
-                     shadow-[0_8px_24px_-6px_rgba(83,58,253,0.55),0_0_24px_-4px_rgba(157,125,197,0.55)]"
+          className="relative w-16 h-16 sm:w-[68px] sm:h-[68px] rounded-2xl bg-gradient-to-br from-[var(--color-primary)] via-[#7A5A9E] to-[var(--color-primary-hover)] border border-purple-400/40 flex items-center justify-center shadow-[0_8px_24px_-6px_rgba(83,58,253,0.55),0_0_24px_-4px_rgba(157,125,197,0.55)]"
         >
           <span
             aria-hidden
-            className="absolute inset-0 rounded-2xl
-                       bg-gradient-to-b from-white/15 to-transparent
-                       pointer-events-none"
+            className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/15 to-transparent pointer-events-none"
           />
           <AnimatedZealMark
             size={30}
@@ -176,10 +163,7 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
         </motion.div>
 
         <span
-          className="absolute -bottom-5 left-1/2 -translate-x-1/2
-                     text-[9px] font-black uppercase tracking-wider
-                     text-[var(--color-primary)]
-                     drop-shadow-[0_0_6px_rgba(157,125,197,0.4)]"
+          className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] font-black uppercase tracking-wider text-[var(--color-primary)] drop-shadow-[0_0_6px_rgba(157,125,197,0.4)]"
         >
           Services
         </span>

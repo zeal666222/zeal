@@ -8,6 +8,7 @@ import { AlertCircle, ArrowDownRight, ArrowUpRight, CheckCircle2, Clock, Edit3,
   IndianRupee, KeyRound, Loader2, LogOut, Plus, Shield, ShieldCheck, Sparkles, User,
   Wallet, X } from "lucide-react";
 import {useRouter} from "next/navigation";
+import { ConfirmDialog } from "@zeal/ui";
 
 type MfaFactor = {
   id: string;
@@ -41,6 +42,7 @@ export default function ProfileDashboardPage() {
   const [verifyCode, setVerifyCode] = useState("");
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   if (!supabaseRef.current) supabaseRef.current = createClient();
@@ -181,7 +183,6 @@ export default function ProfileDashboardPage() {
   };
 
   const removeFactor = async (factorId: string) => {
-    if (!confirm("Remove two-factor authentication? You will lose 2FA protection.")) return;
     setUnenrollingId(factorId);
     try {
       const { error } = await supabase.auth.mfa.unenroll({ factorId });
@@ -464,7 +465,7 @@ export default function ProfileDashboardPage() {
                             </div>
                           </div>
                           <button
-                            onClick={() => removeFactor(f.id)}
+                            onClick={() => setPendingRemoveId(f.id)}
                             disabled={unenrollingId === f.id}
                             className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-bold transition-colors disabled:opacity-50" aria-label="Remove">
                             {unenrollingId === f.id ? <Loader2 size={14} className="animate-spin" /> : "Remove"}
@@ -506,6 +507,18 @@ export default function ProfileDashboardPage() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={pendingRemoveId !== null}
+        onOpenChange={(open) => { if (!open) setPendingRemoveId(null); }}
+        title="Remove two-factor authentication?"
+        description="You will lose 2FA protection on this account."
+        confirmLabel="Remove 2FA"
+        destructive
+        loading={unenrollingId !== null}
+        onConfirm={async () => {
+          if (pendingRemoveId) await removeFactor(pendingRemoveId);
+        }}
+      />
     </div>
   );
 }

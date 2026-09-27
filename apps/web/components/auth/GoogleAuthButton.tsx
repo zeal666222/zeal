@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/ui/toaster";
 import {useState} from "react";
 import {createBrowserClient} from "@supabase/ssr";
 import { Loader2 } from "lucide-react";
@@ -43,11 +44,11 @@ export function GoogleAuthButton({
       });
 
       if (error) {
-        alert("Google Sign-In failed: " + error.message);
+        toast({ title: "Google Sign-In failed: " + error.message, variant: "destructive" });
         setLoading(false);
       }
     } catch (err: any) {
-      alert("Unexpected error: " + err.message);
+      toast({ title: "Unexpected error: " + err.message, variant: "destructive" });
       setLoading(false);
     }
   };

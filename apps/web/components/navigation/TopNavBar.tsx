@@ -111,10 +111,7 @@ export function TopNavBar({ userId, initialBalance }: Props) {
             initial={{ opacity: 0, letterSpacing: "0.3em" }}
             animate={{ opacity: 1, letterSpacing: "0.15em" }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="hidden sm:inline-block text-lg font-black tracking-tight
-                       bg-gradient-to-r from-[var(--color-primary)] via-purple-300 to-[var(--color-primary-hover)]
-                       bg-clip-text text-transparent
-                       drop-shadow-[0_0_12px_rgba(157,125,197,0.35)]"
+            className="hidden sm:inline-block text-lg font-black tracking-tight bg-gradient-to-r from-[var(--color-primary)] via-purple-300 to-[var(--color-primary-hover)] bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(157,125,197,0.35)]"
           >
             ZEAL
           </motion.span>
@@ -132,12 +129,7 @@ export function TopNavBar({ userId, initialBalance }: Props) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
-                    className="relative w-9 h-9 rounded-full overflow-hidden
-                               bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                               flex items-center justify-center
-                               text-white font-black text-sm
-                               ring-2 ring-transparent hover:ring-[var(--color-primary)]/40
-                               transition-all duration-200 active:scale-95"
+                    className="relative w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-sm ring-2 ring-transparent hover:ring-[var(--color-primary)]/40 transition-all duration-200 active:scale-95"
                     aria-label="Account menu"
                   >
                     {user?.avatar ? (
@@ -191,10 +183,7 @@ export function TopNavBar({ userId, initialBalance }: Props) {
           ) : (
             <Link
               href={`/login?redirectedFrom=${encodeURIComponent(pathname)}`}
-              className="flex items-center gap-2 px-4 h-9 rounded-full
-                         bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                         text-white font-black text-xs
-                         hover:opacity-95 active:scale-95 transition-all"
+              className="flex items-center gap-2 px-4 h-9 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-xs hover:opacity-95 active:scale-95 transition-all"
             >
               <UserCircle size={14} /> Sign in
             </Link>

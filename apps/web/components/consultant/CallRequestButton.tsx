@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/ui/toaster";
 import {useState} from "react";
 import {requestConsultationSession} from "@/actions/discovery";
 import { Loader2, PhoneCall, Video } from "lucide-react";
@@ -15,7 +16,7 @@ export function CallRequestButton({ consultantId }: { consultantId: string }) {
     if (res.success && res.sessionId) {
       router.push(`/live/room/${res.sessionId}`);
     } else {
-      alert(res.error || "Failed to start session.");
+      toast({ title: res.error || "Failed to start session.", variant: "destructive" });
       setLoading(false);
     }
   };

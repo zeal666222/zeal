@@ -304,6 +304,19 @@ body {
   color: transparent;
 }
 
+/* Light mode needs deeper stops so gradient text stays readable on white. */
+.light .text-luxury-gradient {
+  background: linear-gradient(
+    135deg,
+    oklch(0.55 0.13 85) 0%,
+    oklch(0.5 0.14 300) 50%,
+    oklch(0.55 0.13 85) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
 /* ─── Ambient noise overlay ────────────────────────────────────────────────── */
 .noise-overlay { position: relative; isolation: isolate; }
 

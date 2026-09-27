@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/ui/toaster";
 import {useState, useRef} from "react";
 import {useRouter} from "next/navigation";
 import {motion} from "framer-motion";
@@ -57,7 +58,7 @@ export default function ProfileEditPage() {
  router.push("/profile");
  } catch (error) {
  console.error("Update error:", error);
- alert("Failed to update profile. Please try again.");
+ toast({ title: "Failed to update profile. Please try again.", variant: "destructive" });
  } finally {
  setIsSubmitting(false);
  }

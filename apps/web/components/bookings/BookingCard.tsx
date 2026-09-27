@@ -1,10 +1,12 @@
 "use client";
 
+import { toast } from "@/components/ui/toaster";
 import {useState} from "react";
 import {motion} from "framer-motion";
 import Link from "next/link";
 import { Calendar, Check, Clock, Loader2, MessageCircle, Phone, Star, Video, X } from "lucide-react";
 import {formatCurrency} from "@zeal/utils";
+import { ConfirmDialog } from "@zeal/ui";
 
 export interface BookingSummary {
  id: string;
@@ -56,16 +58,16 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Bo
  const [showRating, setShowRating] = useState(false);
  const [showReschedule, setShowReschedule] = useState(false);
  const [newDate, setNewDate] = useState("");
+ const [confirmCancel, setConfirmCancel] = useState(false);
 
  const cancel = async () => {
- if (!confirm("Cancel this booking? Refunds may apply.")) return;
  setBusy(true);
  try {
  const res = await fetch(`/api/bookings/${booking.id}/cancel`, { method: "POST" });
  if (!res.ok) throw new Error("Cancel failed");
  onRefetch?.();
  } catch (err) {
- alert(err instanceof Error ? err.message : "Failed to cancel");
+ toast({ title: err instanceof Error ? err.message : "Failed to cancel", variant: "destructive" });
  } finally {
  setBusy(false);
  }
@@ -84,7 +86,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Bo
  setShowRating(false);
  onRefetch?.();
  } catch (err) {
- alert(err instanceof Error ? err.message : "Failed to rate");
+ toast({ title: err instanceof Error ? err.message : "Failed to rate", variant: "destructive" });
  } finally {
  setBusy(false);
  }
@@ -107,7 +109,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Bo
  setShowReschedule(false);
  onRefetch?.();
  } catch (err) {
- alert(err instanceof Error ? err.message : "Failed to reschedule");
+ toast({ title: err instanceof Error ? err.message : "Failed to reschedule", variant: "destructive" });
  } finally {
  setBusy(false);
  }
@@ -248,7 +250,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Bo
  )}
  {canCancel && (
  <button
- onClick={cancel}
+ onClick={() => setConfirmCancel(true)}
  disabled={busy}
  className="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-xs font-medium disabled:opacity-50"
  >
@@ -266,6 +268,17 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Bo
  </div>
  </div>
  </div>
+ <ConfirmDialog
+ open={confirmCancel}
+ onOpenChange={setConfirmCancel}
+ title="Cancel this booking?"
+ description="Refunds may apply depending on the cancellation window."
+ confirmLabel="Cancel booking"
+ cancelLabel="Keep booking"
+ destructive
+ loading={busy}
+ onConfirm={cancel}
+ />
  </motion.div>
  );
 }

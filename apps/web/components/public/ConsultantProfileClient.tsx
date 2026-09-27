@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "@/components/ui/toaster";
 import {useState, useEffect} from "react";
 import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 import {initiateSessionAction} from "@/actions/signaling";
@@ -37,7 +38,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
         router.push(`/login?redirectedFrom=${pathname}`);
         return;
       }
-      alert(res.error);
+      toast({ title: res.error || "Failed to start session.", variant: "destructive" });
       setCallState('idle');
       return;
     }
