@@ -7,7 +7,7 @@ export function WalletLedgerPanel({ userId }: { userId: string }) {
   const { entries, wallet, loading } = useWalletLedger(userId);
 
   if (loading) {
-    return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-purple-400" /></div>;
+    return <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-purple-600 dark:text-purple-400" /></div>;
   }
 
   return (
@@ -29,10 +29,10 @@ export function WalletLedgerPanel({ userId }: { userId: string }) {
         )}
       </div>
 
-      <div className="bg-slate-900/60 backdrop-blur-xl border border-white/5 rounded-3xl p-5">
-        <h3 className="text-sm font-black text-white mb-4">Recent Transactions</h3>
+      <div className="bg-surface/60 backdrop-blur-xl border border-border rounded-3xl p-5">
+        <h3 className="text-sm font-black text-foreground mb-4">Recent Transactions</h3>
         {entries.length === 0 ? (
-          <p className="text-slate-500 text-sm text-center py-6">No transactions yet</p>
+          <p className="text-muted-foreground text-sm text-center py-6">No transactions yet</p>
         ) : (
           <div className="space-y-2">
             {entries.slice(0, 15).map((tx, idx) => {
@@ -45,15 +45,15 @@ export function WalletLedgerPanel({ userId }: { userId: string }) {
                   className="flex items-center justify-between p-3 bg-surface-raised rounded-xl hover:bg-surface-overlay transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${credit ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${credit ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/20 text-rose-600 dark:text-rose-400"}`}>
                       {credit ? <ArrowDownRight size={14} /> : <ArrowUpRight size={14} />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{tx.description}</p>
-                      <p className="text-[10px] text-slate-500">{new Date(tx.createdAt).toLocaleString()}</p>
+                      <p className="text-xs font-bold text-foreground truncate">{tx.description}</p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(tx.createdAt).toLocaleString()}</p>
                     </div>
                   </div>
-                  <span className={`text-xs font-bold font-mono shrink-0 ${credit ? "text-emerald-400" : "text-slate-300"}`}>
+                  <span className={`text-xs font-bold font-mono shrink-0 ${credit ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
                     {credit ? "+" : "-"}₹{Math.abs(tx.amount).toFixed(2)}
                   </span>
                 </motion.div>

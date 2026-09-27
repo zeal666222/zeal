@@ -1,7 +1,10 @@
 "use client";
 
 import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
+import {useState} from "react";
 import {motion} from "framer-motion";
+import { ConfirmDialog } from "@zeal/ui";
+import { toast } from "@/components/ui/toaster";
 import { Check, ExternalLink, Eye, Flag, Loader2, X } from "lucide-react";
 
 interface FlaggedPost {
@@ -18,6 +21,7 @@ interface ContentResponse {
 
 export default function AdminContentPage() {
   const qc = useQueryClient();
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery<ContentResponse>({
     queryKey: ["admin", "content", "reports"],
@@ -41,7 +45,11 @@ export default function AdminContentPage() {
       }
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "content", "reports"] }),
+    onSuccess: (_data, { action }) => {
+      qc.invalidateQueries({ queryKey: ["admin", "content", "reports"] });
+      toast({ title: action === "delete" ? "Post deleted" : "Report dismissed", variant: "success" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const items = data?.items ?? [];
@@ -66,18 +74,18 @@ export default function AdminContentPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white flex items-center gap-2">
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground flex items-center gap-2">
           <Flag className="w-6 h-6 text-[var(--color-primary)]" /> Content Moderation
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           {items.length} flagged post{items.length !== 1 ? "s" : ""} awaiting review
         </p>
       </div>
 
       {items.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-3xl">
-          <Flag className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-          <p className="text-slate-400">All caught up — no flagged content</p>
+        <div className="text-center py-20 border-2 border-dashed border-border rounded-3xl">
+          <Flag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">All caught up — no flagged content</p>
         </div>
       ) : (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
@@ -96,7 +104,7 @@ export default function AdminContentPage() {
                     : (post.author?.name || post.author?.username || "?").charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-white truncate">
+                  <p className="text-sm font-bold text-foreground truncate">
                     {post.author?.name || post.author?.username || "Unknown author"}
                   </p>
                   <p className="text-xs text-slate-500">
@@ -113,7 +121,7 @@ export default function AdminContentPage() {
                 </a>
               </div>
 
-              <p className="text-sm text-slate-300 whitespace-pre-wrap break-words line-clamp-4 mb-3">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words line-clamp-4 mb-3">
                 {post.content}
               </p>
 
@@ -127,21 +135,18 @@ export default function AdminContentPage() {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-3 border-t border-white/5">
+              <div className="flex gap-2 pt-3 border-t border-border">
                 <button
                   onClick={() => actionMutation.mutate({ postId: post.id, action: "dismiss" })}
                   disabled={actionMutation.isPending}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm font-bold disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-bold disabled:opacity-50"
                 >
                   <Check size={14} /> Dismiss report
                 </button>
                 <button
-                  onClick={() => {
-                    if (!confirm("Delete this post permanently?")) return;
-                    actionMutation.mutate({ postId: post.id, action: "delete" });
-                  }}
+                  onClick={() => setDeleteId(post.id)}
                   disabled={actionMutation.isPending}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-sm font-bold disabled:opacity-50"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-sm font-bold disabled:opacity-50"
                 >
                   <X size={14} /> Delete post
                 </button>
@@ -150,6 +155,23 @@ export default function AdminContentPage() {
           ))}
         </motion.div>
       )}
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(open) => { if (!open) setDeleteId(null); }}
+        title="Delete this post permanently?"
+        description="The post will be removed for everyone. This cannot be undone."
+        confirmLabel="Delete post"
+        destructive
+        loading={actionMutation.isPending}
+        onConfirm={async () => {
+          if (deleteId) {
+            try {
+              await actionMutation.mutateAsync({ postId: deleteId, action: "delete" });
+              setDeleteId(null);
+            } catch { /* toast handled by mutation */ }
+          }
+        }}
+      />
     </div>
   );
 }

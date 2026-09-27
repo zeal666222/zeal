@@ -5,7 +5,7 @@ export default function ChatIndex() {
       <div className="absolute w-[450px] h-[450px] bg-purple-600/10 blur-[140px] rounded-full pointer-events-none" />
       <div className="relative z-10 max-w-sm flex flex-col items-center">
         <div className="w-24 h-24 rounded-full bg-surface border border-border flex items-center justify-center mb-6">
-          <MessageCircle size={36} className="text-purple-400" />
+          <MessageCircle size={36} className="text-purple-600 dark:text-purple-400" />
         </div>
         <h2 className="text-2xl font-black text-foreground tracking-tight mb-2">Your Messages</h2>
         <p className="text-muted-foreground text-sm leading-relaxed">

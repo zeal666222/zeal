@@ -40,7 +40,7 @@ export function NotificationBell() {
  exit={{ opacity: 0, y: -10, scale: 0.95 }}
  className="absolute right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto glass-card-3d z-50"
  >
- <div className="flex items-center justify-between p-3 border-b border-white/10 /30">
+ <div className="flex items-center justify-between p-3 border-b border-border">
  <h3 className="font-semibold text-muted-foreground">Notifications</h3>
  {unreadCount > 0 && (
  <button onClick={markAllRead} className="text-xs text-[var(--color-primary)] hover:underline">
@@ -48,7 +48,7 @@ export function NotificationBell() {
  </button>
  )}
  </div>
- <div className="divide-y divide-white/10 dark:divide-gray-700/30">
+ <div className="divide-y divide-border">
  {notifications.length === 0 ? (
  <div className="p-8 text-center text-[var(--color-subtle-foreground)] dark:text-gray-400">No notifications</div>
  ) : (

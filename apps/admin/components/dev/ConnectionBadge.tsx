@@ -20,7 +20,7 @@ export function ConnectionBadge() {
   const state = useConnection();
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-xs text-white/80"
+      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
       title={`Realtime: ${state}`}
     >
       <span

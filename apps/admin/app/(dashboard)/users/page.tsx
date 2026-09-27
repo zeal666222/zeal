@@ -8,6 +8,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Ban, CheckCircle2, Loader2, Search, Shield, Users } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import { ConfirmDialog } from "@zeal/ui";
+import { toast } from "@/components/ui/toaster";
 
 interface UserRow {
   id: string;
@@ -45,6 +47,7 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [pendingAction, setPendingAction] = useState<{ userId: string; email: string; action: "PROMOTE_ADMIN" | "BAN" } | null>(null);
   const limit = 25;
 
   const { data, isLoading, error, refetch } = useQuery<UsersResponse>({
@@ -72,7 +75,12 @@ export default function AdminUsersPage() {
       }
       return res.json();
     },
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["admin", "users"] }); },
+    onSuccess: (_data, { action }) => {
+      void qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      const labels: Record<string, string> = { VERIFY: "User verified", PROMOTE_ADMIN: "User promoted to ADMIN", BAN: "User banned" };
+      toast({ title: labels[action] || "Action completed", variant: "success" });
+    },
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const refresh = useCallback(() => { void refetch(); }, [refetch]);
@@ -221,10 +229,7 @@ export default function AdminUsersPage() {
                       )}
                       {u.role !== "SUPER_ADMIN" && (
                         <button
-                          onClick={() => {
-                            if (!confirm(`Promote ${u.email} to ADMIN?`)) return;
-                            actionMutation.mutate({ userId: u.id, action: "PROMOTE_ADMIN" });
-                          }}
+                          onClick={() => setPendingAction({ userId: u.id, email: u.email, action: "PROMOTE_ADMIN" })}
                           disabled={actionMutation.isPending}
                           className="p-1.5 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 disabled:opacity-50"
                           title="Promote to ADMIN"
@@ -233,10 +238,7 @@ export default function AdminUsersPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => {
-                          if (!confirm(`Ban ${u.email}?`)) return;
-                          actionMutation.mutate({ userId: u.id, action: "BAN" });
-                        }}
+                        onClick={() => setPendingAction({ userId: u.id, email: u.email, action: "BAN" })}
                         disabled={actionMutation.isPending}
                         className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 disabled:opacity-50"
                         title="Ban"
@@ -272,6 +274,24 @@ export default function AdminUsersPage() {
           </button>
         </div>
       )}
+      <ConfirmDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => { if (!open) setPendingAction(null); }}
+        title={pendingAction?.action === "BAN" ? `Ban ${pendingAction.email}?` : `Promote ${pendingAction?.email ?? ""} to ADMIN?`}
+        description={pendingAction?.action === "BAN"
+          ? "The user will lose access to their account immediately."
+          : "This grants full administrative access to this account."}
+        confirmLabel={pendingAction?.action === "BAN" ? "Ban user" : "Promote"}
+        destructive={pendingAction?.action === "BAN"}
+        loading={actionMutation.isPending}
+        onConfirm={async () => {
+          if (!pendingAction) return;
+          try {
+            await actionMutation.mutateAsync({ userId: pendingAction.userId, action: pendingAction.action });
+            setPendingAction(null);
+          } catch { /* toast handled by mutation */ }
+        }}
+      />
     </div>
   );
 }

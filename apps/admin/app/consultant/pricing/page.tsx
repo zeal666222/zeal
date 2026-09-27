@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "@/components/ui/toaster";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Send, Tag } from "lucide-react";
@@ -45,41 +46,41 @@ export default function ConsultantPricingPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["consultant", "pricing-requests"] });
       setReason("");
-      alert("Request submitted. An admin will review it shortly.");
+      toast({ title: "Request submitted. An admin will review it shortly.", variant: "success" });
     },
-    onError: (e: Error) => alert(e.message),
+    onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
   });
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <h1 className="text-2xl font-black text-white flex items-center gap-2">
+      <h1 className="text-2xl font-black text-foreground flex items-center gap-2">
         <Tag size={22} className="text-[var(--color-primary)]" /> Request Pricing Change
       </h1>
 
       <div className="p-5 rounded-2xl border border-border bg-surface space-y-4">
         {(["perMinuteRate", "chatRate", "audioRate", "videoRate"] as const).map((field) => (
           <div key={field}>
-            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+            <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">
               {field.replace(/([A-Z])/g, " $1").trim()} (₹)
             </label>
             <input
               type="number" min={10} max={5000}
               value={rates[field]}
               onChange={(e) => setRates({ ...rates, [field]: Number(e.target.value) })}
-              className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-white font-mono outline-none focus:border-[var(--color-primary)]"
+              className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-foreground font-mono outline-none focus:border-[var(--color-primary)]"
             />
           </div>
         ))}
 
         <div>
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">
             Reason (min 30 chars)
           </label>
           <textarea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-white resize-none outline-none focus:border-[var(--color-primary)]"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-foreground resize-none outline-none focus:border-[var(--color-primary)]"
           />
           <p className="text-[10px] text-muted-foreground mt-1">{reason.length}/30 minimum</p>
         </div>
@@ -94,7 +95,7 @@ export default function ConsultantPricingPage() {
       </div>
 
       <div className="p-5 rounded-2xl border border-border bg-surface">
-        <h2 className="text-sm font-black text-white uppercase tracking-wider mb-3">Your Requests</h2>
+        <h2 className="text-sm font-black text-foreground uppercase tracking-wider mb-3">Your Requests</h2>
         {(data?.requests ?? []).length === 0 ? (
           <p className="text-sm text-muted-foreground">No requests yet.</p>
         ) : (
@@ -102,13 +103,13 @@ export default function ConsultantPricingPage() {
             <div key={r.id} className="p-3 rounded-xl bg-surface-raised mb-2">
               <div className="flex justify-between text-xs">
                 <span className={`font-bold ${
-                  r.status === "APPROVED" ? "text-emerald-400"
-                  : r.status === "REJECTED" ? "text-rose-400"
-                  : "text-amber-400"
+                  r.status === "APPROVED" ? "text-emerald-600 dark:text-emerald-400"
+                  : r.status === "REJECTED" ? "text-rose-600 dark:text-rose-400"
+                  : "text-amber-600 dark:text-amber-400"
                 }`}>{r.status}</span>
                 <span className="text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</span>
               </div>
-              <p className="text-xs text-slate-400 mt-1 italic">&ldquo;{r.reason}&rdquo;</p>
+              <p className="text-xs text-muted-foreground mt-1 italic">&ldquo;{r.reason}&rdquo;</p>
             </div>
           ))
         )}

@@ -158,11 +158,11 @@ export default function ConsultantsPage() {
                     {c.category.toLowerCase().replace(/_/g, " ")}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5 text-xs">
-                    <span className="flex items-center gap-1 text-amber-400">
-                      <Star size={11} className="fill-amber-400" />
+                    <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                      <Star size={11} className="fill-amber-600 dark:fill-amber-400" />
                       {c.rating.toFixed(1)}
                     </span>
-                    <span className="flex items-center gap-1 text-orange-400">
+                    <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
                       <Flame size={11} />
                       {(c.sparkScore ?? 0).toLocaleString()}
                     </span>
@@ -172,9 +172,9 @@ export default function ConsultantsPage() {
 
               <div className="flex items-center justify-between pt-3 border-t border-border">
                 <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                  c.status === "VERIFIED" ? "bg-emerald-500/20 text-emerald-400" :
-                  c.status === "PENDING" ? "bg-amber-500/20 text-amber-400" :
-                  "bg-slate-500/20 text-slate-400"
+                  c.status === "VERIFIED" ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" :
+                  c.status === "PENDING" ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" :
+                  "bg-slate-500/20 text-slate-600 dark:text-slate-400"
                 }`}>
                   {c.status}
                 </span>

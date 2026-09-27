@@ -98,19 +98,19 @@ function AcceptInviteContent() {
         <div className="bg-surface backdrop-blur-3xl border border-border rounded-[2.5rem] p-8">
           <div className="text-center mb-8">
             <div className="w-16 h-16 mx-auto bg-gradient-to-tr from-purple-500/20 to-indigo-500/20 border border-purple-500/30 rounded-2xl flex items-center justify-center mb-4">
-              <ShieldCheck className="text-purple-400" size={32} />
+              <ShieldCheck className="text-purple-600 dark:text-purple-400" size={32} />
             </div>
             <h1 className="text-2xl font-black text-foreground">Accept Admin Invite</h1>
             {email && (
               <p className="text-sm text-muted-foreground mt-2">
                 You&apos;ve been invited as{" "}
-                <strong className="text-purple-400">{role}</strong>
+                <strong className="text-purple-600 dark:text-purple-400">{role}</strong>
               </p>
             )}
           </div>
 
           {error && !email ? (
-            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
+            <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm flex items-center gap-2">
               <AlertCircle size={14} /> {error}
             </div>
           ) : (
@@ -151,7 +151,7 @@ function AcceptInviteContent() {
               </div>
 
               {error && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium flex items-center gap-2">
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-medium flex items-center gap-2">
                   <AlertCircle size={13} /> {error}
                 </div>
               )}

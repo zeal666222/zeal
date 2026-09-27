@@ -84,20 +84,20 @@ export function AppShell({
   const sidebarContent = (onNav?: () => void) => (
     <div className="flex flex-col h-full">
       {/* Profile */}
-      <div className="flex items-center gap-3 p-5 border-b border-white/5">
+      <div className="flex items-center gap-3 p-5 border-b border-border">
         <div className="relative shrink-0">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold overflow-hidden">
             {user.avatar
               ? <img src={user.avatar} alt="" className="w-full h-full object-cover" />
               : initial}
           </div>
-          <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-slate-950 ${
+          <span className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-background ${
             online ? "bg-emerald-500" : "bg-slate-600"
           }`} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-white truncate">{displayName}</p>
-          <p className="text-xs text-slate-400 truncate">
+          <p className="text-sm font-bold text-foreground truncate">{displayName}</p>
+          <p className="text-xs text-muted-foreground truncate">
             {isLive ? "Accepting sessions" : `${completeness}% complete`}
           </p>
         </div>
@@ -110,12 +110,12 @@ export function AppShell({
           className="mx-3 mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 transition-colors text-left"
         >
           <div className="min-w-0">
-            <p className="text-[9px] uppercase tracking-widest text-purple-400 font-bold">Your Site</p>
-            <p className="text-xs font-mono text-white truncate">{subdomain}.zeal.app</p>
+            <p className="text-[9px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-bold">Your Site</p>
+            <p className="text-xs font-mono text-foreground truncate">{subdomain}.zeal.app</p>
           </div>
           {copied
-            ? <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            : <Copy className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
+            ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            : <Copy className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />}
         </button>
       )}
 
@@ -131,8 +131,8 @@ export function AppShell({
               onClick={onNav}
               className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all relative ${
                 on
-                  ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/10 text-purple-300"
-                  : "text-slate-400 hover:bg-surface-raised hover:text-white"
+                  ? "bg-gradient-to-r from-purple-500/20 to-indigo-500/10 text-purple-700 dark:text-purple-300"
+                  : "text-muted-foreground hover:bg-surface-raised hover:text-foreground"
               }`}
             >
               {on && (
@@ -151,16 +151,16 @@ export function AppShell({
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-white/5 space-y-2">
+      <div className="p-3 border-t border-border space-y-2">
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-raised">
-          <Zap className="w-4 h-4 text-purple-400" />
-          <span className="text-xs text-slate-400">
-            Role: <span className="text-white font-bold">{role.replace(/_/g, " ")}</span>
+          <Zap className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+          <span className="text-xs text-muted-foreground">
+            Role: <span className="text-foreground font-bold">{role.replace(/_/g, " ")}</span>
           </span>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-rose-400 hover:bg-rose-500/10 transition-colors"
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors"
         >
           <LogOut className="w-5 h-5" />
           <span className="text-sm font-medium">Sign out</span>
@@ -170,7 +170,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen-app bg-slate-950 text-slate-50">
+    <div className="min-h-screen-app bg-background text-foreground">
       {/* Ambient backdrop */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 left-1/4 w-[600px] h-[600px] bg-indigo-600/10 blur-[180px] rounded-full" />
@@ -178,23 +178,23 @@ export function AppShell({
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-col fixed top-0 left-0 w-72 h-screen bg-slate-950/80 backdrop-blur-2xl border-r border-white/5 z-30">
+      <aside className="hidden lg:flex lg:flex-col fixed top-0 left-0 w-72 h-screen bg-background/80 backdrop-blur-2xl border-r border-border z-30">
         {sidebarContent()}
       </aside>
 
       {/* Mobile top bar */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-slate-950/95 backdrop-blur-2xl border-b border-white/5 flex items-center justify-between px-4">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-background/95 backdrop-blur-2xl border-b border-border flex items-center justify-between px-4">
         <button
           onClick={() => setDrawerOpen(true)}
           className="p-2 -ml-2 rounded-lg hover:bg-surface-raised"
           aria-label="Menu"
         >
-          <Menu className="w-5 h-5 text-white" />
+          <Menu className="w-5 h-5 text-foreground" />
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-black text-white tracking-wider">Zeal Studio</span>
+          <span className="text-sm font-black text-foreground tracking-wider">Zeal Studio</span>
           {connection === "connected" && (
-            <Wifi className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+            <Wifi className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
           )}
         </div>
         <div className="w-9" />
@@ -212,14 +212,14 @@ export function AppShell({
             <motion.aside
               initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed top-0 left-0 z-50 w-72 h-screen bg-slate-950 border-r border-white/5"
+              className="lg:hidden fixed top-0 left-0 z-50 w-72 h-screen bg-background border-r border-border"
             >
               <button
                 onClick={() => setDrawerOpen(false)}
                 className="absolute top-4 right-4 p-2 rounded-lg hover:bg-surface-overlay"
                 aria-label="Close"
               >
-                <X className="w-5 h-5 text-white" />
+                <X className="w-5 h-5 text-foreground" />
               </button>
               {sidebarContent(() => setDrawerOpen(false))}
             </motion.aside>
@@ -228,7 +228,7 @@ export function AppShell({
       </AnimatePresence>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-slate-950/95 backdrop-blur-2xl border-t border-white/5 flex items-center justify-around pb-safe">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-background/95 backdrop-blur-2xl border-t border-border flex items-center justify-around pb-safe">
         {NAV.filter((i) => i.mobile).map((item) => {
           const Icon = item.icon;
           const on = isActive(item.href);
@@ -241,9 +241,9 @@ export function AppShell({
               <span className={`absolute top-0 w-8 h-0.5 rounded-full transition-all ${
                 on ? "bg-purple-500" : "opacity-0"
               }`} />
-              <Icon className={`w-5 h-5 ${on ? "text-purple-400" : "text-slate-500"}`} />
+              <Icon className={`w-5 h-5 ${on ? "text-purple-600 dark:text-purple-400" : "text-slate-500"}`} />
               <span className={`text-[9px] font-bold uppercase tracking-wider ${
-                on ? "text-purple-400" : "text-slate-600"
+                on ? "text-purple-600 dark:text-purple-400" : "text-slate-600"
               }`}>{item.label}</span>
               {item.href === "/consultant/bookings" && pendingBookings > 0 && (
                 <span className="absolute top-0 right-2 min-w-[16px] h-4 px-1 bg-rose-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center">

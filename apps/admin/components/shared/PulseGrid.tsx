@@ -24,17 +24,17 @@ interface PulseGridProps {
 }
 
 const CARDS = [
-  { key: "sessions" as const,       icon: Users,       label: "Sessions",  accent: "text-indigo-400",  bg: "bg-indigo-500/10" },
-  { key: "earnings" as const,       icon: IndianRupee, label: "Earnings",  accent: "text-emerald-400", bg: "bg-emerald-500/10", currency: true },
-  { key: "rating" as const,         icon: Star,        label: "Rating",    accent: "text-amber-400",   bg: "bg-amber-500/10",   suffix: "★" },
-  { key: "sparkScore" as const,     icon: Flame,       label: "Sparks",    accent: "text-orange-400",  bg: "bg-orange-500/10" },
+  { key: "sessions" as const,       icon: Users,       label: "Sessions",  accent: "text-indigo-600 dark:text-indigo-400",  bg: "bg-indigo-500/10" },
+  { key: "earnings" as const,       icon: IndianRupee, label: "Earnings",  accent: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10", currency: true },
+  { key: "rating" as const,         icon: Star,        label: "Rating",    accent: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-500/10",   suffix: "★" },
+  { key: "sparkScore" as const,     icon: Flame,       label: "Sparks",    accent: "text-orange-600 dark:text-orange-400",  bg: "bg-orange-500/10" },
 ];
 
 export function PulseGrid({ stats, isLive, showPendingAlert, compact }: PulseGridProps) {
   return (
     <div className="space-y-4">
       {isLive && (
-        <div className="flex items-center gap-2 text-xs text-emerald-400 font-bold">
+        <div className="flex items-center gap-2 text-xs text-emerald-600 dark:text-emerald-400 font-bold">
           <Radio size={12} className="animate-pulse" /> Live
           {stats.liveSessions > 0 && (
             <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30">
@@ -64,14 +64,14 @@ export function PulseGrid({ stats, isLive, showPendingAlert, compact }: PulseGri
               className="glass-card-3d p-4 md:p-5"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] md:text-xs text-slate-400 font-bold uppercase tracking-wider">
+                <span className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-wider">
                   {tpl.label}
                 </span>
                 <div className={`p-2 rounded-xl ${tpl.bg} ${tpl.accent}`}>
                   <Icon size={16} />
                 </div>
               </div>
-              <div className="text-xl md:text-3xl font-black font-mono tracking-tight text-white">
+              <div className="text-xl md:text-3xl font-black font-mono tracking-tight text-foreground">
                 {value}
               </div>
             </motion.div>
@@ -81,10 +81,10 @@ export function PulseGrid({ stats, isLive, showPendingAlert, compact }: PulseGri
 
       {showPendingAlert && stats.pendingBookings > 0 && (
         <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
-          <span className="text-sm font-bold text-amber-400">
+          <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
             {stats.pendingBookings} pending booking{stats.pendingBookings !== 1 ? "s" : ""}
           </span>
-          <a href="/bookings?filter=pending" className="text-xs text-amber-400 hover:underline">
+          <a href="/bookings?filter=pending" className="text-xs text-amber-600 dark:text-amber-400 hover:underline">
             Review →
           </a>
         </div>

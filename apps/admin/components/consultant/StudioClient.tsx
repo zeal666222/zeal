@@ -139,14 +139,14 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-white">Welcome back, {initialProfile.full_name}</h1>
-          <p className="text-sm text-slate-400 mt-1">Your practice at a glance</p>
+          <h1 className="text-2xl lg:text-3xl font-black text-foreground">Welcome back, {initialProfile.full_name}</h1>
+          <p className="text-sm text-muted-foreground mt-1">Your practice at a glance</p>
         </div>
         <button onClick={toggle} disabled={toggling || !completeness.isLive}
           title={!completeness.isLive ? "Complete profile to go live" : undefined}
           className={cn(
             "flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed",
-            online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-slate-800 border-slate-700 text-slate-400",
+            online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400" : "bg-surface-raised border-border text-muted-foreground",
           )}
         >
           {toggling ? <Loader2 size={18} className="animate-spin" /> : <Power size={18} className={online ? "animate-pulse" : ""} />}
@@ -157,25 +157,25 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
       </div>
 
       {toast && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm font-bold">{toast}</div>
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm font-bold">{toast}</div>
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-        <Metric label="Balance"  value={`₹${Number(balance).toFixed(0)}`} icon={IndianRupee} accent="text-emerald-400" bg="bg-emerald-500/10" />
-        <Metric label="Rating"   value={`${stats.rating.toFixed(1)}★`}    icon={Star}         accent="text-amber-400"   bg="bg-amber-500/10" />
-        <Metric label="Sessions" value={String(stats.sessions)}           icon={Video}        accent="text-indigo-400"  bg="bg-indigo-500/10" />
-        <Metric label="Sparks"   value={sparkScore.toLocaleString()}      icon={Flame}        accent="text-orange-400"  bg="bg-orange-500/10" />
+        <Metric label="Balance"  value={`₹${Number(balance).toFixed(0)}`} icon={IndianRupee} accent="text-emerald-600 dark:text-emerald-400" bg="bg-emerald-500/10" />
+        <Metric label="Rating"   value={`${stats.rating.toFixed(1)}★`}    icon={Star}         accent="text-amber-600 dark:text-amber-400"   bg="bg-amber-500/10" />
+        <Metric label="Sessions" value={String(stats.sessions)}           icon={Video}        accent="text-indigo-600 dark:text-indigo-400"  bg="bg-indigo-500/10" />
+        <Metric label="Sparks"   value={sparkScore.toLocaleString()}      icon={Flame}        accent="text-orange-600 dark:text-orange-400"  bg="bg-orange-500/10" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl min-h-[420px]">
+          <div className="bg-surface/60 backdrop-blur-xl border border-indigo-500/20 rounded-3xl p-6 shadow-2xl min-h-[420px]">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-black text-white flex items-center gap-3">
-                <Activity className="text-indigo-400 w-5 h-5" /> Live Seeker Queue
+              <h2 className="text-lg font-black text-foreground flex items-center gap-3">
+                <Activity className="text-indigo-600 dark:text-indigo-400 w-5 h-5" /> Live Seeker Queue
               </h2>
               {online && (
-                <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs font-bold text-emerald-400 flex items-center gap-2">
+                <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> Searching
                 </span>
               )}
@@ -184,14 +184,14 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
             {incoming.length > 0 ? (
               <div className="space-y-3">
                 {incoming.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between gap-3 p-4 bg-indigo-950/40 border border-indigo-500/30 rounded-2xl">
+                  <div key={r.id} className="flex items-center justify-between gap-3 p-4 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl">
                     <div className="min-w-0">
-                      <p className="font-bold text-white text-sm truncate">{r.seekerName ?? "Seeker"}</p>
-                      <p className="text-xs text-slate-400">₹{r.rate ?? 0}/min · {r.modality ?? "chat"}</p>
+                      <p className="font-bold text-foreground text-sm truncate">{r.seekerName ?? "Seeker"}</p>
+                      <p className="text-xs text-muted-foreground">₹{r.rate ?? 0}/min · {r.modality ?? "chat"}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button onClick={() => setIncoming((p) => p.filter((x) => x.id !== r.id))}
-                        className="px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 text-xs font-bold">Skip</button>
+                        className="px-3 py-1.5 rounded-lg bg-surface-raised hover:bg-surface-overlay text-muted-foreground text-xs font-bold">Skip</button>
                       <button onClick={() => accept(r)}
                         className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-bold">Accept</button>
                     </div>
@@ -201,19 +201,19 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
             ) : (
               <div className={cn(
                 "flex items-center justify-center border-2 border-dashed rounded-3xl p-8 min-h-[340px]",
-                online ? "border-indigo-500/30 bg-indigo-950/20" : "border-white/5 bg-slate-950/50",
+                online ? "border-indigo-500/30 bg-indigo-500/10" : "border-border bg-surface-sunken/50",
               )}>
                 <div className="text-center">
                   <div className={cn(
                     "w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center",
-                    online ? "bg-indigo-500/20 text-indigo-400 animate-pulse" : "bg-surface-raised text-slate-500",
+                    online ? "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 animate-pulse" : "bg-surface-raised text-muted-foreground",
                   )}>
                     {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
-                  <h2 className="text-base font-bold text-slate-200 mb-2">
+                  <h2 className="text-base font-bold text-foreground mb-2">
                     {online ? "Waiting for connections…" : completeness.isLive ? "You're offline" : "Studio locked"}
                   </h2>
-                  <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                     {online ? "Your profile is visible to seekers. Requests appear here instantly."
                       : completeness.isLive ? "Toggle the switch above to start receiving sessions."
                       : "Complete your profile to unlock the studio."}
@@ -225,9 +225,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
         </div>
 
         <div className="space-y-4">
-          <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-            <h2 className="text-sm font-black mb-4 text-white uppercase tracking-wider flex items-center gap-2">
-              <MessageSquare className="text-slate-400" size={16} /> Quick Actions
+          <div className="bg-surface/60 backdrop-blur-xl border border-border rounded-3xl p-6 shadow-2xl">
+            <h2 className="text-sm font-black mb-4 text-foreground uppercase tracking-wider flex items-center gap-2">
+              <MessageSquare className="text-muted-foreground" size={16} /> Quick Actions
             </h2>
             <div className="space-y-3">
               <Quick icon={Clock} label="Set Availability" href="/consultant/availability" />
@@ -236,11 +236,11 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
             </div>
           </div>
           {subdomain && (
-            <div className="bg-slate-900/60 backdrop-blur-xl border border-[var(--color-primary)]/20 rounded-3xl p-6 shadow-2xl">
+            <div className="bg-surface/60 backdrop-blur-xl border border-[var(--color-primary)]/20 rounded-3xl p-6 shadow-2xl">
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-primary)] font-bold mb-1">Your White-Label Site</p>
-              <p className="text-sm font-mono text-white break-all">{subdomain}.zeal.app</p>
+              <p className="text-sm font-mono text-foreground break-all">{subdomain}.zeal.app</p>
               <a href={`/white-label/${subdomain}`} target="_blank"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-white font-bold">
+                className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-foreground font-bold">
                 Open site <ChevronRight size={12} />
               </a>
             </div>
@@ -253,12 +253,12 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
 
 function Metric({ label, value, icon: Icon, accent, bg }: { label: string; value: string; icon: typeof IndianRupee; accent: string; bg: string }) {
   return (
-    <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl">
+    <div className="bg-surface/60 backdrop-blur-xl border border-border rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-slate-400 text-[10px] lg:text-xs font-bold uppercase tracking-wider">{label}</span>
+        <span className="text-muted-foreground text-[10px] lg:text-xs font-bold uppercase tracking-wider">{label}</span>
         <div className={cn("p-2 rounded-lg", bg, accent)}><Icon size={16} /></div>
       </div>
-      <div className="text-xl lg:text-3xl font-black font-mono tracking-tight text-white">{value}</div>
+      <div className="text-xl lg:text-3xl font-black font-mono tracking-tight text-foreground">{value}</div>
     </div>
   );
 }
@@ -267,8 +267,8 @@ function Quick({ icon: Icon, label, href }: { icon: typeof Clock; label: string;
   return (
     <a href={href} className="flex items-center gap-3 p-3 bg-surface-raised rounded-xl hover:bg-surface-overlay transition-colors group">
       <Icon size={16} className="text-[var(--color-primary)]" />
-      <span className="text-sm text-slate-200 flex-1">{label}</span>
-      <ChevronRight size={12} className="text-slate-500 group-hover:text-[var(--color-primary)]" />
+      <span className="text-sm text-foreground flex-1">{label}</span>
+      <ChevronRight size={12} className="text-muted-foreground group-hover:text-[var(--color-primary)]" />
     </a>
   );
 }

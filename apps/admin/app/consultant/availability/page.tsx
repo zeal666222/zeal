@@ -82,7 +82,7 @@ export default function AvailabilityPage() {
             <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-bold text-foreground capitalize">{d}</p>
               <button onClick={() => add(d)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 text-xs font-bold hover:bg-indigo-500/20">
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:bg-indigo-500/20">
                 <Plus size={11} /> Add
               </button>
             </div>
@@ -97,7 +97,7 @@ export default function AvailabilityPage() {
                     <span className="text-muted-foreground text-xs">to</span>
                     <input type="time" value={b.end} onChange={(e: React.ChangeEvent<HTMLInputElement>) => upd(d, i, "end", e.target.value)}
                       className="flex-1 px-3 py-2 bg-surface border border-border rounded-lg text-sm text-foreground font-mono" />
-                    <button onClick={() => rm(d, i)} className="p-2 rounded-lg hover:bg-rose-500/10 text-rose-400">
+                    <button onClick={() => rm(d, i)} className="p-2 rounded-lg hover:bg-rose-500/10 text-rose-600 dark:text-rose-400">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -115,7 +115,7 @@ export default function AvailabilityPage() {
           </select>
         </div>
 
-        {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">{error}</div>}
+        {error && <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">{error}</div>}
 
         <button onClick={save} disabled={saving}
           className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-black hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-50">

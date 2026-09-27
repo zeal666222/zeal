@@ -51,7 +51,7 @@ export function ImpersonationBanner() {
           </span>
         </div>
         <button onClick={stop}
-          className="flex items-center gap-1 text-xs font-bold bg-surface-raised hover:bg-surface-overlay px-3 py-1.5 rounded-lg transition-all">
+          className="flex items-center gap-1 text-xs font-bold text-foreground bg-surface-raised hover:bg-surface-overlay px-3 py-1.5 rounded-lg transition-all">
           <X size={13} /> Stop Impersonation
         </button>
       </div>

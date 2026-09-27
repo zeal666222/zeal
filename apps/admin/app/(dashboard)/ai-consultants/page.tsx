@@ -2,10 +2,12 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // Admin AI Consultants — list · create · edit · deactivate
 // ═══════════════════════════════════════════════════════════════════════════════
+import { toast } from "@/components/ui/toaster";
 import { useCallback, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, Edit3, Loader2, Plus, Save, Search, Sparkles, Trash2, Wifi, X } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import { ConfirmDialog } from "@zeal/ui";
 
 interface AiConsultant {
   id: string;
@@ -40,6 +42,8 @@ export default function AdminAiConsultantsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deactivateId, setDeactivateId] = useState<string | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -91,7 +95,7 @@ export default function AdminAiConsultantsPage() {
 
   const save = async () => {
     if (!form.name || !form.avatar || !form.bio) {
-      alert("Name, avatar URL, and bio are required.");
+      toast({ title: "Name, avatar URL, and bio are required.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -115,19 +119,20 @@ export default function AdminAiConsultantsPage() {
       setShowForm(false);
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Save failed");
+      toast({ title: err instanceof Error ? err.message : "Save failed", variant: "destructive" });
     } finally { setSaving(false); }
   };
 
   const deactivate = async (id: string) => {
-    if (!confirm("Deactivate this AI consultant? Conversation history is preserved.")) return;
+    setDeactivating(true);
     try {
       const res = await fetch(`/api/admin/ai-consultants/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Deactivate failed");
+      toast({ title: "AI consultant deactivated", variant: "success" });
       await load();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed");
-    }
+      toast({ title: err instanceof Error ? err.message : "Failed", variant: "destructive" });
+    } finally { setDeactivating(false); }
   };
 
   const filtered = items.filter((c) =>
@@ -163,7 +168,7 @@ export default function AdminAiConsultantsPage() {
           <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
         </div>
       ) : error ? (
-        <div className="text-center py-12 text-rose-400">
+        <div className="text-center py-12 text-rose-600 dark:text-rose-400">
           Failed to load: {error}
           <button onClick={load} className="ml-2 text-[var(--color-primary)] hover:underline">Retry</button>
         </div>
@@ -179,22 +184,22 @@ export default function AdminAiConsultantsPage() {
                   <p className="text-xs text-muted-foreground capitalize">{c.category.toLowerCase()}</p>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap ${
-                  c.isActive ? "bg-green-500/20 text-green-400" : "bg-slate-500/20 text-slate-400"
+                  c.isActive ? "bg-green-500/20 text-green-600 dark:text-green-400" : "bg-slate-500/20 text-slate-600 dark:text-slate-400"
                 }`}>{c.isActive ? "Active" : "Inactive"}</span>
               </div>
               <div className="mt-3 flex items-center justify-between text-xs">
-                <span className="text-yellow-400">⭐ {c.rating.toFixed(1)}</span>
+                <span className="text-yellow-600 dark:text-yellow-400">⭐ {c.rating.toFixed(1)}</span>
                 <span className="text-[var(--color-primary)]">{c.isPaid ? `₹${c.perMinuteRate}/min` : "Free"}</span>
-                {c.isFeatured && <span className="text-amber-400 text-[10px]">Featured</span>}
+                {c.isFeatured && <span className="text-amber-600 dark:text-amber-400 text-[10px]">Featured</span>}
               </div>
               <div className="mt-3 flex gap-2">
                 <button onClick={() => startEdit(c)}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-surface-raised hover:bg-surface-overlay text-slate-300 text-xs font-bold">
+                  className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-surface-raised hover:bg-surface-overlay text-muted-foreground text-xs font-bold">
                   <Edit3 size={11} /> Edit
                 </button>
                 {c.isActive && (
-                  <button onClick={() => deactivate(c.id)}
-                    className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs font-bold">
+                  <button onClick={() => setDeactivateId(c.id)}
+                    className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
                     <Trash2 size={11} />
                   </button>
                 )}
@@ -287,6 +292,20 @@ export default function AdminAiConsultantsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        open={deactivateId !== null}
+        onOpenChange={(open) => { if (!open) setDeactivateId(null); }}
+        title="Deactivate this AI consultant?"
+        description="Conversation history is preserved. The consultant stops appearing in new sessions."
+        confirmLabel="Deactivate"
+        destructive
+        loading={deactivating}
+        onConfirm={async () => {
+          if (deactivateId) await deactivate(deactivateId);
+          setDeactivateId(null);
+        }}
+      />
     </div>
   );
 }

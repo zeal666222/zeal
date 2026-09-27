@@ -2,6 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // Super Admin — Impersonate a user
 // ═══════════════════════════════════════════════════════════════════════════════
+import { toast } from "@/components/ui/toaster";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
@@ -41,7 +42,7 @@ export default function ImpersonatePage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert((err as { error?: string }).error || "Failed to start impersonation");
+        toast({ title: (err as { error?: string }).error || "Failed to start impersonation", variant: "destructive" });
         return;
       }
       const r = (await res.json()) as {
@@ -63,7 +64,7 @@ export default function ImpersonatePage() {
       className="max-w-4xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl lg:text-3xl font-black text-foreground flex items-center gap-2">
-          <ShieldAlert className="w-6 h-6 text-rose-400" /> Impersonate User
+          <ShieldAlert className="w-6 h-6 text-rose-600 dark:text-rose-400" /> Impersonate User
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Act as any user for 15 minutes. Every action is audited.
@@ -79,7 +80,7 @@ export default function ImpersonatePage() {
 
       {isLoading ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-rose-400" />
+          <Loader2 className="w-6 h-6 animate-spin text-rose-600 dark:text-rose-400" />
         </div>
       ) : users.length === 0 ? (
         <div className="text-center py-16 border-2 border-dashed border-border rounded-3xl text-muted-foreground">

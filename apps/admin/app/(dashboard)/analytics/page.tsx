@@ -167,12 +167,12 @@ function ActionRequired({ pendingVerifications, liveSessions }: ActionRequiredPr
 
       {pendingVerifications > 0 && (
         <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-          <span className="text-sm text-amber-400">
+          <span className="text-sm text-amber-600 dark:text-amber-400">
             {pendingVerifications} verification{pendingVerifications === 1 ? "" : "s"} pending
           </span>
           <a
             href="/verification"
-            className="text-xs text-amber-400 hover:underline font-bold"
+            className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-bold"
           >
             Review →
           </a>
@@ -181,7 +181,7 @@ function ActionRequired({ pendingVerifications, liveSessions }: ActionRequiredPr
 
       {liveSessions > 0 && (
         <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-          <span className="text-sm text-emerald-400 flex items-center gap-2">
+          <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
             <Radio className="w-3 h-3 animate-pulse" />
             {liveSessions} live session{liveSessions === 1 ? "" : "s"}
           </span>
@@ -225,7 +225,7 @@ function ChartCard({
 
       <div className={heightClass}>
         {error ? (
-          <div className="h-full flex items-center justify-center text-rose-400 text-sm border-2 border-dashed border-rose-500/20 rounded-xl gap-2">
+          <div className="h-full flex items-center justify-center text-rose-600 dark:text-rose-400 text-sm border-2 border-dashed border-rose-500/20 rounded-xl gap-2">
             <AlertTriangle className="w-4 h-4" />
             {error.message}
           </div>
@@ -309,7 +309,7 @@ export default function AnalyticsPage() {
           label="Users"
           value={stats.users.toLocaleString("en-IN")}
           icon={Users}
-          accent="text-blue-400"
+          accent="text-blue-600 dark:text-blue-400"
           bg="bg-blue-500/10"
         />
         <KpiCard
@@ -318,7 +318,7 @@ export default function AnalyticsPage() {
           label="Consultants"
           value={stats.consultants.toLocaleString("en-IN")}
           icon={UserCog}
-          accent="text-purple-400"
+          accent="text-purple-600 dark:text-purple-400"
           bg="bg-purple-500/10"
         />
         <KpiCard
@@ -327,7 +327,7 @@ export default function AnalyticsPage() {
           label="Bookings"
           value={stats.bookings.toLocaleString("en-IN")}
           icon={Calendar}
-          accent="text-emerald-400"
+          accent="text-emerald-600 dark:text-emerald-400"
           bg="bg-emerald-500/10"
         />
         <KpiCard
@@ -336,7 +336,7 @@ export default function AnalyticsPage() {
           label="Revenue (mo)"
           value={`₹${stats.revenueMonth.toLocaleString("en-IN")}`}
           icon={DollarSign}
-          accent="text-amber-400"
+          accent="text-amber-600 dark:text-amber-400"
           bg="bg-amber-500/10"
         />
       </div>
@@ -380,7 +380,7 @@ export default function AnalyticsPage() {
       <ChartCard
         title={`Bookings — last ${SERIES_DAYS} days`}
         icon={Calendar}
-        iconClass="text-emerald-400"
+        iconClass="text-emerald-600 dark:text-emerald-400"
         loading={seriesQuery.isLoading}
         error={seriesQuery.error}
         empty={!hasBookings}

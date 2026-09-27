@@ -15,10 +15,10 @@ export default function AdminDashboardError({
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center p-6 text-center">
       <div className="w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center mb-4">
-        <AlertCircle className="w-8 h-8 text-rose-400" />
+        <AlertCircle className="w-8 h-8 text-rose-600 dark:text-rose-400" />
       </div>
-      <h2 className="text-xl font-bold text-white mb-2">Console error</h2>
-      <p className="text-sm text-slate-400 mb-4 max-w-md">
+      <h2 className="text-xl font-bold text-foreground mb-2">Console error</h2>
+      <p className="text-sm text-muted-foreground mb-4 max-w-md">
         {error.message || "An unexpected error occurred."}
       </p>
       {error.digest && (

@@ -2,6 +2,7 @@
 import { ThemeToggle } from "@zeal/ui";
 import { useAdminStore } from "@/lib/store/adminStore";
 import { ConnectionBadge } from "@/components/dev/ConnectionBadge";
+import { AdminCommandMenu } from "@/components/layout/AdminCommandMenu";
 import { cn } from "@zeal/ui";
 
 export function AdminTopBar() {
@@ -15,6 +16,7 @@ export function AdminTopBar() {
           {profile?.role ? profile.role.replace("_", " ") + " Console" : "Console"}
         </h1>
         <div className="flex items-center gap-2">
+          <AdminCommandMenu />
           <ConnectionBadge />
           <span
             className={cn(

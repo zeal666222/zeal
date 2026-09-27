@@ -58,10 +58,10 @@ export default function AdminDashboardPage() {
   };
 
   const cards = [
-    { label: "Users",       value: stats.users.toLocaleString(),       icon: Users,        color: "text-blue-400",    bg: "bg-blue-500/10" },
-    { label: "Consultants", value: stats.consultants.toLocaleString(), icon: UserCog,      color: "text-purple-400",  bg: "bg-purple-500/10" },
-    { label: "Bookings",    value: stats.bookings.toLocaleString(),    icon: Calendar,     color: "text-emerald-400", bg: "bg-emerald-500/10" },
-    { label: "Revenue",     value: `₹${stats.revenueToday.toLocaleString("en-IN")}`, icon: DollarSign, color: "text-amber-400", bg: "bg-amber-500/10" },
+    { label: "Users",       value: stats.users.toLocaleString(),       icon: Users,        color: "text-blue-600 dark:text-blue-400",    bg: "bg-blue-500/10" },
+    { label: "Consultants", value: stats.consultants.toLocaleString(), icon: UserCog,      color: "text-purple-600 dark:text-purple-400",  bg: "bg-purple-500/10" },
+    { label: "Bookings",    value: stats.bookings.toLocaleString(),    icon: Calendar,     color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10" },
+    { label: "Revenue",     value: `₹${stats.revenueToday.toLocaleString("en-IN")}`, icon: DollarSign, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10" },
   ];
 
   return (
@@ -103,16 +103,16 @@ export default function AdminDashboardPage() {
 
           {stats.pendingVerifications > 0 && (
             <div className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
-              <span className="text-sm text-amber-400">
+              <span className="text-sm text-amber-700 dark:text-amber-400">
                 {stats.pendingVerifications} verification{stats.pendingVerifications !== 1 ? "s" : ""} pending
               </span>
-              <a href="/verification" className="text-xs text-amber-400 hover:underline font-bold">Review →</a>
+              <a href="/verification" className="text-xs text-amber-700 dark:text-amber-400 hover:underline font-bold">Review →</a>
             </div>
           )}
 
           {stats.liveSessions > 0 && (
             <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <span className="text-sm text-emerald-400 flex items-center gap-2">
+              <span className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
                 <Radio className="w-3 h-3 animate-pulse" />
                 {stats.liveSessions} live session{stats.liveSessions !== 1 ? "s" : ""}
               </span>

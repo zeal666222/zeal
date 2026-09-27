@@ -10,7 +10,7 @@ import {useAuth} from "@/components/providers/SupabaseAuthProvider";
 import {useAdminStore, type AdminRole} from "@/lib/store/adminStore";
 import {Avatar, AvatarImage, AvatarFallback} from "@zeal/ui";
 
-interface NavItem {
+export interface NavItem {
  icon: typeof LayoutDashboard;
  label: string;
  href: string;
@@ -24,7 +24,7 @@ const ROLE_LEVEL: Record<AdminRole, number> = {
  SUPER_ADMIN: 100,
 };
 
-const NAV: NavItem[] = [
+export const NAV: NavItem[] = [
  { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard", minRole: "VIEWER" },
  { icon: BarChart3, label: "Analytics", href: "/analytics", minRole: "VIEWER" },
  { icon: Users, label: "Users", href: "/users", minRole: "ADMIN" },

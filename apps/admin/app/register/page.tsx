@@ -101,11 +101,11 @@ function Content() {
           className="max-w-md w-full text-center"
         >
           <div className="w-20 h-20 mx-auto rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-6">
-            <MailCheck size={32} className="text-emerald-400" />
+            <MailCheck size={32} className="text-emerald-600 dark:text-emerald-400" />
           </div>
-          <h1 className="text-2xl font-black text-white mb-2">Check your inbox</h1>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            We sent a confirmation link to <strong className="text-white">{email}</strong>.
+          <h1 className="text-2xl font-black text-foreground mb-2">Check your inbox</h1>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            We sent a confirmation link to <strong className="text-foreground">{email}</strong>.
             Click it, then come back and sign in.
           </p>
           <Link
@@ -139,7 +139,7 @@ function Content() {
               <Briefcase size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-white font-black tracking-wider text-lg leading-none">
+              <p className="text-foreground font-black tracking-wider text-lg leading-none">
                 ZEAL STUDIO
               </p>
               <p className="text-[10px] text-muted-foreground tracking-[0.2em] font-bold uppercase mt-0.5">
@@ -153,7 +153,7 @@ function Content() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight"
+              className="text-5xl xl:text-6xl font-black text-foreground leading-[1.05] tracking-tight"
             >
               Begin your
               <br />
@@ -166,7 +166,7 @@ function Content() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-slate-400 text-base mt-6 max-w-md"
+              className="text-muted-foreground text-base mt-6 max-w-md"
             >
               Serve seekers across every faith and healing tradition — Vedic,
               Islamic, Buddhist, Christian, Taoist, and modern wellness.
@@ -188,7 +188,7 @@ function Content() {
                   className="flex items-center gap-3 text-sm text-muted-foreground"
                 >
                   <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center shrink-0">
-                    <Check size={11} className="text-emerald-400" />
+                    <Check size={11} className="text-emerald-600 dark:text-emerald-400" />
                   </div>
                   {f}
                 </motion.li>
@@ -196,7 +196,7 @@ function Content() {
             </ul>
           </div>
 
-          <div className="flex items-center gap-6 text-[11px] text-slate-600">
+          <div className="flex items-center gap-6 text-[11px] text-subtle-foreground">
             <span>© {new Date().getFullYear()} Zeal</span>
             <span>•</span>
             <span>SOC 2</span>
@@ -217,14 +217,14 @@ function Content() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
                   <Briefcase size={18} className="text-white" />
                 </div>
-                <span className="text-white font-black tracking-wider text-lg">
+                <span className="text-foreground font-black tracking-wider text-lg">
                   ZEAL STUDIO
                 </span>
               </Link>
             </div>
 
             <div className="mb-8">
-              <h2 className="text-2xl font-black text-white tracking-tight">
+              <h2 className="text-2xl font-black text-foreground tracking-tight">
                 Create your account
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
@@ -232,11 +232,11 @@ function Content() {
               </p>
             </div>
 
-            <div className="mb-6 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs">
-              <div className="font-black flex items-center gap-2 text-indigo-200 mb-1.5">
+            <div className="mb-6 p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-300 text-xs">
+              <div className="font-black flex items-center gap-2 text-indigo-700 dark:text-indigo-200 mb-1.5">
                 <ShieldCheck size={14} /> Instant activation
               </div>
-              <p className="text-[11px] leading-relaxed text-indigo-300/80">
+              <p className="text-[11px] leading-relaxed text-indigo-700 dark:text-indigo-300/80">
                 No approval queue. You'll be live the moment you sign up — complete
                 your profile to maximize visibility.
               </p>
@@ -250,7 +250,7 @@ function Content() {
                   exit={{ opacity: 0, y: -8, height: 0 }}
                   className="mb-5 overflow-hidden"
                 >
-                  <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium flex items-start gap-2.5">
+                  <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs font-medium flex items-start gap-2.5">
                     <AlertCircle size={14} className="mt-0.5 shrink-0" />
                     <span>{error}</span>
                   </div>
@@ -267,7 +267,7 @@ function Content() {
                 <div className="relative group">
                   <UserIcon
                     size={17}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                   />
                   <input
                     id="reg-name"
@@ -278,7 +278,7 @@ function Content() {
                     onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                     placeholder="Your full name"
                     autoComplete="name"
-                    className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
+                    className="w-full pl-12 pr-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
                   />
                 </div>
               </div>
@@ -291,7 +291,7 @@ function Content() {
                 <div className="relative group">
                   <Mail
                     size={17}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                   />
                   <input
                     id="reg-email"
@@ -303,7 +303,7 @@ function Content() {
                     placeholder="you@example.com"
                     autoComplete="email"
                     className={
-                      "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 transition-colors " +
+                      "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface/90 transition-colors " +
                       (touched.email && email.length > 0 && !emailOk
                         ? "border-rose-500/40 focus:border-rose-500"
                         : "border-border focus:border-purple-500")
@@ -320,7 +320,7 @@ function Content() {
                 <div className="relative group">
                   <Lock
                     size={17}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                   />
                   <input
                     id="reg-pw"
@@ -331,14 +331,14 @@ function Content() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min. 12 characters"
                     autoComplete="new-password"
-                    className="w-full pl-12 pr-12 py-3.5 bg-surface border border-border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
+                    className="w-full pl-12 pr-12 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPw((v) => !v)}
                     tabIndex={-1}
                     aria-label={showPw ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-600 hover:text-muted-foreground hover:bg-surface-overlay transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-overlay transition-colors"
                   >
                     {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -354,10 +354,10 @@ function Content() {
                         />
                       </div>
                       <span className={`text-[10px] font-black uppercase tracking-widest ${
-                        strength <= 1 ? "text-rose-400"
-                        : strength === 2 ? "text-amber-400"
-                        : strength === 3 ? "text-blue-400"
-                        : "text-emerald-400"
+                        strength <= 1 ? "text-rose-600 dark:text-rose-400"
+                        : strength === 2 ? "text-amber-600 dark:text-amber-400"
+                        : strength === 3 ? "text-blue-600 dark:text-blue-400"
+                        : "text-emerald-600 dark:text-emerald-400"
                       }`}>
                         {meta.label}
                       </span>
@@ -378,7 +378,7 @@ function Content() {
                 <div className="relative group">
                   <Lock
                     size={17}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400"
                   />
                   <input
                     id="reg-confirm"
@@ -389,7 +389,7 @@ function Content() {
                     placeholder="Repeat password"
                     autoComplete="new-password"
                     className={
-                      "w-full pl-12 pr-12 py-3.5 bg-surface border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 transition-colors " +
+                      "w-full pl-12 pr-12 py-3.5 bg-surface border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface/90 transition-colors " +
                       (confirm.length > 0 && !matches
                         ? "border-rose-500/40 focus:border-rose-500"
                         : "border-border focus:border-purple-500")
@@ -397,7 +397,7 @@ function Content() {
                   />
                   {matches && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-emerald-500/15 flex items-center justify-center">
-                      <Check size={12} className="text-emerald-400" />
+                      <Check size={12} className="text-emerald-600 dark:text-emerald-400" />
                     </div>
                   )}
                 </div>
@@ -418,11 +418,11 @@ function Content() {
                 </div>
                 <span className="text-[11px] text-muted-foreground leading-relaxed">
                   I agree to Zeal&apos;s{" "}
-                  <Link href="/terms" className="text-purple-400 hover:text-purple-300 font-bold">
+                  <Link href="/terms" className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-bold">
                     Terms
                   </Link>{" "}
                   and{" "}
-                  <Link href="/privacy" className="text-purple-400 hover:text-purple-300 font-bold">
+                  <Link href="/privacy" className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-bold">
                     Privacy Policy
                   </Link>
                   .
@@ -448,17 +448,17 @@ function Content() {
 
             <p className="text-center text-xs text-muted-foreground mt-7">
               Already have an account?{" "}
-              <Link href="/login" className="text-purple-400 hover:text-purple-300 font-bold">
+              <Link href="/login" className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-bold">
                 Sign in
               </Link>
             </p>
 
-            <p className="text-center text-[10px] text-slate-600 mt-4 pt-4 border-t border-border">
-              <Sparkles size={10} className="inline mr-1.5 text-purple-400" />
+            <p className="text-center text-[10px] text-subtle-foreground mt-4 pt-4 border-t border-border">
+              <Sparkles size={10} className="inline mr-1.5 text-purple-600 dark:text-purple-400" />
               Just looking for guidance?{" "}
               <a
                 href={`${WEB_URL}/register`}
-                className="text-purple-400 hover:text-purple-300 font-bold"
+                className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-bold"
               >
                 Join as a Seeker
               </a>

@@ -107,10 +107,10 @@ export default function ServicesPickerPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-purple-400" /> Your Services
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground flex items-center gap-2">
+          <Sparkles className="w-6 h-6 text-purple-600 dark:text-purple-400" /> Your Services
         </h1>
-        <p className="text-sm text-slate-400 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Tag the services you offer. Tagged services appear on <code className="text-xs bg-surface px-1.5 py-0.5 rounded">/services/[category]/[service]</code> pages.
         </p>
       </div>
@@ -128,7 +128,7 @@ export default function ServicesPickerPage() {
           <motion.div key={group.categoryId}
             initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl border border-border bg-surface p-4">
-            <h2 className="text-xs font-black uppercase tracking-widest text-purple-400 mb-3">
+            <h2 className="text-xs font-black uppercase tracking-widest text-purple-600 dark:text-purple-400 mb-3">
               {group.categoryName}
             </h2>
             <div className="flex flex-wrap gap-2">
@@ -156,7 +156,7 @@ export default function ServicesPickerPage() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
           {error}
         </div>
       )}

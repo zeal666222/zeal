@@ -84,17 +84,17 @@ export default function AuditPage() {
                     {new Date(row.createdAt).toLocaleString()}
                   </td>
                   <td className="p-3 text-xs font-bold text-foreground">{row.action_name ?? "—"}</td>
-                  <td className="p-3 text-xs text-slate-300 truncate max-w-[200px]">
+                  <td className="p-3 text-xs text-muted-foreground truncate max-w-[200px]">
                     {row.email ?? row.userId?.slice(0, 8) ?? "system"}
                   </td>
-                  <td className="p-3 text-xs text-slate-300">
+                  <td className="p-3 text-xs text-muted-foreground">
                     {row.targetType ?? "—"}{row.targetId ? `#${row.targetId.slice(0, 8)}` : ""}
                   </td>
                   <td className="p-3">
                     <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
                       row.success === false
-                        ? "bg-rose-500/15 text-rose-400 border border-rose-500/30"
-                        : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                        ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+                        : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                     }`}>
                       {row.success === false ? "FAIL" : "OK"}
                     </span>

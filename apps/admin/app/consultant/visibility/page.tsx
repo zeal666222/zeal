@@ -71,8 +71,8 @@ export default function ConsultantVisibilityPage() {
   if (error || !report) {
     return (
       <div className="max-w-3xl mx-auto space-y-4">
-        <h1 className="text-2xl font-black text-white">Visibility Audit</h1>
-        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm flex items-center gap-2">
+        <h1 className="text-2xl font-black text-foreground">Visibility Audit</h1>
+        <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-sm flex items-center gap-2">
           <AlertCircle size={16} /> {error ?? "Unable to load report"}
         </div>
         <button onClick={load} className="px-5 py-3 rounded-xl bg-purple-600 text-white text-sm font-bold flex items-center gap-2">
@@ -95,10 +95,10 @@ export default function ConsultantVisibilityPage() {
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-white flex items-center gap-2">
-            <Eye className="w-6 h-6 text-purple-400" /> Visibility Audit
+          <h1 className="text-2xl lg:text-3xl font-black text-foreground flex items-center gap-2">
+            <Eye className="w-6 h-6 text-purple-600 dark:text-purple-400" /> Visibility Audit
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Confirms your profile is live on the homepage, explore directory, and services pages.
           </p>
         </div>
@@ -122,14 +122,14 @@ export default function ConsultantVisibilityPage() {
             allPass ? "bg-emerald-500/15" : "bg-amber-500/15"
           }`}>
             {allPass
-              ? <ShieldCheck size={24} className="text-emerald-400" />
-              : <AlertCircle size={24} className="text-amber-400" />}
+              ? <ShieldCheck size={24} className="text-emerald-600 dark:text-emerald-400" />
+              : <AlertCircle size={24} className="text-amber-600 dark:text-amber-400" />}
           </div>
           <div>
-            <p className={`text-lg font-black ${allPass ? "text-emerald-400" : "text-amber-400"}`}>
+            <p className={`text-lg font-black ${allPass ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
               {allPass ? "Fully visible" : `${passing}/${total} checks passing`}
             </p>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {allPass
                 ? "Your profile appears on every public surface."
                 : "Fix the failing checks below to increase visibility."}
@@ -140,7 +140,7 @@ export default function ConsultantVisibilityPage() {
 
       {/* Checklist */}
       <div className="rounded-3xl border border-border bg-surface p-5 space-y-2">
-        <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">
+        <h2 className="text-sm font-black text-muted-foreground uppercase tracking-widest mb-3">
           Visibility Checks
         </h2>
         {Object.entries(checks).map(([key, ok]) => (
@@ -154,10 +154,10 @@ export default function ConsultantVisibilityPage() {
               ok ? "bg-emerald-500/20" : "bg-rose-500/20"
             }`}>
               {ok
-                ? <Check size={13} className="text-emerald-400" />
-                : <X size={13} className="text-rose-400" />}
+                ? <Check size={13} className="text-emerald-600 dark:text-emerald-400" />
+                : <X size={13} className="text-rose-600 dark:text-rose-400" />}
             </div>
-            <span className={`text-sm ${ok ? "text-muted-foreground" : "text-slate-200 font-bold"}`}>
+            <span className={`text-sm ${ok ? "text-muted-foreground" : "text-foreground font-bold"}`}>
               {CHECK_LABEL[key] ?? key}
             </span>
           </div>
@@ -167,7 +167,7 @@ export default function ConsultantVisibilityPage() {
       {/* Quick facts */}
       {report.consultant && (
         <div className="rounded-3xl border border-border bg-surface p-5">
-          <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">
+          <h2 className="text-sm font-black text-muted-foreground uppercase tracking-widest mb-3">
             Profile Snapshot
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
@@ -186,7 +186,7 @@ export default function ConsultantVisibilityPage() {
 
       {/* Public URLs */}
       <div className="rounded-3xl border border-border bg-surface p-5 space-y-3">
-        <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-3">
+        <h2 className="text-sm font-black text-muted-foreground uppercase tracking-widest mb-3">
           Public URLs
         </h2>
         {report.profile_url && (
@@ -200,12 +200,12 @@ export default function ConsultantVisibilityPage() {
       {/* Guidance */}
       {!allPass && (
         <div className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-5 space-y-2">
-          <p className="text-sm font-bold text-amber-400 flex items-center gap-2">
+          <p className="text-sm font-bold text-amber-600 dark:text-amber-400 flex items-center gap-2">
             <Sparkles size={14} /> How to fix
           </p>
           <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-            {!checks.has_services && <li>Tag services on <a href="/consultant/services" className="text-purple-400 underline">/consultant/services</a></li>}
-            {!checks.has_bio && <li>Write a 20+ character bio in <a href="/consultant/settings" className="text-purple-400 underline">/consultant/settings</a></li>}
+            {!checks.has_services && <li>Tag services on <a href="/consultant/services" className="text-purple-600 dark:text-purple-400 underline">/consultant/services</a></li>}
+            {!checks.has_bio && <li>Write a 20+ character bio in <a href="/consultant/settings" className="text-purple-600 dark:text-purple-400 underline">/consultant/settings</a></li>}
             {!checks.has_specialties && <li>Add at least one specialty in settings</li>}
             {!checks.in_directory_mv && <li>Your row exists but hasn&apos;t been indexed — refresh the page in 30 seconds (auto-heals)</li>}
             {!checks.role_is_client_admin && <li>Role promotion pending — try refreshing your session (re-login)</li>}
@@ -221,7 +221,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="p-3 rounded-xl bg-surface-raised/50">
       <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{label}</p>
-      <p className="text-sm text-white font-mono mt-0.5 truncate">{value}</p>
+      <p className="text-sm text-foreground font-mono mt-0.5 truncate">{value}</p>
     </div>
   );
 }
@@ -239,13 +239,13 @@ function URLRow({ label, url, absolute }: { label: string; url: string; absolute
     <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-raised/50">
       <div className="min-w-0 flex-1">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">{label}</p>
-        <p className="text-xs font-mono text-white truncate">{url}</p>
+        <p className="text-xs font-mono text-foreground truncate">{url}</p>
       </div>
-      <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-surface-raised text-purple-400 text-xs font-bold">
+      <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-surface-raised text-purple-600 dark:text-purple-400 text-xs font-bold">
         {copied ? "Copied" : "Copy"}
       </button>
       <a href={absolute ? url : url} target="_blank" rel="noopener noreferrer"
-         className="p-2 rounded-lg hover:bg-surface-raised text-purple-400" aria-label="Open">
+         className="p-2 rounded-lg hover:bg-surface-raised text-purple-600 dark:text-purple-400" aria-label="Open">
         <ExternalLink size={13} />
       </a>
     </div>

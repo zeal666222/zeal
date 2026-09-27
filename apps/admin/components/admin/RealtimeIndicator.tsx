@@ -5,10 +5,10 @@ import {useConnection, type ConnectionState} from "@zeal/realtime";
 import {cn} from "@zeal/ui";
 
 const STYLE: Record<ConnectionState, { dot: string; label: string; text: string }> = {
-  connected:    { dot: "bg-emerald-500",  label: "Live",         text: "text-emerald-400" },
-  connecting:   { dot: "bg-amber-400",    label: "Connecting",   text: "text-amber-400" },
-  reconnecting: { dot: "bg-orange-500",   label: "Reconnecting", text: "text-orange-400" },
-  disconnected: { dot: "bg-rose-500",     label: "Offline",      text: "text-rose-400" },
+  connected:    { dot: "bg-emerald-500",  label: "Live",         text: "text-emerald-600 dark:text-emerald-400" },
+  connecting:   { dot: "bg-amber-400",    label: "Connecting",   text: "text-amber-600 dark:text-amber-400" },
+  reconnecting: { dot: "bg-orange-500",   label: "Reconnecting", text: "text-orange-600 dark:text-orange-400" },
+  disconnected: { dot: "bg-rose-500",     label: "Offline",      text: "text-rose-600 dark:text-rose-400" },
 };
 
 export function RealtimeIndicator({ className }: { className?: string }) {

@@ -40,19 +40,19 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
   const online = conversations.filter((c) => c.isOnline);
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 select-none">
+    <div className="flex flex-col h-full bg-surface select-none">
       {/* Header */}
-      <div className="flex-none h-16 px-5 border-b border-white/5 flex items-center justify-between">
+      <div className="flex-none h-16 px-5 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-black tracking-tight text-white">Messages</h1>
-          <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 text-xs font-bold border border-purple-500/30">
+          <h1 className="text-xl font-black tracking-tight text-foreground">Messages</h1>
+          <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-bold border border-purple-500/30">
             {conversations.length}
           </span>
         </div>
         <Link
           href="/explore"
           aria-label="Start new consultation"
-          className="p-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-slate-300 hover:text-white active:scale-95 transition-colors"
+          className="p-2 rounded-xl bg-surface-raised hover:bg-surface-overlay text-muted-foreground hover:text-foreground active:scale-95 transition-colors"
         >
           <Edit3 size={18} />
         </Link>
@@ -63,7 +63,7 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
         <div className="relative">
           <Search
             size={15}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
             aria-hidden
           />
           <input
@@ -72,14 +72,14 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
             aria-label="Search seekers"
             value={q}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQ(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-900/90 border border-white/5 rounded-xl text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-purple-500/50 transition-colors"
+            className="w-full pl-9 pr-4 py-2 bg-surface-raised border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-purple-500/50 transition-colors"
           />
         </div>
       </div>
 
       {/* Online row */}
       {online.length > 0 && (
-        <div className="py-2 px-4 border-b border-white/5 flex items-center gap-3 overflow-x-auto hide-scrollbar">
+        <div className="py-2 px-4 border-b border-border flex items-center gap-3 overflow-x-auto hide-scrollbar">
           {online.map((p) => (
             <Link
               key={p.sessionId}
@@ -100,9 +100,9 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
                     </div>
                   )}
                 </div>
-                <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+                <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 border-2 border-surface rounded-full" />
               </div>
-              <span className="text-[10px] text-slate-400 font-medium max-w-[54px] truncate">
+              <span className="text-[10px] text-muted-foreground font-medium max-w-[54px] truncate">
                 {p.partnerName.split(" ")[0]}
               </span>
             </Link>
@@ -111,12 +111,12 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
       )}
 
       {/* Conversation list */}
-      <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+      <div className="flex-1 overflow-y-auto divide-y divide-border">
         {filtered.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center p-6 text-center">
-            <MessageCircle size={32} className="text-slate-600 mb-2" />
-            <p className="text-sm font-bold text-slate-300">No chats found</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-[200px]">
+            <MessageCircle size={32} className="text-muted-foreground mb-2" />
+            <p className="text-sm font-bold text-foreground">No chats found</p>
+            <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
               Seekers who start a chat will appear here.
             </p>
           </div>
@@ -143,34 +143,34 @@ export function InboxList({ currentUserId, initialConversations }: Props) {
                       className="w-12 h-12 rounded-full object-cover bg-slate-900"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 border border-white/10 flex items-center justify-center font-bold text-sm text-white">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 border border-border flex items-center justify-center font-bold text-sm text-white">
                       {conv.partnerName.charAt(0)}
                     </div>
                   )}
                   {conv.isOnline && (
-                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-surface rounded-full" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1 mb-0.5">
-                    <h2 className="text-sm font-bold text-slate-200 truncate flex items-center gap-1.5">
+                    <h2 className="text-sm font-bold text-foreground truncate flex items-center gap-1.5">
                       {conv.partnerName}
                       {conv.isAI && (
-                        <Sparkles size={12} className="text-purple-400 shrink-0" />
+                        <Sparkles size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
                       )}
                     </h2>
                     <span className="text-[11px] text-slate-500 shrink-0">
                       {rel(conv.lastMessageTime)}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 truncate flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
                     {meLast && <span className="text-slate-500">You:</span>}
                     <span>{conv.lastMessage || "Start a conversation"}</span>
                   </p>
                 </div>
                 <ChevronRight
                   size={16}
-                  className="text-slate-600 group-hover:text-slate-300 transition-colors shrink-0"
+                  className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0"
                 />
               </Link>
             );

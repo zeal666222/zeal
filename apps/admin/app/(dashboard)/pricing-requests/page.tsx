@@ -86,7 +86,7 @@ export default function PricingRequestsPage() {
                   <p className="font-bold text-foreground">{r.consultant.user.name ?? r.consultant.user.email}</p>
                   <p className="text-xs text-muted-foreground">{r.consultant.category}</p>
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/20 text-amber-400">
+                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">
                   {r.status}
                 </span>
               </div>
@@ -114,7 +114,7 @@ export default function PricingRequestsPage() {
                   />
                   <div className="flex gap-2">
                     <button onClick={() => { setRejecting(null); setReason(""); }}
-                      className="flex-1 py-2 rounded-xl bg-surface-raised text-slate-300 text-sm font-bold">
+                      className="flex-1 py-2 rounded-xl bg-surface-raised text-muted-foreground text-sm font-bold">
                       Cancel
                     </button>
                     <button
@@ -135,7 +135,7 @@ export default function PricingRequestsPage() {
                   </button>
                   <button
                     onClick={() => setRejecting(r.id)}
-                    className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl bg-rose-500/10 text-rose-400 text-sm font-bold">
+                    className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-sm font-bold">
                     <X size={14} /> Reject
                   </button>
                 </div>

@@ -191,21 +191,21 @@ export default function ConsultantSettingsPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div>
-        <h1 className="text-2xl lg:text-3xl font-black text-white">Settings</h1>
-        <p className="text-sm text-slate-400 mt-1">Update your public practice profile</p>
+        <h1 className="text-2xl lg:text-3xl font-black text-foreground">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">Update your public practice profile</p>
       </div>
 
       <div className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-5 lg:p-6 space-y-5">
         {/* Bio */}
         <div>
-          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
             Professional Bio (min 20 chars)
           </label>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={6}
-            className="w-full p-4 bg-surface-raised border border-border rounded-2xl text-sm text-white resize-none focus:border-indigo-500 outline-none"
+            className="w-full p-4 bg-surface-raised border border-border rounded-2xl text-sm text-foreground resize-none focus:border-indigo-500 outline-none"
             placeholder="Describe your practice, lineage, and approach…"
           />
           <p className="text-xs text-muted-foreground mt-1.5">
@@ -215,13 +215,13 @@ export default function ConsultantSettingsPage() {
 
         {/* Category */}
         <div>
-          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
             Primary Category
           </label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white outline-none focus:border-indigo-500"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-foreground outline-none focus:border-indigo-500"
           >
             <option value="">Select category…</option>
             {catalog.map((g) => (
@@ -234,7 +234,7 @@ export default function ConsultantSettingsPage() {
 
         {/* Services */}
         <div>
-          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
             Services You Offer
           </label>
           <div className="max-h-64 overflow-y-auto space-y-3 p-3 rounded-2xl bg-surface-raised border border-border">
@@ -243,7 +243,7 @@ export default function ConsultantSettingsPage() {
             ) : (
               catalog.map((g) => (
                 <div key={g.categoryId}>
-                  <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-1.5">
+                  <p className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest mb-1.5">
                     {g.categoryName}
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -275,7 +275,7 @@ export default function ConsultantSettingsPage() {
         {/* Rate + Earnings */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+            <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
               Per-minute rate (₹)
             </label>
             <input
@@ -284,14 +284,14 @@ export default function ConsultantSettingsPage() {
               max={500}
               value={rate}
               onChange={(e) => setRate(Number(e.target.value))}
-              className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+              className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-foreground focus:border-indigo-500 outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+            <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
               You earn
             </label>
-            <div className="px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-emerald-400 font-black font-mono">
+            <div className="px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-emerald-600 dark:text-emerald-400 font-black font-mono">
               ₹{Math.round(rate * 0.9)}/min (90%)
             </div>
           </div>
@@ -299,28 +299,28 @@ export default function ConsultantSettingsPage() {
 
         {/* Specialties */}
         <div>
-          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
             Specialties (comma separated)
           </label>
           <input
             type="text"
             value={specialties}
             onChange={(e) => setSpecialties(e.target.value)}
-            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-foreground focus:border-indigo-500 outline-none"
             placeholder="Vedic Astrology, KP, Nadi"
           />
         </div>
 
         {/* Languages */}
         <div>
-          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">
+          <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-2">
             Languages (comma separated)
           </label>
           <input
             type="text"
             value={languages}
             onChange={(e) => setLanguages(e.target.value)}
-            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-white focus:border-indigo-500 outline-none"
+            className="w-full px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-foreground focus:border-indigo-500 outline-none"
             placeholder="English, Hindi"
           />
         </div>
@@ -332,7 +332,7 @@ export default function ConsultantSettingsPage() {
               Your white-label site
             </p>
             <div className="flex items-center gap-2">
-              <p className="text-sm font-mono text-white flex-1 truncate">
+              <p className="text-sm font-mono text-foreground flex-1 truncate">
                 {subdomain}.zeal.app
               </p>
               <button
@@ -351,13 +351,13 @@ export default function ConsultantSettingsPage() {
         <button
           type="button"
           onClick={() => setShowPricingRequest(true)}
-          className="w-full py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black text-sm hover:bg-amber-500/20 transition-all flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 font-black text-sm hover:bg-amber-500/20 transition-all flex items-center justify-center gap-2"
         >
           <IndianRupee size={16} /> Request Pricing Change
         </button>
 
         {error && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
             {error}
           </div>
         )}
@@ -389,19 +389,19 @@ export default function ConsultantSettingsPage() {
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-md p-6 rounded-3xl bg-surface border border-border">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-black text-white">Request Pricing Change</h3>
+              <h3 className="text-lg font-black text-foreground">Request Pricing Change</h3>
               <button
                 type="button"
                 onClick={() => setShowPricingRequest(false)}
                 className="p-1 rounded-lg hover:bg-surface-overlay"
               >
-                <X size={16} className="text-slate-400" />
+                <X size={16} className="text-muted-foreground" />
               </button>
             </div>
             <div className="space-y-3">
               {(["perMinuteRate", "chatRate", "audioRate", "videoRate"] as const).map((field) => (
                 <div key={field}>
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
+                  <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">
                     {field.replace(/([A-Z])/g, " $1").trim()} (₹)
                   </label>
                   <input
@@ -410,19 +410,19 @@ export default function ConsultantSettingsPage() {
                     onChange={(e) =>
                       setRequestRates({ ...requestRates, [field]: Number(e.target.value) })
                     }
-                    className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-white font-mono outline-none focus:border-indigo-500"
+                    className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-foreground font-mono outline-none focus:border-indigo-500"
                   />
                 </div>
               ))}
               <div>
-                <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-1">
+                <label className="block text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">
                   Reason (min 30 chars)
                 </label>
                 <textarea
                   value={requestReason}
                   onChange={(e) => setRequestReason(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-white resize-none outline-none focus:border-indigo-500"
+                  className="w-full px-4 py-3 bg-surface-raised border border-border rounded-xl text-sm text-foreground resize-none outline-none focus:border-indigo-500"
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {requestReason.length}/30 minimum

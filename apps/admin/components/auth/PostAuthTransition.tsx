@@ -45,7 +45,7 @@ export function PostAuthTransition({ destination, email }: Props) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-slate-950 flex items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center overflow-hidden">
       {/* Ambient backdrop */}
       <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-purple-600/10 blur-[180px] rounded-full pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-indigo-600/8 blur-[160px] rounded-full pointer-events-none" />
@@ -73,7 +73,7 @@ export function PostAuthTransition({ destination, email }: Props) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="text-2xl font-black tracking-tight text-white"
+            className="text-2xl font-black tracking-tight text-foreground"
           >
             {copy.title}
           </motion.h1>
@@ -81,7 +81,7 @@ export function PostAuthTransition({ destination, email }: Props) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.22 }}
-            className="text-sm text-slate-500 mt-2"
+            className="text-sm text-muted-foreground mt-2"
           >
             {copy.subtitle}
           </motion.p>
@@ -90,7 +90,7 @@ export function PostAuthTransition({ destination, email }: Props) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.3 }}
-              className="text-xs text-slate-600 mt-1 font-mono"
+              className="text-xs text-subtle-foreground mt-1 font-mono"
             >
               {email}
             </motion.p>
@@ -117,11 +117,11 @@ export function PostAuthTransition({ destination, email }: Props) {
                       ? "bg-emerald-500/20 border border-emerald-500/40"
                       : active
                       ? "bg-purple-500/20 border border-purple-500/40"
-                      : "bg-surface-raised border border-white/10")
+                      : "bg-surface-raised border border-border")
                   }
                 >
                   {done ? (
-                    <Check size={11} className="text-emerald-400" />
+                    <Check size={11} className="text-emerald-600 dark:text-emerald-400" />
                   ) : active ? (
                     <motion.div
                       animate={{ rotate: 360 }}
@@ -129,17 +129,17 @@ export function PostAuthTransition({ destination, email }: Props) {
                       className="w-3 h-3 rounded-full border-2 border-purple-400 border-t-transparent"
                     />
                   ) : (
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
                   )}
                 </div>
                 <span
                   className={
                     "text-sm transition-colors duration-300 " +
                     (done
-                      ? "text-slate-400 line-through"
+                      ? "text-muted-foreground line-through"
                       : active
-                      ? "text-white font-medium"
-                      : "text-slate-600")
+                      ? "text-foreground font-medium"
+                      : "text-subtle-foreground")
                   }
                 >
                   {label}
@@ -164,7 +164,7 @@ export function PostAuthTransition({ destination, email }: Props) {
               className="h-full bg-gradient-to-r from-purple-500 to-indigo-500"
             />
           </div>
-          <div className="flex items-center justify-center gap-1.5 mt-3 text-[10px] font-black uppercase tracking-widest text-slate-600">
+          <div className="flex items-center justify-center gap-1.5 mt-3 text-[10px] font-black uppercase tracking-widest text-subtle-foreground">
             <ArrowRight size={9} /> Secure session
           </div>
         </motion.div>

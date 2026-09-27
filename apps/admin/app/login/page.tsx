@@ -96,7 +96,7 @@ function Content() {
               <Briefcase size={20} className="text-white" />
             </div>
             <div>
-              <p className="text-white font-black tracking-wider text-lg leading-none">
+              <p className="text-foreground font-black tracking-wider text-lg leading-none">
                 ZEAL STUDIO
               </p>
               <p className="text-[10px] text-muted-foreground tracking-[0.2em] font-bold uppercase mt-0.5">
@@ -110,7 +110,7 @@ function Content() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-5xl xl:text-6xl font-black text-white leading-[1.05] tracking-tight"
+              className="text-5xl xl:text-6xl font-black text-foreground leading-[1.05] tracking-tight"
             >
               Your practice,
               <br />
@@ -123,7 +123,7 @@ function Content() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-slate-400 text-base mt-6 max-w-md"
+              className="text-muted-foreground text-base mt-6 max-w-md"
             >
               Multi-faith guidance across every tradition — Vedic, Islamic,
               Buddhist, Christian, Taoist, and beyond. Serve seekers in your own
@@ -153,7 +153,7 @@ function Content() {
             </ul>
           </div>
 
-          <div className="flex items-center gap-6 text-[11px] text-slate-600">
+          <div className="flex items-center gap-6 text-[11px] text-subtle-foreground">
             <span>© {new Date().getFullYear()} Zeal</span>
             <span>•</span>
             <span>SOC 2</span>
@@ -175,14 +175,14 @@ function Content() {
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center">
                   <Briefcase size={18} className="text-white" />
                 </div>
-                <span className="text-white font-black tracking-wider text-lg">
+                <span className="text-foreground font-black tracking-wider text-lg">
                   ZEAL STUDIO
                 </span>
               </Link>
             </div>
 
             <div className="mb-8">
-              <h2 className="text-2xl font-black text-white tracking-tight">
+              <h2 className="text-2xl font-black text-foreground tracking-tight">
                 Welcome back
               </h2>
               <p className="text-sm text-muted-foreground mt-1">
@@ -192,10 +192,10 @@ function Content() {
 
             {wrongPortal && (
               <div className="mb-5 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-                <p className="text-amber-300 text-xs font-bold mb-1">
+                <p className="text-amber-600 dark:text-amber-300 text-xs font-bold mb-1">
                   This account belongs to Zeal
                 </p>
-                <p className="text-amber-300/80 text-[11px] mb-3">
+                <p className="text-amber-700 dark:text-amber-300/80 text-[11px] mb-3">
                   You signed in as a seeker. Head to the Zeal app to continue.
                 </p>
                 <a
@@ -217,7 +217,7 @@ function Content() {
                 >
                   <div
                     role="alert"
-                    className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium flex items-start gap-2.5"
+                    className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs font-medium flex items-start gap-2.5"
                   >
                     <AlertCircle size={14} className="mt-0.5 shrink-0" />
                     <span>{error}</span>
@@ -238,7 +238,7 @@ function Content() {
                 <div className="relative group">
                   <Mail
                     size={17}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400 transition-colors"
                   />
                   <input
                     id="admin-email"
@@ -251,7 +251,7 @@ function Content() {
                     onBlur={() => setTouched((t) => ({ ...t, email: true }))}
                     placeholder="you@example.com"
                     className={
-                      "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none transition-colors " +
+                      "w-full pl-12 pr-4 py-3.5 bg-surface border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none transition-colors " +
                       (touched.email && email.length > 0 && !emailValid
                         ? "border-rose-500/40 focus:border-rose-500"
                         : "border-border focus:bg-surface/90 focus:border-purple-500")
@@ -259,7 +259,7 @@ function Content() {
                   />
                 </div>
                 {touched.email && email.length > 0 && !emailValid && (
-                  <p className="text-[10px] text-rose-400 mt-1.5 font-medium">
+                  <p className="text-[10px] text-rose-500 dark:text-rose-400 mt-1.5 font-medium">
                     Please enter a valid email address
                   </p>
                 )}
@@ -284,7 +284,7 @@ function Content() {
                 <div className="relative group">
                   <Lock
                     size={17}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-purple-400 transition-colors"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-purple-400 transition-colors"
                   />
                   <input
                     id="admin-password"
@@ -296,14 +296,14 @@ function Content() {
                     onChange={(e) => setPassword(e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, password: true }))}
                     placeholder="••••••••••••"
-                    className="w-full pl-12 pr-12 py-3.5 bg-surface border border-border rounded-2xl text-sm text-white placeholder:text-slate-600 outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
+                    className="w-full pl-12 pr-12 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:bg-surface/90 focus:border-purple-500 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShow((v) => !v)}
                     tabIndex={-1}
                     aria-label={show ? "Hide password" : "Show password"}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-600 hover:text-muted-foreground hover:bg-surface-overlay transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-overlay transition-colors"
                   >
                     {show ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
@@ -329,7 +329,7 @@ function Content() {
 
             <div className="my-7 relative flex items-center justify-center">
               <div className="border-t border-border w-full" />
-              <span className="bg-[var(--color-background)] px-4 text-[10px] uppercase tracking-[0.25em] text-slate-600 font-bold">
+              <span className="bg-[var(--color-background)] px-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground font-bold">
                 new here?
               </span>
               <div className="border-t border-border w-full" />
@@ -343,7 +343,7 @@ function Content() {
                 <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
                   <Briefcase size={15} className="text-indigo-400" />
                 </div>
-                <p className="text-white font-bold text-sm">Join as Guide</p>
+                <p className="text-foreground font-bold text-sm">Join as Guide</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">Practice & earn</p>
               </Link>
 
@@ -354,12 +354,12 @@ function Content() {
                 <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">
                   <Sparkles size={15} className="text-purple-400" />
                 </div>
-                <p className="text-white font-bold text-sm">Looking for guidance?</p>
+                <p className="text-foreground font-bold text-sm">Looking for guidance?</p>
                 <p className="text-[11px] text-muted-foreground mt-0.5">Join as Seeker</p>
               </a>
             </div>
 
-            <p className="text-center text-[10px] text-slate-600 mt-6 flex items-center justify-center gap-1.5">
+            <p className="text-center text-[10px] text-muted-foreground mt-6 flex items-center justify-center gap-1.5">
               <ShieldCheck size={10} /> Encrypted session · Rate-limited
             </p>
           </motion.div>

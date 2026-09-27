@@ -170,15 +170,15 @@ export function ChatRoom({
   const showCancel = isAI && isStreaming;
 
   return (
-    <div className="flex flex-col h-full bg-slate-950">
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex-none h-16 bg-slate-900/80 backdrop-blur-2xl border-b border-white/10 px-3 md:px-4 flex items-center gap-3">
+      <div className="flex-none h-16 bg-surface/80 backdrop-blur-2xl border-b border-border px-3 md:px-4 flex items-center gap-3">
         <button
           onClick={() => router.push("/consultant/chat")}
           className="md:hidden p-2 -ml-1 rounded-lg hover:bg-surface-raised"
           aria-label="Back"
         >
-          <ArrowLeft size={18} className="text-white" />
+          <ArrowLeft size={18} className="text-foreground" />
         </button>
 
         <div className="relative w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center font-black text-white overflow-hidden shrink-0">
@@ -199,7 +199,7 @@ export function ChatRoom({
         </div>
 
         <div className="min-w-0 flex-1">
-          <h2 className="font-bold text-white text-sm truncate flex items-center gap-1.5">
+          <h2 className="font-bold text-foreground text-sm truncate flex items-center gap-1.5">
             {partnerName}
             {isAI && <Sparkles size={12} className="text-[var(--color-primary)]" />}
           </h2>
@@ -207,17 +207,17 @@ export function ChatRoom({
             {showTyping ? (
               <>
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                <span className="text-purple-400">typing…</span>
+                <span className="text-purple-600 dark:text-purple-400">typing…</span>
               </>
             ) : partnerIsOnline || isAI ? (
               <>
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-emerald-400">
+                <span className="text-emerald-600 dark:text-emerald-400">
                   {isAI ? "AI · 24/7" : "Online"}
                 </span>
               </>
             ) : (
-              <span className="text-slate-500">Offline</span>
+              <span className="text-muted-foreground">Offline</span>
             )}
           </div>
         </div>
@@ -225,15 +225,15 @@ export function ChatRoom({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4">
-        <div className="text-center pb-6 border-b border-white/5">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold rounded-full">
+        <div className="text-center pb-6 border-b border-border">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-bold rounded-full">
             <ShieldCheck size={14} /> Secure session
           </div>
         </div>
 
         {isLoading && messages.length === 0 ? (
           <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-purple-400" />
+            <Loader2 className="w-6 h-6 animate-spin text-purple-600 dark:text-purple-400" />
           </div>
         ) : (
           messages.map((m: ChatMessage) => {
@@ -251,7 +251,7 @@ export function ChatRoom({
                     "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words",
                     me
                       ? "bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-br-sm"
-                      : "bg-slate-800 text-slate-200 border border-white/5 rounded-bl-sm",
+                      : "bg-surface-raised text-foreground border border-border rounded-bl-sm",
                     m._optimistic && "opacity-70",
                   )}
                 >
@@ -261,7 +261,7 @@ export function ChatRoom({
                   <span className="text-[10px] text-slate-600 font-medium">
                     {formatTime(m.createdAt)}
                   </span>
-                  {me && <CheckCheck size={11} className="text-purple-400" />}
+                  {me && <CheckCheck size={11} className="text-purple-600 dark:text-purple-400" />}
                 </div>
               </div>
             );
@@ -270,12 +270,12 @@ export function ChatRoom({
 
         {showStreaming && (
           <div className="flex flex-col items-start">
-            <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-slate-800 text-slate-200 border border-white/5 text-sm leading-relaxed">
+            <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-raised text-foreground border border-border text-sm leading-relaxed">
               {streamingText}
               <span className="inline-block w-1.5 h-4 ml-1 bg-purple-400 animate-pulse align-middle" />
             </div>
             <div className="flex items-center gap-2 mt-1 px-1">
-              <span className="text-[10px] text-slate-500">
+              <span className="text-[10px] text-muted-foreground">
                 {partnerName} is thinking…
               </span>
             </div>
@@ -283,7 +283,7 @@ export function ChatRoom({
         )}
 
         {showTyping && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/60 border border-white/5 rounded-2xl w-max">
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface-raised border border-border rounded-2xl w-max">
             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce" />
             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:150ms]" />
             <div className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:300ms]" />
@@ -295,12 +295,12 @@ export function ChatRoom({
 
       {/* Friendly error banner with retry */}
       {localError && (
-        <div className="flex-none mx-3 md:mx-4 mb-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-medium flex items-center gap-2">
+        <div className="flex-none mx-3 md:mx-4 mb-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-300 text-xs font-medium flex items-center gap-2">
           <AlertCircle size={14} className="shrink-0" />
           <span className="flex-1">{localError}</span>
           <button
             onClick={handleRetry}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 font-bold shrink-0"
+            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-700 dark:text-rose-200 font-bold shrink-0"
           >
             <RefreshCw size={11} /> Retry
           </button>
@@ -309,7 +309,7 @@ export function ChatRoom({
 
       {/* Input */}
       <div
-        className="flex-none p-3 md:p-4 bg-slate-950/90 backdrop-blur-3xl border-t border-white/10"
+        className="flex-none p-3 md:p-4 bg-background/90 backdrop-blur-3xl border-t border-border"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
       >
         <form
@@ -332,7 +332,7 @@ export function ChatRoom({
             }
             maxLength={4000}
             disabled={showCancel}
-            className="flex-1 bg-slate-900 border border-white/10 rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-purple-500 text-slate-200 placeholder:text-slate-500 disabled:opacity-60"
+            className="flex-1 bg-surface-raised border border-border rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-purple-500 text-foreground placeholder:text-muted-foreground disabled:opacity-60"
           />
 
           {showCancel ? (
@@ -340,7 +340,7 @@ export function ChatRoom({
               type="button"
               onClick={handleCancel}
               aria-label="Stop response"
-              className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 shrink-0 transition-all"
+              className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center bg-rose-500/20 hover:bg-rose-500/30 text-rose-600 dark:text-rose-400 shrink-0 transition-all"
             >
               <Square size={16} fill="currentColor" />
             </button>

@@ -9,6 +9,7 @@ import { useAdminStore, type AdminRole } from "@/lib/store/adminStore";
 import { ImpersonationBanner } from "@/components/admin/ImpersonationBanner";
 import { AdminSidebar } from "@/components/layout/AdminSidebar";
 import { AdminTopBar } from "@/components/layout/AdminTopBar";
+import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 
 interface Props {
  role: string;
@@ -37,7 +38,10 @@ export function DashboardShell({ role, user, children }: Props) {
  <AdminSidebar role={role as AdminRole} />
  <div className="flex-1 flex flex-col overflow-hidden">
  <AdminTopBar />
- <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+ <main className="flex-1 overflow-y-auto p-4 md:p-6">
+ <Breadcrumbs />
+ {children}
+ </main>
  </div>
  </div>
  );

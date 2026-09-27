@@ -47,7 +47,7 @@ export default function ConsultantClientsPage() {
         </div>
         <div className="bg-surface backdrop-blur-xl border border-border rounded-2xl p-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total Sessions</p>
-          <p className="text-2xl font-black font-mono mt-1 text-purple-400">{totalSessions}</p>
+          <p className="text-2xl font-black font-mono mt-1 text-purple-600 dark:text-purple-400">{totalSessions}</p>
         </div>
       </div>
 
@@ -67,7 +67,7 @@ export default function ConsultantClientsPage() {
         <div className="space-y-3">
           {filtered.map((c) => (
             <div key={c.id} className="flex items-center gap-4 p-4 bg-surface backdrop-blur-xl border border-border rounded-2xl hover:border-purple-500/20 transition-all">
-              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/20 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
+              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/20 flex items-center justify-center text-foreground font-black text-sm flex-shrink-0">
                 {((c.name || c.email || "?")[0] ?? "?").toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
@@ -84,7 +84,7 @@ export default function ConsultantClientsPage() {
                 )}
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-lg font-black text-purple-400 font-mono">{c.sessions}</p>
+                <p className="text-lg font-black text-purple-600 dark:text-purple-400 font-mono">{c.sessions}</p>
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">sessions</p>
               </div>
             </div>
