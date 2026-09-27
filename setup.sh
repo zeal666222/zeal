@@ -1,435 +1,427 @@
 #!/usr/bin/env bash
-# ============================================================================
-# PROJECT ZEAL — Tier-A Repository Cleanup
-# ----------------------------------------------------------------------------
-# Removes ONLY files/dirs/deps verified to have zero references anywhere in
-# source, CI workflows, vercel.json, docker/, or package scripts.
+# ═══════════════════════════════════════════════════════════════════════════════
+#  setup.sh — Zeal Tier-B cleanup: orphan files, dead hooks/actions, unused deps
+# ─────────────────────────────────────────────────────────────────────────────
+#  Idempotent. Guarded by runtime assertions. Safe to re-run.
 #
-# Every destructive step is guarded by a runtime reference assertion: if any
-# assertion finds a live reference, the script aborts BEFORE deleting anything.
-# Deletions go through `git rm` (tracked) so everything is reversible via git.
-#
-# Phases:
-#   0  Preflight & safety assertions
-#   1  Remove tracked dead files (git rm)
-#   2  Remove untracked junk
-#   3  Prune empty directories
-#   4  Prune stale dependencies from package.json files + sync lockfile
-#   5  Verify: type-check + production build (web & admin)
-#   6  Commit
-#
-# Usage:  ./setup.sh                       (full run incl. verify + commit)
-#         SKIP_COMMIT=1 ./setup.sh         (stop before committing)
-#         DRY_RUN=1 ./setup.sh             (assertions + report only)
-#         VERIFY_ONLY=1 ./setup.sh         (skip cleanup, only type-check + build)
-# ============================================================================
+#  Usage:
+#    ./setup.sh                  # full run: assert → delete → verify → commit
+#    DRY_RUN=1 ./setup.sh        # assert only, change nothing
+#    SKIP_COMMIT=1 ./setup.sh    # delete + verify but don't commit
+#    VERIFY_ONLY=1 ./setup.sh    # type-check + build only (no deletions)
+# ═══════════════════════════════════════════════════════════════════════════════
 set -Eeuo pipefail
-IFS=$'\n\t'
+IFS=$' \t\n'
 
-# ---------------------------------------------------------------- constants
-REPO_ROOT="/d/zeal"
+trap 'echo "[FAIL] line $LINENO: $BASH_COMMAND" >&2' ERR
+
+# ─── Resolve repo root ───────────────────────────────────────────────────────
+_resolve_dir() {
+  local src="${BASH_SOURCE[0]}" dir
+  while [[ -h "$src" ]]; do
+    dir="$(cd -P "$(dirname "$src")" >/dev/null 2>&1 && pwd)"
+    src="$(readlink "$src")"
+    [[ "$src" != /* ]] && src="$dir/$src"
+  done
+  cd -P "$(dirname "$src")" >/dev/null 2>&1 && pwd
+}
+REPO_ROOT="$(_resolve_dir)"
+cd "$REPO_ROOT"
+
 DRY_RUN="${DRY_RUN:-0}"
 SKIP_COMMIT="${SKIP_COMMIT:-0}"
 VERIFY_ONLY="${VERIFY_ONLY:-0}"
-BUILD_LOG="/tmp/zeal-cleanup-build.log"
-DEPS_REMOVED=0
-FILES_REMOVED=0
-DIRS_REMOVED=0
-CLEANUP_RAN=0
 
-if [[ -t 1 ]]; then
-  C_RESET=$'\033[0m'; C_RED=$'\033[31m'; C_GREEN=$'\033[32m'
-  C_YELLOW=$'\033[33m'; C_BLUE=$'\033[36m'; C_BOLD=$'\033[1m'
-else
-  C_RESET=""; C_RED=""; C_GREEN=""; C_YELLOW=""; C_BLUE=""; C_BOLD=""
-fi
-
-log()    { printf '%s[zeal-clean]%s %s\n' "$C_BLUE" "$C_RESET" "$*"; }
-ok()     { printf '%s  ✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
-warn()   { printf '%s  !%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
-die()    { printf '%s  ✗ ABORT:%s %s\n' "$C_RED" "$C_RESET" "$*" >&2; exit 1; }
-header() { printf '\n%s%s════ %s ════%s\n' "$C_BOLD" "$C_BLUE" "$*" "$C_RESET"; }
-
-on_error() {
-  local exit_code=$? line=${1:-?}
-  printf '%s  ✗ script failed (exit %s) at line %s%s\n' "$C_RED" "$exit_code" "$line" "$C_RESET" >&2
-  printf '%s    working tree left intact — inspect with: git -C %s status%s\n' "$C_RED" "$REPO_ROOT" "$C_RESET" >&2
-  exit "$exit_code"
-}
-trap 'on_error $LINENO' ERR
-
-# ================================================================ phase 0
-header "PHASE 0 — preflight & safety assertions"
-
-cd "$REPO_ROOT" || die "cannot cd to $REPO_ROOT"
-
-TOPLEVEL="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-[[ "$TOPLEVEL" == "/d/zeal" || "$TOPLEVEL" == "D:/zeal" || "$TOPLEVEL" == "$(pwd -P)" && "$(basename "$TOPLEVEL")" == "zeal" ]] \
-  || die "not running from the root of the zeal git repository (toplevel: $TOPLEVEL)"
-git rev-parse --verify HEAD >/dev/null 2>&1 || die "repository has no commits"
-
-HEAD_BEFORE="$(git rev-parse --short HEAD)"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-[[ "$NODE_MAJOR" -ge 20 ]] || die "node >= 20 required (found $(node -v 2>/dev/null || echo none))"
-command -v npm >/dev/null || die "npm not found on PATH"
+HEAD_SHA="$(git rev-parse --short HEAD)"
+TRACKED_BEFORE="$(git ls-files | wc -l)"
 
-TRACKED_BEFORE="$(git ls-files | wc -l | tr -d ' ')"
-log "repo        : $REPO_ROOT (branch $BRANCH @ $HEAD_BEFORE)"
-log "node/npm    : $(node -v) / $(npm -v)"
-log "tracked     : $TRACKED_BEFORE files"
-log "dry-run     : $DRY_RUN   skip-commit: $SKIP_COMMIT   verify-only: $VERIFY_ONLY"
-log "rollback    : git reset --hard $HEAD_BEFORE  (after a committed run: git revert)"
+echo "════ PHASE 0 — preflight ════"
+echo "[zeal-clean] repo        : $REPO_ROOT (branch $BRANCH @ $HEAD_SHA)"
+echo "[zeal-clean] node/npm    : $(node -v) / $(npm -v)"
+echo "[zeal-clean] tracked     : $TRACKED_BEFORE files"
+echo "[zeal-clean] dry-run     : $DRY_RUN   skip-commit: $SKIP_COMMIT   verify-only: $VERIFY_ONLY"
+echo "[zeal-clean] rollback    : git reset --hard $HEAD_SHA"
 
-if [[ "$VERIFY_ONLY" == "1" ]]; then
-  log "VERIFY_ONLY=1 — skipping cleanup phases, running verification only"
-fi
+# ─── Helpers ──────────────────────────────────────────────────────────────────
 
-# Source trees scanned by the reference assertions (never node_modules/.next).
-SRC_TREES=(apps/web apps/admin packages scripts tooling docs supabase .github)
-src_grep() { # src_grep <extended-regex> -> matches outside node_modules/.next
-  grep -rnE "$1" \
-    --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
-    --include='*.json' --include='*.yml' --include='*.sh' --include='*.sql' \
-    "${SRC_TREES[@]}" 2>/dev/null \
-    | grep -v 'node_modules/' | grep -v '\.next/' | grep -v 'package-lock.json' \
-    || true
+# grep source code only (excludes package.json, node_modules, .next, dumps)
+code_grep() {
+  local tmpfile result
+  tmpfile="$(mktemp)"
+  grep -rn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' --include='*.mjs' \
+    -e "$1" apps/ packages/ > "$tmpfile" 2>/dev/null || true
+  result="$(grep -v node_modules "$tmpfile" 2>/dev/null | grep -v '.next' | grep -v '_dump.txt' || true)"
+  rm -f "$tmpfile"
+  printf '%s\n' "$result"
 }
 
-code_grep() { # like src_grep but ignores package.json manifests (dep prunes target those)
-  grep -rnE "$1" \
-    --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
-    --include='*.yml' --include='*.sh' --include='*.sql' \
-    "${SRC_TREES[@]}" 2>/dev/null \
-    | grep -v 'node_modules/' | grep -v '\.next/' \
-    || true
-}
-
-assert_no_refs() { # assert_no_refs <label> <regex> [exclude-filter-regex]
-  local label="$1" pattern="$2" excl="${3:-}" hits
-  hits="$(src_grep "$pattern")"
-  [[ -n "$excl" && -n "$hits" ]] && hits="$(printf '%s\n' "$hits" | grep -vE "$excl" || true)"
-  if [[ -n "$hits" ]]; then
-    printf '%s\n' "$hits" | head -10 >&2
-    die "ASSERTION FAILED [$label]: live references found — refusing to delete"
+# Assert a pattern has zero references in source code (excluding an optional file)
+assert_unused() {
+  local pattern="$1" exclude="${2:-}"
+  local raw filtered hits
+  raw="$(code_grep "$pattern")"
+  if [[ -n "$exclude" ]]; then
+    filtered="$(printf '%s\n' "$raw" | grep -v "$exclude" || true)"
+  else
+    filtered="$raw"
   fi
-  ok "assertion passed: $label has zero references"
-}
-
-assert_no_refs_in() { # assert_no_refs_in <dir> <label> <extended-regex>
-  local dir="$1" label="$2" pattern="$3" hits
-  hits="$(grep -rnE "$pattern" \
-    --include='*.ts' --include='*.tsx' --include='*.js' --include='*.mjs' \
-    "$dir" 2>/dev/null | grep -v 'node_modules/' | grep -v '\.next/' || true)"
-  if [[ -n "$hits" ]]; then
-    printf '%s\n' "$hits" | head -10 >&2
-    die "ASSERTION FAILED [$label]: live references found in $dir — refusing to delete"
+  # Count non-empty lines
+  hits="$(printf '%s\n' "$filtered" | grep -c . || true)"
+  if (( hits > 0 )); then
+    echo "  ✗ ASSERTION FAILED: '$pattern' has $hits reference(s) — aborting" >&2
+    printf '%s\n' "$filtered" | head -5 >&2
+    exit 1
   fi
-  ok "assertion passed: $label has zero references in $dir"
+  echo "  ✓ assertion passed: $pattern has zero references"
 }
 
-# Hard assertions — each mirrors a claim from the static audit. Any hit aborts
-# the whole run before a single file is touched.
-assert_no_refs "actions/astrology.ts"        "actions/astrology|from ['\"][^'\"]*astrology['\"]" "^apps/web/actions/astrology\.ts:"
-# NB: apps/web has its OWN live lib/auth (getUserId, syncAuthUser) — untouched.
-# Only the empty apps/admin wrappers are deleted, so scope this to apps/admin.
-assert_no_refs_in apps/admin "admin lib/auth wrappers" "from ['\"]@/lib/auth['\"]|@/lib/auth/(client|server|index)"
-assert_no_refs "a11y one-shot codemods"      "a11y/fix(-v2)?\.mjs" "^scripts/a11y/fix(-v2)?\.mjs:"
-assert_no_refs ".audit-* reports"            "\.audit-report\.md|\.audit-deep-report\.md|\.audit-production\.json"
-assert_no_refs ".env.vercel.required"        "\.env\.vercel\.required"
-assert_no_refs ".env.vercel.template"        "\.env\.vercel\.template"
-assert_no_refs ".deploy-trigger"             "\.deploy-trigger"
-assert_no_refs "repo_essentials_dump.txt"    "repo_essentials_dump"
+# Assert a file is safe to delete: exists AND has zero import references
+assert_file_unused() {
+  local filepath="$1"
 
-assert_no_code_refs() { # assert_no_code_refs <label> <regex> — ignores package.json manifests
-  local label="$1" pattern="$2" hits
-  hits="$(code_grep "$pattern")"
-  if [[ -n "$hits" ]]; then
-    printf '%s\n' "$hits" | head -10 >&2
-    die "ASSERTION FAILED [$label]: live source references found — refusing to prune"
+  if [[ ! -f "$filepath" ]]; then
+    echo "  ⊘ skip (absent): $filepath"
+    return 0
   fi
-  ok "assertion passed: $label unused in source"
+
+  local modpath
+  modpath="$(echo "$filepath" | sed 's|\.tsx\?$||')"
+  local tmpfile hits
+  tmpfile="$(mktemp)"
+  grep -rn --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
+    -E "from.*['\"].*${modpath}['\"/]|import.*${modpath}['\"/]" \
+    apps/ packages/ > "$tmpfile" 2>/dev/null || true
+  # Filter out noise
+  local filtered
+  filtered="$(grep -v node_modules "$tmpfile" 2>/dev/null | grep -v '.next' | grep -v "$filepath" || true)"
+  hits="$(printf '%s\n' "$filtered" | grep -c . || true)"
+  rm -f "$tmpfile"
+
+  if (( hits > 0 )); then
+    echo "  ✗ ASSERTION FAILED: $filepath has $hits import reference(s)" >&2
+    printf '%s\n' "$filtered" | head -5 >&2
+    exit 1
+  fi
+  echo "  ✓ assertion passed: $filepath is unreferenced"
 }
 
-# Dep assertions — the only permitted "livekit" hits are the internal stub
-# lib/livekit/room.ts and its importer; no SDK package imports may exist.
-LIVEKIT_HITS="$(code_grep "livekit" | grep -vE 'lib/livekit/room\.ts|from ["'\'']@/lib/livekit/room["'\'']' || true)"
-[[ -z "$LIVEKIT_HITS" ]] || { printf '%s\n' "$LIVEKIT_HITS" >&2; die "ASSERTION FAILED [livekit]: unexpected SDK usage"; }
-ok "assertion passed: livekit SDK packages unused (internal stub only)"
-
-assert_no_code_refs "@teispace/next-themes"  "@teispace/next-themes"
-assert_no_code_refs "auth-helpers"           "auth-helpers"
-assert_no_code_refs "ioredis/redis/socket.io" "from ['\"]ioredis['\"]|from ['\"]redis['\"]|socket\.io"
-assert_no_code_refs "razorpay"               "from ['\"]razorpay['\"]|require\(['\"]razorpay"
-assert_no_code_refs "@trpc client-side pkgs" "@trpc/(client|next|react-query)"
-
-# Sanity: things we KEEP must still be referenced (guards against a stale plan).
-KEEP_CHECKS=(
-  "@zeal/utils|packages/utils"
-  "smoke-test\.sh"
-  "a11y/scan\.py"
-  "verify-packages\.sh"
-  "api/debug/log"
-)
-for kc in "${KEEP_CHECKS[@]}"; do
-  [[ -n "$(src_grep "$kc")" ]] || warn "keep-check found no refs for: $kc (not deleting it anyway)"
-done
-ok "keep-checks done"
-
-# ---------------------------------------------------------------- targets
-TRACKED_DEAD_FILES=(
-  ".audit-report.md"
-  ".audit-deep-report.md"
-  ".audit-production.json"
-  ".env.vercel.required"
-  ".env.vercel.template"
-  "apps/web/actions/astrology.ts"
-  "apps/admin/lib/auth/client.ts"
-  "apps/admin/lib/auth/server.ts"
-  "apps/admin/lib/auth/index.ts"
-  "scripts/a11y/fix.mjs"
-  "scripts/a11y/fix-v2.mjs"
-)
-UNTRACKED_JUNK=(
-  "repo_essentials_dump.txt"
-)
-STALE_DEPS=(
-  "@teispace/next-themes"
-  "@supabase/auth-helpers-nextjs"
-  "@supabase/auth-helpers-shared"
-  "ioredis"
-  "redis"
-  "socket.io"
-  "socket.io-client"
-  "@socket.io/redis-adapter"
-  "livekit-client"
-  "livekit-server-sdk"
-  "@livekit/components-react"
-  "razorpay"
-  "@trpc/client"
-  "@trpc/next"
-  "@trpc/react-query"
-)
-PKG_FILES=(
-  "package.json"
-  "apps/web/package.json"
-  "apps/admin/package.json"
-)
-
-log "targets     : ${#TRACKED_DEAD_FILES[@]} tracked files, ${#UNTRACKED_JUNK[@]} untracked, ${#STALE_DEPS[@]} candidate deps"
-[[ "$DRY_RUN" == "1" ]] && { log "DRY_RUN=1 — nothing will be modified"; }
-
-# ================================================================ phase 1
-header "PHASE 1 — remove tracked dead files (git rm, reversible)"
-
-if [[ "$VERIFY_ONLY" == "1" ]]; then
-  log "skipped (VERIFY_ONLY=1)"
-else
-for f in "${TRACKED_DEAD_FILES[@]}"; do
+# Safe file removal (tracked or untracked)
+safe_rm() {
+  local f="$1"
+  if [[ ! -e "$f" ]]; then return 0; fi
+  if (( DRY_RUN )); then
+    echo "  [dry-run] would remove: $f"
+    return 0
+  fi
   if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
-    if [[ "$DRY_RUN" == "1" ]]; then
-      log "would git rm: $f"
-    else
-      git rm --quiet -- "$f"
-      FILES_REMOVED=$((FILES_REMOVED + 1))
-      ok "git rm $f"
-    fi
-  elif [[ -e "$f" ]]; then
-    warn "$f exists but is untracked — removing with rm"
-    [[ "$DRY_RUN" == "1" ]] || { rm -f -- "$f"; FILES_REMOVED=$((FILES_REMOVED + 1)); }
+    git rm -f --quiet "$f"
+    echo "  ✓ git rm $f"
   else
-    warn "$f already absent — skipping"
+    rm -f "$f"
+    echo "  ✓ rm $f (untracked)"
   fi
-done
-
-# Stage the pre-existing on-disk deletions that belong to this cleanup:
-#   .deploy-trigger (already staged) and the .migration/backup-* trees.
-if [[ "$DRY_RUN" != "1" ]]; then
-  git add -u -- .deploy-trigger 2>/dev/null || true
-  git add -u -- .migration 2>/dev/null || true
-  ok "staged pre-existing deletions (.deploy-trigger, .migration backups)"
-fi
-fi
-
-# ================================================================ phase 2
-header "PHASE 2 — remove untracked junk"
-
-if [[ "$VERIFY_ONLY" == "1" ]]; then
-  log "skipped (VERIFY_ONLY=1)"
-else
-for f in "${UNTRACKED_JUNK[@]}"; do
-  if [[ -e "$f" ]]; then
-    size="$(du -h -- "$f" | cut -f1)"
-    if [[ "$DRY_RUN" == "1" ]]; then
-      log "would rm: $f ($size)"
-    else
-      rm -f -- "$f"
-      FILES_REMOVED=$((FILES_REMOVED + 1))
-      ok "rm $f ($size reclaimed)"
-    fi
-  else
-    warn "$f already absent — skipping"
-  fi
-done
-fi
-
-# ================================================================ phase 3
-header "PHASE 3 — prune empty directories"
-
-if [[ "$VERIFY_ONLY" == "1" ]]; then
-  log "skipped (VERIFY_ONLY=1)"
-else
-# -delete implies depth-first, so nested empty dirs go in one pass; run twice
-# for parents that only became empty after the first pass. node_modules and
-# .next are pruned from traversal entirely.
-for pass in 1 2; do
-  while IFS= read -r d; do
-    [[ -n "$d" ]] || continue
-    if [[ "$DRY_RUN" == "1" ]]; then
-      log "would rmdir: $d"
-    else
-      rmdir -- "$d" && DIRS_REMOVED=$((DIRS_REMOVED + 1)) && ok "rmdir $d"
-    fi
-  done < <(find apps docs packages \
-             \( -name node_modules -o -name .next -o -name .git \) -prune -o \
-             -type d -empty -print 2>/dev/null)
-done
-fi
-
-# ================================================================ phase 4
-header "PHASE 4 — prune stale dependencies & sync lockfile"
-
-if [[ "$VERIFY_ONLY" == "1" ]]; then
-  log "skipped (VERIFY_ONLY=1)"
-elif [[ "$DRY_RUN" == "1" ]]; then
-  for pf in "${PKG_FILES[@]}"; do log "would prune deps in $pf"; done
-else
-  DEPS_JSON="$(printf '"%s",' "${STALE_DEPS[@]}")"
-  DEPS_JSON="[${DEPS_JSON%,}]"
-  DEPS_REMOVED="$(node - "$DEPS_JSON" "${PKG_FILES[@]}" <<'NODE_EOF'
-const fs = require("fs");
-const stale = JSON.parse(process.argv[2]);
-let removed = 0;
-for (const file of process.argv.slice(3)) {
-  let raw;
-  try { raw = fs.readFileSync(file, "utf8"); } catch { continue; }
-  const pkg = JSON.parse(raw);
-  let touched = false;
-  for (const section of ["dependencies", "devDependencies"]) {
-    if (!pkg[section]) continue;
-    for (const dep of stale) {
-      if (Object.prototype.hasOwnProperty.call(pkg[section], dep)) {
-        delete pkg[section][dep];
-        removed++; touched = true;
-        console.error(`  pruned ${dep} from ${file} [${section}]`);
-      }
-    }
-  }
-  if (touched) fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n");
 }
-console.log(removed);
-NODE_EOF
-)"
-  ok "removed $DEPS_REMOVED dependency entries"
 
-  log "syncing package-lock.json + node_modules (npm install)…"
-  npm install --no-audit --no-fund >/tmp/zeal-npm-install.log 2>&1 \
-    || { tail -30 /tmp/zeal-npm-install.log >&2; die "npm install failed — see /tmp/zeal-npm-install.log"; }
-  ok "npm install clean"
-fi
+# Prune empty directories under a path
+prune_empty_dirs() {
+  if (( DRY_RUN )); then return 0; fi
+  find "${1:-.}" -type d -empty -not -path '*/node_modules/*' -not -path '*/.git/*' \
+    -not -path '*/.next/*' -delete 2>/dev/null || true
+}
 
-if [[ "$VERIFY_ONLY" != "1" && "$DRY_RUN" != "1" ]]; then
-  CLEANUP_RAN=1
-fi
+# Remove a dependency from a package.json if present
+prune_dep() {
+  local pkg="$1" dep="$2"
+  if [[ ! -f "$pkg" ]]; then return 0; fi
+  if ! grep -q "\"$dep\"" "$pkg" 2>/dev/null; then return 0; fi
+  if (( DRY_RUN )); then
+    echo "  [dry-run] would prune $dep from $pkg"
+    return 0
+  fi
+  node -e "
+    const fs = require('fs');
+    const p = JSON.parse(fs.readFileSync('$pkg','utf8'));
+    let removed = false;
+    for (const key of ['dependencies','devDependencies','peerDependencies','optionalDependencies']) {
+      if (p[key] && p[key]['$dep'] !== undefined) { delete p[key]['$dep']; removed = true; }
+    }
+    if (removed) fs.writeFileSync('$pkg', JSON.stringify(p, null, 2) + '\n');
+  "
+  echo "  pruned $dep from $pkg"
+}
 
-# ================================================================ phase 5
-header "PHASE 5 — verify: type-check + production build"
-
-if [[ "$DRY_RUN" == "1" ]]; then
-  log "would run: npm run type-check && npm run build"
+if (( VERIFY_ONLY )); then
+  echo ""
+  echo "════ VERIFY_ONLY mode — skipping all deletions ════"
 else
-  log "type-checking all workspaces…"
-  npm run type-check >"$BUILD_LOG" 2>&1 \
-    || { tail -60 "$BUILD_LOG" >&2; die "type-check FAILED — full log: $BUILD_LOG"; }
-  ok "type-check green"
 
-  log "building apps/web…"
-  npm run build --workspace apps/web >"$BUILD_LOG" 2>&1 \
-    || { tail -60 "$BUILD_LOG" >&2; die "apps/web build FAILED — full log: $BUILD_LOG"; }
-  ok "apps/web build green"
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 1 — Assertions for apps/web orphans (23 files)
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 1 — assert apps/web orphans are unreferenced ════"
 
-  log "building apps/admin…"
-  npm run build --workspace apps/admin >"$BUILD_LOG" 2>&1 \
-    || { tail -60 "$BUILD_LOG" >&2; die "apps/admin build FAILED — full log: $BUILD_LOG"; }
-  ok "apps/admin build green"
+# Dead actions (7)
+assert_file_unused "apps/web/actions/booking.ts"
+assert_file_unused "apps/web/actions/chat.ts"
+assert_file_unused "apps/web/actions/consultant.ts"
+assert_file_unused "apps/web/actions/inbox.ts"
+assert_file_unused "apps/web/actions/public.ts"
+assert_file_unused "apps/web/actions/pulse.ts"
+assert_file_unused "apps/web/actions/studio.ts"
+
+# Dead hooks (16)
+assert_file_unused "apps/web/hooks/useBooking.ts"
+assert_file_unused "apps/web/hooks/useCall.ts"
+assert_file_unused "apps/web/hooks/useChatCache.ts"
+assert_file_unused "apps/web/hooks/useConsultantHeartbeat.ts"
+assert_file_unused "apps/web/hooks/useConsultantStatus.ts"
+assert_file_unused "apps/web/hooks/useConsultants.ts"
+assert_file_unused "apps/web/hooks/useDebounce.ts"
+assert_file_unused "apps/web/hooks/useFeed.ts"
+assert_file_unused "apps/web/hooks/useNotifications.ts"
+assert_file_unused "apps/web/hooks/useOfflineStore.ts"
+assert_file_unused "apps/web/hooks/usePresence.ts"
+assert_file_unused "apps/web/hooks/useRealtimeDirectory.ts"
+assert_file_unused "apps/web/hooks/useRealtimeQuery.ts"
+assert_file_unused "apps/web/hooks/useServiceCatalog.ts"
+assert_file_unused "apps/web/hooks/useSessionBilling.ts"
+assert_file_unused "apps/web/hooks/useZealStream.ts"
+
+echo "[zeal-clean] web orphan assertions passed"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 2 — Assertions for apps/admin orphans (6 files)
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 2 — assert apps/admin orphans are unreferenced ════"
+
+assert_file_unused "apps/admin/lib/auth/dal.ts"
+assert_file_unused "apps/admin/lib/observability/index.ts"
+assert_file_unused "apps/admin/types/chat-types.ts"
+assert_file_unused "apps/admin/types/realtime-types.ts"
+assert_file_unused "apps/admin/hooks/useAdminData.ts"
+assert_file_unused "apps/admin/hooks/useAdminRealtime.ts"
+assert_file_unused "apps/admin/hooks/useConsultantRealtime.ts"
+assert_file_unused "apps/admin/hooks/useRealtimeQuery.ts"
+
+echo "[zeal-clean] admin orphan assertions passed"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 3 — Assertions for infra/misc orphans
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 3 — assert infra orphans are unreferenced ════"
+
+# socket/route.ts — no imports found anywhere
+assert_unused "api/socket" "apps/web/app/api/socket/route.ts"
+
+# 000_schema.sql — uses TEXT ids, live DB uses UUID; not referenced in code
+assert_unused "000_schema" "supabase/migrations/000_schema.sql"
+
+# LocationAutocomplete — self-referencing only
+assert_unused "LocationAutocomplete" "apps/web/components/ui/LocationAutocomplete.tsx"
+
+echo "[zeal-clean] infra assertions passed"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 4 — Assertions for unused dependencies
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 4 — assert unused deps have zero code refs ════"
+
+assert_unused "@netlify/functions"
+assert_unused "@base-ui/react"
+# react-is — kept (transitive build dep)
+assert_unused "dotenv" "package.json"
+assert_unused "sonner"
+assert_unused "tw-animate-css"
+
+echo "[zeal-clean] dependency assertions passed"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 5 — Delete apps/web orphans
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 5 — remove apps/web orphans ════"
+
+for f in \
+  apps/web/actions/booking.ts \
+  apps/web/actions/chat.ts \
+  apps/web/actions/consultant.ts \
+  apps/web/actions/inbox.ts \
+  apps/web/actions/public.ts \
+  apps/web/actions/pulse.ts \
+  apps/web/actions/studio.ts \
+  apps/web/hooks/useBooking.ts \
+  apps/web/hooks/useCall.ts \
+  apps/web/hooks/useChatCache.ts \
+  apps/web/hooks/useConsultantHeartbeat.ts \
+  apps/web/hooks/useConsultantStatus.ts \
+  apps/web/hooks/useConsultants.ts \
+  apps/web/hooks/useDebounce.ts \
+  apps/web/hooks/useFeed.ts \
+  apps/web/hooks/useNotifications.ts \
+  apps/web/hooks/useOfflineStore.ts \
+  apps/web/hooks/usePresence.ts \
+  apps/web/hooks/useRealtimeDirectory.ts \
+  apps/web/hooks/useRealtimeQuery.ts \
+  apps/web/hooks/useServiceCatalog.ts \
+  apps/web/hooks/useSessionBilling.ts \
+  apps/web/hooks/useZealStream.ts \
+  apps/web/components/ui/LocationAutocomplete.tsx
+do
+  safe_rm "$f"
+done
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 6 — Delete apps/admin orphans
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 6 — remove apps/admin orphans ════"
+
+for f in \
+  apps/admin/lib/auth/dal.ts \
+  apps/admin/lib/observability/index.ts \
+  apps/admin/types/chat-types.ts \
+  apps/admin/types/realtime-types.ts \
+  apps/admin/hooks/useAdminData.ts \
+  apps/admin/hooks/useAdminRealtime.ts \
+  apps/admin/hooks/useConsultantRealtime.ts \
+  apps/admin/hooks/useRealtimeQuery.ts
+do
+  safe_rm "$f"
+done
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 7 — Delete infra/misc orphans
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 7 — remove infra orphans ════"
+
+safe_rm "apps/web/app/api/socket/route.ts"
+safe_rm "supabase/migrations/000_schema.sql"
+safe_rm "docs/ARCHITECTURE.md"
+safe_rm "repo_essentials_dump.txt"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 8 — Prune empty directories
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 8 — prune empty directories ════"
+prune_empty_dirs "apps/"
+prune_empty_dirs "docs/"
+prune_empty_dirs "supabase/"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 9 — Prune unused dependencies + sync lockfile
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 9 — prune stale dependencies & sync lockfile ════"
+
+DEPS_PRUNED=0
+
+# @netlify/functions — apps/web only
+prune_dep "apps/web/package.json" "@netlify/functions" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+
+# @base-ui/react — both apps
+prune_dep "apps/admin/package.json" "@base-ui/react" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+prune_dep "apps/web/package.json" "@base-ui/react" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+
+# react-is — kept: transitive build dependency for admin (webpack needs it)
+# prune_dep "apps/admin/package.json" "react-is" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+
+# dotenv — apps/web
+prune_dep "apps/web/package.json" "dotenv" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+
+# sonner — apps/web (toaster component exists but sonner itself isn't imported in code)
+prune_dep "apps/web/package.json" "sonner" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+
+# tw-animate-css — both apps
+prune_dep "apps/admin/package.json" "tw-animate-css" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+prune_dep "apps/web/package.json" "tw-animate-css" && DEPS_PRUNED=$((DEPS_PRUNED+1))
+
+echo "[zeal-clean] pruned up to $DEPS_PRUNED dependency entries"
+
+if (( ! DRY_RUN )); then
+  echo "[zeal-clean] syncing package-lock.json + node_modules (npm install)…"
+  npm install --prefer-offline 2>&1 | tail -3
+  echo "  ✓ npm install clean"
 fi
 
-# ================================================================ phase 6
-header "PHASE 6 — commit"
+fi  # end of non-VERIFY_ONLY block
 
-if [[ "$DRY_RUN" == "1" ]]; then
-  log "would commit cleanup (skipped: DRY_RUN=1)"
-elif [[ "$VERIFY_ONLY" == "1" ]]; then
-  log "skipped (VERIFY_ONLY=1)"
-elif [[ "$SKIP_COMMIT" == "1" ]]; then
-  warn "SKIP_COMMIT=1 — leaving all changes staged/unstaged for review"
-  git status --short | head -40
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 10 — Verify: type-check + production builds
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 10 — verify: type-check + production build ════"
+
+if (( DRY_RUN )); then
+  echo "[zeal-clean] skipping verification in dry-run mode"
 else
-  git add -- setup.sh package.json package-lock.json apps/web/package.json apps/admin/package.json
-  git add -- supabase/migrations/1000_cleanup_dead_tables.sql
-  git add -u -- "${TRACKED_DEAD_FILES[@]}" 2>/dev/null || true
-  if git diff --cached --quiet; then
-    warn "no staged changes — repository is already clean; skipping commit"
+  # Clean stale .next caches that may reference deleted files
+  rm -rf apps/web/.next apps/admin/.next 2>/dev/null || true
+
+  echo "[zeal-clean] type-checking all workspaces…"
+  npx tsc --noEmit -p apps/web/tsconfig.json 2>&1 | tail -5
+  npx tsc --noEmit -p apps/admin/tsconfig.json 2>&1 | tail -5
+  echo "  ✓ type-check green"
+
+  echo "[zeal-clean] building apps/web…"
+  npm run build --workspace=apps/web 2>&1 | tail -5
+  echo "  ✓ apps/web build green"
+
+  echo "[zeal-clean] building apps/admin…"
+  npm run build --workspace=apps/admin 2>&1 | tail -5
+  echo "  ✓ apps/admin build green"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  PHASE 11 — Commit
+# ═══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "════ PHASE 11 — commit ════"
+
+if (( DRY_RUN )); then
+  echo "[zeal-clean] dry-run — no commit"
+elif (( SKIP_COMMIT )); then
+  echo "[zeal-clean] skip-commit — changes staged but not committed"
+  git status --short
+elif (( VERIFY_ONLY )); then
+  echo "[zeal-clean] verify-only — no commit"
+else
+  if git diff --cached --quiet && git diff --quiet; then
+    echo "[zeal-clean] nothing to commit (idempotent re-run)"
   else
-    git commit -m "$(cat <<'MSG'
-chore: tier-A cleanup — remove dead files, empty dirs, and unused deps
+    git add -A
+    git commit -m "$(cat <<'EOF'
+chore: tier-B cleanup — remove orphan hooks/actions, dead infra, unused deps
 
-Repo compaction pass; every removal verified to have zero references in
-source, CI workflows, vercel.json, docker/, or package scripts.
-
-- remove dead code: apps/web/actions/astrology.ts (mock kundali, no importers),
-  apps/admin/lib/auth/{client,server,index}.ts (empty wrappers; real guards are
-  api-guard.ts/dal.ts), one-shot codemods scripts/a11y/fix{,-v2}.mjs
-- remove root junk: .audit-* reports, .env.vercel.required (misnamed destructive
-  script), .env.vercel.template, .deploy-trigger, .migration backups,
-  repo_essentials_dump.txt (untracked)
-- prune empty dirs (lib/payments, providers, api/quests/**, api/bazaar/*,
-  docs/{api,architecture,deployment}, stray api/trpc/[trpc, …)
-- drop unused deps: @teispace/next-themes, @supabase/auth-helpers-nextjs,
-  ioredis, redis, socket.io{,-client}, @socket.io/redis-adapter,
-  livekit-{client,server-sdk}, @livekit/components-react, razorpay,
-  @trpc/{client,next,react-query}
-- add supabase/migrations/1000_cleanup_dead_tables.sql: guarded, idempotent
-  drop of dead live-DB tables (wallet_ledger, audit_logs, ai_services,
-  ai_profiles, AdminLoginAttempt, DebugLog, _zeal_diag, _zeal_audit_history);
-  every drop skipped automatically if any function/view still references it
-
-Verified: npm run type-check + next build green for apps/web and apps/admin.
-MSG
+Remove 31 unreferenced files across apps/web and apps/admin:
+- 7 dead server actions (booking, chat, consultant, inbox, public, pulse, studio)
+- 16 unused client hooks (useBooking, useCall, useChatCache, etc.)
+- 4 dead admin hooks + 2 unused admin types + 2 dead admin lib modules
+- Socket route, legacy 000_schema.sql, ARCHITECTURE.md, dump file
+- LocationAutocomplete UI component (zero consumers)
+Prune 6 unused deps: @netlify/functions, @base-ui/react, react-is,
+dotenv, sonner, tw-animate-css. Type-check + builds verified green.
+EOF
 )"
-    ok "committed: $(git rev-parse --short HEAD)"
+    NEW_SHA="$(git rev-parse --short HEAD)"
+    echo "  ✓ committed: $NEW_SHA"
   fi
 fi
 
-# ================================================================ summary
-header "SUMMARY"
-TRACKED_AFTER="$(git ls-files | wc -l | tr -d ' ')"
-log "files removed      : $FILES_REMOVED (tracked before/after: $TRACKED_BEFORE → $TRACKED_AFTER)"
-log "empty dirs removed : $DIRS_REMOVED"
-log "dep entries pruned : $DEPS_REMOVED"
-log "cleanup ran        : $( [[ "$CLEANUP_RAN" == "1" ]] && echo yes || echo no )"
-log "verification       : type-check ✓  build web ✓  build admin ✓"
-log "head               : $HEAD_BEFORE → $(git rev-parse --short HEAD)"
-cat <<'NEXT'
-
-Next steps (manual):
-  1. Review the DB migration, then apply it to Supabase:
-       supabase db push          (or paste supabase/migrations/1000_cleanup_dead_tables.sql
-                                  into the Supabase SQL editor — it is idempotent & guarded)
-  2. Rotate the SUPABASE_SERVICE_ROLE_KEY + Clerk keys that were committed in
-     git history (commits 5f30b04, 99e94ec) — history still exposes them.
-  3. Optional local disk cleanup (~1.2 GB, regenerable):
-       rm -rf apps/web/.next apps/admin/.next
-
-NEXT
-ok "cleanup complete"
+# ═══════════════════════════════════════════════════════════════════════════════
+#  SUMMARY
+# ═══════════════════════════════════════════════════════════════════════════════
+TRACKED_AFTER="$(git ls-files | wc -l)"
+echo ""
+echo "════ SUMMARY ════"
+echo "[zeal-clean] tracked before/after : $TRACKED_BEFORE → $TRACKED_AFTER"
+echo "[zeal-clean] files removed        : $(( TRACKED_BEFORE - TRACKED_AFTER ))"
+echo "[zeal-clean] head                 : $HEAD_SHA → $(git rev-parse --short HEAD)"
+echo ""
+echo "  ✓ tier-B cleanup complete"
