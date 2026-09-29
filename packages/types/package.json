@@ -26,7 +26,7 @@
   "devDependencies": {
     "@trpc/server": "11.18.0",
     "typescript": "^5.5.0",
-    "zod": "4.4.3"
+    "zod": "4.6.5"
   },
   "scripts": {
     "type-check": "tsc --noEmit"
