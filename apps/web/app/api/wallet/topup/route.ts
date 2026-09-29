@@ -1,94 +1,125 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// POST /api/wallet/topup — create Instamojo payment request
-// ═══════════════════════════════════════════════════════════════════════════════
+// apps/web/app/api/wallet/topup/route.ts
+// POST (no action)    → create Razorpay order (idempotent by Idempotency-Key)
+// POST ?action=verify → verify signature + credit wallet
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import { createAdminClient, createServerClientFromCookies } from "@zeal/database/server";
+import {
+  createRazorpayOrder,
+  getPublicKeyId,
+  verifyPaymentSignature,
+} from "@/lib/wallet/instamojo";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const BodySchema = z.object({
-  amount: z.number().int().min(10).max(100_000),
+const CreateBody = z.object({ amount: z.number().int().min(10).max(100_000) });
+const VerifyBody = z.object({
+  razorpay_order_id: z.string().min(1),
+  razorpay_payment_id: z.string().min(1),
+  razorpay_signature: z.string().min(1),
 });
 
 export async function POST(req: Request) {
-  // ─── Auth ────────────────────────────────────────────────────────────────
   const supabase = await createServerClientFromCookies();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const action = new URL(req.url).searchParams.get("action");
+
+  if (action === "verify") {
+    let raw: unknown;
+    try { raw = await req.json(); } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+    const parsed = VerifyBody.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid payload" }, { status: 422 });
+    }
+
+    const ok = verifyPaymentSignature({
+      orderId: parsed.data.razorpay_order_id,
+      paymentId: parsed.data.razorpay_payment_id,
+      signature: parsed.data.razorpay_signature,
+    });
+    if (!ok) return NextResponse.json({ error: "Bad signature" }, { status: 400 });
+
+    const admin = createAdminClient();
+    const { data: orderRow } = await admin
+      .from("RazorpayPayment")
+      .select('"orderId", amount, "userId"')
+      .eq("orderId", parsed.data.razorpay_order_id)
+      .maybeSingle();
+    const row = orderRow as { orderId: string; amount: number; userId: string } | null;
+    if (!row || row.userId !== user.id) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    await admin.rpc("credit_funds_safe", {
+      p_user_id: user.id,
+      p_amount: row.amount / 100,
+      p_description: `Wallet top-up ${parsed.data.razorpay_payment_id}`,
+      p_reference_id: parsed.data.razorpay_payment_id,
+    });
+    await admin
+      .from("RazorpayPayment")
+      .update({
+        paymentId: parsed.data.razorpay_payment_id,
+        signature: parsed.data.razorpay_signature,
+        status: "captured",
+        updatedAt: new Date().toISOString(),
+      } as never)
+      .eq("orderId", parsed.data.razorpay_order_id);
+
+    return NextResponse.json({ ok: true });
   }
 
-  // ─── Body ────────────────────────────────────────────────────────────────
   let raw: unknown;
-  try {
-    raw = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  try { raw = await req.json(); } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-
-  const parsed = BodySchema.safeParse(raw);
+  const parsed = CreateBody.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid amount." },
+      { error: parsed.error.issues[0]?.message ?? "Invalid amount" },
       { status: 422 },
     );
   }
-
   const { amount } = parsed.data;
+  const idemKey = req.headers.get("idempotency-key")?.trim() ?? "";
+  const admin = createAdminClient();
 
-  const isProd = process.env.NODE_ENV === "production";
-  const endpoint = isProd
-    ? "https://www.instamojo.com/api/1.1/payment-requests/"
-    : "https://test.instamojo.com/api/1.1/payment-requests/";
-
-  const apiKey = process.env.INSTAMOJO_API_KEY;
-  const authToken = process.env.INSTAMOJO_AUTH_TOKEN;
-
-  if (!apiKey || !authToken) {
-    // Dev fallback — no gateway configured
-    return NextResponse.json({
-      paymentUrl: "/wallet?mock_payment_success=true",
-    });
+  if (idemKey) {
+    const { data: existing } = await admin
+      .from("RazorpayPayment")
+      .select('"orderId", amount, currency')
+      .eq("userId", user.id)
+      .eq("purpose", "wallet_topup")
+      .contains("metadata", { idempotencyKey: idemKey } as never)
+      .maybeSingle();
+    const e = existing as { orderId: string; amount: number; currency: string } | null;
+    if (e) {
+      return NextResponse.json({
+        orderId: e.orderId, amount: e.amount, currency: e.currency,
+        keyId: getPublicKeyId(), reused: true,
+      });
+    }
   }
 
-  const payload = new URLSearchParams({
-    purpose: "Wallet Topup",
-    amount: amount.toString(),
-    buyer_name: user.id,
-    redirect_url: `${process.env.NEXT_PUBLIC_APP_URL}/wallet`,
-    webhook: `${process.env.NEXT_PUBLIC_APP_URL}/api/wallet/webhooks/instamojo`,
-    allow_repeated_payments: "False",
+  const order = await createRazorpayOrder({
+    amount,
+    receipt: `wallet_${user.id}_${Date.now()}`,
+    notes: { userId: user.id, purpose: "wallet_topup", idempotencyKey: idemKey },
   });
 
-  try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "X-Api-Key": apiKey,
-        "X-Auth-Token": authToken,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: payload.toString(),
-    });
+  await admin.from("RazorpayPayment").insert({
+    orderId: order.id, amount: order.amount, currency: order.currency,
+    status: "created", userId: user.id, purpose: "wallet_topup",
+    metadata: { idempotencyKey: idemKey || null },
+  } as never);
 
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      console.error("[wallet/topup] gateway error:", data);
-      return NextResponse.json(
-        { error: "Payment gateway is temporarily unavailable." },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json({ paymentUrl: data.payment_request.longurl });
-  } catch (err) {
-    console.error("[wallet/topup] fatal:", err);
-    return NextResponse.json(
-      { error: "Payment gateway is temporarily unavailable." },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json({
+    orderId: order.id, amount: order.amount, currency: order.currency,
+    keyId: getPublicKeyId(),
+  });
 }

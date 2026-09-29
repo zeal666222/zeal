@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { heartbeatSession } from "@/lib/billing/session-service";
+import { checkRateLimit, billingLimiter } from "@/lib/rate-limit";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -13,11 +14,18 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Please sign in." }, { status: 401 });
 
+  const rl = await checkRateLimit(billingLimiter, `hb:${user.id}`);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Slow down." },
+      { status: 429, headers: rl.headers },
+    );
+  }
+
   let raw: unknown;
   try { raw = await req.json(); } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
-
   const parsed = BodySchema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json({ error: "sessionId required." }, { status: 422 });
@@ -27,6 +35,8 @@ export async function POST(req: Request) {
     sessionId: parsed.data.sessionId,
     userId: user.id,
   });
-
-  return NextResponse.json(result, { status: result.success ? 200 : 400 });
+  return NextResponse.json(
+    result,
+    { status: result.success ? 200 : 400, headers: rl.headers },
+  );
 }

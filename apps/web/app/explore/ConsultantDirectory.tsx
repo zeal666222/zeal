@@ -1,17 +1,19 @@
-// ZEAL_PHASE2_V1
 "use client";
-// ConsultantDirectory — search + filters + realtime + startChatFlow wiring
+// ═══════════════════════════════════════════════════════════════════════════════
+// ConsultantDirectory — search + bubble filter rail + realtime grid
+// ═══════════════════════════════════════════════════════════════════════════════
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Search, SlidersHorizontal, X } from "lucide-react";
+import { Loader2, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { staggerContainer, fadeUp } from "@zeal/ui/motion";
-import { ConsultantCard } from "@/components/shared/ConsultantCard";
 import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
 import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 import type { ConsultantProfile } from "@zeal/types";
+import { cn } from "@zeal/ui";
 
 interface MvRow {
   id: string; userId: string; name: string | null; username: string | null;
@@ -129,97 +131,188 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* ─── Search ──────────────────────────────────────────────────────── */}
       <div className="relative max-w-2xl mx-auto">
-        <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-        <input type="search" value={query}
+        <Search
+          size={18}
+          className="absolute left-5 top-1/2 -translate-y-1/2
+                     text-muted-foreground pointer-events-none"
+        />
+        <input
+          type="search"
+          value={query}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-          placeholder="Search by name, skill, or tradition…" aria-label="Search consultants"
-          className="w-full pl-14 pr-14 py-4 glass-luxury rounded-2xl text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-luxury-gold)] transition-colors" />
+          placeholder="Search by name, skill, or tradition…"
+          aria-label="Search consultants"
+          className="w-full pl-14 pr-14 py-4 glass-luxury rounded-2xl
+                     text-base text-foreground placeholder:text-muted-foreground
+                     outline-none focus:border-[var(--color-luxury-gold)]/50
+                     transition-colors"
+        />
         {query && (
-          <button type="button" aria-label="Clear search" onClick={() => setQuery("")}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-overlay transition-colors">
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={() => setQuery("")}
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg
+                       text-muted-foreground hover:text-foreground
+                       hover:bg-surface-overlay transition-colors"
+          >
             <X size={15} />
           </button>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 justify-center">
-        <Chip active={category === "all"} onClick={() => setCategory("all")}>All</Chip>
-        {categories.slice(0, 12).map((c) => (
-          <Chip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
-            {c.display_name}
+      {/* ─── Filter rail (bubble pills) ──────────────────────────────────── */}
+      <div className="relative -mx-4 md:mx-0">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10
+                        bg-gradient-to-l from-background to-transparent" />
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 pl-4 md:pl-0 pr-12
+                        custom-scrollbar hide-scrollbar">
+          <Chip active={category === "all"} onClick={() => setCategory("all")}>
+            All
           </Chip>
-        ))}
-        <button type="button" onClick={() => setOnlineOnly((v) => !v)}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
-            onlineOnly
-              ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-              : "bg-surface-raised border border-border text-muted-foreground hover:text-foreground"
-          }`}>
-          <span className={`w-1.5 h-1.5 rounded-full ${onlineOnly ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
-          Online only
-        </button>
-        {isFiltered && (
-          <button type="button" onClick={clearFilters}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold text-muted-foreground hover:text-rose-400 transition-colors">
-            <SlidersHorizontal size={11} /> Clear
+          {categories.slice(0, 14).map((c) => (
+            <Chip key={c.id} active={category === c.id} onClick={() => setCategory(c.id)}>
+              {c.display_name}
+            </Chip>
+          ))}
+          <button
+            type="button"
+            onClick={() => setOnlineOnly((v) => !v)}
+            className={cn(
+              "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap",
+              "transition-all",
+              onlineOnly
+                ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                : "bg-surface-raised border border-border text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <span className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              onlineOnly ? "bg-emerald-400 animate-pulse" : "bg-slate-500",
+            )} />
+            Online only
           </button>
-        )}
+          {isFiltered && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1 px-3.5 py-2 rounded-full text-xs font-bold
+                         text-muted-foreground hover:text-rose-400 whitespace-nowrap transition-colors"
+            >
+              <SlidersHorizontal size={11} /> Clear
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* ─── Results ─────────────────────────────────────────────────────── */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-[var(--color-luxury-gold)]" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-72 rounded-2xl glass-luxury animate-pulse"
+            />
+          ))}
         </div>
       ) : fetchError ? (
-        <div className="text-center py-16 text-rose-400">Failed to load: {fetchError}</div>
+        <div className="text-center py-20 rounded-3xl border border-rose-500/20 bg-rose-500/[0.04]">
+          <p className="text-rose-400 text-sm mb-3">Failed to load: {fetchError}</p>
+          <button
+            onClick={() => setQuery(query)}
+            className="text-[var(--color-primary)] hover:underline text-xs font-bold"
+          >
+            Retry
+          </button>
+        </div>
       ) : visible.length === 0 ? (
-        <AnimatePresence>
-          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="text-center py-20 border-2 border-dashed border-border rounded-3xl">
-            <Search size={32} className="mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">No consultants match your search.</p>
-            {isFiltered && (
-              <button type="button" onClick={clearFilters}
-                className="mt-4 text-xs text-[var(--color-luxury-gold)] font-bold hover:underline">
-                Clear filters
-              </button>
-            )}
-          </motion.div>
-        </AnimatePresence>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-24 rounded-3xl border-2 border-dashed border-border"
+        >
+          <Search size={36} className="mx-auto mb-4 text-muted-foreground" />
+          <p className="text-foreground font-bold mb-1">No consultants match</p>
+          <p className="text-sm text-muted-foreground mb-5">
+            Try a different search term or clear your filters.
+          </p>
+          {isFiltered && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl
+                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                         text-white text-xs font-black transition-all hover:scale-[1.02]"
+            >
+              <Sparkles size={12} /> Clear filters
+            </button>
+          )}
+        </motion.div>
       ) : (
-        <motion.div variants={staggerContainer} initial="hidden" animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <motion.div
+          variants={staggerContainer}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+        >
           {visible.map((c) => (
             <motion.div key={c.id} variants={fadeUp}>
-              <LuxuryConsultantCard consultant={toProfile(c)} onChat={handleChat} onBook={(id) => router.push(`/booking?consultantId=${id}`)} />
+              <LuxuryConsultantCard
+                consultant={toProfile(c)}
+                onChat={handleChat}
+                onBook={(id) => router.push(`/booking?consultantId=${id}`)}
+              />
             </motion.div>
           ))}
         </motion.div>
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-foreground shadow-2xl">
-          {toast}
-        </div>
-      )}
-      <WalletGateDialog open={gateOpen} onOpenChange={setGateOpen} info={gateInfo} />
+      {/* ─── Toast ───────────────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200]
+                       px-5 py-3 rounded-2xl glass-luxury
+                       text-sm font-bold text-foreground shadow-2xl"
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <WalletGateDialog
+        open={gateOpen}
+        onOpenChange={setGateOpen}
+        info={gateInfo}
+      />
     </div>
   );
 }
 
-function Chip({ active, onClick, children }: {
+function Chip({
+  active, onClick, children,
+}: {
   active: boolean; onClick: () => void; children: React.ReactNode;
 }) {
   return (
-    <button type="button" onClick={onClick}
-      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+    <motion.button
+      type="button"
+      onClick={onClick}
+      whileTap={{ scale: 0.95 }}
+      className={cn(
+        "px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all",
         active
           ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-lg shadow-[var(--color-primary-hover)]/20"
-          : "bg-surface-raised border border-border text-muted-foreground hover:text-foreground hover:border-[var(--color-luxury-gold)]/30"
-      }`}>
+          : "bg-surface-raised border border-border text-muted-foreground hover:text-foreground hover:border-[var(--color-luxury-gold)]/30",
+      )}
+    >
       {children}
-    </button>
+    </motion.button>
   );
 }

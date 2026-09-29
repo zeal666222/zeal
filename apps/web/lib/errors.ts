@@ -194,3 +194,58 @@ export function withErrorHandler<T extends (...args: any[]) => Promise<Response>
 }
 
 // BATCH1_APPLIED
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Postgres error mapper
+// ═══════════════════════════════════════════════════════════════════════════════
+// Maps Postgres error codes to structured app errors with friendly messages.
+// Never leak raw SQL to the client.
+
+export interface MappedPgError {
+  code: string;
+  userMessage: string;
+  httpStatus: number;
+}
+
+export function mapPgError(code: string, message: string): MappedPgError {
+  const msg = message.toLowerCase();
+
+  // Unique violation
+  if (code === "23505") {
+    if (msg.includes("username")) {
+      return { code: "USERNAME_TAKEN", userMessage: "That username is already taken. Try another.", httpStatus: 409 };
+    }
+    return { code: "DUPLICATE", userMessage: "This already exists.", httpStatus: 409 };
+  }
+
+  // Foreign key violation
+  if (code === "23503") {
+    return { code: "INVALID_REFERENCE", userMessage: "Referenced item does not exist.", httpStatus: 400 };
+  }
+
+  // RLS policy violation
+  if (code === "42501") {
+    if (msg.includes("post") || msg.includes("limit")) {
+      return { code: "POST_LIMIT_REACHED", userMessage: "You've reached your post limit. Delete a post to create a new one.", httpStatus: 403 };
+    }
+    return { code: "FORBIDDEN", userMessage: "You don't have permission to do that.", httpStatus: 403 };
+  }
+
+  // Trigger raise_exception (P0001)
+  if (code === "P0001") {
+    if (msg.includes("reserved")) {
+      return { code: "USERNAME_RESERVED", userMessage: "That username is reserved. Please choose a different one.", httpStatus: 400 };
+    }
+    if (msg.includes("username")) {
+      return { code: "INVALID_USERNAME_FORMAT", userMessage: "Usernames can only contain letters, numbers, and underscores.", httpStatus: 400 };
+    }
+    return { code: "VALIDATION", userMessage: message || "Invalid input.", httpStatus: 400 };
+  }
+
+  // Check violation
+  if (code === "23514") {
+    return { code: "VALIDATION", userMessage: "One of the fields is invalid.", httpStatus: 400 };
+  }
+
+  return { code: "INTERNAL", userMessage: "Something went wrong. Please try again.", httpStatus: 500 };
+}

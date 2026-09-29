@@ -1,0 +1,16 @@
+hook.useWallet
+route.topup.verify
+page.wallet
+comp.gate
+comp.billing
+comp.perminute
+page.booking
+comp.slot
+comp.bookingCard
+comp.walletChip
+route.adminStats
+route.bookingsList
+page.adminDash
+page.adminBookings
+page.adminWithdrawals
+typecheck

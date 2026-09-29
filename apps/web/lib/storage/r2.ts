@@ -197,3 +197,39 @@ export function createR2Adapter(options: R2Options): StorageAdapter {
     },
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Cloudflare Images URL builder
+// ═══════════════════════════════════════════════════════════════════════════════
+// Returns an on-the-fly optimized URL when CF Images is configured.
+// Falls back to the raw R2 public URL otherwise.
+
+export type ImageVariant =
+  | "avatar-sm"
+  | "avatar-md"
+  | "grid"
+  | "detail"
+  | "detail-2x";
+
+const VARIANT_MAP: Record<ImageVariant, string> = {
+  "avatar-sm": "w=200,q=85,fit=cover",
+  "avatar-md": "w=400,q=85,fit=cover",
+  "grid":      "w=400,h=400,q=80,fit=cover",
+  "detail":    "w=1080,q=90",
+  "detail-2x": "w=2160,q=85",
+};
+
+export function getImageUrl(
+  key: string | null | undefined,
+  variant: ImageVariant = "grid",
+): string {
+  if (!key) return "";
+  if (key.startsWith("http://") || key.startsWith("https://")) return key;
+
+  const hash = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
+  const base = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
+
+  if (!hash) return base ? `${base}/${key}` : key;
+
+  return `https://imagedelivery.net/${hash}/${key}/${VARIANT_MAP[variant]}`;
+}

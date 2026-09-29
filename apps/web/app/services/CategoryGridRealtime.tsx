@@ -1,12 +1,15 @@
 "use client";
 // ═══════════════════════════════════════════════════════════════════════════════
-// CategoryGridRealtime — cards with live category counts
+// CategoryGridRealtime — bubble cards with realtime counts
 // ═══════════════════════════════════════════════════════════════════════════════
+
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight } from "lucide-react";
+import { motion } from "framer-motion";
+import { ArrowUpRight, Sparkles } from "lucide-react";
 import { useChannel } from "@zeal/realtime";
+import { fadeUp, staggerContainer } from "@zeal/ui/motion";
 
 interface CategoryCard {
   id: string;
@@ -43,32 +46,85 @@ export function CategoryGridRealtime({ initial }: { initial: CategoryCard[] }) {
   });
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, margin: "-50px" }}
+      className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+    >
       {categories.map((c) => (
-        <Link
-          key={c.id}
-          href={`/services/${c.id}`}
-          className="group p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/40 hover:-translate-y-1 transition-all relative overflow-hidden"
-        >
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--color-primary)]/20 to-[var(--color-primary-hover)]/10 flex items-center justify-center text-xl mb-3">
-            ✨
-          </div>
-          <h3 className="font-bold text-[var(--color-foreground)] text-sm leading-tight mb-1.5 line-clamp-2">
-            {c.name}
-          </h3>
-          <p className="text-xs text-[var(--color-muted-foreground)]">
-            {c.count} guide{c.count !== 1 ? "s" : ""}
-            {c.onlineCount > 0 && (
-              <span className="ml-2 text-emerald-400 font-bold">
-                · {c.onlineCount} online
-              </span>
-            )}
-          </p>
-          <div className="mt-3 flex items-center text-[var(--color-primary)] text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-            Explore <ArrowRight size={12} className="ml-1" />
-          </div>
-        </Link>
+        <motion.div key={c.id} variants={fadeUp}>
+          <BubbleCard category={c} />
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
+  );
+}
+
+function BubbleCard({ category }: { category: CategoryCard }) {
+  return (
+    <Link
+      href={`/services/${category.id}`}
+      className="group relative block aspect-square overflow-hidden rounded-[2rem]
+                 glass-luxury transition-all duration-500"
+    >
+      {/* Ambient hover glow */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-0
+                   group-hover:opacity-100 transition-opacity duration-500
+                   bg-gradient-to-br from-[var(--color-luxury-gold)]/[0.15]
+                   via-transparent to-[var(--color-primary)]/[0.20]"
+      />
+
+      {/* Morphing bubble blob */}
+      <motion.span
+        aria-hidden
+        className="absolute -top-20 -right-20 w-48 h-48 rounded-full
+                   bg-[var(--color-primary)]/[0.18] blur-[60px] pointer-events-none"
+        animate={{ scale: [1, 1.25, 1], x: [0, -8, 0] }}
+        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      <div className="relative z-10 flex h-full flex-col items-center justify-center text-center px-5">
+        <motion.div
+          whileHover={{ scale: 1.12, rotate: -3 }}
+          transition={{ type: "spring", stiffness: 400, damping: 16 }}
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4
+                     bg-gradient-to-br from-[var(--color-luxury-gold)]/25
+                     to-[var(--color-primary)]/[0.15]
+                     text-[var(--color-luxury-gold)]"
+        >
+          <Sparkles size={20} />
+        </motion.div>
+
+        <h3 className="text-sm md:text-base font-black text-foreground leading-tight
+                       line-clamp-2 group-hover:text-[var(--color-luxury-gold)]
+                       transition-colors">
+          {category.name}
+        </h3>
+
+        <div className="mt-3 flex items-center gap-2 text-[11px] font-mono">
+          <span className="text-muted-foreground">
+            {category.count} guide{category.count !== 1 ? "s" : ""}
+          </span>
+          {category.onlineCount > 0 && (
+            <span className="flex items-center gap-1 text-emerald-400 font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {category.onlineCount}
+            </span>
+          )}
+        </div>
+
+        <ArrowUpRight
+          size={14}
+          className="absolute top-4 right-4 text-muted-foreground
+                     group-hover:text-[var(--color-luxury-gold)]
+                     group-hover:-translate-y-0.5 group-hover:translate-x-0.5
+                     transition-all"
+        />
+      </div>
+    </Link>
   );
 }

@@ -1,6 +1,11 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// Billing types — shared between server + client
-// ═══════════════════════════════════════════════════════════════════════════════
+// apps/web/lib/billing/types.ts
+export interface WalletState {
+  balance: number;
+  escrow: number;
+  pendingIn: number;
+  pendingOut: number;
+  blocked: number;
+}
 
 export interface BillingSession {
   id: string;
@@ -35,6 +40,7 @@ export interface HeartbeatResult {
   remaining?: number;
   terminate?: boolean;
   reason?: string;
+  walletState?: WalletState;
   error?: string;
 }
 

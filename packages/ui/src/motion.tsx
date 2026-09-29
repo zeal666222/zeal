@@ -135,3 +135,47 @@ export function LuxuryCard({
     </m.div>
   );
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Lenis smooth scroll — momentum scroll for the whole app
+   ─────────────────────────────────────────────────────────────────────────────
+   Wraps children in a Lenis instance. RAF loop drives lenis.raf(). Respects
+   prefers-reduced-motion. Cleans up on unmount.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+import { useEffect, useRef } from "react";
+import Lenis from "lenis";
+
+export function SmoothScroll({ children }: { children: React.ReactNode }) {
+  const ref = useRef<Lenis | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const lenis = new Lenis({
+      duration: 1.15,
+      easing: (t: number) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      touchMultiplier: 1.6,
+      wheelMultiplier: 1,
+      lerp: 0.1,
+    });
+    ref.current = lenis;
+
+    let rafId = 0;
+    const raf = (time: number) => {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
+    };
+    rafId = requestAnimationFrame(raf);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+      ref.current = null;
+    };
+  }, []);
+
+  return <>{children}</>;
+}

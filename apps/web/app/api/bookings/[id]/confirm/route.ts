@@ -1,78 +1,43 @@
+// apps/web/app/api/bookings/[id]/confirm/route.ts
 import { NextResponse } from "next/server";
-import {serverPublish} from "@/lib/realtime/server";
-import {getUserId} from "@/lib/auth";
-import {createServerClientFromCookies} from "@zeal/database/server";
-import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
-import {generateMeetingLink} from "@/lib/livekit/room";
-import {NotificationService} from "@/lib/notifications/service";
+import { createAdminClient, createServerClientFromCookies } from "@zeal/database/server";
+import { serverPublish } from "@/lib/realtime/server";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-export const POST = withErrorHandler(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const userId = await getUserId();
-  if (!userId) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
-
   const supabase = await createServerClientFromCookies();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: booking } = await supabase
-    .from("Booking")
-    .select(`
-      id, status, userId, consultantId, amount,
-      consultant:Consultant!consultantId(
-        id, userId,
-        user:User!userId(id, name)
-      ),
-      user:User!userId(id, name)
-    `)
-    .eq("id", id)
-    .maybeSingle();
+  let body: { razorpayPaymentId?: string } = {};
+  try { body = await req.json(); } catch { /* optional body */ }
 
-  if (!booking) throw new AppError("Booking not found", 404, ErrorCode.BOOKING_NOT_FOUND);
+  const admin = createAdminClient();
+  const { data: rpcData, error: rpcErr } = await admin.rpc("confirm_booking_payment", {
+    p_booking_id: id,
+    p_razorpay_payment_id: body.razorpayPaymentId ?? null,
+  });
 
-  const consultantUserId = (booking.consultant as any)?.userId;
-  const isParticipant = booking.userId === userId || consultantUserId === userId;
-  if (!isParticipant) throw new AppError("Not authorized", 403, ErrorCode.AUTH_FORBIDDEN);
-
-  if (booking.status === "CONFIRMED") {
-    await serverPublish("booking:" + id, "booking:updated", { bookingId: id, status: "CONFIRMED" });
-    return NextResponse.json({ booking });
-  }
-  if (booking.status !== "PENDING") {
-    throw new AppError("Cannot confirm booking in current status", 400, ErrorCode.BOOKING_CONFLICT);
+  if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 });
+  const rpc = rpcData as { success?: boolean; error?: string } | null;
+  if (rpc && rpc.success === false) {
+    return NextResponse.json({ error: rpc.error ?? "Confirm failed" }, { status: 400 });
   }
 
-  const meetingLink = await generateMeetingLink(id);
+  const { data: booking } = await admin
+    .from("Booking").select("*").eq("id", id).maybeSingle();
 
-  const { data: updated, error } = await supabase
-    .from("Booking")
-    .update({ status: "CONFIRMED", meetingLink })
-    .eq("id", id)
-    .select(`
-      *,
-      consultant:Consultant!consultantId(
-        *, user:User!userId(*)
-      ),
-      user:User!userId(*)
-    `)
-    .single();
+  try {
+    await serverPublish(`booking:${id}:status`, "booking_updated", {
+      id, status: "CONFIRMED", confirmedAt: new Date().toISOString(),
+    });
+  } catch { /* best-effort */ }
 
-  if (error || !updated) throw new AppError(error?.message || "Update failed", 500, ErrorCode.INTERNAL_SERVER);
-
-  // Notify seeker
-  if (booking.userId) {
-    try {
-      await NotificationService.createNotification({
-        userId: booking.userId,
-        type: "booking",
-        message: `Your booking with ${(booking.consultant as any)?.user?.name ?? "the consultant"} is confirmed!`,
-        redirectUrl: `/booking/${booking.id}`,
-        actorId: userId,
-      });
-    } catch (err) {
-      console.warn("[confirm] notify failed:", err);
-    }
-  }
-
-  return NextResponse.json({ booking: updated });
-});
+  return NextResponse.json({ booking });
+}

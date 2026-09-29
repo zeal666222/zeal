@@ -1,130 +1,276 @@
 "use client";
+// ═══════════════════════════════════════════════════════════════════════════════
+// Create Post — with post limit UI + image upload
+// ═══════════════════════════════════════════════════════════════════════════════
 
-import {useState, useRef} from "react";
-import {useRouter} from "next/navigation";
-import { ImageIcon, Loader2, Upload, X } from "lucide-react";
-import {motion} from "framer-motion";
-import {Button, Input} from "@zeal/ui";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  AlertCircle, ArrowLeft, ImageIcon, Loader2, Send, Sparkles, Upload, X,
+} from "lucide-react";
+import { createPostAction, type PostActionState } from "@/actions/profile";
+import { toast } from "@/components/ui/toaster";
+
+interface LimitInfo {
+  canPost: boolean;
+  limit: number;
+  current: number;
+  remaining: number;
+}
 
 export default function CreatePage() {
- const router = useRouter();
- const [file, setFile] = useState<File | null>(null);
- const [caption, setCaption] = useState("");
- const [tags, setTags] = useState("");
- const [loading, setLoading] = useState(false);
- const [error, setError] = useState<string | null>(null);
- const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [caption, setCaption] = useState("");
+  const [locationTag, setLocationTag] = useState("");
+  const [limit, setLimit] = useState<LimitInfo | null>(null);
+  const [loadingLimit, setLoadingLimit] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
- const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
- if (e.target.files && e.target.files[0]) {
- setFile(e.target.files[0]);
- }
- };
+  const [state, formAction, isPending] = useActionState<PostActionState | null, FormData>(
+    createPostAction,
+    null,
+  );
 
- const handleSubmit = async (e: React.FormEvent) => {
- e.preventDefault();
- if (!file) {
- setError("Please select an image");
- return;
- }
- setLoading(true);
- setError(null);
- const formData = new FormData();
- formData.append("image", file);
- formData.append("content", caption);
- formData.append("tags", tags);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/users/me/profile", { cache: "no-store" });
+        if (res.ok) {
+          const data = (await res.json()) as { canPost: LimitInfo };
+          setLimit(data.canPost);
+        }
+      } finally {
+        setLoadingLimit(false);
+      }
+    })();
+  }, []);
 
- try {
- const res = await fetch("/api/posts/create", {
- method: "POST",
- body: formData,
- });
- if (!res.ok) {
- const err = await res.json();
- throw new Error(err.error?.message || "Failed to create post");
- }
- router.push("/profile");
- } catch (err) {
- setError(err instanceof Error ? err.message : "Error uploading post");
- } finally {
- setLoading(false);
- }
- };
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
- return (
- <motion.div
- initial={{ opacity: 0, y: 20 }}
- animate={{ opacity: 1, y: 0 }}
- transition={{ duration: 0.5 }}
- className="max-w-2xl mx-auto px-4 py-6"
- >
- <h1 className="text-2xl font-bold text-muted-foreground mb-6">
- Create Post
- </h1>
- <form onSubmit={handleSubmit} className="space-y-4">
- <div
- className="border-2 border-dashed border-border rounded-2xl p-8 text-center hover:border-[var(--color-primary)] transition-colors cursor-pointer"
- onClick={() => fileInputRef.current?.click()}
- >
- {file ? (
- <div className="relative">
- <img
- src={URL.createObjectURL(file)}
- alt="Preview"
- className="max-h-64 mx-auto rounded-lg object-contain"
- />
- <button
- type="button"
- onClick={(e) => { e.stopPropagation(); setFile(null); }}
- className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white hover:bg-black/70"
- >
- <X className="w-4 h-4" />
- </button>
- </div>
- ) : (
- <div className="py-8">
- <ImageIcon className="w-16 h-16 mx-auto text-[var(--color-subtle-foreground)]" />
- <p className="mt-2 text-[var(--color-subtle-foreground)]">Click to upload an image</p>
- </div>
- )}
- <input
- ref={fileInputRef}
- type="file"
- accept="image/*"
- onChange={handleFileChange}
- className="hidden"
- />
- </div>
+  useEffect(() => {
+    if (state?.ok) {
+      toast({ title: "Post published", variant: "success" });
+      setTimeout(() => router.push("/profile"), 900);
+    }
+  }, [state, router]);
 
- <textarea
- placeholder="Write a caption..."
- value={caption}
- onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCaption(e.target.value)}
- className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-[var(--color-primary)] outline-none resize-none bg-surface text-muted-foreground placeholder:text-[var(--color-subtle-foreground)]"
- rows={3}
- />
+  const uploadImage = async (f: File): Promise<string | null> => {
+    const fd = new FormData();
+    fd.append("file", f);
+    fd.append("folder", "posts");
+    setUploading(true);
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) {
+        toast({ title: "Image upload failed", variant: "destructive" });
+        return null;
+      }
+      const data = (await res.json()) as { url?: string; key?: string };
+      return data.key ?? data.url ?? null;
+    } catch {
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
 
- <Input
- placeholder="Tags (comma separated)"
- value={tags}
- onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTags(e.target.value)}
- className="w-full px-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-[var(--color-primary)] outline-none bg-surface text-muted-foreground placeholder:text-[var(--color-subtle-foreground)]"
- />
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!caption.trim() && !file) {
+      toast({ title: "Add a caption or photo", variant: "destructive" });
+      return;
+    }
+    let urls = mediaUrls;
+    if (file && urls.length === 0) {
+      const url = await uploadImage(file);
+      if (url) {
+        urls = [url];
+        setMediaUrls(urls);
+      }
+    }
+    const fd = new FormData();
+    fd.append("content", caption.trim());
+    if (urls.length > 0) fd.append("mediaUrls", JSON.stringify(urls));
+    if (locationTag.trim()) fd.append("locationTag", locationTag.trim());
+    formAction(fd);
+  };
 
- {error && <p className="text-sm text-red-500">{error}</p>}
+  if (loadingLimit) {
+    return (
+      <div className="min-h-screen-app bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
+      </div>
+    );
+  }
 
- <Button
- type="submit"
- disabled={!file || loading}
- className="w-full py-3 bg-[var(--color-primary)] text-white rounded-xl font-medium hover:bg-[var(--color-primary-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
- >
- {loading ? (
- <><Loader2 className="w-5 h-5 animate-spin" /> Publishing...</>
- ) : (
- "Publish"
- )}
- </Button>
- </form>
- </motion.div>
- );
+  const isBlocked = limit && !limit.canPost;
+
+  return (
+    <div className="min-h-screen-app bg-background pb-24">
+      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="p-2 rounded-xl hover:bg-surface-raised"
+            aria-label="Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <h1 className="text-sm font-black text-foreground">New post</h1>
+          <div className="w-8" />
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 pt-6">
+        {isBlocked && (
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20
+                       text-amber-400 text-xs font-bold flex items-start gap-2"
+          >
+            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              You&apos;ve reached your post limit ({limit?.limit}). Delete a post
+              from your profile to create a new one.
+            </span>
+          </motion.div>
+        )}
+
+        {!isBlocked && limit && (
+          <div className="mb-6 p-3 rounded-2xl bg-surface border border-border
+                          text-xs text-muted-foreground flex items-center gap-2">
+            <Sparkles size={12} className="text-[var(--color-luxury-gold)]" />
+            <span>
+              {limit.remaining} of {limit.limit} posts remaining
+            </span>
+          </div>
+        )}
+
+        {state && !state.ok && (
+          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20
+                          text-rose-400 text-xs font-bold">
+            {state.error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div
+            onClick={() => !isBlocked && fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-3xl p-8 text-center transition-colors
+              ${isBlocked ? "border-border opacity-50 cursor-not-allowed"
+                          : "border-border hover:border-[var(--color-primary)] cursor-pointer"}`}
+          >
+            {file && previewUrl ? (
+              <div className="relative">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="max-h-96 mx-auto rounded-2xl object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFile(null); setMediaUrls([]); }}
+                  className="absolute top-2 right-2 p-2 bg-black/60 rounded-full
+                             text-white hover:bg-black/80"
+                  aria-label="Remove image"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="py-8">
+                <ImageIcon size={40} className="mx-auto text-muted-foreground mb-3" />
+                <p className="text-sm text-foreground font-bold mb-1">
+                  Tap to upload a photo
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  JPG, PNG, WEBP · Max 5 MB
+                </p>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) { setFile(f); setMediaUrls([]); }
+              }}
+              className="hidden"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="caption" className="block text-[10px] font-black
+                       text-muted-foreground uppercase tracking-widest mb-2">
+              Caption
+            </label>
+            <textarea
+              id="caption"
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              placeholder="Write a caption…"
+              rows={4}
+              maxLength={2200}
+              className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl
+                         text-sm text-foreground resize-none
+                         placeholder:text-muted-foreground
+                         outline-none focus:border-[var(--color-primary)] transition-colors"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              {caption.length} / 2200
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="locationTag" className="block text-[10px] font-black
+                       text-muted-foreground uppercase tracking-widest mb-2">
+              Location (optional)
+            </label>
+            <input
+              id="locationTag"
+              type="text"
+              value={locationTag}
+              onChange={(e) => setLocationTag(e.target.value)}
+              placeholder="Mumbai, India"
+              maxLength={100}
+              className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl
+                         text-sm text-foreground placeholder:text-muted-foreground
+                         outline-none focus:border-[var(--color-primary)] transition-colors"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isBlocked || isPending || uploading || (!caption.trim() && !file)}
+            className="w-full py-4 rounded-2xl
+                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                       text-white font-black text-sm
+                       disabled:opacity-50 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2"
+          >
+            {uploading || isPending ? (
+              <><Loader2 size={16} className="animate-spin" /> Publishing…</>
+            ) : (
+              <><Send size={16} /> Publish</>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }

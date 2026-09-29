@@ -1,72 +1,64 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// Billing session service — server-authoritative per-minute billing
-// ═══════════════════════════════════════════════════════════════════════════════
-// All time-based calculations use the SERVER's clock. The client only sends
-// heartbeats — never amounts or durations.
-//
-// Idempotency: process_per_minute_deduction keys on (session_id:minute_key).
-// Retries within the same minute are no-ops.
-// ═══════════════════════════════════════════════════════════════════════════════
-
+// apps/web/lib/billing/session-service.ts
+// Server-authoritative per-minute billing. Escrow released on end.
+import "server-only";
 import { createAdminClient } from "@zeal/database/server";
 import {
   MIN_START_MINUTES,
   LOW_BALANCE_THRESHOLD_MINUTES,
   type BillingSession,
-  type SessionStartResult,
   type HeartbeatResult,
   type SessionEndResult,
+  type SessionStartResult,
+  type WalletState,
 } from "./types";
 
-// ─── Lookup rate ─────────────────────────────────────────────────────────────
+type Admin = ReturnType<typeof createAdminClient>;
+
 async function lookupRate(
-  admin: ReturnType<typeof createAdminClient>,
+  admin: Admin,
   consultantId: string | null,
   aiConsultantId: string | null,
 ): Promise<{ rate: number; isAI: boolean } | null> {
   if (aiConsultantId) {
     const { data } = await admin
       .from("AIConsultant")
-      .select('"perMinuteRate"')
+      .select('"perMinuteRate", "isActive", "isPaid"')
       .eq("id", aiConsultantId)
-      .eq("isActive", true)
       .maybeSingle();
     if (!data) return null;
-    return { rate: Number((data as { perMinuteRate: number }).perMinuteRate ?? 0), isAI: true };
+    const row = data as { perMinuteRate: number; isActive: boolean; isPaid: boolean };
+    if (!row.isActive) return null;
+    return { rate: row.isPaid ? Number(row.perMinuteRate ?? 0) : 0, isAI: true };
   }
-
   if (!consultantId) return null;
-
   const { data } = await admin
     .from("Consultant")
     .select('"perMinuteRate", "isActive"')
     .eq("id", consultantId)
     .maybeSingle();
-
   if (!data) return null;
   const row = data as { perMinuteRate: number; isActive: boolean };
   if (!row.isActive) return null;
   return { rate: Number(row.perMinuteRate ?? 0), isAI: false };
 }
 
-// ─── Lookup wallet ───────────────────────────────────────────────────────────
-async function lookupWallet(
-  admin: ReturnType<typeof createAdminClient>,
-  userId: string,
-): Promise<{ id: string; balance: number; escrow: number } | null> {
+async function lookupWallet(admin: Admin, userId: string): Promise<WalletState | null> {
   const { data } = await admin
     .from("Wallet")
-    .select("id, balance, escrow")
+    .select('balance, escrow, "pendingIn", "pendingOut", blocked')
     .eq("userId", userId)
     .maybeSingle();
   if (!data) return null;
-  const row = data as { id: string; balance: number; escrow: number };
-  return { id: row.id, balance: Number(row.balance), escrow: Number(row.escrow) };
+  const r = data as WalletState;
+  return {
+    balance: Number(r.balance ?? 0),
+    escrow: Number(r.escrow ?? 0),
+    pendingIn: Number(r.pendingIn ?? 0),
+    pendingOut: Number(r.pendingOut ?? 0),
+    blocked: Number(r.blocked ?? 0),
+  };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// START SESSION
-// ═══════════════════════════════════════════════════════════════════════════════
 export async function startSession(params: {
   userId: string;
   consultantId?: string | null;
@@ -82,9 +74,8 @@ export async function startSession(params: {
   }
   const { rate, isAI } = rateInfo;
 
-  // Free AI — no billing needed
   if (isAI && rate === 0) {
-    const { data: session } = await admin
+    const { data: session, error } = await admin
       .from("CallSession")
       .insert({
         userId,
@@ -98,6 +89,9 @@ export async function startSession(params: {
       })
       .select("id")
       .single();
+    if (error || !session) {
+      return { success: false, error: error?.message ?? "Insert failed", code: "INTERNAL" };
+    }
     return {
       success: true,
       sessionId: (session as { id: string }).id,
@@ -108,9 +102,7 @@ export async function startSession(params: {
   }
 
   const wallet = await lookupWallet(admin, userId);
-  if (!wallet) {
-    return { success: false, error: "Wallet not found.", code: "INTERNAL" };
-  }
+  if (!wallet) return { success: false, error: "Wallet not found.", code: "INTERNAL" };
 
   const initialMinutes = MIN_START_MINUTES;
   const initialCharge = rate * initialMinutes;
@@ -123,17 +115,17 @@ export async function startSession(params: {
     };
   }
 
-  // Hold escrow atomically
   const referenceId = `session-start:${userId}:${Date.now()}`;
-  const { error: escrowErr } = await admin.rpc("hold_in_escrow_safe", {
+  const { data: holdData, error: holdErr } = await admin.rpc("hold_in_escrow_safe", {
     p_user_id: userId,
     p_amount: initialCharge,
     p_reference_id: referenceId,
     p_description: `Session hold — ${initialMinutes} min @ ₹${rate}/min`,
   });
-
-  if (escrowErr) {
-    return { success: false, error: "Could not hold funds.", code: "INTERNAL" };
+  if (holdErr) return { success: false, error: holdErr.message, code: "INTERNAL" };
+  const hold = holdData as { success?: boolean; error?: string } | null;
+  if (hold && hold.success === false) {
+    return { success: false, error: hold.error ?? "Hold failed", code: "INTERNAL" };
   }
 
   const now = new Date().toISOString();
@@ -154,7 +146,6 @@ export async function startSession(params: {
     .single();
 
   if (sessionErr || !session) {
-    // Rollback escrow
     await admin.rpc("credit_funds_safe", {
       p_user_id: userId,
       p_amount: initialCharge,
@@ -173,9 +164,6 @@ export async function startSession(params: {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// HEARTBEAT
-// ═══════════════════════════════════════════════════════════════════════════════
 export async function heartbeatSession(params: {
   sessionId: string;
   userId: string;
@@ -207,18 +195,14 @@ export async function heartbeatSession(params: {
   const { rate, isAI } = rateInfo;
 
   if (isAI && rate === 0) {
+    const ws = await lookupWallet(admin, userId);
     return {
-      success: true,
-      sessionId,
-      elapsedSeconds,
-      minutesBilled: 0,
-      cost: 0,
-      remaining: 0,
-      terminate: false,
+      success: true, sessionId, elapsedSeconds, minutesBilled: 0, cost: 0,
+      remaining: 0, terminate: false, ...(ws ? { walletState: ws } : {}),
     };
   }
 
-  let lastBilled = Math.floor((session.durationSeconds ?? 0) / 60);
+  const lastBilled = Math.floor((session.durationSeconds ?? 0) / 60);
   const minutesToBill = minutesElapsed - lastBilled;
 
   for (let i = 0; i < minutesToBill; i++) {
@@ -227,7 +211,6 @@ export async function heartbeatSession(params: {
       .slice(0, 16)
       .replace(/[-T:]/g, "");
 
-    // ─── CRITICAL: pass p_is_ai (fixes AI money leak) ───────────────────────
     const { data: rpcData, error: rpcErr } = await admin.rpc(
       "process_per_minute_deduction",
       {
@@ -244,7 +227,10 @@ export async function heartbeatSession(params: {
       break;
     }
 
-    const result = rpcData as { success?: boolean; terminate?: boolean } | null;
+    const result = rpcData as
+      | { success?: boolean; terminate?: boolean; remaining?: number }
+      | null;
+
     if (result && result.success === false) {
       await admin
         .from("CallSession")
@@ -256,16 +242,21 @@ export async function heartbeatSession(params: {
         .eq("id", sessionId);
 
       return {
-        success: true,
-        sessionId,
-        elapsedSeconds,
+        success: true, sessionId, elapsedSeconds,
         minutesBilled: lastBilled + i,
         cost: (lastBilled + i) * rate,
-        remaining: 0,
-        terminate: true,
+        remaining: 0, terminate: true,
         reason: "Insufficient balance — session terminated.",
       };
     }
+
+    await admin.from("BillingHeartbeat").insert({
+      sessionId,
+      minuteKey,
+      amount: rate,
+      balanceAfter: Number(result?.remaining ?? 0),
+      escrowAfter: 0,
+    });
   }
 
   await admin
@@ -273,26 +264,21 @@ export async function heartbeatSession(params: {
     .update({ durationSeconds: minutesElapsed * 60 })
     .eq("id", sessionId);
 
-  const wallet = await lookupWallet(admin, userId);
-  const remaining = wallet ? wallet.balance + wallet.escrow : 0;
+  const ws = await lookupWallet(admin, userId);
+  const remaining = ws ? ws.balance + ws.escrow : 0;
   const minutesRemaining = rate > 0 ? Math.floor(remaining / rate) : 999;
   const terminate = minutesRemaining <= LOW_BALANCE_THRESHOLD_MINUTES;
 
   return {
-    success: true,
-    sessionId,
-    elapsedSeconds,
+    success: true, sessionId, elapsedSeconds,
     minutesBilled: minutesElapsed,
     cost: minutesElapsed * rate,
-    remaining,
-    terminate,
+    remaining, terminate,
     reason: terminate ? `Only ${minutesRemaining} minute(s) left.` : undefined,
+    ...(ws ? { walletState: ws } : {}),
   };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// END SESSION
-// ═══════════════════════════════════════════════════════════════════════════════
 export async function endSession(params: {
   sessionId: string;
   userId: string;
@@ -310,24 +296,24 @@ export async function endSession(params: {
   if (!sessionRaw) return { success: false, error: "Session not found." };
   const session = sessionRaw as BillingSession;
 
-  // Authorization: owner OR consultant
   if (session.userId !== userId && session.consultantId !== userId) {
     const { data: myConsultant } = await admin
       .from("Consultant")
       .select("id")
       .eq("userId", userId)
       .maybeSingle();
-    if (!myConsultant || session.consultantId !== (myConsultant as { id: string }).id) {
+    const cid = (myConsultant as { id?: string } | null)?.id;
+    if (!cid || session.consultantId !== cid) {
       return { success: false, error: "Not authorized to end this session." };
     }
   }
 
   if (session.status === "ENDED") {
     return {
-      success: true,
-      sessionId,
+      success: true, sessionId,
       durationSeconds: session.durationSeconds,
       totalCost: session.amount,
+      refunded: 0,
     };
   }
 
@@ -344,17 +330,21 @@ export async function endSession(params: {
   const platformFee = totalCost * 0.10;
   const consultantEarning = totalCost - platformFee;
 
-  // Refund unused escrow
   const heldAmount = Number(session.amount ?? 0);
-  const refunded = Math.max(0, heldAmount - totalCost);
 
-  if (refunded > 0 && !isAI) {
-    await admin.rpc("credit_funds_safe", {
-      p_user_id: session.userId,
-      p_amount: refunded,
-      p_description: `Session refund — unused balance`,
-      p_reference_id: `session-refund:${sessionId}`,
+  let refunded = 0;
+  if (heldAmount > 0 && !isAI) {
+    const { data: relData, error: relErr } = await admin.rpc("release_session_escrow", {
+      p_session_id: sessionId,
+      p_held_amount: heldAmount,
+      p_consumed: totalCost,
     });
+    if (!relErr) {
+      const rel = relData as { refunded?: number } | null;
+      refunded = Number(rel?.refunded ?? 0);
+    } else {
+      console.error("[billing] release_session_escrow failed:", relErr);
+    }
   }
 
   await admin
@@ -367,32 +357,8 @@ export async function endSession(params: {
     })
     .eq("id", sessionId);
 
-  // Credit consultant for human sessions
-  if (!isAI && consultantEarning > 0 && session.consultantId) {
-    const { data: consultantRow } = await admin
-      .from("Consultant")
-      .select("userId")
-      .eq("id", session.consultantId)
-      .maybeSingle();
-    const consultantUserId = (consultantRow as { userId?: string } | null)?.userId;
-
-    if (consultantUserId) {
-      await admin.rpc("credit_funds_safe", {
-        p_user_id: consultantUserId,
-        p_amount: consultantEarning,
-        p_description: `Session earning — ${durationMinutes} min`,
-        p_reference_id: `session-earn:${sessionId}`,
-      });
-    }
-  }
-
   return {
-    success: true,
-    sessionId,
-    durationSeconds,
-    totalCost,
-    consultantEarning,
-    platformFee,
-    refunded,
+    success: true, sessionId, durationSeconds,
+    totalCost, consultantEarning, platformFee, refunded,
   };
 }

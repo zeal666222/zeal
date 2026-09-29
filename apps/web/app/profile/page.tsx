@@ -1,524 +1,507 @@
 "use client";
+// ═══════════════════════════════════════════════════════════════════════════════
+// Profile — premium Instagram-inspired layout
+// Parallax cover · halo avatar · sliding tabs · mason-style grid
+// ═══════════════════════════════════════════════════════════════════════════════
 
-import {useEffect, useState, useRef} from "react";
-import {getProfileData, updateProfileName, processWalletRecharge} from "@/actions/profile";
-import {signOutAction} from "@/actions/auth";
-import {createClient} from "@zeal/database";
-import { AlertCircle, ArrowDownRight, ArrowUpRight, CheckCircle2, Clock, Edit3,
-  IndianRupee, KeyRound, Loader2, LogOut, Plus, Shield, ShieldCheck, Sparkles, User,
-  Wallet, X } from "lucide-react";
-import {useRouter} from "next/navigation";
-import { ConfirmDialog } from "@zeal/ui";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import {
+  ArrowLeft, Check, Copy, Edit3, Link as LinkIcon, Loader2, LogOut,
+  MapPin, Plus, Shield, Sparkles, User, Wallet,
+} from "lucide-react";
+import { PostGrid } from "@/components/profile/PostGrid";
+import { signOutAction } from "@/actions/auth";
+import { cn } from "@zeal/ui";
 
-type MfaFactor = {
+interface SelfProfile {
   id: string;
-  friendly_name?: string | null;
-  factor_type: string;
-  status: string;
-};
+  email: string;
+  name: string | null;
+  username: string | null;
+  avatar: string | null;
+  bio: string | null;
+  website: string | null;
+  location: string | null;
+  role: string;
+  sparks: number;
+  post_count: number;
+  is_online: boolean;
+  isVerified: boolean;
+}
 
-type EnrollState =
-  | { kind: "idle" }
-  | { kind: "enrolling" }
-  | { kind: "verifying"; factorId: string; qrCode: string; secret: string }
-  | { kind: "done" };
+interface Stats {
+  posts: number;
+  cheers: number;
+  comments: number;
+  followers: number;
+  following: number;
+}
 
-export default function ProfileDashboardPage() {
+type Tab = "posts" | "about" | "security";
+
+export default function ProfilePage() {
   const router = useRouter();
-  const [data, setData] = useState<any>(null);
+  const [profile, setProfile] = useState<SelfProfile | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [canPost, setCanPost] = useState<{ canPost: boolean; limit: number; current: number; remaining: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"general" | "billing" | "security">("general");
+  const [tab, setTab] = useState<Tab>("posts");
+  const [copied, setCopied] = useState(false);
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [updatingName, setUpdatingName] = useState(false);
-
-  const [rechargeLoading, setRechargeLoading] = useState(false);
-
-  // MFA state
-  const [mfaFactors, setMfaFactors] = useState<MfaFactor[]>([]);
-  const [mfaLoading, setMfaLoading] = useState(true);
-  const [enrollState, setEnrollState] = useState<EnrollState>({ kind: "idle" });
-  const [verifyCode, setVerifyCode] = useState("");
-  const [mfaError, setMfaError] = useState<string | null>(null);
-  const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
-  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
-
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-  if (!supabaseRef.current) supabaseRef.current = createClient();
-  const supabase = supabaseRef.current;
+  const { scrollY } = useScroll();
+  const coverY = useTransform(scrollY, [0, 300], [0, 80]);
+  const coverScale = useTransform(scrollY, [0, 300], [1, 1.08]);
+  const headerOpacity = useTransform(scrollY, [80, 160], [0, 1]);
 
   useEffect(() => {
-    loadData();
-    loadMfaFactors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    (async () => {
+      try {
+        const meRes = await fetch("/api/users/me/profile", { cache: "no-store" });
+        if (!meRes.ok) return;
+        const data = (await meRes.json()) as {
+          user: SelfProfile;
+          canPost: { canPost: boolean; limit: number; current: number; remaining: number };
+        };
+        setProfile(data.user);
+        setCanPost(data.canPost);
+
+        if (data.user?.id) {
+          const sRes = await fetch(`/api/users/${data.user.id}/profile`, { cache: "no-store" });
+          if (sRes.ok) {
+            const sd = (await sRes.json()) as { stats?: Stats };
+            if (sd.stats) setStats(sd.stats);
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  const loadData = async () => {
+  const handleCopy = async () => {
+    if (!profile?.username) return;
     try {
-      const res = await getProfileData();
-          if (!res) {
-            router.push("/login");
-            return;
-          }
-          setData(res);
-          setNewName(res.profile.full_name);
-          setLoading(false);
-    } catch (err) {
-      console.error('[profile] load failed:', err);
-      // Note: no dedicated profile-error state — loading cleared in finally below
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMfaFactors = async () => {
-    setMfaLoading(true);
-    try {
-      const { data: factorsData } = await supabase.auth.mfa.listFactors();
-      const all = (factorsData?.all ?? []) as MfaFactor[];
-      const verified = all.filter(
-        (f) => f.factor_type === "totp" && f.status === "verified",
-      );
-      setMfaFactors(verified);
-    } catch (err) {
-      console.warn("[mfa] load failed:", err);
-    } finally {
-      setMfaLoading(false);
-    }
-  };
-
-  const handleUpdateName = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setUpdatingName(true);
-    const formData = new FormData();
-    formData.append("fullName", newName);
-    const res = await updateProfileName(formData);
-    if (res.success) {
-      setIsEditing(false);
-      await loadData();
-    }
-    setUpdatingName(false);
-  };
-
-  const handleRecharge = async (amount: number) => {
-    setRechargeLoading(true);
-    const res = await processWalletRecharge(amount);
-    if (res.success) await loadData();
-    setRechargeLoading(false);
-  };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // MFA actions
-  // ═══════════════════════════════════════════════════════════════════════════
-  const startEnrollment = async () => {
-    setMfaError(null);
-    setEnrollState({ kind: "enrolling" });
-
-    try {
-      // Clean up any previous unverified factors (Supabase rejects duplicate friendly names)
-      const { data: listData } = await supabase.auth.mfa.listFactors();
-      const unverified = ((listData?.all ?? []) as MfaFactor[]).filter(
-        (f) => f.factor_type === "totp" && f.status === "unverified",
-      );
-      for (const f of unverified) {
-        try { await supabase.auth.mfa.unenroll({ factorId: f.id }); } catch { /* ignore */ }
-      }
-
-      const { data: enrollData, error } = await supabase.auth.mfa.enroll({
-        factorType: "totp",
-        friendlyName: `Authenticator-${Date.now()}`,
-      });
-
-      if (error) throw error;
-      if (!enrollData) throw new Error("No enrollment data returned");
-
-      const svg = enrollData.totp.qr_code;
-      const qrDataUrl = svg.startsWith("data:")
-        ? svg
-        : `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-
-      setEnrollState({
-        kind: "verifying",
-        factorId: enrollData.id,
-        qrCode: qrDataUrl,
-        secret: enrollData.totp.secret,
-      });
-    } catch (err) {
-      setMfaError(err instanceof Error ? err.message : "Enrollment failed");
-      setEnrollState({ kind: "idle" });
-    }
-  };
-
-  const verifyEnrollment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (enrollState.kind !== "verifying") return;
-    if (verifyCode.length !== 6) return;
-
-    setMfaError(null);
-    try {
-      const { error } = await supabase.auth.mfa.challengeAndVerify({
-        factorId: enrollState.factorId,
-        code: verifyCode,
-      });
-      if (error) throw error;
-
-      setEnrollState({ kind: "done" });
-      setVerifyCode("");
-      await loadMfaFactors();
-
-      setTimeout(() => setEnrollState({ kind: "idle" }), 3000);
-    } catch (err) {
-      setMfaError(err instanceof Error ? err.message : "Verification failed");
-    }
-  };
-
-  const cancelEnrollment = async () => {
-    if (enrollState.kind === "verifying") {
-      try { await supabase.auth.mfa.unenroll({ factorId: enrollState.factorId }); } catch { /* ignore */ }
-    }
-    setVerifyCode("");
-    setMfaError(null);
-    setEnrollState({ kind: "idle" });
-  };
-
-  const removeFactor = async (factorId: string) => {
-    setUnenrollingId(factorId);
-    try {
-      const { error } = await supabase.auth.mfa.unenroll({ factorId });
-      if (error) throw error;
-      await loadMfaFactors();
-    } catch (err) {
-      setMfaError(err instanceof Error ? err.message : "Unenroll failed");
-    } finally {
-      setUnenrollingId(null);
-    }
-  };
-
-  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = e.target.value.replace(/\D/g, "").slice(0, 6);
-    setVerifyCode(v);
+      await navigator.clipboard.writeText(`${window.location.origin}/@${profile.username}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* ignore */ }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="animate-spin text-purple-500" size={32} />
+      <div className="min-h-screen-app bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
       </div>
     );
   }
 
-  const profile = data?.profile;
-  const transactions = data?.transactions;
-  const hasMfa = mfaFactors.length > 0;
-
-  return (
-    <div className="min-h-screen bg-background text-foreground p-4 sm:p-10 relative overflow-hidden">
-      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-purple-600/10 blur-[150px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-0 left-1/4 w-[500px] h-[500px] bg-indigo-600/10 blur-[150px] rounded-full pointer-events-none" />
-
-      <div className="max-w-5xl mx-auto relative z-10 pt-10">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-3">
-              <Sparkles size={14} /> Personal Command Center
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight">Account Settings</h1>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          <div className="lg:col-span-1 space-y-2">
-            <button
-              onClick={() => setActiveTab("general")}
-              className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all ${
-                activeTab === "general"
-                  ? "bg-purple-600 text-white shadow-lg shadow-purple-600/20"
-                  : "bg-surface-raised text-muted-foreground hover:bg-surface-overlay hover:text-foreground"
-              }`} aria-label="Button">
-              <User size={18} /> General Info
-            </button>
-            <button
-              onClick={() => setActiveTab("billing")}
-              className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all ${
-                activeTab === "billing"
-                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
-                  : "bg-surface-raised text-muted-foreground hover:bg-surface-overlay hover:text-foreground"
-              }`} aria-label="Button">
-              <Wallet size={18} /> Billing & Wallet
-            </button>
-            <button
-              onClick={() => setActiveTab("security")}
-              className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl text-sm font-bold transition-all ${
-                activeTab === "security"
-                  ? "bg-rose-600 text-white shadow-lg shadow-rose-600/20"
-                  : "bg-surface-raised text-muted-foreground hover:bg-surface-overlay hover:text-foreground"
-              }`} aria-label="Button">
-              <Shield size={18} /> Security
-            </button>
-          </div>
-
-          <div className="lg:col-span-3">
-            {activeTab === "general" && (
-              <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <User className="text-purple-400" size={20} /> Identity & Profile
-                </h2>
-
-                <div className="space-y-6">
-                  <div className="p-6 bg-surface-sunken rounded-3xl border border-border">
-                    <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Display Name</label>
-                    {isEditing ? (
-                      <form onSubmit={handleUpdateName} className="flex gap-3">
-                        <input
-                          type="text"
-                          value={newName}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewName(e.target.value)}
-                          className="flex-1 px-4 py-3 bg-surface border border-purple-500/50 rounded-xl text-sm focus:outline-none focus:border-purple-500"
-                          required
-                        />
-                        <button type="submit" disabled={updatingName} className="px-5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center" aria-label="Save changes">
-                          {updatingName ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-                        </button>
-                      </form>
-                    ) : (
-                      <div className="flex items-center justify-between">
-                        <span className="text-lg font-semibold">{profile?.full_name}</span>
-                        <button onClick={() => setIsEditing(true)} aria-label="Edit profile" className="p-2 text-muted-foreground hover:text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors">
-                          <Edit3 size={18} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-6 bg-surface-sunken rounded-3xl border border-border">
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Email Address</label>
-                      <div className="text-sm font-medium text-muted-foreground">{data?.email || "Anonymous"}</div>
-                    </div>
-                    <div className="p-6 bg-surface-sunken rounded-3xl border border-border">
-                      <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Account Role Tier</label>
-                      <div className="inline-block px-3 py-1 rounded-lg bg-purple-500/20 text-purple-300 text-xs font-bold uppercase border border-purple-500/30">
-                        {profile?.role}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "billing" && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-gradient-to-br from-surface to-surface backdrop-blur-2xl border border-border rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 blur-[80px] rounded-full pointer-events-none" />
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                    <div>
-                      <p className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">Available Ledger Balance</p>
-                      <h2 className="text-5xl font-black font-mono flex items-center text-foreground">
-                        <IndianRupee size={40} className="text-emerald-400 mr-1" />
-                        {Number(profile?.wallet_balance || 0).toLocaleString("en-IN", {
-                          minimumFractionDigits: 2, maximumFractionDigits: 2,
-                        })}
-                      </h2>
-                    </div>
-                    <div className="flex gap-3 w-full md:w-auto">
-                      <button aria-label="Add ₹500 to wallet" onClick={() => handleRecharge(500)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-surface-raised hover:bg-surface-overlay border border-border rounded-2xl text-sm font-bold transition-all cursor-pointer">
-                        + ₹500
-                      </button>
-                      <button aria-label="Add ₹1000 to wallet" onClick={() => handleRecharge(1000)} disabled={rechargeLoading} className="flex-1 md:flex-none px-6 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/20 hover:opacity-90 rounded-2xl text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer">
-                        {rechargeLoading ? <Loader2 className="animate-spin" size={18} /> : <><Plus size={18} /> Add Funds</>}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl">
-                  <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-                    <Clock className="text-muted-foreground" size={18} /> Financial Ledger
-                  </h3>
-                  <div className="space-y-4">
-                    {transactions?.length === 0 ? (
-                      <div className="text-center text-muted-foreground text-sm py-8">No transactions found.</div>
-                    ) : (
-                      transactions?.map((tx: any) => (
-                        <div key={tx.id} className="flex items-center justify-between p-4 bg-surface-raised border border-border rounded-2xl hover:bg-surface-overlay transition-all">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.transaction_type === "credit" ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"}`}>
-                              {tx.transaction_type === "credit" ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold">{tx.description}</p>
-                              <p className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleString()}</p>
-                            </div>
-                          </div>
-                          <div className={`font-mono font-bold ${tx.transaction_type === "credit" ? "text-emerald-400" : "text-muted-foreground"}`}>
-                            {tx.transaction_type === "credit" ? "+" : "-"} ₹{Number(tx.amount).toFixed(2)}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "security" && (
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl">
-                  <div className="flex items-start justify-between gap-4 mb-6">
-                    <div>
-                      <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
-                        <ShieldCheck className="text-emerald-400" size={20} /> Two-Factor Authentication
-                      </h2>
-                      <p className="text-xs text-muted-foreground mt-1.5">
-                        Add an extra layer of security using an authenticator app (Google Authenticator, 1Password, Authy).
-                      </p>
-                    </div>
-                    {hasMfa && (
-                      <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-widest">
-                        Enabled
-                      </span>
-                    )}
-                  </div>
-
-                  {mfaError && (
-                    <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-                      <AlertCircle size={14} /> {mfaError}
-                    </div>
-                  )}
-
-                  {mfaLoading ? (
-                    <div className="flex justify-center py-8">
-                      <Loader2 className="animate-spin text-purple-500" size={24} />
-                    </div>
-                  ) : enrollState.kind === "done" ? (
-                    <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold flex items-center gap-2 animate-in fade-in zoom-in-95">
-                      <CheckCircle2 size={18} /> Two-factor authentication enabled.
-                    </div>
-                  ) : enrollState.kind === "verifying" ? (
-                    <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2">
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-muted-foreground font-medium">
-                          Scan this QR code with your authenticator app
-                        </p>
-                        <button onClick={cancelEnrollment} className="p-1.5 rounded-lg hover:bg-surface-raised text-muted-foreground hover:text-foreground transition-colors" aria-label="Cancel">
-                          <X size={16} />
-                        </button>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-surface-sunken rounded-2xl border border-border">
-                        <div className="w-40 h-40 bg-white rounded-xl p-2 flex-shrink-0">
-                          <img src={enrollState.qrCode} alt="MFA QR code" className="w-full h-full" />
-                        </div>
-                        <div className="flex-1 min-w-0 w-full">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">
-                            Manual entry key
-                          </p>
-                          <code className="block text-xs text-purple-300 font-mono bg-surface border border-border rounded-lg px-3 py-2 break-all">
-                            {enrollState.secret}
-                          </code>
-                        </div>
-                      </div>
-
-                      <form onSubmit={verifyEnrollment} className="space-y-3">
-                        <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                          Enter the 6-digit code
-                        </label>
-                        <div className="flex gap-3">
-                          <div className="relative flex-1">
-                            <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              autoComplete="one-time-code"
-                              value={verifyCode}
-                              onChange={handleCodeChange}
-                              placeholder="000000"
-                              maxLength={6}
-                              className="w-full pl-11 pr-4 py-3 bg-background border border-border rounded-xl text-sm font-mono tracking-[0.3em] text-center text-foreground outline-none focus:border-purple-500 transition-all"
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            disabled={verifyCode.length !== 6}
-                            className="btn-3d px-6 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            Verify
-                          </button>
-                        </div>
-                      </form>
-                    </div>
-                  ) : hasMfa ? (
-                    <div className="space-y-3">
-                      {mfaFactors.map((f) => (
-                        <div key={f.id} className="flex items-center justify-between p-4 bg-surface-sunken rounded-2xl border border-border">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0">
-                              <KeyRound size={18} />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold truncate text-foreground">
-                                {f.friendly_name || "Authenticator app"}
-                              </p>
-                              <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Verified</p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setPendingRemoveId(f.id)}
-                            disabled={unenrollingId === f.id}
-                            className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 rounded-xl text-xs font-bold transition-colors disabled:opacity-50" aria-label="Remove">
-                            {unenrollingId === f.id ? <Loader2 size={14} className="animate-spin" /> : "Remove"}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <button
-                      onClick={startEnrollment}
-                      disabled={enrollState.kind === "enrolling"}
-                      className="btn-3d w-full py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-indigo-700 text-white rounded-2xl font-black text-sm shadow-xl shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50" aria-label="Enable two-factor authentication">
-                      {enrollState.kind === "enrolling" ? (
-                        <><Loader2 size={18} className="animate-spin" /> Preparing…</>
-                      ) : (
-                        <><ShieldCheck size={16} /> Enable Two-Factor Authentication</>
-                      )}
-                    </button>
-                  )}
-                </div>
-
-                <div className="bg-surface backdrop-blur-xl border border-border rounded-[2.5rem] p-8 shadow-xl">
-                  <div className="p-6 bg-rose-950/20 rounded-3xl border border-rose-500/10">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-sm font-bold text-foreground mb-1">Terminate Session</h3>
-                        <p className="text-xs text-muted-foreground">Securely log out of your Zeal account on this device.</p>
-                      </div>
-                      <form action={signOutAction}>
-                        <button type="submit" className="px-6 py-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-sm font-bold transition-all flex items-center gap-2" aria-label="Submit">
-                          <LogOut size={16} /> Secure Sign Out
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+  if (!profile) {
+    return (
+      <div className="min-h-screen-app bg-background flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <User size={40} className="text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground mb-5">Please sign in to view your profile.</p>
+          <Link
+            href="/login"
+            className="inline-block px-5 py-2.5 rounded-xl
+                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                       text-white text-sm font-black"
+          >
+            Sign in
+          </Link>
         </div>
       </div>
-      <ConfirmDialog
-        open={pendingRemoveId !== null}
-        onOpenChange={(open) => { if (!open) setPendingRemoveId(null); }}
-        title="Remove two-factor authentication?"
-        description="You will lose 2FA protection on this account."
-        confirmLabel="Remove 2FA"
-        destructive
-        loading={unenrollingId !== null}
-        onConfirm={async () => {
-          if (pendingRemoveId) await removeFactor(pendingRemoveId);
-        }}
-      />
+    );
+  }
+
+  const displayName = profile.name || profile.username || "Seeker";
+  const initial = displayName.charAt(0).toUpperCase();
+  const isConsultant = profile.role === "CLIENT_ADMIN";
+
+  return (
+    <div className="min-h-screen-app bg-background pb-24">
+      {/* ─── Sticky header (fades in on scroll) ───────────────────────────── */}
+      <motion.div
+        style={{ opacity: headerOpacity }}
+        className="fixed top-0 left-0 right-0 z-30 bg-background/80 backdrop-blur-xl
+                   border-b border-border"
+      >
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="p-2 rounded-xl hover:bg-surface-raised transition-colors"
+            aria-label="Back"
+          >
+            <ArrowLeft size={16} className="text-foreground" />
+          </button>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-sm font-black text-foreground truncate">@{profile.username ?? "profile"}</p>
+          </div>
+          <Link
+            href="/profile/edit"
+            className="p-2 rounded-xl hover:bg-surface-raised transition-colors"
+            aria-label="Edit profile"
+          >
+            <Edit3 size={16} className="text-foreground" />
+          </Link>
+        </div>
+      </motion.div>
+
+      {/* ─── Cover banner (parallax) ──────────────────────────────────────── */}
+      <div className="relative h-48 md:h-64 overflow-hidden">
+        <motion.div
+          style={{ y: coverY, scale: coverScale }}
+          className="absolute inset-0 will-change-transform"
+        >
+          <div className="absolute inset-0 bg-gradient-to-br
+                          from-[var(--color-primary)]/[0.18]
+                          via-[var(--color-surface)]
+                          to-[var(--color-luxury-gold)]/[0.15]" />
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px]
+                          bg-[var(--color-primary)]/[0.25] blur-[160px] rounded-full" />
+          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px]
+                          bg-[var(--color-luxury-gold)]/[0.18] blur-[160px] rounded-full" />
+          <div className="absolute inset-0 noise-overlay opacity-60" />
+        </motion.div>
+
+        {/* Back button (fades out) */}
+        <motion.div
+          style={{ opacity: useTransform(scrollY, [0, 80], [1, 0]) }}
+          className="absolute top-4 left-4 z-10 flex items-center gap-2"
+        >
+          <button
+            onClick={() => router.back()}
+            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md
+                       text-white hover:bg-black/60 transition-colors"
+            aria-label="Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
+        </motion.div>
+
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          <Link
+            href="/wallet"
+            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md
+                       text-white hover:bg-black/60 transition-colors"
+            aria-label="Wallet"
+          >
+            <Wallet size={16} />
+          </Link>
+          <Link
+            href="/profile/edit"
+            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md
+                       text-white hover:bg-black/60 transition-colors"
+            aria-label="Edit profile"
+          >
+            <Edit3 size={16} />
+          </Link>
+        </div>
+      </div>
+
+      {/* ─── Avatar + identity ───────────────────────────────────────────── */}
+      <div className="max-w-5xl mx-auto px-4 relative -mt-16 md:-mt-20 z-10">
+        <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 mb-8">
+          {/* Avatar */}
+          <div className="relative">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 220, damping: 22 }}
+              className="relative"
+            >
+              <div
+                aria-hidden
+                className="absolute -inset-1 rounded-full
+                           bg-gradient-to-br from-[var(--color-luxury-gold)]/40
+                           via-[var(--color-primary)]/30
+                           to-transparent blur-md"
+              />
+              <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full
+                              ring-4 ring-background overflow-hidden
+                              bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                              flex items-center justify-center text-white font-black text-4xl">
+                {profile.avatar ? (
+                  <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  initial
+                )}
+              </div>
+              {profile.is_online && (
+                <span className="absolute bottom-2 right-2 w-5 h-5 rounded-full
+                                 bg-emerald-500 border-4 border-background
+                                 animate-pulse" />
+              )}
+            </motion.div>
+          </div>
+
+          {/* Identity */}
+          <div className="flex-1 min-w-0 text-center sm:text-left pb-2">
+            <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
+              <h1 className="text-2xl md:text-3xl font-black text-foreground truncate">
+                {displayName}
+              </h1>
+              {profile.isVerified && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                                 bg-[var(--color-primary)]/15
+                                 border border-[var(--color-primary)]/30
+                                 text-[var(--color-primary)] text-[10px] font-black
+                                 uppercase tracking-widest">
+                  <Check size={10} /> Verified
+                </span>
+              )}
+              {isConsultant && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                                 bg-[var(--color-luxury-gold)]/15
+                                 border border-[var(--color-luxury-gold)]/30
+                                 text-[var(--color-luxury-gold)] text-[10px] font-black
+                                 uppercase tracking-widest">
+                  <Sparkles size={10} /> Consultant
+                </span>
+              )}
+            </div>
+
+            {profile.username && (
+              <div className="mt-1 flex items-center gap-2 justify-center sm:justify-start">
+                <p className="text-sm text-muted-foreground font-mono">@{profile.username}</p>
+                <button
+                  onClick={handleCopy}
+                  className="p-1 rounded-lg hover:bg-surface-raised text-muted-foreground
+                             transition-colors"
+                  aria-label="Copy profile link"
+                >
+                  {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ─── Stats row ───────────────────────────────────────────────────── */}
+        {stats && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="grid grid-cols-3 gap-3 md:gap-4 mb-6"
+          >
+            <StatCard label="Posts"     value={stats.posts} />
+            <StatCard label="Followers" value={stats.followers} />
+            <StatCard label="Following" value={stats.following} />
+          </motion.div>
+        )}
+
+        {/* ─── Bio + meta ─────────────────────────────────────────────────── */}
+        {(profile.bio || profile.location || profile.website || profile.sparks > 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="rounded-3xl border border-border bg-surface
+                       p-5 md:p-6 mb-6 max-w-2xl"
+          >
+            {profile.bio && (
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
+                {profile.bio}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-4 mt-4 text-xs text-muted-foreground">
+              {profile.location && (
+                <span className="flex items-center gap-1.5">
+                  <MapPin size={12} /> {profile.location}
+                </span>
+              )}
+              {profile.website && (
+                <a
+                  href={profile.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-[var(--color-primary)] hover:underline
+                             truncate max-w-[240px]"
+                >
+                  <LinkIcon size={12} /> {profile.website}
+                </a>
+              )}
+              <span className="flex items-center gap-1.5">
+                <Sparkles size={12} className="text-[var(--color-luxury-gold)]" />
+                {profile.sparks.toLocaleString("en-IN")} Sparks
+              </span>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ─── Post action ─────────────────────────────────────────────────── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="flex items-center gap-3 mb-6 flex-wrap"
+        >
+          {canPost?.canPost ? (
+            <Link
+              href="/create"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl
+                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                         text-white text-xs font-black
+                         shadow-lg shadow-[var(--color-primary-hover)]/20
+                         hover:scale-[1.02] active:scale-[0.98] transition-transform"
+            >
+              <Plus size={14} /> New post
+            </Link>
+          ) : (
+            <div className="px-5 py-3 rounded-2xl bg-surface-raised border border-border
+                            text-xs font-bold text-muted-foreground">
+              Post limit reached · {canPost?.current}/{canPost?.limit}
+            </div>
+          )}
+          {canPost && canPost.canPost && (
+            <span className="text-xs text-muted-foreground font-mono">
+              {canPost.remaining} of {canPost.limit} remaining
+            </span>
+          )}
+        </motion.div>
+
+        {/* ─── Tabs (sliding indicator) ────────────────────────────────────── */}
+        <div className="sticky top-[64px] z-20 -mx-4 px-4 bg-background/80 backdrop-blur-xl mb-6">
+          <div className="flex items-center gap-1 border-b border-border relative">
+            {(["posts", "about", "security"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "relative px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors",
+                  tab === t ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t}
+                {tab === t && (
+                  <motion.span
+                    layoutId="profile-tab-indicator"
+                    className="absolute bottom-0 left-0 right-0 h-0.5
+                               bg-gradient-to-r from-[var(--color-luxury-gold)] to-[var(--color-primary)]"
+                    transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ─── Tab content ─────────────────────────────────────────────────── */}
+        <AnimatePresence mode="wait">
+          {tab === "posts" && (
+            <motion.div
+              key="posts"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              <PostGrid userId={profile.id} isSelf />
+            </motion.div>
+          )}
+
+          {tab === "about" && (
+            <motion.div
+              key="about"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="max-w-2xl rounded-3xl border border-border bg-surface p-6 space-y-4"
+            >
+              <AboutRow label="Name"      value={profile.name ?? "—"} />
+              <AboutRow label="Username"  value={profile.username ? `@${profile.username}` : "—"} />
+              <AboutRow label="Email"     value={profile.email} />
+              <AboutRow label="Location"  value={profile.location ?? "—"} />
+              <AboutRow label="Website"   value={profile.website ?? "—"} />
+              <AboutRow label="Role"      value={profile.role} />
+              <div className="pt-4 border-t border-border">
+                <Link
+                  href="/profile/edit"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl
+                             bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                             text-white text-sm font-black"
+                >
+                  <Edit3 size={14} /> Edit profile
+                </Link>
+              </div>
+            </motion.div>
+          )}
+
+          {tab === "security" && (
+            <motion.div
+              key="security"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="max-w-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3 p-5 rounded-3xl border border-border
+                              bg-surface hover:border-[var(--color-primary)]/40 transition-colors">
+                <Shield size={20} className="text-[var(--color-primary)]" />
+                <div className="flex-1">
+                  <p className="text-sm font-black text-foreground">Two-factor authentication</p>
+                  <p className="text-xs text-muted-foreground">Add an extra layer of security</p>
+                </div>
+              </div>
+
+              <div className="p-5 rounded-3xl border border-rose-500/20 bg-rose-500/[0.04]">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-foreground">Sign out</p>
+                    <p className="text-xs text-muted-foreground">End your session on this device</p>
+                  </div>
+                  <form action={signOutAction}>
+                    <button
+                      type="submit"
+                      className="px-4 py-2.5 rounded-xl bg-rose-500/10 text-rose-400
+                                 hover:bg-rose-500/20 text-xs font-black
+                                 flex items-center gap-1.5 transition-colors"
+                    >
+                      <LogOut size={13} /> Sign out
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <motion.div
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className="rounded-2xl border border-border bg-surface p-4
+                 hover:border-[var(--color-luxury-gold)]/30 transition-colors"
+    >
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">
+        {label}
+      </p>
+      <p className="text-2xl font-black font-mono text-foreground mt-1 tabular-nums">
+        {value.toLocaleString("en-IN")}
+      </p>
+    </motion.div>
+  );
+}
+
+function AboutRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 text-sm">
+      <span className="text-muted-foreground font-bold text-xs uppercase tracking-widest">
+        {label}
+      </span>
+      <span className="text-foreground font-medium truncate max-w-[60%]">{value}</span>
     </div>
   );
 }

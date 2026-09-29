@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "@zeal/ui/tokens.css";
 import { ThemeProvider } from "@zeal/ui/theme";
-import { MotionProvider } from "@zeal/ui/motion";
+import { MotionProvider, SmoothScroll } from "@zeal/ui/motion";
 import { GlobalCallListener } from "@/components/global/GlobalCallListener";
 import { AppLayout, type Profile } from "@/components/navigation/AppLayout";
 import { SupabaseAuthProvider } from "@/components/providers/SupabaseAuthProvider";
@@ -111,10 +111,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <SupabaseAuthProvider>
               <RealtimeProvider>
                 <MotionProvider>
+                  <SmoothScroll>
+                    
                   {user && <GlobalCallListener userId={user.id} />}
                   <AppLayout user={user} profile={profile}>
                     <main id="main-content">{children}</main>
                   </AppLayout>
+                
+                  </SmoothScroll>
                 </MotionProvider>
               </RealtimeProvider>
             </SupabaseAuthProvider>
