@@ -41,7 +41,7 @@
   },
   "dependencies": {
     "@supabase/ssr": "0.12.6",
-    "@supabase/supabase-js": "2.115.0",
+    "@supabase/supabase-js": "2.116.0",
     "@zeal/types": "*",
     "server-only": "^0.0.1",
     "zod": "4.4.3"
