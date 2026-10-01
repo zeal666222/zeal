@@ -72,6 +72,8 @@ export interface AIChatParams {
   maxTokens?: number;
   contextLimit?: number;
   fillerLocale?: FillerLocale;
+  /** Extra SSE events emitted before the first filler (e.g. { billing: … }). */
+  initialEvents?: unknown[];
 }
 
 export interface AIChatResult {
@@ -109,6 +111,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
     maxTokens = 1200,
     contextLimit = DEFAULT_CONTEXT_LIMIT,
     fillerLocale = "hi-en",
+    initialEvents = [],
   } = params;
 
   const trimmed = content.trim();
@@ -209,6 +212,10 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
         }
       };
 
+      // ── Ack the persisted user message, then caller-provided events ────
+      write({ userMessageId: userMsg.id });
+      for (const evt of initialEvents) write(evt);
+
       // ── Immediate first-token filler ────────────────────────────────────
       write({ filler: fillers.nextForce("first-token"), reason: "first-token" });
 
@@ -267,6 +274,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
 
       // ─── Persist assistant message with safety check ─────────────────────
       const finalText = accumulated.trim();
+      let persisted: { id: string; senderId: string; content: string; createdAt: string } | null = null;
       if (finalText) {
         let safeText = finalText;
         try {
@@ -284,18 +292,26 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
         }
 
         try {
-          await admin.from("Message").insert({
-            conversationId,
-            senderId: persona.userId,
-            content: safeText,
-            type: "text",
-          });
+          const { data: assistantMsg } = await admin
+            .from("Message")
+            .insert({
+              conversationId,
+              senderId: persona.userId,
+              content: safeText,
+              type: "text",
+            })
+            .select("id, conversationId, senderId, content, type, createdAt")
+            .single();
+          if (assistantMsg) {
+            const m = assistantMsg as { id: string; senderId: string; content: string; createdAt: string };
+            persisted = m;
+          }
         } catch (e) {
           console.error("[ai-chat-handler] persist assistant failed:", e);
         }
       }
 
-      write({ done: true, provider, attempts });
+      write({ done: true, provider, attempts, message: persisted, fullText: finalText || undefined });
       controller.close();
     },
   });

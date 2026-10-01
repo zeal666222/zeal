@@ -33,9 +33,21 @@ try {
 
 const MONOREPO_ROOT = path.join(__dirname, "..", "..");
 
+// ─── Cloudflare / R2 image hosts (added to CSP img-src when configured) ───────
+// R2_PUBLIC_URL may be an r2.dev bucket URL or a custom Cloudflare zone; both
+// must be allowed for <img> and next/image. imagedelivery.net is allowed for the
+// optional Cloudflare Images delivery strategy.
+const imageHosts = ["https://imagedelivery.net"];
+try {
+  const r2Public = process.env.R2_PUBLIC_URL;
+  if (r2Public) imageHosts.push(new URL(r2Public).origin);
+} catch {
+  /* ignore malformed R2_PUBLIC_URL */
+}
+
 const CSP = [
   "default-src 'self'",
-  "img-src 'self' data: blob: https://*.r2.dev https://*.supabase.co https://ui-avatars.com https://images.unsplash.com https://picsum.photos https://lh3.googleusercontent.com",
+  `img-src 'self' data: blob: https://*.r2.dev https://*.supabase.co https://ui-avatars.com https://images.unsplash.com https://picsum.photos https://lh3.googleusercontent.com ${imageHosts.join(" ")}`,
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.vercel.app https://api.groq.com https://apihub.agnes-ai.com https://vitals.vercel-insights.com",
@@ -68,13 +80,41 @@ const nextConfig = {
       { protocol: "https", hostname: "picsum.photos" },
       { protocol: "https", hostname: "*.supabase.co" },
       { protocol: "https", hostname: "*.r2.dev" },
+      { protocol: "https", hostname: "imagedelivery.net" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 31536000,
   },
   poweredByHeader: false,
   compress: true,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        // Immutable, content-hashed build assets — cache aggressively at the
+        // edge (Cloudflare/CDN) and in the browser.
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        // Next.js image optimizer output is keyed by source URL + params, so it
+        // is safe to cache long-term.
+        source: "/_next/image",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+      {
+        // Hashed public media (avatars, post thumbnails) served from /public.
+        source: "/media/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+    ];
   },
   async redirects() {
     return [

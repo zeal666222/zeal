@@ -32,11 +32,14 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   info: WalletGateInfo | null;
+  /** Navigate back into the chat funnel after a successful top-up. Pass false
+   *  when the dialog is rendered inside an already-open chat room. */
+  resume?: boolean;
 }
 
 const PRESETS = [100, 500, 1000, 2000] as const;
 
-export function WalletGateDialog({ open, onOpenChange, info }: Props) {
+export function WalletGateDialog({ open, onOpenChange, info, resume = true }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
@@ -80,7 +83,7 @@ export function WalletGateDialog({ open, onOpenChange, info }: Props) {
       setTimeout(() => {
         onOpenChange(false);
         setSucceeded(false);
-        if (info?.consultantId) {
+        if (resume && info?.consultantId) {
           router.push(`/chat?consultantId=${encodeURIComponent(info.consultantId)}`);
         }
       }, 1200);
@@ -92,7 +95,7 @@ export function WalletGateDialog({ open, onOpenChange, info }: Props) {
     } finally {
       setBusy(false);
     }
-  }, [ensureUserId, wallet, info, onOpenChange, router]);
+  }, [ensureUserId, wallet, info, onOpenChange, router, resume]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

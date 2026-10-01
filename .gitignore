@@ -54,3 +54,8 @@ tsconfig.tsbuildinfo
 .zeal-backup/
 .zeal-tmp-*/
 *.zeal-tmp-*
+.env.*
+secrets.*
+credentials.*
+*.key
+*.pem

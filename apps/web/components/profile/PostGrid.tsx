@@ -3,14 +3,15 @@
 // PostGrid — Instagram-style 3-column grid with detail modal
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Heart, ImageIcon, Loader2, MessageCircle, Trash2, X,
+  ChevronLeft, ChevronRight, Heart, ImageIcon, Loader2, MessageCircle, Trash2, X,
 } from "lucide-react";
 import { getImageUrl } from "@/lib/storage/r2";
+import { deletePostAction } from "@/actions/profile";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@zeal/ui";
 import { toast } from "@/components/ui/toaster";
@@ -37,10 +38,11 @@ const GRID_LIMIT = 30;
 
 export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
   const [selected, setSelected] = useState<PostItem | null>(null);
+  const [slide, setSlide] = useState(0);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const { data, isLoading, refetch } = useQuery<{ items: PostItem[] }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ items: PostItem[] }>({
     queryKey: ["profile", "posts", userId],
     queryFn: async () => {
       const res = await fetch(`/api/users/${userId}/posts?limit=${GRID_LIMIT}`, {
@@ -67,14 +69,10 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
     if (!deleteId) return;
     setDeleting(true);
     try {
-      const res = await fetch("/api/posts/create", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId: deleteId }),
-      });
-      // Fallback: call delete via fetch on the RPC
-      const rpcRes = await fetch("/api/users/me/profile", { cache: "no-store" });
-      if (!res.ok && !rpcRes.ok) throw new Error("Delete failed");
+      const fd = new FormData();
+      fd.set("postId", deleteId);
+      const result = await deletePostAction(null, fd);
+      if (!result.ok) throw new Error(result.error || "Delete failed");
       toast({ title: "Post deleted", variant: "success" });
       setDeleteId(null);
       setSelected(null);
@@ -90,6 +88,17 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
     }
   };
 
+  // Reset the carousel when a different post is opened.
+  useEffect(() => { setSlide(0); }, [selected?.id]);
+
+  // Escape-to-close for the detail modal.
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelected(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selected]);
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-3 gap-1 md:gap-2">
@@ -99,6 +108,21 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
             className="aspect-square rounded-lg bg-surface-raised animate-pulse"
           />
         ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-10 px-4 rounded-3xl border border-rose-500/20 bg-rose-500/[0.04]">
+        <p className="text-rose-400 text-sm mb-3">Couldn’t load these posts.</p>
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          className="text-[var(--color-primary)] hover:underline text-xs font-bold"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -188,6 +212,9 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Post detail"
               className="w-full max-w-2xl bg-surface border border-border rounded-3xl
                          overflow-hidden max-h-[90vh] flex flex-col"
             >
@@ -216,15 +243,46 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
               </div>
 
               <div className="flex-1 overflow-y-auto">
-                {selected.imageUrl && (
-                  <div className="bg-black">
-                    <img
-                      src={getImageUrl(selected.imageUrl, "detail")}
-                      alt=""
-                      className="w-full h-auto max-h-[60vh] object-contain mx-auto"
-                    />
-                  </div>
-                )}
+                {(() => {
+                  const slides = selected.mediaUrls?.length
+                    ? selected.mediaUrls
+                    : selected.imageUrl ? [selected.imageUrl] : [];
+                  if (slides.length === 0) return null;
+                  const idx = Math.min(slide, slides.length - 1);
+                  const alt = (selected.content || "Post media").slice(0, 80);
+                  return (
+                    <div className="relative bg-black">
+                      <img
+                        src={getImageUrl(slides[idx], "detail")}
+                        alt={alt}
+                        className="w-full h-auto max-h-[60vh] object-contain mx-auto"
+                      />
+                      {slides.length > 1 && (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="Previous image"
+                            onClick={(e) => { e.stopPropagation(); setSlide((s) => (s - 1 + slides.length) % slides.length); }}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                          >
+                            <ChevronLeft size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Next image"
+                            onClick={(e) => { e.stopPropagation(); setSlide((s) => (s + 1) % slides.length); }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                          >
+                            <ChevronRight size={18} />
+                          </button>
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-bold">
+                            {idx + 1}/{slides.length}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div className="p-5">
                   <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
                     {selected.content}

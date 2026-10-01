@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { getImageUrl } from "@/lib/storage/r2";
 import { useRouter } from "next/navigation";
 import {
   motion,
@@ -734,8 +735,8 @@ function PostCard({ post }: { post: Post }) {
       {hasImage && (
         <div className="mt-3 rounded-xl overflow-hidden border border-border max-h-96">
           <img
-            src={post.mediaUrls![0]}
-            alt=""
+            src={getImageUrl(post.mediaUrls![0], "grid")}
+            alt={post.content?.slice(0, 80) || "Post image"}
             loading="lazy"
             className="w-full h-full object-cover"
           />
@@ -744,12 +745,20 @@ function PostCard({ post }: { post: Post }) {
 
       <footer className="flex items-center gap-5 mt-4 pt-3 border-t border-border
                          text-xs text-muted-foreground">
-        <span className="flex items-center gap-1 hover:text-rose-400 transition-colors cursor-pointer">
+        <Link
+          href={`/post/${post.id}`}
+          className="flex items-center gap-1 hover:text-rose-400 transition-colors"
+          aria-label={`${post.cheerCount ?? 0} cheers — open post`}
+        >
           <Heart size={12} /> {post.cheerCount ?? 0}
-        </span>
-        <span className="flex items-center gap-1 hover:text-[var(--color-primary)] transition-colors cursor-pointer">
+        </Link>
+        <Link
+          href={`/post/${post.id}`}
+          className="flex items-center gap-1 hover:text-[var(--color-primary)] transition-colors"
+          aria-label={`${post.commentCount ?? 0} comments — open post`}
+        >
           <MessageCircle size={12} /> {post.commentCount ?? 0}
-        </span>
+        </Link>
       </footer>
     </motion.article>
   );
@@ -1048,6 +1057,7 @@ export function HomeClient({
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setQuery(e.target.value)
                   }
+                  aria-label="Search for guides"
                   placeholder="Ask Zeal — describe what you're looking for…"
                   className="w-full pl-14 pr-36 py-5 rounded-2xl
                              glass-luxury

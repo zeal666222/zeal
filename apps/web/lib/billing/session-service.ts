@@ -14,6 +14,14 @@ import {
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+// Per-minute debit is driven by wall-clock elapsed time. A client that closes
+// its tab stops sending heartbeats but never calls endSession, so on the next
+// beat `minutesElapsed - lastBilled` can span hours of idle time. Cap how many
+// minutes a single heartbeat may bill and write the rest off as idle, so a
+// stale/reopened session can never retroactively charge for time the user was
+// away. Sized generously (3 min) so ordinary missed/delayed beats still charge.
+const MAX_BILLABLE_GAP_MINUTES = 3;
+
 async function lookupRate(
   admin: Admin,
   consultantId: string | null,
@@ -31,15 +39,19 @@ async function lookupRate(
     return { rate: row.isPaid ? Number(row.perMinuteRate ?? 0) : 0, isAI: true };
   }
   if (!consultantId) return null;
+  // Canonical rate must match the gate + the displayed price: both the
+  // `auto_start_chat_billing` RPC and `chat_partner_view` resolve a human's
+  // per-minute rate as COALESCE(chatRate, perMinuteRate). Reading only
+  // perMinuteRate here would debit a different amount than the user was quoted.
   const { data } = await admin
     .from("Consultant")
-    .select('"perMinuteRate", "isActive"')
+    .select('"chatRate", "perMinuteRate", "isActive"')
     .eq("id", consultantId)
     .maybeSingle();
   if (!data) return null;
-  const row = data as { perMinuteRate: number; isActive: boolean };
+  const row = data as { chatRate: number | null; perMinuteRate: number; isActive: boolean };
   if (!row.isActive) return null;
-  return { rate: Number(row.perMinuteRate ?? 0), isAI: false };
+  return { rate: Number(row.chatRate ?? row.perMinuteRate ?? 0), isAI: false };
 }
 
 async function lookupWallet(admin: Admin, userId: string): Promise<WalletState | null> {
@@ -203,9 +215,15 @@ export async function heartbeatSession(params: {
   }
 
   const lastBilled = Math.floor((session.durationSeconds ?? 0) / 60);
-  const minutesToBill = minutesElapsed - lastBilled;
+  const gap = Math.max(0, minutesElapsed - lastBilled);
+  // Charge at most a bounded catch-up window per beat; anything older is
+  // treated as idle and written off below so it can never be retro-billed.
+  const billable = Math.min(gap, MAX_BILLABLE_GAP_MINUTES);
 
-  for (let i = 0; i < minutesToBill; i++) {
+  let billed = 0;
+  let deductError = false;
+
+  for (let i = 0; i < billable; i++) {
     const minuteKey = new Date(startMs + (lastBilled + i + 1) * 60_000)
       .toISOString()
       .slice(0, 16)
@@ -223,7 +241,10 @@ export async function heartbeatSession(params: {
     );
 
     if (rpcErr) {
+      // Transient debit failure: stop and advance only past the minutes we
+      // actually charged, so the failed minutes are retried on the next beat.
       console.error("[billing] minute deduct error:", rpcErr);
+      deductError = true;
       break;
     }
 
@@ -232,19 +253,22 @@ export async function heartbeatSession(params: {
       | null;
 
     if (result && result.success === false) {
+      // Out of funds mid-loop. Live sessions hold no escrow (amount=0), so a
+      // direct ENDED is safe; end exactly at the minutes we could still pay.
+      const endedMinutes = lastBilled + billed;
       await admin
         .from("CallSession")
         .update({
           status: "ENDED",
           endTime: new Date().toISOString(),
-          durationSeconds: minutesElapsed * 60,
+          durationSeconds: endedMinutes * 60,
         })
         .eq("id", sessionId);
 
       return {
         success: true, sessionId, elapsedSeconds,
-        minutesBilled: lastBilled + i,
-        cost: (lastBilled + i) * rate,
+        minutesBilled: endedMinutes,
+        cost: endedMinutes * rate,
         remaining: 0, terminate: true,
         reason: "Insufficient balance — session terminated.",
       };
@@ -257,22 +281,31 @@ export async function heartbeatSession(params: {
       balanceAfter: Number(result?.remaining ?? 0),
       escrowAfter: 0,
     });
+    billed++;
   }
 
-  await admin
-    .from("CallSession")
-    .update({ durationSeconds: minutesElapsed * 60 })
-    .eq("id", sessionId);
+  const minutesBilled = lastBilled + billed;
+  // On a transient error advance only past minutes actually charged (retry the
+  // rest); otherwise advance to the current minute, writing off the idle gap.
+  const newWatermark = deductError ? minutesBilled : minutesElapsed;
 
   const ws = await lookupWallet(admin, userId);
   const remaining = ws ? ws.balance + ws.escrow : 0;
   const minutesRemaining = rate > 0 ? Math.floor(remaining / rate) : 999;
   const terminate = minutesRemaining <= LOW_BALANCE_THRESHOLD_MINUTES;
 
+  const advance: Record<string, unknown> = { durationSeconds: newWatermark * 60 };
+  if (terminate) {
+    // The client treats `terminate` as terminal and stops heartbeats; mark the
+    // session ENDED so it is not reused (and re-billed) on the next room open.
+    advance.status = "ENDED";
+    advance.endTime = new Date().toISOString();
+  }
+  await admin.from("CallSession").update(advance).eq("id", sessionId);
+
   return {
     success: true, sessionId, elapsedSeconds,
-    minutesBilled: minutesElapsed,
-    cost: minutesElapsed * rate,
+    minutesBilled, cost: minutesBilled * rate,
     remaining, terminate,
     reason: terminate ? `Only ${minutesRemaining} minute(s) left.` : undefined,
     ...(ws ? { walletState: ws } : {}),
@@ -327,7 +360,10 @@ export async function endSession(params: {
   const isAI = session.isAI;
 
   const totalCost = durationMinutes * rate;
-  const platformFee = totalCost * 0.10;
+  // Must match the fee the money-moving `process_per_minute_deduction` RPC
+  // actually credits (20%); a 10% figure here would never reconcile with the
+  // ledger. This value is reporting-only — no funds move on it.
+  const platformFee = totalCost * 0.20;
   const consultantEarning = totalCost - platformFee;
 
   const heldAmount = Number(session.amount ?? 0);

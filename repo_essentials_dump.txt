@@ -1,10 +1,10 @@
 ================================================================================
 PROJECT ZEAL — ESSENTIALS DUMP
 ================================================================================
-Generated : 2026-09-30T04:23:59Z
+Generated : 2026-10-01T13:14:48Z
 Repo root : /d/zeal
 Files     : 627
-Size      : 2546706 bytes (2 MB 439 KB)
+Size      : 2547976 bytes (2 MB 440 KB)
 
 --------------------------------------------------------------------------------
 1. REPOSITORY TREE (essential files only)
@@ -1019,7 +1019,7 @@ By extension:
   .sh                  5 file(s)         31546 bytes
   .sql                65 file(s)        432849 bytes
   .ts                253 file(s)        772650 bytes
-  .tsx               253 file(s)       1219400 bytes
+  .tsx               253 file(s)       1220670 bytes
   .yml                 4 file(s)          8210 bytes
 
 --------------------------------------------------------------------------------
@@ -39436,6 +39436,43 @@ export function AppLayout({
   user: { id: string } | null;
   profile: Profile;
 }) {
+  // ZEAL_PHASE1_APPLIED: app-layout-scroll-root
+  // Non-immersive routes use document scroll so Lenis can attach to window.
+  // Immersive routes (chat, call) keep a fixed shell with internal scroll.
+  const pathname = usePathname();
+  const balance = profile?.wallet_balance || 0;
+  const hideAppNav = pathname?.startsWith("/consultant");
+  const immersive =
+    pathname?.startsWith("/chat") || pathname?.startsWith("/call");
+
+  if (immersive) {
+    return (
+      <div className="flex flex-col h-screen-app overflow-hidden bg-[var(--color-background)] w-full relative">
+        <TopNavBar userId={user?.id ?? null} initialBalance={balance} />
+        <main
+          id="main-content"
+          className="flex-1 w-full overflow-y-auto custom-scrollbar pt-16"
+        >
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen-app bg-[var(--color-background)] w-full relative">
+      <TopNavBar userId={user?.id ?? null} initialBalance={balance} />
+      <main id="main-content" className="w-full pt-16 pb-24">
+        {children}
+      </main>
+      {!hideAppNav && <BottomNavBar userId={user?.id ?? null} />}
+    </div>
+  );
+}: {
+  children: React.ReactNode;
+  user: { id: string } | null;
+  profile: Profile;
+}) {
   const pathname = usePathname();
   const balance = profile?.wallet_balance || 0;
   const hideAppNav = pathname?.startsWith("/consultant");
@@ -70485,5 +70522,5 @@ FILE PATH: ./vercel.json
 
 --------------------------------------------------------------------------------
 END OF DUMP
-Generated : 2026-09-30T04:23:59Z
+Generated : 2026-10-01T13:14:48Z
 --------------------------------------------------------------------------------

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import {
-  ArrowLeft, Check, Copy, Edit3, Link as LinkIcon, Loader2, LogOut,
+  AlertTriangle, ArrowLeft, Check, Copy, Edit3, Link as LinkIcon, Loader2, LogOut,
   MapPin, Plus, Shield, Sparkles, User, Wallet,
 } from "lucide-react";
 import { PostGrid } from "@/components/profile/PostGrid";
@@ -50,17 +50,34 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("posts");
   const [copied, setCopied] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const { scrollY } = useScroll();
   const coverY = useTransform(scrollY, [0, 300], [0, 80]);
   const coverScale = useTransform(scrollY, [0, 300], [1, 1.08]);
   const headerOpacity = useTransform(scrollY, [80, 160], [0, 1]);
+  const backOpacity = useTransform(scrollY, [0, 80], [1, 0]);
+
+  // Honour ?tab= (TopNavBar "Settings" links here); map settings → security.
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "about" || t === "security") setTab(t);
+    else if (t === "settings") setTab("security");
+  }, []);
 
   useEffect(() => {
     (async () => {
       try {
         const meRes = await fetch("/api/users/me/profile", { cache: "no-store" });
-        if (!meRes.ok) return;
+        if (meRes.status === 401) {
+          setProfile(null);
+          return;
+        }
+        if (!meRes.ok) {
+          setLoadError(`Could not load your profile (HTTP ${meRes.status}).`);
+          return;
+        }
         const data = (await meRes.json()) as {
           user: SelfProfile;
           canPost: { canPost: boolean; limit: number; current: number; remaining: number };
@@ -75,16 +92,18 @@ export default function ProfilePage() {
             if (sd.stats) setStats(sd.stats);
           }
         }
+      } catch {
+        setLoadError("Network error while loading your profile.");
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [retryKey]);
 
   const handleCopy = async () => {
     if (!profile?.username) return;
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/@${profile.username}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/u/${profile.username}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch { /* ignore */ }
@@ -94,6 +113,26 @@ export default function ProfilePage() {
     return (
       <div className="min-h-screen-app bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
+      </div>
+    );
+  }
+
+  if (loadError && !profile) {
+    return (
+      <div className="min-h-screen-app bg-background flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <AlertTriangle size={40} className="text-rose-400 mx-auto mb-3" />
+          <p className="text-muted-foreground mb-5">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => { setLoadError(null); setLoading(true); setRetryKey((k) => k + 1); }}
+            className="inline-block px-5 py-2.5 rounded-xl
+                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                       text-white text-sm font-black"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -169,7 +208,7 @@ export default function ProfilePage() {
 
         {/* Back button (fades out) */}
         <motion.div
-          style={{ opacity: useTransform(scrollY, [0, 80], [1, 0]) }}
+          style={{ opacity: backOpacity }}
           className="absolute top-4 left-4 z-10 flex items-center gap-2"
         >
           <button

@@ -36,6 +36,7 @@ export function AppLayout({
         <TopNavBar userId={user?.id ?? null} initialBalance={balance} />
         <main
           id="main-content"
+          data-lenis-prevent
           className="flex-1 w-full overflow-y-auto custom-scrollbar pt-16"
         >
           {children}
@@ -47,25 +48,7 @@ export function AppLayout({
   return (
     <div className="min-h-screen-app bg-[var(--color-background)] w-full relative">
       <TopNavBar userId={user?.id ?? null} initialBalance={balance} />
-      <main id="main-content" className="w-full pt-16 pb-24">
-        {children}
-      </main>
-      {!hideAppNav && <BottomNavBar userId={user?.id ?? null} />}
-    </div>
-  );
-}: {
-  children: React.ReactNode;
-  user: { id: string } | null;
-  profile: Profile;
-}) {
-  const pathname = usePathname();
-  const balance = profile?.wallet_balance || 0;
-  const hideAppNav = pathname?.startsWith("/consultant");
-
-  return (
-    <div className="flex flex-col h-screen-app overflow-hidden bg-[var(--color-background)] w-full relative">
-      <TopNavBar userId={user?.id ?? null} initialBalance={balance} />
-      <main className="flex-1 w-full overflow-y-auto custom-scrollbar pt-16 pb-24">
+      <main id="main-content" className="w-full pt-16 pb-28">
         {children}
       </main>
       {!hideAppNav && <BottomNavBar userId={user?.id ?? null} />}

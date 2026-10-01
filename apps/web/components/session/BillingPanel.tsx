@@ -73,9 +73,27 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [ready, setReady] = useState(false);
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hbRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Latest callbacks live in refs so the heartbeat closure stays stable and the
+  // 30s interval is never torn down/restarted on a parent re-render (typing
+  // would otherwise fire a heartbeat storm and invite 429s).
+  const onEndRef = useRef(onEnd);
+  const onTerminatedRef = useRef(onTerminated);
+  useEffect(() => { onEndRef.current = onEnd; }, [onEnd]);
+  useEffect(() => { onTerminatedRef.current = onTerminated; }, [onTerminated]);
+
+  // Reset all display state when the session changes.
+  useEffect(() => {
+    setElapsedSeconds(0);
+    setCost(0);
+    setRemaining(0);
+    setTerminateReason(null);
+    setError(null);
+    setReady(false);
+  }, [sessionId]);
 
   // Local 1s timer
   useEffect(() => {
@@ -105,14 +123,15 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
       if (typeof data.cost === "number") setCost(data.cost);
       if (typeof data.remaining === "number") setRemaining(data.remaining);
       setError(null);
+      setReady(true);
       if (data.terminate && data.reason) {
         setTerminateReason(data.reason);
-        onTerminated?.(data.reason);
+        onTerminatedRef.current?.(data.reason);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Connection issue");
     }
-  }, [sessionId, onTerminated]);
+  }, [sessionId]);
 
   useEffect(() => {
     void heartbeat();
@@ -135,20 +154,23 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { error?: string }).error ?? "End failed");
       }
-      onEnd();
+      onEndRef.current();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to end session");
+    } finally {
       setEnding(false);
     }
-  }, [sessionId, onEnd]);
+  }, [sessionId]);
 
   const tier: Tier = rate === 0
     ? "free"
-    : remaining / Math.max(1, rate) <= 1
-      ? "red"
-      : remaining / Math.max(1, rate) <= 3
-        ? "amber"
-        : "healthy";
+    : !ready
+      ? "healthy"
+      : remaining / Math.max(1, rate) <= 1
+        ? "red"
+        : remaining / Math.max(1, rate) <= 3
+          ? "amber"
+          : "healthy";
 
   const style = TIER_STYLE[tier];
   const minutesRemaining = rate > 0 ? Math.floor(remaining / rate) : Infinity;
@@ -157,14 +179,14 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
     <div className={`flex-none border-b transition-colors ${style.border} ${style.bg}`}>
       <div className="px-3 md:px-4 py-2.5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-3 text-xs" role="status" aria-live="polite">
             <span className={`flex items-center gap-1 font-mono font-black ${style.text}`}>
               <Clock size={12} /> {fmtTime(elapsedSeconds)}
             </span>
             <span className="flex items-center gap-1 text-foreground font-mono font-black">
               <IndianRupee size={12} /> {cost.toFixed(2)}
             </span>
-            {rate > 0 && (
+            {rate > 0 && (ready ? (
               <>
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Wallet size={12} />
@@ -177,7 +199,11 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
                     : "∞"}
                 </span>
               </>
-            )}
+            ) : (
+              <span className="flex items-center gap-1 text-muted-foreground font-black">
+                <Loader2 size={11} className="animate-spin" /> Syncing…
+              </span>
+            ))}
             {rate === 0 && (
               <span className="flex items-center gap-1 text-emerald-400 font-black">
                 <Radio size={10} className="animate-pulse" /> Free session
@@ -190,6 +216,7 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
               onClick={() => setShowBreakdown((v) => !v)}
               className="p-1.5 rounded-lg hover:bg-surface-raised transition-colors"
               aria-label="Toggle breakdown"
+              aria-expanded={showBreakdown}
             >
               {showBreakdown ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
             </button>
@@ -229,7 +256,7 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
           )}
         </AnimatePresence>
 
-        {(tier === "amber" || tier === "red" || terminateReason || error) && (
+        {(terminateReason || error || (ready && (tier === "amber" || tier === "red"))) && (
           <div className={`mt-2 text-[11px] font-bold flex items-center gap-1.5 ${
             terminateReason || error || tier === "red"
               ? "text-rose-400"

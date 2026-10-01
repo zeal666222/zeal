@@ -26,6 +26,8 @@ export default function ProfileEditPage() {
   const router = useRouter();
   const [initial, setInitial] = useState<Initial | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<"load" | "signedout" | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
 
   const [username, setUsername] = useState("");
   const [usernameStatus, setUsernameStatus] = useState<
@@ -47,16 +49,18 @@ export default function ProfileEditPage() {
     (async () => {
       try {
         const res = await fetch("/api/users/me/profile", { cache: "no-store" });
-        if (res.ok) {
-          const data = (await res.json()) as { user: Initial };
-          setInitial(data.user);
-          setUsername(data.user.username ?? "");
-        }
+        if (res.status === 401) { setError("signedout"); return; }
+        if (!res.ok) { setError("load"); return; }
+        const data = (await res.json()) as { user: Initial };
+        setInitial(data.user);
+        setUsername(data.user.username ?? "");
+      } catch {
+        setError("load");
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [retryKey]);
 
   // Live username check
   useEffect(() => {
@@ -123,10 +127,49 @@ export default function ProfileEditPage() {
     return true;
   }, [isPending, usernameStatus.kind]);
 
-  if (loading || !initial) {
+  if (loading) {
     return (
       <div className="min-h-screen-app bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)]" />
+      </div>
+    );
+  }
+
+  if (error === "signedout") {
+    return (
+      <div className="min-h-screen-app bg-background flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <AlertCircle size={40} className="text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground mb-5">Please sign in to edit your profile.</p>
+          <Link
+            href="/login"
+            className="inline-block px-5 py-2.5 rounded-xl
+                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                       text-white text-sm font-black"
+          >
+            Sign in
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (error === "load" || !initial) {
+    return (
+      <div className="min-h-screen-app bg-background flex items-center justify-center p-6">
+        <div className="text-center max-w-sm">
+          <AlertCircle size={40} className="text-rose-400 mx-auto mb-3" />
+          <p className="text-muted-foreground mb-5">Couldn’t load your profile editor.</p>
+          <button
+            type="button"
+            onClick={() => { setError(null); setLoading(true); setRetryKey((k) => k + 1); }}
+            className="inline-block px-5 py-2.5 rounded-xl
+                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                       text-white text-sm font-black"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }

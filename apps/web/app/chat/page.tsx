@@ -1,7 +1,59 @@
 import Link from "next/link";
-import { MessageSquare, Send, Sparkles } from "lucide-react";
+import { redirect } from "next/navigation";
+import { Send, Sparkles } from "lucide-react";
+import {
+  createServerClientFromCookies,
+  createAdminClient,
+} from "@zeal/database/server";
 
-export default function ChatIndexPage() {
+export const dynamic = "force-dynamic";
+
+interface ChatIndexProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function ChatIndexPage({ searchParams }: ChatIndexProps) {
+  const sp = await searchParams;
+  const consultantId = typeof sp.consultantId === "string" ? sp.consultantId : null;
+
+  // ─── Resume the chat funnel (e.g. after a wallet top-up) ─────────────────
+  if (consultantId) {
+    const supabase = await createServerClientFromCookies();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const admin = createAdminClient();
+      let partnerUserId: string | null = null;
+
+      const { data: aiRow } = await admin
+        .from("AIConsultant")
+        .select("id")
+        .eq("id", consultantId)
+        .maybeSingle();
+      if (aiRow) {
+        partnerUserId = (aiRow as { id: string }).id;
+      } else {
+        const { data: cRow } = await admin
+          .from("Consultant")
+          .select("userId")
+          .eq("id", consultantId)
+          .maybeSingle();
+        partnerUserId = (cRow as { userId: string } | null)?.userId ?? null;
+      }
+
+      if (partnerUserId && partnerUserId !== user.id) {
+        const { data: conversationId } = await supabase.rpc(
+          "get_or_create_conversation",
+          { p_user_a: user.id, p_user_b: partnerUserId },
+        );
+        if (conversationId) redirect(`/chat/${conversationId}`);
+      }
+    }
+    redirect("/explore");
+  }
+
   return (
     <div className="flex-1 h-full flex flex-col items-center justify-center p-8 text-center bg-background relative overflow-hidden">
       {/* Subtle Background Glow */}

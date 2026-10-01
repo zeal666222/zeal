@@ -17,23 +17,37 @@ interface MvRow {
   status: string | null; subdomain: string | null; subdomainActive: boolean | null;
   specialties: string[] | null; languages: string[] | null; bio: string | null;
   totalConsultations: number | null; service_slugs: string[] | null; category_ids: string[] | null;
+  isAI: boolean | null;
 }
 
-async function loadDirectory(): Promise<MvRow[]> {
+async function loadDirectory(): Promise<{ rows: MvRow[]; total: number; error: string | null }> {
   try {
     const supabase = await createServerClientFromCookies();
     const { data, error } = await supabase.rpc("search_consultants", {
-      p_filters: { limit: 60, sort: "relevance" },
+      p_filters: { limit: 24, sort: "relevance" },
     });
-    if (error) return [];
-    return ((data ?? {}) as { consultants?: MvRow[] }).consultants ?? [];
-  } catch {
-    return [];
+    if (error) {
+      console.error("[explore/page] search_consultants failed:", error.message);
+      return { rows: [], total: 0, error: error.message };
+    }
+    const payload = (data ?? {}) as { consultants?: MvRow[]; total?: number };
+    const rows = payload.consultants ?? [];
+    return { rows, total: payload.total ?? rows.length, error: null };
+  } catch (e) {
+    console.error("[explore/page] loadDirectory error:", e);
+    return { rows: [], total: 0, error: e instanceof Error ? e.message : "Failed to load" };
   }
 }
 
-export default async function ExplorePage() {
-  const consultants = await loadDirectory();
+export default async function ExplorePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const [{ rows: consultants, total, error }, sp] = await Promise.all([
+    loadDirectory(),
+    searchParams,
+  ]);
   const onlineCount = consultants.filter((c) => c.is_online).length;
 
   return (
@@ -65,7 +79,7 @@ export default async function ExplorePage() {
 
           <p className="mt-6 text-base md:text-lg text-muted-foreground
                         max-w-2xl leading-relaxed">
-            {consultants.length.toLocaleString("en-IN")} verified guides across every
+            {total.toLocaleString("en-IN")} verified guides across every
             tradition.{" "}
             {onlineCount > 0 && (
               <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold">
@@ -91,7 +105,12 @@ export default async function ExplorePage() {
 
       {/* ─── Client directory ────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-6 md:px-10 lg:px-16 py-10">
-        <ConsultantDirectory initialConsultants={consultants} />
+        <ConsultantDirectory
+          initialConsultants={consultants}
+          initialTotal={total}
+          initialQuery={sp.q ?? ""}
+          initialError={error}
+        />
       </div>
     </div>
   );

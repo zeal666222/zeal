@@ -145,6 +145,7 @@ export function LuxuryCard({
 
 import { useEffect, useRef } from "react";
 import Lenis from "lenis";
+import "lenis/dist/lenis.css";
 
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const ref = useRef<Lenis | null>(null);

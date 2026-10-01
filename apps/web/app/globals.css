@@ -15,6 +15,7 @@ body {
   .hide-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   .h-screen-app { height: 100vh; height: 100dvh; }
+  .min-h-screen-app { min-height: 100vh; min-height: 100dvh; }
 
   .btn-3d {
     box-shadow: inset 0 2px 4px rgba(255,255,255,0.2), 0 4px 10px rgba(0,0,0,0.6), 0 8px 20px rgba(0,0,0,0.4);

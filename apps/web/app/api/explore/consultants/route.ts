@@ -29,6 +29,7 @@ interface SearchRow {
   totalConsultations: number | null;
   service_slugs: string[] | null;
   category_ids: string[] | null;
+  isAI: boolean | null;
 }
 
 interface RawLegacyRow {
@@ -108,10 +109,10 @@ export async function GET(req: Request) {
         );
 
       if (legacy.error) {
-        console.error("[explore/consultants] legacy fallback failed:", legacy.error.message);
+        console.error("[explore/consultants] search + legacy both failed:", error.message, legacy.error.message);
         return NextResponse.json(
-          { success: true, consultants: [], total: 0, source: "fallback-empty" },
-          { headers: { "Cache-Control": "no-store, max-age=0" } },
+          { success: false, error: "Directory temporarily unavailable." },
+          { status: 503, headers: { "Cache-Control": "no-store, max-age=0" } },
         );
       }
 
@@ -140,6 +141,7 @@ export async function GET(req: Request) {
           totalConsultations: r.totalConsultations,
           service_slugs: [],
           category_ids: [],
+          isAI: false,
         } satisfies SearchRow;
       });
 
@@ -163,9 +165,10 @@ export async function GET(req: Request) {
       source: "mv",
     });
   } catch (err) {
+    console.error("[explore/consultants] unexpected:", err);
     return NextResponse.json(
-        { success: true, consultants: [], total: 0, source: "outer-error" },
-        { headers: { "Cache-Control": "no-store, max-age=0" } },
-      );
+      { success: false, error: "Failed to load consultants." },
+      { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   }
 }

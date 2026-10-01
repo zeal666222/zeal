@@ -69,9 +69,21 @@ export async function GET(req: Request) {
     supabase.rpc("can_create_post"),
   ]);
 
+  const me = profileRes.data as
+    | { id: string; email?: string | null; role?: string | null; post_count?: number | null }
+    | null;
+  const fallbackLimit = me?.role === "CLIENT_ADMIN" ? 6 : 3;
+  const fallbackCurrent = me?.post_count ?? 0;
+  const canPostFallback = {
+    canPost: fallbackCurrent < fallbackLimit,
+    limit: fallbackLimit,
+    current: fallbackCurrent,
+    remaining: Math.max(0, fallbackLimit - fallbackCurrent),
+  };
+
   return NextResponse.json({
-    user: profileRes.data ?? { id: user.id, email: user.email },
+    user: me ?? { id: user.id, email: user.email },
     wallet: walletRes.data ?? { balance: 0, escrow: 0, pendingIn: 0, pendingOut: 0, blocked: 0 },
-    canPost: canPostRes.data ?? { canPost: false, limit: 0, current: 0 },
+    canPost: canPostRes.data ?? canPostFallback,
   }, { headers: { "Cache-Control": "no-store" } });
 }

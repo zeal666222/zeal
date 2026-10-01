@@ -93,6 +93,29 @@ export async function POST(
 
     const admin = createAdminClient();
 
+    // ─── Per-minute billing (auto-start for paid conversations) ───────────
+    let billing: Record<string, unknown> | null = null;
+    try {
+      const { data: billingData } = await admin.rpc("auto_start_chat_billing", {
+        p_conversation_id: conversationId,
+        p_user_id: user.id,
+      });
+      billing = (billingData ?? null) as Record<string, unknown> | null;
+    } catch {
+      /* billing is best-effort; stream continues */
+    }
+    if (billing && billing.success === false && billing.error === "insufficient_balance") {
+      return NextResponse.json(
+        {
+          error: "Insufficient wallet balance for this per-minute session.",
+          code: "insufficient_balance",
+          required: billing.required ?? persona.perMinuteRate,
+          available: billing.available ?? 0,
+        },
+        { status: 402 },
+      );
+    }
+
     // ─── Detect filler locale from content (Hindi → "hi", else "hi-en") ──
     const hasDevanagari = /[\u0900-\u097F]/.test(content);
     const hasRomanHindi = /\b(hai|kya|nahi|haan|karo|kaise|mujhe|tum|aap)\b/i.test(content);
@@ -119,6 +142,7 @@ export async function POST(
         return result;
       },
       fillerLocale,
+      initialEvents: billing ? [{ billing }] : [],
     });
 
     return new Response(stream, {

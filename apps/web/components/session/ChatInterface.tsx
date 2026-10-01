@@ -4,10 +4,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, Loader2, Send, ShieldCheck, Sparkles } from "lucide-react";
-import { useChat, type ChatMessage } from "@/hooks/useChat";
+import { AlertTriangle, ArrowLeft, Coins, Loader2, MessageCircle, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { useChat, type BillingInfo, type ChatMessage } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
 import { BillingPanel } from "./BillingPanel";
+import { WalletGateDialog, type WalletGateInfo } from "@/components/billing/WalletGateDialog";
 import { cn } from "@zeal/ui";
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
   partnerAvatar?: string | null;
   isAI?: boolean;
   rate?: number;
+  /** Active billed session (if any) resolved server-side on room load. */
+  activeSessionId?: string | null;
 }
 
 function formatTime(ts: string) {
@@ -32,10 +35,16 @@ export function ChatInterface({
   partnerAvatar,
   isAI = false,
   rate = 0,
+  activeSessionId = null,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session");
+
+  const [sessionId, setSessionId] = useState<string | null>(
+    searchParams.get("session") ?? activeSessionId,
+  );
+  const [liveRate, setLiveRate] = useState<number>(rate);
+  const [walletGate, setWalletGate] = useState<WalletGateInfo | null>(null);
 
   const { messages, isLoading, isSending, send, sendToAI } = useChat({
     conversationId,
@@ -45,16 +54,30 @@ export function ChatInterface({
 
   const [input, setInput] = useState("");
   const [streamingText, setStreamingText] = useState<string | null>(null);
+  const [fillerText, setFillerText] = useState<string | null>(null);
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, streamingText, typingUsers.size]);
+  }, [messages.length, streamingText, fillerText, typingUsers.size]);
 
   useEffect(() => {
     void fetch(`/api/chat/${conversationId}/read`, { method: "POST" }).catch(() => {});
   }, [conversationId]);
+
+  const handleBilling = (billing: BillingInfo) => {
+    if (billing.sessionId) setSessionId(billing.sessionId);
+    if (typeof billing.rate === "number" && billing.rate > 0) setLiveRate(billing.rate);
+    if (billing.success === false && billing.error === "insufficient_balance") {
+      setWalletGate({
+        balance: Number(billing.available ?? 0),
+        required: Number(billing.required ?? billing.rate ?? liveRate ?? 0),
+        consultantName: partnerName,
+        consultantId: partnerId,
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,14 +88,28 @@ export function ChatInterface({
     try {
       if (isAI) {
         setStreamingText("");
-        await sendToAI(partnerId, text, (acc) => setStreamingText(acc));
+        setFillerText(null);
+        await sendToAI(partnerId, text, {
+          onDelta: (acc) => { setStreamingText(acc); setFillerText(null); },
+          onFiller: (f) => setFillerText(f),
+          onBilling: handleBilling,
+        });
         setStreamingText(null);
+        setFillerText(null);
       } else {
-        await send(text);
+        const result = await send(text);
+        if (result?.billing) handleBilling(result.billing);
+        const b = result?.billing;
+        if (b && b.success === false && b.error === "insufficient_balance") {
+          // Blocked by the billing gate — keep the draft so it can be resent
+          // after the wallet is topped up.
+          setInput((cur) => (cur ? cur : text));
+        }
       }
     } catch {
       setInput(text);
       setStreamingText(null);
+      setFillerText(null);
     }
   };
 
@@ -82,11 +119,15 @@ export function ChatInterface({
   };
 
   const handleSessionEnd = () => {
-    router.push("/bookings");
+    setSessionId(null);
+    setTerminationReason(null);
   };
 
   const showTyping = !isAI && typingUsers.size > 0;
   const showStreaming = isAI && streamingText !== null;
+  const streamDisplay = showStreaming
+    ? streamingText || (fillerText ? `${fillerText}` : "")
+    : "";
 
   return (
     <div className="flex flex-col h-full bg-background relative">
@@ -127,15 +168,32 @@ export function ChatInterface({
             </div>
           </div>
         </div>
+
+        {/* Per-minute rate chip */}
+        <div
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-black shrink-0",
+            liveRate > 0
+              ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/30 text-[var(--color-primary)]"
+              : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400",
+          )}
+          role="status"
+          aria-label={liveRate > 0 ? `Billed ₹${liveRate} per minute from your wallet` : "Free conversation"}
+          title={liveRate > 0 ? `Billed ₹${liveRate} per minute from your wallet` : "Free conversation"}
+        >
+          <Coins size={12} />
+          {liveRate > 0 ? `₹${liveRate}/min` : "Free"}
+        </div>
       </div>
 
-      {/* Billing panel — only when a session is active */}
+      {/* Billing panel — while a billed session is active */}
       {sessionId && (
         <BillingPanel
+          key={sessionId}
           sessionId={sessionId}
-          rate={rate}
+          rate={liveRate}
           onEnd={handleSessionEnd}
-          onTerminated={(reason) => setTerminationReason(reason)}
+          onTerminated={(reason) => { setTerminationReason(reason); setSessionId(null); }}
         />
       )}
 
@@ -147,7 +205,12 @@ export function ChatInterface({
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar">
+      <div
+        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar"
+        role="log"
+        aria-live="polite"
+        aria-atomic="false"
+      >
         <div className="text-center pb-6 border-b border-border">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold rounded-full mb-2">
             <ShieldCheck size={14} /> Encrypted Session
@@ -160,6 +223,16 @@ export function ChatInterface({
         {isLoading && messages.length === 0 ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
+            <div className="w-12 h-12 rounded-full bg-surface-sunken border border-border flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-bold text-foreground">No messages yet</p>
+            <p className="text-[11px] text-muted-foreground max-w-[240px]">
+              {isAI ? "Ask a question to start the conversation." : "Say hello to start the conversation."}
+            </p>
           </div>
         ) : (
           messages.map((msg: ChatMessage) => {
@@ -186,7 +259,20 @@ export function ChatInterface({
         {showStreaming && (
           <div className="flex flex-col items-start">
             <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken text-foreground border border-border text-sm leading-relaxed">
-              {streamingText}
+              {streamDisplay ? (
+                <>
+                  {!streamingText && fillerText && (
+                    <span className="italic text-muted-foreground">{streamDisplay}</span>
+                  )}
+                  {streamingText}
+                </>
+              ) : (
+                <span className="inline-flex gap-1 items-center py-1">
+                  <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce" />
+                  <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:300ms]" />
+                </span>
+              )}
               <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--color-primary)] animate-pulse align-middle" />
             </div>
           </div>
@@ -215,6 +301,7 @@ export function ChatInterface({
             onChange={handleChange}
             onBlur={() => !isAI && setTyping(false)}
             placeholder={isAI ? `Message ${partnerName}…` : "Type your message…"}
+            aria-label={`Message ${partnerName}`}
             maxLength={4000}
             className="flex-1 bg-surface border border-border rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground"
           />
@@ -233,6 +320,13 @@ export function ChatInterface({
           </button>
         </form>
       </div>
+
+      <WalletGateDialog
+        open={walletGate !== null}
+        onOpenChange={(open) => { if (!open) setWalletGate(null); }}
+        info={walletGate}
+        resume={false}
+      />
     </div>
   );
 }

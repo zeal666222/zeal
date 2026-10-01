@@ -3,7 +3,7 @@
 // ConsultantDirectory — search + bubble filter rail + realtime grid
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
@@ -21,9 +21,20 @@ interface MvRow {
   perMinuteRate: number | null; rating: number | null; sparkScore: number | null;
   specialties: string[] | null; languages: string[] | null; bio: string | null;
   totalConsultations: number | null; service_slugs: string[] | null;
+  isAI: boolean | null; isVerified: boolean | null;
 }
 interface Category { id: string; display_name: string; }
-interface Props { initialConsultants: MvRow[]; }
+interface Props {
+  initialConsultants: MvRow[];
+  /** Server-computed total across all pages (not just the loaded slice). */
+  initialTotal?: number;
+  /** Seed from the `?q` search param so Home → Explore keeps the query. */
+  initialQuery?: string;
+  /** Surface a server-side load failure as a retryable error, not a dead end. */
+  initialError?: string | null;
+}
+
+const PAGE_SIZE = 24;
 
 function toProfile(m: MvRow): ConsultantProfile {
   return {
@@ -31,28 +42,36 @@ function toProfile(m: MvRow): ConsultantProfile {
     name: m.name ?? m.username ?? "Guide",
     username: m.username ?? "", bio: m.bio ?? "",
     avatar: m.avatar_url ?? "", category: (m.category ?? "HEALER") as never,
-    isVerified: true, isOnline: Boolean(m.is_online),
-    perMinuteRate: m.perMinuteRate ?? 50, experience: 0,
+    isVerified: Boolean(m.isVerified), isOnline: Boolean(m.is_online),
+    perMinuteRate: m.perMinuteRate ?? 0, experience: 0,
     rating: m.rating ?? 4.5, totalConsultations: m.totalConsultations ?? 0,
     sparks: m.sparkScore ?? 0, languages: m.languages ?? [],
-    specialties: m.specialties ?? [], faith: "OTHER" as never, isAI: false,
+    specialties: m.specialties ?? [], faith: "OTHER" as never, isAI: Boolean(m.isAI),
   };
 }
 
-export function ConsultantDirectory({ initialConsultants }: Props) {
+export function ConsultantDirectory({
+  initialConsultants, initialTotal, initialQuery, initialError,
+}: Props) {
   const router = useRouter();
   const [consultants, setConsultants] = useState<MvRow[]>(initialConsultants);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery ?? "");
   const [category, setCategory] = useState<string>("all");
   const [onlineOnly, setOnlineOnly] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState<number>(initialTotal ?? initialConsultants.length);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [fetchError, setFetchError] = useState<string | null>(initialError ?? null);
   const [gateOpen, setGateOpen] = useState(false);
   const [gateInfo, setGateInfo] = useState<LowBalanceInfo | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const firstRef = useRef(true);
+  // Skip the first client fetch only when the SSR data is usable as-is (no
+  // seeded query, no server error). Otherwise run the mount fetch so results
+  // actually match `?q` and a failed SSR load can be retried.
+  const firstRef = useRef(!(initialQuery ?? "") && !initialError);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -81,28 +100,49 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
     return () => { cancelled = true; };
   }, []);
 
+  const fetchPage = useCallback(async (offset: number, append: boolean) => {
+    const p = new URLSearchParams();
+    if (query.trim()) p.set("q", query.trim());
+    if (category !== "all") p.set("category", category);
+    if (onlineOnly) p.set("online", "true");
+    p.set("limit", String(PAGE_SIZE));
+    p.set("offset", String(offset));
+
+    const res = await fetch(`/api/explore/consultants?${p}`, { cache: "no-store" });
+    const body = (await res.json().catch(() => ({}))) as {
+      consultants?: MvRow[]; total?: number; error?: string;
+    };
+    if (!res.ok || body.error) {
+      throw new Error(body.error ?? `HTTP ${res.status}`);
+    }
+    const rows = body.consultants ?? [];
+    setTotal(body.total ?? rows.length);
+    setConsultants((prev) => (append ? [...prev, ...rows] : rows));
+  }, [query, category, onlineOnly]);
+
   useEffect(() => {
     if (firstRef.current) { firstRef.current = false; return; }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const run = async () => {
       setLoading(true); setFetchError(null);
       try {
-        const p = new URLSearchParams();
-        if (query.trim()) p.set("q", query.trim());
-        if (category !== "all") p.set("category", category);
-        if (onlineOnly) p.set("online", "true");
-        p.set("limit", "60");
-        const res = await fetch(`/api/explore/consultants?${p}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = (await res.json()) as { consultants?: MvRow[] };
-        setConsultants(d.consultants ?? []);
+        await fetchPage(0, false);
       } catch (e) {
         setFetchError(e instanceof Error ? e.message : "Failed to load");
       } finally { setLoading(false); }
     };
     debounceRef.current = setTimeout(run, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, category, onlineOnly]);
+  }, [query, category, onlineOnly, reloadKey, fetchPage]);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true); setFetchError(null);
+    try {
+      await fetchPage(consultants.length, true);
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : "Failed to load more");
+    } finally { setLoadingMore(false); }
+  }, [fetchPage, consultants.length]);
 
   useChannel<BroadcastChange<{ consultantId?: string; is_online?: boolean; userId?: string }>>({
     channel: channels.consultantsLive(),
@@ -125,10 +165,9 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
   const clearFilters = useCallback(() => {
     setQuery(""); setCategory("all"); setOnlineOnly(false);
   }, []);
-  const visible = useMemo(
-    () => (onlineOnly ? consultants.filter((c) => c.is_online) : consultants),
-    [consultants, onlineOnly],
-  );
+  // The server already applies the online filter and returns a correct total,
+  // so rely on it directly rather than re-filtering / disabling pagination.
+  const hasMore = consultants.length < total;
 
   return (
     <div className="space-y-8">
@@ -222,13 +261,14 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
         <div className="text-center py-20 rounded-3xl border border-rose-500/20 bg-rose-500/[0.04]">
           <p className="text-rose-400 text-sm mb-3">Failed to load: {fetchError}</p>
           <button
-            onClick={() => setQuery(query)}
+            type="button"
+            onClick={() => { setFetchError(null); setReloadKey((k) => k + 1); }}
             className="text-[var(--color-primary)] hover:underline text-xs font-bold"
           >
             Retry
           </button>
         </div>
-      ) : visible.length === 0 ? (
+      ) : consultants.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -252,22 +292,45 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
           )}
         </motion.div>
       ) : (
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-        >
-          {visible.map((c) => (
-            <motion.div key={c.id} variants={fadeUp}>
-              <LuxuryConsultantCard
-                consultant={toProfile(c)}
-                onChat={handleChat}
-                onBook={(id) => router.push(`/booking?consultantId=${id}`)}
-              />
-            </motion.div>
-          ))}
-        </motion.div>
+        <>
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+          >
+            {consultants.map((c) => (
+              <motion.div key={c.id} variants={fadeUp}>
+                <LuxuryConsultantCard
+                  consultant={toProfile(c)}
+                  onChat={handleChat}
+                  onBook={(id) => router.push(`/booking?consultantId=${id}`)}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+
+          {hasMore && (
+            <div className="flex justify-center pt-4">
+              <button
+                type="button"
+                onClick={() => void loadMore()}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl
+                           bg-surface-raised border border-border
+                           text-sm font-bold text-foreground
+                           hover:border-[var(--color-luxury-gold)]/40 transition-all
+                           disabled:opacity-50"
+              >
+                {loadingMore ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                Load more
+                <span className="text-muted-foreground font-mono text-xs">
+                  {consultants.length}/{total}
+                </span>
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* ─── Toast ───────────────────────────────────────────────────────── */}
@@ -277,7 +340,7 @@ export function ConsultantDirectory({ initialConsultants }: Props) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200]
+            className="fixed bottom-[calc(env(safe-area-inset-bottom)+96px)] left-1/2 -translate-x-1/2 z-[200]
                        px-5 py-3 rounded-2xl glass-luxury
                        text-sm font-bold text-foreground shadow-2xl"
           >

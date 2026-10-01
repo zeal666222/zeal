@@ -67,6 +67,37 @@ export async function POST(
   if (!content) return NextResponse.json({ error: "Empty content" }, { status: 400 });
   if (content.length > 4000) return NextResponse.json({ error: "Too long" }, { status: 400 });
 
+  // ─── Billing gate ─────────────────────────────────────────────────────────
+  // Resolve the per-minute session BEFORE persisting. A paid human chat with an
+  // unfunded wallet must not be delivered for free: `auto_start_chat_billing`
+  // returns a definitive `insufficient_balance` in that case, so reject (402)
+  // without inserting. Everything else — reused session, free/no-billable
+  // partner, or a transient RPC fault — proceeds.
+  let billing: Record<string, unknown> | null = null;
+  try {
+    const { data: billingData, error: billingErr } = await supabase.rpc(
+      "auto_start_chat_billing",
+      { p_conversation_id: conversationId, p_user_id: user.id },
+    );
+    if (billingErr) console.warn("[messages] auto_start_chat_billing:", billingErr.message);
+    billing = (billingData ?? null) as Record<string, unknown> | null;
+  } catch (err) {
+    console.warn("[messages] auto_start_chat_billing failed:", err);
+  }
+
+  if (billing && billing.success === false && billing.error === "insufficient_balance") {
+    return NextResponse.json(
+      {
+        error: "Insufficient wallet balance for this per-minute session.",
+        code: "insufficient_balance",
+        billing,
+        required: billing.required,
+        available: billing.available,
+      },
+      { status: 402 },
+    );
+  }
+
   const { data: message, error } = await supabase
     .from("Message")
     .insert({ conversationId, senderId: user.id, content, type: "text" })
@@ -75,15 +106,5 @@ export async function POST(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // ─── Auto-start per-minute billing (best-effort, non-blocking) ────────────
-  try {
-    await supabase.rpc("auto_start_chat_billing", {
-      p_conversation_id: conversationId,
-      p_user_id: user.id,
-    });
-  } catch (err) {
-    console.warn("[messages] auto_start_chat_billing failed:", err);
-  }
-
-  return NextResponse.json({ message });
+  return NextResponse.json({ message, billing });
 }

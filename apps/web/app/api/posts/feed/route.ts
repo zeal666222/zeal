@@ -17,6 +17,7 @@ export const GET = withErrorHandler(async (req: Request) => {
       author:User!Post_authorId_fkey (id, username, name, avatar)
     `)
     .eq("isFlagged", false)
+    .eq("isArchived", false)
     .order("createdAt", { ascending: false })
     .limit(limit + 1);
 

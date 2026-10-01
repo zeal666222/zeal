@@ -199,10 +199,17 @@ export function createR2Adapter(options: R2Options): StorageAdapter {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Cloudflare Images URL builder
+// Cloudflare image optimization URL builder
 // ═══════════════════════════════════════════════════════════════════════════════
-// Returns an on-the-fly optimized URL when CF Images is configured.
-// Falls back to the raw R2 public URL otherwise.
+// Two opt-in strategies, both falling back to the raw R2 public URL:
+//   1. NEXT_PUBLIC_CF_IMAGE_RESIZE=1 → Cloudflare Image Resizing (transform)
+//      served from the R2 public zone via `/cdn-cgi/image/<opts>/<key>`.
+//      Requires the R2 public hostname to be a Cloudflare zone with the
+//      Image Resizing product enabled.
+//   2. NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH → Cloudflare Images delivery
+//      (`imagedelivery.net/<hash>/<key>/<namedVariant>`), using pre-created
+//      named variants in the Cloudflare dashboard.
+// When neither is set, returns the raw R2 object URL (no regression).
 
 export type ImageVariant =
   | "avatar-sm"
@@ -211,12 +218,22 @@ export type ImageVariant =
   | "detail"
   | "detail-2x";
 
+// Image Resizing transform options (`/cdn-cgi/image/` syntax).
 const VARIANT_MAP: Record<ImageVariant, string> = {
-  "avatar-sm": "w=200,q=85,fit=cover",
-  "avatar-md": "w=400,q=85,fit=cover",
-  "grid":      "w=400,h=400,q=80,fit=cover",
-  "detail":    "w=1080,q=90",
-  "detail-2x": "w=2160,q=85",
+  "avatar-sm": "width=200,height=200,fit=cover,quality=85,format=auto",
+  "avatar-md": "width=400,height=400,fit=cover,quality=85,format=auto",
+  "grid":      "width=400,height=400,fit=cover,quality=80,format=auto",
+  "detail":    "width=1080,quality=90,format=auto",
+  "detail-2x": "width=2160,quality=85,format=auto",
+};
+
+// Named Cloudflare Images variants (must exist in the dashboard).
+const CF_NAMED_VARIANT: Record<ImageVariant, string> = {
+  "avatar-sm": "avatarSm",
+  "avatar-md": "avatarMd",
+  "grid":      "grid",
+  "detail":    "detail",
+  "detail-2x": "detail2x",
 };
 
 export function getImageUrl(
@@ -226,10 +243,16 @@ export function getImageUrl(
   if (!key) return "";
   if (key.startsWith("http://") || key.startsWith("https://")) return key;
 
-  const hash = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
   const base = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
 
-  if (!hash) return base ? `${base}/${key}` : key;
+  if (process.env.NEXT_PUBLIC_CF_IMAGE_RESIZE === "1" && base) {
+    return `${base}/cdn-cgi/image/${VARIANT_MAP[variant]}/${key}`;
+  }
 
-  return `https://imagedelivery.net/${hash}/${key}/${VARIANT_MAP[variant]}`;
+  const hash = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
+  if (hash) {
+    return `https://imagedelivery.net/${hash}/${key}/${CF_NAMED_VARIANT[variant]}`;
+  }
+
+  return base ? `${base}/${key}` : key;
 }

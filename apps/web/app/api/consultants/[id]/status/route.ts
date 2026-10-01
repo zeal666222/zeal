@@ -11,14 +11,22 @@ import { createAdminClient } from "@zeal/database/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-interface MvRow {
-  id: string;
-  userId: string;
+interface ConsultantUser {
   name: string | null;
+  full_name: string | null;
   username: string | null;
   is_online: boolean | null;
   lastSeenAt: string | null;
+}
+
+interface ConsultantRow {
+  id: string;
+  userId: string;
+  chatRate: number | null;
   perMinuteRate: number | null;
+  isActive: boolean | null;
+  status: string | null;
+  user: ConsultantUser | ConsultantUser[] | null;
 }
 
 export async function GET(
@@ -29,23 +37,28 @@ export async function GET(
     const { id } = await params;
     const admin = createAdminClient();
 
-    // 1. Try human consultant MV
-    const { data: mv } = await admin
-      .from("mv_consultant_directory")
-      .select('id, "userId", name, username, is_online, "lastSeenAt", "perMinuteRate"')
+    // 1. Human consultant (direct query — always fresh; chatRate drives chat billing)
+    const { data: cRow } = await admin
+      .from("Consultant")
+      .select(
+        `id, "userId", "chatRate", "perMinuteRate", "isActive", status,
+         user:User!fk_consultant_user(name, full_name, username, is_online, "lastSeenAt")`,
+      )
       .eq("id", id)
       .maybeSingle();
 
-    if (mv) {
-      const row = mv as MvRow;
+    const c = cRow as ConsultantRow | null;
+
+    if (c && c.status === "VERIFIED" && c.isActive !== false) {
+      const u = Array.isArray(c.user) ? c.user[0] : c.user;
       return NextResponse.json(
         {
-          id: row.id,
-          userId: row.userId,
-          name: row.name ?? row.username ?? "Guide",
-          is_online: Boolean(row.is_online),
-          lastSeenAt: row.lastSeenAt,
-          perMinuteRate: Number(row.perMinuteRate ?? 50),
+          id: c.id,
+          userId: c.userId,
+          name: u?.name ?? u?.full_name ?? u?.username ?? "Guide",
+          is_online: Boolean(u?.is_online),
+          lastSeenAt: u?.lastSeenAt ?? null,
+          perMinuteRate: Number(c.chatRate ?? c.perMinuteRate ?? 50),
           isAI: false,
         },
         { headers: { "Cache-Control": "no-store" } },

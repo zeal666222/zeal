@@ -115,7 +115,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     
                   {user && <GlobalCallListener userId={user.id} />}
                   <AppLayout user={user} profile={profile}>
-                    <main id="main-content">{children}</main>
+                    {children}
                   </AppLayout>
                 
                   </SmoothScroll>
