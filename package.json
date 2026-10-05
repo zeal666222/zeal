@@ -58,7 +58,7 @@
     "@radix-ui/react-tooltip": "1.2.16",
     "@roxyapi/sdk": "1.2.57",
     "@supabase/ssr": "0.12.6",
-    "@supabase/supabase-js": "2.115.0",
+    "@supabase/supabase-js": "2.117.2",
     "@tanstack/react-query-devtools": "5.101.4",
     "ai": "7.0.51",
     "class-variance-authority": "0.7.1",
