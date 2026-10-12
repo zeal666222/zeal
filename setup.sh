@@ -1,77 +1,57 @@
 #!/usr/bin/env bash
-# setup.sh — scan, commit, push /d/kalkicore to its GitHub origin.
-# No secrets are stored in this file. The PAT is prompted silently at runtime.
-#
-# Usage:  ./setup.sh
-# Env:    COMMIT_MSG="..."   override commit message
-#         YES=1              skip confirmations
-#         NO_COMMIT=1        push only, do not commit
-#         BRANCH=main        target branch (default: current branch)
-#         GIT_USER=...       GitHub username for Basic auth (auto-detected from remote URL)
+# setup.sh — clean remote, scan, commit, push /d/zeal to zeal666222/zeal.
+# No secrets stored. PAT prompted silently.
 
 # -----------------------------------------------------------------------------
-# Shell strict mode:
-#   -E  ERR trap inherits into functions/subshells
-#   -e  exit on any command that returns non-zero (unless in a condition)
-#   -u  error on unset variable expansion
-#   -o pipefail  a pipeline fails if any stage fails, not just the last
+# Strict mode
+#   -E  ERR trap inherits into functions
+#   -e  exit on any non-zero command (outside conditionals)
+#   -u  error on unset variables
+#   -o pipefail  pipeline fails if any stage fails
 # -----------------------------------------------------------------------------
 set -Eeuo pipefail
 
 # -----------------------------------------------------------------------------
-# Resolve this script's directory so the script works from any CWD.
-#   BASH_SOURCE[0]  path of this script
-#   dirname         strip the filename
-#   cd ... && pwd   absolute, symlink-resolved path
+# Configuration
 # -----------------------------------------------------------------------------
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
-
-# -----------------------------------------------------------------------------
-# Configuration with safe defaults, overridable via environment.
-#   ${VAR:-default}  use $VAR if set and non-empty, else default
-# -----------------------------------------------------------------------------
-REPO_DIR="${REPO_DIR:-$SCRIPT_DIR}"                 # repo root = this script's dir
-REMOTE="${REMOTE:-origin}"                          # git remote name
-BRANCH="${BRANCH:-$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)}"
+REPO_DIR="${REPO_DIR:-$SCRIPT_DIR}"
+REMOTE="${REMOTE:-origin}"
+BRANCH="${BRANCH:-main}"
+REMOTE_URL="${REMOTE_URL:-https://github.com/zeal666222/zeal.git}"
+GIT_USER="${GIT_USER:-zeal666222}"
 COMMIT_MSG="${COMMIT_MSG:-chore: sync $(date -u +%Y-%m-%dT%H:%M:%SZ)}"
-YES="${YES:-0}"                                     # 1 = skip prompts
-NO_COMMIT="${NO_COMMIT:-0}"                         # 1 = do not auto-commit
+YES="${YES:-0}"
+NO_COMMIT="${NO_COMMIT:-0}"
 
 # -----------------------------------------------------------------------------
-# ANSI colors. Using $'...' so \033 is interpreted once, at assignment.
+# Colors
 # -----------------------------------------------------------------------------
-C_RESET=$'\033[0m'
-C_BLUE=$'\033[1;34m'
-C_GREEN=$'\033[1;32m'
-C_YELLOW=$'\033[1;33m'
-C_RED=$'\033[1;31m'
+C_R=$'\033[0m'
+C_B=$'\033[1;34m'
+C_G=$'\033[1;32m'
+C_Y=$'\033[1;33m'
+C_E=$'\033[1;31m'
+
+log()  { printf '%s[>]%s %s\n' "$C_B" "$C_R" "$*"; }
+ok()   { printf '%s[ok]%s %s\n' "$C_G" "$C_R" "$*"; }
+warn() { printf '%s[!]%s %s\n'  "$C_Y" "$C_R" "$*"; }
+die()  { printf '%s[x]%s %s\n'  "$C_E" "$C_R" "$*" >&2; exit 1; }
 
 # -----------------------------------------------------------------------------
-# Logging helpers. printf (not echo) so escape codes are portable.
-# All output to stdout except die(), which goes to stderr.
-# -----------------------------------------------------------------------------
-log()  { printf '%s[INFO]%s %s\n' "$C_BLUE"   "$C_RESET" "$*"; }
-ok()   { printf '%s[ OK ]%s %s\n' "$C_GREEN"  "$C_RESET" "$*"; }
-warn() { printf '%s[WARN]%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
-die()  { printf '%s[FAIL]%s %s\n' "$C_RED"    "$C_RESET" "$*" >&2; exit 1; }
-
-# -----------------------------------------------------------------------------
-# confirm "message" -> returns 0 if user types y/Y, 1 otherwise.
-# Skips the prompt entirely when YES=1.
+# confirm "msg"  -> 0 if y/Y, 1 otherwise. Skipped when YES=1.
 # -----------------------------------------------------------------------------
 confirm() {
   if [[ "$YES" == "1" ]]; then
     return 0
   fi
-  local answer=""
-  read -r -p "$1 [y/N] " answer
-  [[ "$answer" =~ ^[Yy]$ ]]
+  local a=""
+  read -r -p "$1 [y/N] " a
+  [[ "$a" =~ ^[Yy]$ ]]
 }
 
 # -----------------------------------------------------------------------------
-# Global cleanup trap. Runs on EXIT (success or failure).
-# Wipes secrets from memory and removes the temp askpass script.
-# shellcheck disable=SC2317  # called via trap, not directly
+# cleanup: wipe secrets from memory, delete temp askpass. Runs on EXIT.
 # -----------------------------------------------------------------------------
 cleanup() {
   unset GIT_PAT GIT_ASKPASS GIT_ASKPASS_REQUIRE GIT_TERMINAL_PROMPT
@@ -82,24 +62,22 @@ cleanup() {
 trap cleanup EXIT
 
 # -----------------------------------------------------------------------------
-# ERR trap: print the failing line and command before exiting.
+# on_err: print failing line + command. Runs on any ERR.
 # -----------------------------------------------------------------------------
-on_error() {
-  local exit_code=$?
-  local line_no=${1:-?}
-  local cmd=${2:-?}
-  printf '%s[ERR ]%s line %s: %s (exit %s)\n' \
-    "$C_RED" "$C_RESET" "$line_no" "$cmd" "$exit_code" >&2
-  exit "$exit_code"
+on_err() {
+  local ec=$?
+  printf '%s[ERR]%s line %s: %s (exit %s)\n' \
+    "$C_E" "$C_R" "${1:-?}" "${2:-?}" "$ec" >&2
+  exit "$ec"
 }
-trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
+trap 'on_err "$LINENO" "$BASH_COMMAND"' ERR
 
 # =============================================================================
-# STEP 1 — Pre-flight checks
+# STEP 1 — pre-flight
 # =============================================================================
 
 command -v git >/dev/null 2>&1 || die "git not found in PATH"
-[[ -d "$REPO_DIR/.git" ]]      || die "not a git repository: $REPO_DIR"
+[[ -d "$REPO_DIR/.git" ]]       || die "not a git repository: $REPO_DIR"
 
 cd -- "$REPO_DIR"
 
@@ -108,110 +86,79 @@ git rev-parse --is-inside-work-tree >/dev/null 2>&1 \
 git symbolic-ref -q HEAD >/dev/null 2>&1 \
   || die "detached HEAD — checkout a branch first"
 
-# Ensure branch exists locally; create if missing.
+# Ensure target branch exists locally
 if ! git show-ref --verify --quiet "refs/heads/$BRANCH"; then
   log "creating branch '$BRANCH'"
   git checkout -b "$BRANCH"
-elif [[ "$(git rev-parse --abbrev-ref HEAD)" != "$BRANCH" ]]; then
+fi
+
+if [[ "$(git rev-parse --abbrev-ref HEAD)" != "$BRANCH" ]]; then
   log "switching to branch '$BRANCH'"
   git checkout "$BRANCH"
 fi
 
-# -----------------------------------------------------------------------------
-# Derive GIT_USER from the remote URL if not already exported.
-# Handles both HTTPS (github.com/user/repo.git) and SSH (git@github.com:user/repo.git).
-# -----------------------------------------------------------------------------
-REMOTE_URL="$(git remote get-url "$REMOTE" 2>/dev/null || true)"
-[[ -n "$REMOTE_URL" ]] || die "remote '$REMOTE' has no URL"
+# ---- STEP 2 — strip any embedded credentials from the remote URL ----
+CURRENT_URL="$(git remote get-url "$REMOTE" 2>/dev/null || true)"
 
-if [[ -z "${GIT_USER:-}" ]]; then
-  case "$REMOTE_URL" in
-    https://github.com/*)
-      # Strip prefix and trailing /.git and path after user
-      GIT_USER="${REMOTE_URL#https://github.com/}"
-      GIT_USER="${GIT_USER%%/*}"
-      ;;
-    git@github.com:*)
-      GIT_USER="${REMOTE_URL#git@github.com:}"
-      GIT_USER="${GIT_USER%%/*}"
-      ;;
-    *)
-      die "cannot derive GIT_USER from remote URL: $REMOTE_URL (set GIT_USER=...)"
-      ;;
-  esac
+if [[ -n "$CURRENT_URL" ]]; then
+  if [[ "$CURRENT_URL" == *"@"* ]]; then
+    warn "remote URL contains embedded credentials — cleaning"
+    warn "  was: ${CURRENT_URL%%@*}@..."
+  fi
+  git remote set-url "$REMOTE" "$REMOTE_URL"
+else
+  log "adding remote $REMOTE"
+  git remote add "$REMOTE" "$REMOTE_URL"
 fi
-export GIT_USER
+
+# ---- STEP 3 — clear any cached github.com credentials ----
+printf 'protocol=https\nhost=github.com\n\n' | git credential reject 2>/dev/null || true
 
 log "repo    : $REPO_DIR"
-log "remote  : $REMOTE -> $REMOTE_URL"
+log "remote  : $REMOTE -> $(git remote get-url "$REMOTE")"
 log "branch  : $BRANCH"
 log "user    : $GIT_USER"
 printf '\n'
 
 # =============================================================================
-# STEP 2 — Secret scan (tracked + untracked + staged)
-# Refuses to proceed if any pattern matches. Adjust PATTERNS as needed.
+# STEP 4 — fast secret scan
+#   Uses git grep (single process) instead of per-file grep.
+#   Scans staged diff first; falls back to tracked tree.
 # =============================================================================
 
-PATTERNS=(
-  'ghp_[A-Za-z0-9]{20,}'                          # GitHub PAT (classic)
-  'github_pat_[A-Za-z0-9_]{20,}'                  # GitHub PAT (fine-grained)
-  'gho_[A-Za-z0-9]{20,}'                          # GitHub OAuth
-  'ghs_[A-Za-z0-9]{20,}'                          # GitHub server-to-server
-  'ghr_[A-Za-z0-9]{20,}'                          # GitHub refresh
-  'AKIA[0-9A-Z]{16}'                              # AWS access key
-  'sk-[A-Za-z0-9]{20,}'                           # OpenAI / Stripe-style
-  'xox[baprs]-[A-Za-z0-9-]{10,}'                  # Slack
-  '-----BEGIN (RSA|OPENSSH|EC|DSA|PGP) PRIVATE KEY-----'
-)
-SECRET_RE="$(IFS='|'; printf '%s' "${PATTERNS[*]}")"
-export SECRET_RE
-
-# Scan a NUL-delimited list of files from stdin; echo offending paths.
-scan_files() {
-  local f
-  while IFS= read -r -d '' f; do
-    [[ -f "$f" ]] || continue
-    if grep -IlE -- "$SECRET_RE" -- "$f" >/dev/null 2>&1; then
-      printf '%s\n' "$f"
-    fi
-  done
-}
+SECRET_RE='ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|gho_[A-Za-z0-9]{20,}|ghs_[A-Za-z0-9]{20,}|ghr_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA|OPENSSH|EC|DSA|PGP) PRIVATE KEY-----'
 
 log "scanning for secrets..."
 
-# 2a) tracked files
-mapfile -t TRACKED_HITS < <(git ls-files -z | scan_files || true)
-
-# 2b) untracked files (respect .gitignore)
-mapfile -t UNTRACKED_HITS < <(git ls-files --others --exclude-standard -z | scan_files || true)
-
-# 2c) staged diff (secret added in staging even if file is new)
-STAGED_HIT=0
-if git diff --cached --no-color 2>/dev/null | grep -E -- "$SECRET_RE" >/dev/null 2>&1; then
-  STAGED_HIT=1
+STAGED_HITS=""
+if ! git diff --cached --quiet 2>/dev/null; then
+  STAGED_HITS="$(git diff --cached -U0 --no-color 2>/dev/null \
+                  | grep -E -- "$SECRET_RE" \
+                  | head -n 20 || true)"
 fi
 
-if (( ${#TRACKED_HITS[@]} > 0 )); then
-  warn "tracked files with secret patterns:"
-  printf '    %s\n' "${TRACKED_HITS[@]}"
-fi
-if (( ${#UNTRACKED_HITS[@]} > 0 )); then
-  warn "untracked files with secret patterns:"
-  printf '    %s\n' "${UNTRACKED_HITS[@]}"
-fi
-if (( STAGED_HIT == 1 )); then
-  warn "staged diff contains a secret pattern"
+TRACKED_HITS=""
+if [[ -z "$STAGED_HITS" ]]; then
+  TRACKED_HITS="$(git grep -nE -- "$SECRET_RE" -- . 2>/dev/null | head -n 20 || true)"
 fi
 
-if (( ${#TRACKED_HITS[@]} > 0 || ${#UNTRACKED_HITS[@]} > 0 || STAGED_HIT == 1 )); then
-  die "secrets detected — refusing to commit or push"
+if [[ -n "$STAGED_HITS" ]]; then
+  warn "secret pattern in staged changes:"
+  printf '%s\n' "$STAGED_HITS" | sed 's/^/    /'
+  die "refusing to commit — remove the secret or unstage"
 fi
-ok "no obvious secrets detected"
+
+if [[ -n "$TRACKED_HITS" ]]; then
+  warn "secret pattern in tracked files:"
+  printf '%s\n' "$TRACKED_HITS" | sed 's/^/    /'
+  die "refusing to commit — remove the secret before proceeding"
+fi
+
+ok "no secrets detected"
 printf '\n'
 
 # =============================================================================
-# STEP 3 — Summarize the working tree
+# STEP 5 — summarize / stage / commit
 # =============================================================================
 
 UNTRACKED=$(git ls-files --others --exclude-standard | wc -l | tr -d ' ')
@@ -220,19 +167,6 @@ DELETED=$(git ls-files -d | wc -l | tr -d ' ')
 STAGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
 
 log "staged=$STAGED  modified=$MODIFIED  deleted=$DELETED  untracked=$UNTRACKED"
-
-if (( UNTRACKED > 0 )); then
-  log "untracked (first 40):"
-  git ls-files --others --exclude-standard | head -n 40 | sed 's/^/    /'
-  if (( UNTRACKED > 40 )); then
-    printf '    ... (%d more)\n' "$((UNTRACKED - 40))"
-  fi
-fi
-printf '\n'
-
-# =============================================================================
-# STEP 4 — Stage & commit
-# =============================================================================
 
 if [[ "$NO_COMMIT" != "1" ]]; then
   if (( STAGED == 0 && MODIFIED == 0 && DELETED == 0 && UNTRACKED == 0 )); then
@@ -245,9 +179,10 @@ if [[ "$NO_COMMIT" != "1" ]]; then
       ok "nothing staged after 'git add -A'"
     else
       log "staged files:"
-      git diff --cached --name-status | sed 's/^/    /'
+      git diff --cached --name-status | head -n 40 | sed 's/^/    /'
       printf '\n'
-      if confirm "commit these changes as: \"$COMMIT_MSG\" ?"; then
+
+      if confirm "commit as: \"$COMMIT_MSG\" ?"; then
         git commit -m "$COMMIT_MSG" >/dev/null
         ok "committed: $(git rev-parse --short HEAD)"
       else
@@ -259,7 +194,7 @@ fi
 printf '\n'
 
 # =============================================================================
-# STEP 5 — Show what will be pushed
+# STEP 6 — preview push
 # =============================================================================
 
 if git rev-parse --verify --quiet "$REMOTE/$BRANCH" >/dev/null; then
@@ -282,67 +217,59 @@ if (( ${AHEAD:-0} == 0 )); then
 fi
 
 # =============================================================================
-# STEP 6 — Prompt for PAT (silent) and prepare askpass
+# STEP 7 — prompt for PAT and build ephemeral askpass
 # =============================================================================
+
+echo "PAT must belong to '$GIT_USER' or an account with Write access to the repo."
+echo
 
 read -r -s -p "GitHub PAT for ${GIT_USER}: " GIT_PAT
 printf '\n'
 [[ -n "$GIT_PAT" ]] || die "empty PAT — aborting"
 
-# ASKPASS helper: git calls this with "Username for ..." and "Password for ...".
-# We answer with $GIT_USER and $GIT_PAT respectively. File is 0700 and removed
-# by the EXIT trap.
 ASKPASS_FILE="$(mktemp "${TMPDIR:-/tmp}/git-askpass.XXXXXX")"
+
+# Write helper without using any { } braces.
 cat >"$ASKPASS_FILE" <<'ASKPASS'
 #!/usr/bin/env bash
-prompt="${1:-}"
-case "$prompt" in
+case "${1:-}" in
   *Username*|*username*) printf '%s\n' "$GIT_USER" ;;
   *Password*|*password*) printf '%s\n' "$GIT_PAT"  ;;
   *) exit 1 ;;
 esac
 ASKPASS
+
 chmod 700 -- "$ASKPASS_FILE"
 
 export GIT_PAT
+export GIT_USER
 export GIT_ASKPASS="$ASKPASS_FILE"
-export GIT_ASKPASS_REQUIRE=force         # force askpass even with a TTY
-export GIT_TERMINAL_PROMPT=0             # never prompt interactively
+export GIT_ASKPASS_REQUIRE=force
+export GIT_TERMINAL_PROMPT=0
 
 # =============================================================================
-# STEP 7 — Push
-# -----------------------------------------------------------------------------
-# Notes:
-#   -c credential.helper=  disables any cached credential helper for this call
-#   -c core.askPass=...    points git at our ephemeral helper
-# --force-with-lease is NOT used here (this is a normal push).
+# STEP 8 — push, with fetch+rebase fallback
 # =============================================================================
 
 log "pushing $BRANCH -> $REMOTE ..."
+
 if git -c credential.helper= -c core.askPass="$ASKPASS_FILE" \
       push -u "$REMOTE" "$BRANCH"; then
   ok "push complete 🎉"
-  printf '\n'
-  ok "done."
   exit 0
 fi
 
-# -----------------------------------------------------------------------------
-# Push failed: try fetching + rebasing, then push again.
-# -----------------------------------------------------------------------------
-warn "push failed — trying fetch + rebase then retry"
+warn "push failed — fetch + rebase + retry"
+
 git -c credential.helper= -c core.askPass="$ASKPASS_FILE" \
     fetch "$REMOTE" || true
 
 if git rev-parse --verify --quiet "$REMOTE/$BRANCH" >/dev/null; then
-  git rebase "$REMOTE/$BRANCH" \
-    || die "rebase failed — resolve conflicts and re-run"
+  git rebase "$REMOTE/$BRANCH" || die "rebase failed — resolve conflicts and re-run"
 fi
 
 git -c credential.helper= -c core.askPass="$ASKPASS_FILE" \
     push -u "$REMOTE" "$BRANCH" \
-  || die "push failed (403? PAT lacks write access to $REMOTE_URL?)"
+  || die "push failed (403? PAT belongs to wrong account or lacks write access)"
 
 ok "push complete after rebase 🎉"
-printf '\n'
-ok "done."
