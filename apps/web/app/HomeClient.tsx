@@ -56,6 +56,7 @@ import { EmptyState } from "@zeal/ui";
 import { fadeUp, staggerContainer, ScrollReveal } from "@zeal/ui/motion";
 
 import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
+import { FreeServicesGrid } from "@/components/shared/FreeServicesGrid";
 import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
 import { toast as pushToast } from "@/components/ui/toaster";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
@@ -1474,6 +1475,14 @@ export function HomeClient({
           )}
         </section>
       )}
+
+      {/* FREE AI SERVICES */}
+      <section
+        aria-labelledby="free-services-heading"
+        className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 pb-20 cv-auto"
+      >
+        <FreeServicesGrid />
+      </section>
 
       {/* CATEGORY RAIL */}
       <section

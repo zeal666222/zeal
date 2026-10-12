@@ -248,14 +248,14 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
         {/* Gold-tinted hairline ring wraps the glass */}
         <div
           className="rounded-[30px] bg-gradient-to-b p-px
-                     from-white/25 via-[var(--color-luxury-glass-border)]
-                     to-[var(--color-luxury-gold)]/45"
-          style={{ boxShadow: "var(--shadow-luxury-glow)" }}
+                     from-white/30 via-[var(--color-luxury-glass-border)]/80
+                     to-[var(--color-luxury-gold)]/50"
+          style={{ boxShadow: "0 8px 32px -4px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.2), var(--shadow-luxury-glow)" }}
         >
           {/* Clipped glass surface + decorative light */}
           <div className="relative h-16 overflow-hidden rounded-[29px]
                          border border-[var(--color-luxury-glass-border)]
-                         bg-[var(--color-luxury-glass)] backdrop-blur-2xl">
+                         bg-[var(--color-surface)]/95 backdrop-blur-2xl">
             {/* Inner top highlight for the glassy bevel */}
             <span
               aria-hidden

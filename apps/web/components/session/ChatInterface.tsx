@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ArrowLeft, Coins, Loader2, MessageCircle, Send, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Coins, Loader2, MessageCircle, Paperclip, Send, ShieldCheck, Sparkles, X } from "lucide-react";
 import { useChat, type BillingInfo, type ChatMessage } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
 import { BillingPanel } from "./BillingPanel";
@@ -65,6 +65,9 @@ export function ChatInterface({
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [fillerText, setFillerText] = useState<string | null>(null);
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -91,14 +94,20 @@ export function ChatInterface({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text || isSending) return;
+    if ((!text && attachments.length === 0) || isSending) return;
+    const fileNames = attachments.map((f) => f.name);
+    const fileNote = fileNames.length
+      ? `\n\n📎 Attached ${fileNames.length} file${fileNames.length > 1 ? "s" : ""}: ${fileNames.join(", ")}`
+      : "";
+    const messageText = text + fileNote;
     setInput("");
+    clearAttachments();
     setTyping(false);
     try {
       if (isAI) {
         setStreamingText("");
         setFillerText(null);
-        await sendToAI(partnerId, text, {
+        await sendToAI(partnerId, messageText, {
           onDelta: (acc) => { setStreamingText(acc); setFillerText(null); },
           onFiller: (f) => setFillerText(f),
           onBilling: handleBilling,
@@ -106,12 +115,10 @@ export function ChatInterface({
         setStreamingText(null);
         setFillerText(null);
       } else {
-        const result = await send(text);
+        const result = await send(messageText);
         if (result?.billing) handleBilling(result.billing);
         const b = result?.billing;
         if (b && b.success === false && b.error === "insufficient_balance") {
-          // Blocked by the billing gate — keep the draft so it can be resent
-          // after the wallet is topped up.
           setInput((cur) => (cur ? cur : text));
         }
       }
@@ -130,6 +137,33 @@ export function ChatInterface({
   const handleSessionEnd = () => {
     setSessionId(null);
     setTerminationReason(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const next = [...attachments, ...files].slice(0, 5);
+    setAttachments(next);
+    const urls = next.map((f) => (f.type.startsWith("image/") ? URL.createObjectURL(f) : ""));
+    setPreviewUrls(urls);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+    setPreviewUrls((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const clearAttachments = () => {
+    previewUrls.filter(Boolean).forEach((url) => URL.revokeObjectURL(url));
+    setAttachments([]);
+    setPreviewUrls([]);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes}B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
   const showTyping = !isAI && typingUsers.size > 0;
@@ -336,30 +370,94 @@ export function ChatInterface({
             ))}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center gap-2 md:gap-3">
-          <input
-            type="text"
-            value={input}
-            onChange={handleChange}
-            onBlur={() => !isAI && setTyping(false)}
-            placeholder={isAI ? `Message ${partnerName}…` : "Type your message…"}
-            aria-label={`Message ${partnerName}`}
-            maxLength={4000}
-            className="flex-1 bg-surface border border-border rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isSending || showStreaming}
-            aria-label="Send"
-            className={cn(
-              "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all shrink-0",
-              input.trim() && !isSending && !showStreaming
-                ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-[0_0_15px_rgba(157,125,197,0.3)] active:scale-95"
-                : "bg-surface-sunken text-muted-foreground cursor-not-allowed"
-            )}
-          >
-            {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
-          </button>
+        <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
+          {/* Attachment previews */}
+          {attachments.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3 px-1">
+              {attachments.map((file, idx) => (
+                <div
+                  key={`${file.name}-${idx}`}
+                  className="relative group flex items-center gap-2 px-3 py-2 rounded-xl
+                             bg-surface-sunken border border-border text-xs"
+                >
+                  {file.type.startsWith("image/") && previewUrls[idx] ? (
+                    <img
+                      src={previewUrls[idx]}
+                      alt={file.name}
+                      className="w-8 h-8 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
+                      <Paperclip size={14} className="text-[var(--color-primary)]" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-foreground font-bold truncate max-w-[120px]">{file.name}</p>
+                    <p className="text-muted-foreground text-[10px]">{formatFileSize(file.size)}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(idx)}
+                    className="p-0.5 rounded-full hover:bg-border/60 transition-colors"
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <X size={12} className="text-muted-foreground" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 md:gap-3">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.doc,.docx,.txt"
+              onChange={handleFileSelect}
+              className="hidden"
+              aria-label="Upload file"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={attachments.length >= 5}
+              aria-label="Attach file"
+              title="Upload image or file for analysis"
+              className={cn(
+                "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shrink-0 transition-all",
+                attachments.length >= 5
+                  ? "bg-surface-sunken text-muted-foreground/50 cursor-not-allowed"
+                  : "bg-surface border border-border text-muted-foreground hover:text-[var(--color-primary)] hover:border-[var(--color-primary)]/40 active:scale-95"
+              )}
+            >
+              <Paperclip size={18} />
+            </button>
+            <input
+              type="text"
+              value={input}
+              onChange={handleChange}
+              onBlur={() => !isAI && setTyping(false)}
+              placeholder={isAI ? `Message ${partnerName}…` : "Type your message…"}
+              aria-label={`Message ${partnerName}`}
+              maxLength={4000}
+              className="flex-1 bg-surface border border-border rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground"
+            />
+            <button
+              type="submit"
+              disabled={(!input.trim() && attachments.length === 0) || isSending || showStreaming}
+              aria-label="Send"
+              className={cn(
+                "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all shrink-0",
+                (input.trim() || attachments.length > 0) && !isSending && !showStreaming
+                  ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-[0_0_15px_rgba(157,125,197,0.3)] active:scale-95"
+                  : "bg-surface-sunken text-muted-foreground cursor-not-allowed"
+              )}
+            >
+              {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
+            </button>
+          </div>
         </form>
       </div>
 

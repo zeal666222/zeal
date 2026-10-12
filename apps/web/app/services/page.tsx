@@ -9,6 +9,7 @@ import { createServerClientFromCookies } from "@zeal/database/server";
 import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
 import { ZealChat } from "@/components/zeal/ZealChat";
 import { CategoryGridRealtime } from "./CategoryGridRealtime";
+import { FreeServicesGrid } from "@/components/shared/FreeServicesGrid";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -79,6 +80,11 @@ export default function ServicesPage() {
         {/* ─── AI Concierge ─────────────────────────────────────────────── */}
         <section>
           <ZealChat />
+        </section>
+
+        {/* ─── Free AI services grid ────────────────────────────────────── */}
+        <section>
+          <FreeServicesGrid />
         </section>
 
         {/* ─── Category bubble grid ────────────────────────────────────── */}

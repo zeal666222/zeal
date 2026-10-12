@@ -5,6 +5,7 @@
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { Compass, ShieldCheck, Sparkles } from "lucide-react";
 import { ConsultantDirectory } from "./ConsultantDirectory";
+import { FreeServicesGrid } from "@/components/shared/FreeServicesGrid";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -102,6 +103,11 @@ export default async function ExplorePage({
           </div>
         </div>
       </section>
+
+      {/* ─── Free AI services grid ──────────────────────────────────────── */}
+      <div className="max-w-6xl mx-auto px-6 md:px-10 lg:px-16 pt-10">
+        <FreeServicesGrid />
+      </div>
 
       {/* ─── Client directory ────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-6 md:px-10 lg:px-16 py-10">
