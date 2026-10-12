@@ -453,3 +453,52 @@ body {
 }
 ::view-transition-old(root) { z-index: 1; }
 ::view-transition-new(root) { z-index: 9999; }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ZEAL_PHASE6_POLISH
+   ─────────────────────────────────────────────────────────────────────────────
+   Premium micro-interaction utilities. Additive — all existing tokens untouched.
+   Provides:
+     • Shimmer loading effect (gradient sweep)
+     • Premium button hover/active micro-interactions
+     • Card lift-on-hover utility
+     • Fade-in-up scroll reveal (CSS fallback)
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+@keyframes zeal-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-raised) 0%,
+    var(--color-surface-overlay) 40%,
+    var(--color-surface-raised) 80%
+  );
+  background-size: 200% 100%;
+  animation: zeal-shimmer 1.8s ease-in-out infinite;
+}
+
+.btn-premium {
+  transition: transform 180ms var(--ease-out-expo),
+              box-shadow 180ms var(--ease-out-expo);
+}
+.btn-premium:hover  { transform: scale(1.02); }
+.btn-premium:active { transform: scale(0.98); }
+
+.card-lift {
+  transition: transform 280ms var(--ease-out-expo),
+              box-shadow 280ms var(--ease-out-expo);
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-float);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer       { animation: none !important; }
+  .btn-premium   { transition: none !important; }
+  .card-lift     { transition: none !important; }
+}

@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, ArrowLeft, Coins, Loader2, MessageCircle, Send, ShieldCheck, Sparkles } from "lucide-react";
 import { useChat, type BillingInfo, type ChatMessage } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
@@ -26,6 +27,14 @@ interface Props {
 function formatTime(ts: string) {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
+
+const AI_QUICK_REPLIES = [
+  "What's my sun sign?",
+  "Tell me about my career",
+  "Compatibility reading",
+  "Today's horoscope",
+  "Dasha period analysis",
+];
 
 export function ChatInterface({
   conversationId,
@@ -235,25 +244,33 @@ export function ChatInterface({
             </p>
           </div>
         ) : (
-          messages.map((msg: ChatMessage) => {
-            const isMe = msg.senderId === currentUserId;
-            return (
-              <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                <div className={cn(
-                  "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed shadow-lg break-words",
-                  isMe
-                    ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm"
-                    : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
-                  msg._optimistic && "opacity-70"
-                )}>
-                  {msg.content}
-                </div>
-                <span className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
-                  {formatTime(msg.createdAt)}
-                </span>
-              </div>
-            );
-          })
+          <AnimatePresence initial={false}>
+            {messages.map((msg: ChatMessage) => {
+              const isMe = msg.senderId === currentUserId;
+              return (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  className={cn("flex flex-col", isMe ? "items-end" : "items-start")}
+                >
+                  <div className={cn(
+                    "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words",
+                    isMe
+                      ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/15"
+                      : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
+                    msg._optimistic && "opacity-70"
+                  )}>
+                    {msg.content}
+                  </div>
+                  <span className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
+                    {formatTime(msg.createdAt)}
+                  </span>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
 
         {showStreaming && (
@@ -279,11 +296,18 @@ export function ChatInterface({
         )}
 
         {showTyping && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-surface-sunken border border-border rounded-2xl w-max">
-            <div className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce" />
-            <div className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:150ms]" />
-            <div className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:300ms]" />
-          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 px-4 py-3 bg-surface-sunken border border-border rounded-2xl w-max"
+          >
+            <span className="text-[10px] font-bold text-muted-foreground">{partnerName}</span>
+            <span className="flex gap-1">
+              <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce" />
+              <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:300ms]" />
+            </span>
+          </motion.div>
         )}
 
         <div ref={bottomRef} />
@@ -294,6 +318,24 @@ export function ChatInterface({
         className="flex-none p-3 md:p-4 bg-background backdrop-blur-3xl border-t border-border"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
       >
+        {/* Quick replies for AI */}
+        {isAI && messages.length === 0 && (
+          <div className="max-w-4xl mx-auto mb-3 flex flex-wrap gap-2">
+            {AI_QUICK_REPLIES.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => { setInput(q); }}
+                className="px-3 py-1.5 rounded-full text-[11px] font-bold
+                           glass-luxury text-muted-foreground hover:text-foreground
+                           hover:border-[var(--color-luxury-gold)]/30 transition-all
+                           active:scale-[0.97]"
+              >
+                <Sparkles size={10} className="inline mr-1" />{q}
+              </button>
+            ))}
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto flex items-center gap-2 md:gap-3">
           <input
             type="text"

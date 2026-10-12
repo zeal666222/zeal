@@ -1,0 +1,40 @@
+{
+  "name": "@zeal/queue",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    },
+    "./workers/email": {
+      "types": "./src/workers/email-worker.ts",
+      "default": "./src/workers/email-worker.ts"
+    },
+    "./workers/notification": {
+      "types": "./src/workers/notification-worker.ts",
+      "default": "./src/workers/notification-worker.ts"
+    },
+    "./workers/report": {
+      "types": "./src/workers/report-worker.ts",
+      "default": "./src/workers/report-worker.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@zeal/database": "*",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  }
+}

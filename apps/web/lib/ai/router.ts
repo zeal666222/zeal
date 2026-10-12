@@ -17,7 +17,8 @@ export interface AIRequest {
     | "kundali"
     | "chat"
     | "matchmaking"
-    | "palmistry";
+    | "palmistry"
+    | "dream";
   systemPrompt: string;
   userPrompt: string;
   temperature?: number;

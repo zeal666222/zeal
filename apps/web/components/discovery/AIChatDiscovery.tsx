@@ -11,6 +11,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Loader2, Search, Sparkles, Star } from "lucide-react";
+import { getImageUrl } from "@/lib/storage/r2";
 
 interface ConsultantCard {
   id: string; category: string; rating: number; "sparkScore": number;
@@ -165,7 +166,7 @@ export function AIChatDiscovery() {
                     >
                       <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--color-surface-raised)] shrink-0">
                         {c.user.avatar ? (
-                          <img src={c.user.avatar} alt="" className="w-full h-full object-cover" />
+                          <img src={getImageUrl(c.user.avatar, "avatar-sm")} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[var(--color-primary)]">
                             {(c.user.name ?? "?").charAt(0).toUpperCase()}

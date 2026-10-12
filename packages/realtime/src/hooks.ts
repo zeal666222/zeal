@@ -5,13 +5,30 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {useEffect, useRef, useState} from "react";
-import {getConnectionState, onConnectionStateChange, subscribe, subscribePresence, type ConnectionState, type PresenceHandle} from "./client";
+import {
+  getConnectionState,
+  getConnectionQuality,
+  onConnectionStateChange,
+  onConnectionQualityChange,
+  subscribe,
+  subscribePresence,
+  type ConnectionState,
+  type ConnectionQualityStats,
+  type PresenceHandle,
+} from "./client";
 
 // ─── useConnection ────────────────────────────────────────────────────────────
 export function useConnection(): ConnectionState {
   const [state, setState] = useState<ConnectionState>(() => getConnectionState());
   useEffect(() => onConnectionStateChange(setState), []);
   return state;
+}
+
+// ─── useConnectionQuality ─────────────────────────────────────────────────────
+export function useConnectionQuality(): ConnectionQualityStats {
+  const [stats, setStats] = useState<ConnectionQualityStats>(() => getConnectionQuality());
+  useEffect(() => onConnectionQualityChange(setStats), []);
+  return stats;
 }
 
 // ─── useChannel ───────────────────────────────────────────────────────────────
@@ -46,6 +63,51 @@ export function useChannel<T = unknown>(opts: UseChannelOptions<T>): UseChannelR
   }, [channel, event, enabled]);
 
   return { isLive };
+}
+
+// ─── useMultiChannel ──────────────────────────────────────────────────────────
+export interface MultiChannelSubscription {
+  channel: string;
+  event?: string;
+}
+
+export function useMultiChannel<T = unknown>(
+  subscriptions: MultiChannelSubscription[],
+  onMessage: (payload: T, channel: string, event: string) => void,
+  enabled = true,
+): { isLive: boolean; activeCount: number } {
+  const [isLive, setIsLive] = useState(false);
+  const [activeCount, setActiveCount] = useState(0);
+  const handlerRef = useRef(onMessage);
+  handlerRef.current = onMessage;
+
+  useEffect(() => {
+    if (!enabled || subscriptions.length === 0) {
+      setIsLive(false);
+      setActiveCount(0);
+      return;
+    }
+
+    const unsubs: Array<() => void> = [];
+    for (const sub of subscriptions) {
+      const event = sub.event ?? "*";
+      const unsub = subscribe<T>(sub.channel, event, (payload) => {
+        handlerRef.current(payload, sub.channel, event);
+      });
+      unsubs.push(unsub);
+    }
+
+    setIsLive(true);
+    setActiveCount(subscriptions.length);
+
+    return () => {
+      for (const unsub of unsubs) unsub();
+      setIsLive(false);
+      setActiveCount(0);
+    };
+  }, [enabled, subscriptions]);
+
+  return { isLive, activeCount };
 }
 
 // ─── usePresence ──────────────────────────────────────────────────────────────

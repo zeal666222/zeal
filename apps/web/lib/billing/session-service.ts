@@ -5,12 +5,14 @@ import { createAdminClient } from "@zeal/database/server";
 import {
   MIN_START_MINUTES,
   LOW_BALANCE_THRESHOLD_MINUTES,
+  MAX_SESSION_DURATION_MINUTES,
   type BillingSession,
   type HeartbeatResult,
   type SessionEndResult,
   type SessionStartResult,
   type WalletState,
 } from "./types";
+import { withSessionLock } from "./concurrency";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -87,6 +89,7 @@ export async function startSession(params: {
   const { rate, isAI } = rateInfo;
 
   if (isAI && rate === 0) {
+    const nowISO = new Date().toISOString();
     const { data: session, error } = await admin
       .from("CallSession")
       .insert({
@@ -96,8 +99,10 @@ export async function startSession(params: {
         isAI: true,
         status: "CONNECTED",
         amount: 0,
-        startTime: new Date().toISOString(),
+        startTime: nowISO,
         conversationId: conversationId ?? null,
+        lockedRate: 0,
+        lastHeartbeatAt: nowISO,
       })
       .select("id")
       .single();
@@ -153,6 +158,8 @@ export async function startSession(params: {
       startTime: now,
       durationSeconds: 0,
       conversationId: conversationId ?? null,
+      lockedRate: rate,
+      lastHeartbeatAt: now,
     })
     .select("id")
     .single();
@@ -181,11 +188,44 @@ export async function heartbeatSession(params: {
   userId: string;
 }): Promise<HeartbeatResult> {
   const { sessionId, userId } = params;
+
+  // Wrap the entire heartbeat in an advisory lock to prevent concurrent
+  // heartbeats for the same session from double-billing.
+  const lockResult = await withSessionLock(sessionId, () =>
+    heartbeatSessionInner(sessionId, userId),
+  );
+
+  if (!lockResult.acquired) {
+    // Another heartbeat is already processing for this session.
+    // Return success to avoid confusing the client — the other beat
+    // will catch up on billing.
+    return {
+      success: true,
+      sessionId,
+      elapsedSeconds: 0,
+      minutesBilled: 0,
+      cost: 0,
+      remaining: 0,
+      terminate: false,
+    };
+  }
+
+  if (!lockResult.success || !lockResult.result) {
+    return { success: false, error: lockResult.error ?? "Heartbeat lock failed." };
+  }
+
+  return lockResult.result;
+}
+
+async function heartbeatSessionInner(
+  sessionId: string,
+  userId: string,
+): Promise<HeartbeatResult> {
   const admin = createAdminClient();
 
   const { data: sessionRaw } = await admin
     .from("CallSession")
-    .select('id, "userId", "consultantId", "aiConsultantId", "isAI", "startTime", "endTime", "durationSeconds", amount, status, "conversationId"')
+    .select('id, "userId", "consultantId", "aiConsultantId", "isAI", "startTime", "endTime", "durationSeconds", amount, status, "conversationId", "lockedRate", "lastHeartbeatAt"')
     .eq("id", sessionId)
     .eq("userId", userId)
     .maybeSingle();
@@ -202,9 +242,23 @@ export async function heartbeatSession(params: {
   const elapsedSeconds = Math.floor((nowMs - startMs) / 1000);
   const minutesElapsed = Math.floor(elapsedSeconds / 60);
 
-  const rateInfo = await lookupRate(admin, session.consultantId, session.aiConsultantId);
-  if (!rateInfo) return { success: false, error: "Consultant unavailable." };
-  const { rate, isAI } = rateInfo;
+  if (minutesElapsed >= MAX_SESSION_DURATION_MINUTES) {
+    const rate = session.lockedRate ?? 0;
+    const lastBilled = Math.floor((session.durationSeconds ?? 0) / 60);
+    const cost = lastBilled * rate;
+    await admin
+      .from("CallSession")
+      .update({ status: "ENDED", endTime: new Date().toISOString(), durationSeconds: lastBilled * 60 })
+      .eq("id", sessionId);
+    return {
+      success: true, sessionId, elapsedSeconds,
+      minutesBilled: lastBilled, cost, remaining: 0, terminate: true,
+      reason: `Maximum session duration (${MAX_SESSION_DURATION_MINUTES} min) reached.`,
+    };
+  }
+
+  const rate = session.lockedRate ?? 0;
+  const isAI = session.isAI;
 
   if (isAI && rate === 0) {
     const ws = await lookupWallet(admin, userId);
@@ -294,10 +348,11 @@ export async function heartbeatSession(params: {
   const minutesRemaining = rate > 0 ? Math.floor(remaining / rate) : 999;
   const terminate = minutesRemaining <= LOW_BALANCE_THRESHOLD_MINUTES;
 
-  const advance: Record<string, unknown> = { durationSeconds: newWatermark * 60 };
+  const advance: Record<string, unknown> = {
+    durationSeconds: newWatermark * 60,
+    lastHeartbeatAt: new Date().toISOString(),
+  };
   if (terminate) {
-    // The client treats `terminate` as terminal and stops heartbeats; mark the
-    // session ENDED so it is not reused (and re-billed) on the next room open.
     advance.status = "ENDED";
     advance.endTime = new Date().toISOString();
   }
@@ -322,7 +377,7 @@ export async function endSession(params: {
 
   const { data: sessionRaw } = await admin
     .from("CallSession")
-    .select('id, "userId", "consultantId", "aiConsultantId", "isAI", "startTime", "endTime", "durationSeconds", amount, status')
+    .select('id, "userId", "consultantId", "aiConsultantId", "isAI", "startTime", "endTime", "durationSeconds", amount, status, "lockedRate"')
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -355,8 +410,7 @@ export async function endSession(params: {
   const durationSeconds = Math.floor((endMs - startMs) / 1000);
   const durationMinutes = Math.ceil(durationSeconds / 60);
 
-  const rateInfo = await lookupRate(admin, session.consultantId, session.aiConsultantId);
-  const rate = rateInfo?.rate ?? 0;
+  const rate = session.lockedRate ?? 0;
   const isAI = session.isAI;
 
   const totalCost = durationMinutes * rate;
@@ -396,5 +450,64 @@ export async function endSession(params: {
   return {
     success: true, sessionId, durationSeconds,
     totalCost, consultantEarning, platformFee, refunded,
+  };
+}
+
+export async function resumeSession(params: {
+  sessionId: string;
+  userId: string;
+}): Promise<{
+  success: boolean;
+  sessionId?: string;
+  conversationId?: string | null;
+  isAI?: boolean;
+  lockedRate?: number;
+  durationSeconds?: number;
+  error?: string;
+  ended?: boolean;
+}> {
+  const { sessionId, userId } = params;
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc("resume_session", {
+    p_user_id: userId,
+    p_session_id: sessionId,
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  const result = data as {
+    success?: boolean;
+    error?: string;
+    ended?: boolean;
+    session?: {
+      id: string;
+      conversationId: string | null;
+      isAI: boolean;
+      lockedRate: number;
+      durationSeconds: number;
+    };
+  };
+
+  if (!result.success) {
+    return {
+      success: false,
+      error: result.error ?? "Resume failed",
+      ended: result.ended ?? false,
+    };
+  }
+
+  const s = result.session;
+  if (!s) return { success: false, error: "No session data" };
+
+  return {
+    success: true,
+    sessionId: s.id,
+    conversationId: s.conversationId,
+    isAI: s.isAI,
+    lockedRate: Number(s.lockedRate ?? 0),
+    durationSeconds: Number(s.durationSeconds ?? 0),
   };
 }

@@ -41,6 +41,7 @@ import {
   Moon,
   Radio,
   Search,
+  ShieldCheck,
   Sparkles,
   Star,
   Sun,
@@ -52,7 +53,7 @@ import {
 
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { EmptyState } from "@zeal/ui";
-import { fadeUp, staggerContainer } from "@zeal/ui/motion";
+import { fadeUp, staggerContainer, ScrollReveal } from "@zeal/ui/motion";
 
 import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
 import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
@@ -412,7 +413,7 @@ function AICard({
                             ring-2 ring-[var(--color-luxury-gold)]/30">
               {consultant.avatar ? (
                 <img
-                  src={consultant.avatar}
+                  src={getImageUrl(consultant.avatar, "avatar-sm")}
                   alt={consultant.name}
                   className="w-full h-full object-cover"
                 />
@@ -528,7 +529,7 @@ function Spotlight({
                           bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]">
             {expert.user?.avatar ? (
               <img
-                src={expert.user.avatar}
+                src={getImageUrl(expert.user.avatar, "avatar-md")}
                 alt={name}
                 className="w-full h-full object-cover"
               />
@@ -709,7 +710,7 @@ function PostCard({ post }: { post: Post }) {
                         ring-1 ring-[var(--color-luxury-gold)]/20">
           {post.author?.avatar ? (
             <img
-              src={post.author.avatar}
+              src={getImageUrl(post.author.avatar, "avatar-sm")}
               alt=""
               className="w-full h-full object-cover"
             />
@@ -820,6 +821,236 @@ function HowItWorks() {
         </motion.div>
       ))}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION — testimonials carousel
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const TESTIMONIALS = [
+  {
+    name: "Priya S.",
+    role: "Vedic Astrology Client",
+    text: "The accuracy of my reading was uncanny. The AI consultant picked up nuances in my chart that I'd spent years trying to understand. Absolutely transformative experience.",
+    rating: 5,
+    initial: "P",
+  },
+  {
+    name: "Arjun M.",
+    role: "Tarot & Meditation",
+    text: "I was skeptical about AI astrology, but Zeal proved me wrong. The reading was deeply insightful and the escrow billing gave me total confidence in the platform.",
+    rating: 5,
+    initial: "A",
+  },
+  {
+    name: "Sarah K.",
+    role: "Life Coaching Client",
+    text: "Found my life coach through Zeal and it changed everything. The consultation was professional, the billing transparent, and the follow-up reading was spot-on.",
+    rating: 5,
+    initial: "S",
+  },
+  {
+    name: "Ravi T.",
+    role: "Numerology Seeker",
+    text: "The multi-faith approach is what drew me in. I got perspectives from Vedic, Western, and Chinese traditions — all in one session. Mind-blowing platform.",
+    rating: 5,
+    initial: "R",
+  },
+];
+
+function TestimonialsCarousel() {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const safeIdx = Math.min(activeIdx, TESTIMONIALS.length - 1);
+  const current = TESTIMONIALS[safeIdx] ?? TESTIMONIALS[0]!;
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setActiveIdx((i) => (i + 1) % TESTIMONIALS.length);
+    }, 6000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div className="relative">
+      <div className="overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeIdx}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="rounded-3xl glass-luxury p-8 md:p-12 max-w-3xl mx-auto text-center"
+          >
+            <div className="flex items-center justify-center gap-1 mb-6">
+              {Array.from({ length: current.rating }).map((_, i) => (
+                <Star key={i} size={16} className="fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+            <blockquote className="text-lg md:text-xl text-foreground leading-relaxed font-medium italic mb-8">
+              &ldquo;{current.text}&rdquo;
+            </blockquote>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-sm">
+                {current.initial}
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-black text-foreground">{current.name}</p>
+                <p className="text-xs text-muted-foreground">{current.role}</p>
+              </div>
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 mt-6">
+        {TESTIMONIALS.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setActiveIdx(i)}
+            aria-label={`Show testimonial ${i + 1}`}
+            className={`h-1.5 rounded-full transition-all ${
+              i === activeIdx
+                ? "w-8 bg-[var(--color-luxury-gold)]"
+                : "w-1.5 bg-muted-foreground/40 hover:bg-muted-foreground"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION — trust badges
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function TrustBadges() {
+  const badges = [
+    { icon: Star, label: "4.9/5 rating", sub: "10,000+ reviews" },
+    { icon: Users, label: "50,000+ users", sub: "Growing daily" },
+    { icon: ShieldCheck, label: "Escrow-protected", sub: "100% secure" },
+    { icon: Radio, label: "24/7 available", sub: "AI + human guides" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {badges.map(({ icon: Icon, label, sub }, i) => (
+        <ScrollReveal key={label} delay={i * 0.08}>
+          <div className="flex items-center gap-3 p-4 rounded-2xl glass-luxury">
+            <div className="w-10 h-10 rounded-xl bg-[var(--color-luxury-gold)]/10 flex items-center justify-center text-[var(--color-luxury-gold)] shrink-0">
+              <Icon size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-black text-foreground">{label}</p>
+              <p className="text-[10px] text-muted-foreground">{sub}</p>
+            </div>
+          </div>
+        </ScrollReveal>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION — premium footer
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function PremiumFooter() {
+  const columns = [
+    {
+      title: "Platform",
+      links: [
+        { label: "Explore Guides", href: "/explore" },
+        { label: "AI Consultants", href: "/ai-astrologers" },
+        { label: "Services", href: "/services" },
+        { label: "Pricing", href: "/services" },
+      ],
+    },
+    {
+      title: "Company",
+      links: [
+        { label: "About", href: "/about" },
+        { label: "Blog", href: "/blog" },
+        { label: "Careers", href: "/careers" },
+        { label: "Contact", href: "/contact" },
+      ],
+    },
+    {
+      title: "Legal",
+      links: [
+        { label: "Privacy Policy", href: "/privacy" },
+        { label: "Terms of Service", href: "/terms" },
+        { label: "Refund Policy", href: "/refund" },
+        { label: "Cookie Policy", href: "/cookies" },
+      ],
+    },
+  ];
+
+  return (
+    <footer className="border-t border-[var(--color-luxury-glass-border)] bg-surface/50">
+      <div className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 py-16">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+          {/* Brand column */}
+          <div className="col-span-2">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center">
+                <Sparkles size={14} className="text-white" />
+              </div>
+              <span className="text-lg font-black text-foreground">Zeal</span>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mb-4">
+              Every tradition. One sanctuary. Multi-faith astrology, therapy, and wellness — escrow-protected.
+            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                All systems operational
+              </span>
+            </div>
+          </div>
+
+          {/* Link columns */}
+          {columns.map((col) => (
+            <div key={col.title}>
+              <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-luxury-gold)] font-black mb-4">
+                {col.title}
+              </p>
+              <ul className="space-y-2.5">
+                {col.links.map((link) => (
+                  <li key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom bar */}
+        <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            &copy; {new Date().getFullYear()} Zeal. All rights reserved.
+          </p>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck size={12} className="text-emerald-400" />
+              SOC 2 Compliant
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Heart size={12} className="text-rose-400" />
+              Made with care
+            </span>
+          </div>
+        </div>
+      </div>
+    </footer>
   );
 }
 
@@ -1158,6 +1389,16 @@ export function HomeClient({
               </div>
             ))}
           </motion.div>
+
+          {/* Trust badges */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+            className="mt-8"
+          >
+            <TrustBadges />
+          </motion.div>
         </div>
       </section>
 
@@ -1296,6 +1537,18 @@ export function HomeClient({
         <HowItWorks />
       </section>
 
+      {/* TESTIMONIALS */}
+      <section
+        aria-labelledby="testimonials-heading"
+        className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 pb-20 cv-auto"
+      >
+        <SectionHeader
+          eyebrow="Loved by seekers"
+          title="What our community says"
+        />
+        <TestimonialsCarousel />
+      </section>
+
       {/* FEED */}
       <section
         aria-labelledby="feed-heading"
@@ -1404,6 +1657,8 @@ export function HomeClient({
           </div>
         </div>
       </section>
+
+      <PremiumFooter />
 
       <WalletGateDialog
         open={gateOpen}

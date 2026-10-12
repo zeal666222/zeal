@@ -28,7 +28,8 @@ export type LogChannel =
   | "booking"
   | "call"
   | "admin"
-  | "system";
+  | "system"
+  | "astrology";
 
 export interface LogEntry {
   id: string;
@@ -86,6 +87,7 @@ const CHANNEL_COLORS: Record<LogChannel, string> = {
   call: "\x1b[36m",      // cyan
   admin: "\x1b[91m",     // bright red
   system: "\x1b[37m",    // white
+  astrology: "\x1b[95m", // bright magenta
 };
 
 // ─── In-memory ring buffer (for /debug page) ──────────────────────────────

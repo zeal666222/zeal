@@ -37,7 +37,7 @@ export { PageHeader } from "./page-header";
 export { EmptyState } from "./empty-state";
 
 // ─── Loading states ───────────────────────────────────────────────────────
-export { Skeleton, SkeletonText, SkeletonCard, SkeletonGrid } from "./Skeleton";
+export { Skeleton, SkeletonText, SkeletonCard, SkeletonGrid, ShimmerSkeleton, ShimmerCard, ShimmerGrid } from "./Skeleton";
 
 // ─── Accessibility ────────────────────────────────────────────────────────
 export { VisuallyHidden, LiveRegion, SkipLink } from "./a11y";
@@ -74,5 +74,8 @@ export {
   staggerContainer,
   fadeUp,
   pulseGlow,
+  ScrollReveal,
+  SuccessCheck,
+  pageTransition,
 } from "./motion";
 export type { LuxuryCardProps } from "./motion";

@@ -9,6 +9,7 @@ import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
 import { ArrowRight, Loader2, Search, Sparkles } from "lucide-react";
 import {motion, AnimatePresence} from "framer-motion";
+import { getImageUrl } from "@/lib/storage/r2";
 
 const QUICK_PROMPTS = [
   { label: "💼 Career anxiety", value: "I'm feeling anxious about my career" },
@@ -180,7 +181,7 @@ export function SearchHero() {
                     <div key={c.id} className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-surface-sunken overflow-hidden flex-shrink-0">
                         {c.user.avatar ? (
-                          <img src={c.user.avatar} alt="" className="w-full h-full object-cover" />
+                          <img src={getImageUrl(c.user.avatar, "avatar-sm")} alt="" className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xs font-bold text-foreground">
                             {(c.user.name ?? "?").charAt(0).toUpperCase()}

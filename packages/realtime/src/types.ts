@@ -1,6 +1,21 @@
 // packages/realtime/src/types.ts — types only, no "use client", no runtime imports
 export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
 
+export type ConnectionQuality = "excellent" | "good" | "poor" | "offline";
+
+export interface ConnectionQualityStats {
+  quality: ConnectionQuality;
+  latencyMs: number;
+  activeChannels: number;
+  totalListeners: number;
+  eventsReceived: number;
+  eventsSent: number;
+  eventsDropped: number;
+  reconnectCount: number;
+  uptimeMs: number;
+  lastEventAt: number | null;
+}
+
 export interface BroadcastChange<T = unknown> {
   type?: "INSERT" | "UPDATE" | "DELETE";
   table?: string;
@@ -23,6 +38,11 @@ export interface UseChannelOptions<T> {
 }
 
 export interface UseChannelResult { isLive: boolean; }
+
+export interface MultiChannelSubscription {
+  channel: string;
+  event?: string;
+}
 
 export interface UsePresenceResult<T extends Record<string, unknown>> {
   track: (state: T) => void;

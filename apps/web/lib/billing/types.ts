@@ -19,6 +19,8 @@ export interface BillingSession {
   amount: number;
   status: "INITIATED" | "CONNECTED" | "ENDED" | "RECORDING_READY";
   conversationId?: string | null;
+  lockedRate?: number | null;
+  lastHeartbeatAt?: string | null;
 }
 
 export interface SessionStartResult {
@@ -58,3 +60,5 @@ export interface SessionEndResult {
 export const MIN_START_MINUTES = 5;
 export const LOW_BALANCE_THRESHOLD_MINUTES = 2;
 export const HEARTBEAT_INTERVAL_SECONDS = 30;
+export const MAX_SESSION_DURATION_MINUTES = 240;
+export const STALE_SESSION_MINUTES = 5;

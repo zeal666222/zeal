@@ -29,6 +29,21 @@ export type ConnectionState =
   | "reconnecting"
   | "disconnected";
 
+export type ConnectionQuality = "excellent" | "good" | "poor" | "offline";
+
+export interface ConnectionQualityStats {
+  quality: ConnectionQuality;
+  latencyMs: number;
+  activeChannels: number;
+  totalListeners: number;
+  eventsReceived: number;
+  eventsSent: number;
+  eventsDropped: number;
+  reconnectCount: number;
+  uptimeMs: number;
+  lastEventAt: number | null;
+}
+
 export interface BroadcastChange<T = unknown> {
   type?: "INSERT" | "UPDATE" | "DELETE";
   table?: string;
@@ -50,7 +65,16 @@ interface ChannelEntry {
   readonly channel: RealtimeChannel;
   readonly listeners: Map<string, Map<string, Listener>>;
   subscribePromise?: Promise<void>;
+  subscribedAt?: number;
   status: "pending" | "subscribed" | "error";
+}
+
+interface QueuedEvent {
+  readonly topic: string;
+  readonly event: string;
+  readonly payload: unknown;
+  readonly addedAt: number;
+  readonly retries: number;
 }
 
 // ─── Known events emitted by DB triggers + serverPublish() ───────────────────
@@ -58,6 +82,7 @@ interface ChannelEntry {
 const PUBLIC_CHANNELS = new Set<string>([
   "consultants:live",
   "consultant:ai:updates",
+  "system:health",
 ]);
 
 const KNOWN_EVENTS = [
@@ -72,6 +97,14 @@ const KNOWN_EVENTS = [
   "notification",
   "status_updated",
   "status_changed",
+  "ai:response_chunk",
+  "ai:response_complete",
+  "ai:typing",
+  "session:started",
+  "session:ended",
+  "session:billing_tick",
+  "system:health_tick",
+  "system:alert",
 ] as const;
 
 type KnownEvent = (typeof KNOWN_EVENTS)[number];
@@ -81,6 +114,7 @@ type KnownEvent = (typeof KNOWN_EVENTS)[number];
 let client: SupabaseClient | null = null;
 const channels = new Map<string, ChannelEntry>();
 const stateListeners = new Set<(s: ConnectionState) => void>();
+const qualityListeners = new Set<(s: ConnectionQualityStats) => void>();
 const seenEventKeys = new Set<string>();
 
 const MAX_SEEN = 500;
@@ -98,11 +132,123 @@ let listenerCounter = 0;
 const nextListenerId = (): string =>
   `l-${++listenerCounter}-${Date.now().toString(36)}`;
 
+// ─── Connection quality tracking ──────────────────────────────────────────────
+
+let connectedAt: number | null = null;
+let lastLatencyMs = 0;
+let eventsReceivedCount = 0;
+let eventsSentCount = 0;
+let eventsDroppedCount = 0;
+let totalReconnects = 0;
+let lastEventTimestamp: number | null = null;
+
+const LATENCY_SAMPLES: number[] = [];
+const MAX_LATENCY_SAMPLES = 20;
+
+function recordLatency(ms: number): void {
+  LATENCY_SAMPLES.push(ms);
+  if (LATENCY_SAMPLES.length > MAX_LATENCY_SAMPLES) LATENCY_SAMPLES.shift();
+  lastLatencyMs = Math.round(
+    LATENCY_SAMPLES.reduce((a, b) => a + b, 0) / LATENCY_SAMPLES.length,
+  );
+}
+
+function computeQuality(): ConnectionQuality {
+  if (currentState === "disconnected") return "offline";
+  if (currentState === "reconnecting") return "poor";
+  if (lastLatencyMs < 200) return "excellent";
+  if (lastLatencyMs < 1000) return "good";
+  return "poor";
+}
+
+function countListeners(): number {
+  let total = 0;
+  for (const entry of channels.values()) {
+    for (const map of entry.listeners.values()) {
+      total += map.size;
+    }
+  }
+  return total;
+}
+
+export function getConnectionQuality(): ConnectionQualityStats {
+  return {
+    quality: computeQuality(),
+    latencyMs: lastLatencyMs,
+    activeChannels: channels.size,
+    totalListeners: countListeners(),
+    eventsReceived: eventsReceivedCount,
+    eventsSent: eventsSentCount,
+    eventsDropped: eventsDroppedCount,
+    reconnectCount: totalReconnects,
+    uptimeMs: connectedAt ? Date.now() - connectedAt : 0,
+    lastEventAt: lastEventTimestamp,
+  };
+}
+
+export function onConnectionQualityChange(
+  fn: (s: ConnectionQualityStats) => void,
+): () => void {
+  qualityListeners.add(fn);
+  fn(getConnectionQuality());
+  return () => {
+    qualityListeners.delete(fn);
+  };
+}
+
+function broadcastQuality(): void {
+  if (qualityListeners.size === 0) return;
+  const stats = getConnectionQuality();
+  for (const fn of qualityListeners) {
+    try {
+      fn(stats);
+    } catch (err) {
+      console.warn("[realtime] quality listener threw:", err);
+    }
+  }
+}
+
+// ─── Offline event queue ──────────────────────────────────────────────────────
+
+const offlineQueue: QueuedEvent[] = [];
+const MAX_OFFLINE = 50;
+const MAX_QUEUE_RETRIES = 3;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function enqueueOffline(topic: string, event: string, payload: unknown): void {
+  if (offlineQueue.length >= MAX_OFFLINE) {
+    offlineQueue.shift();
+    eventsDroppedCount++;
+  }
+  offlineQueue.push({ topic, event, payload, addedAt: Date.now(), retries: 0 });
+}
+
+async function flushOfflineQueue(): Promise<void> {
+  if (offlineQueue.length === 0 || currentState !== "connected") return;
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => { flushTimer = null; }, 500);
+
+  const batch = offlineQueue.splice(0);
+  for (const item of batch) {
+    const ok = await publishRaw(item.topic, item.event, item.payload);
+    if (!ok && item.retries < MAX_QUEUE_RETRIES) {
+      offlineQueue.push({ ...item, retries: item.retries + 1 });
+    } else if (!ok) {
+      eventsDroppedCount++;
+    }
+  }
+}
+
 // ─── Connection state ─────────────────────────────────────────────────────────
 
 function setState(next: ConnectionState): void {
   if (next === currentState) return;
   currentState = next;
+  if (next === "connected") {
+    connectedAt = Date.now();
+  } else if (next === "disconnected") {
+    connectedAt = null;
+  }
   for (const fn of stateListeners) {
     try {
       fn(next);
@@ -110,6 +256,7 @@ function setState(next: ConnectionState): void {
       console.warn("[realtime] state listener threw:", err);
     }
   }
+  broadcastQuality();
 }
 
 export function onConnectionStateChange(
@@ -185,6 +332,7 @@ function scheduleReconnect(): void {
     return;
   }
   reconnectAttempt++;
+  totalReconnects++;
   const base = Math.min(
     BASE_BACKOFF_MS * 2 ** (reconnectAttempt - 1),
     MAX_BACKOFF_MS,
@@ -242,6 +390,8 @@ function makeDispatcher(
 ): (message: unknown) => void {
   return (message: unknown) => {
     const payload = (message as { payload?: unknown } | null)?.payload;
+    eventsReceivedCount++;
+    lastEventTimestamp = Date.now();
 
     // Dedup by (event, payload.id). The same row can legitimately arrive as
     // INSERT and UPDATE — the event name disambiguates them.
@@ -309,6 +459,7 @@ export function subscribe<T = unknown>(
   eventMap.set(listener.id, listener);
 
   if (!entry.subscribePromise) {
+    const subscribeStart = Date.now();
     entry.subscribePromise = new Promise<void>((resolve) => {
       for (const name of KNOWN_EVENTS) {
         entry.channel.on(
@@ -320,8 +471,11 @@ export function subscribe<T = unknown>(
       entry.channel.subscribe((status) => {
         if (status === "SUBSCRIBED") {
           entry.status = "subscribed";
+          entry.subscribedAt = Date.now();
+          recordLatency(Date.now() - subscribeStart);
           reconnectAttempt = 0;
           setState("connected");
+          flushOfflineQueue();
           resolve();
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           entry.status = "error";
@@ -425,7 +579,7 @@ export function subscribePresence<T extends Record<string, unknown>>(
 
 // ─── One-shot publish ─────────────────────────────────────────────────────────
 
-export async function publish<T = unknown>(
+async function publishRaw<T = unknown>(
   topic: string,
   event: string,
   payload: T,
@@ -453,12 +607,33 @@ export async function publish<T = unknown>(
   }
 }
 
+export async function publish<T = unknown>(
+  topic: string,
+  event: string,
+  payload: T,
+): Promise<boolean> {
+  if (currentState !== "connected") {
+    enqueueOffline(topic, event, payload);
+    return false;
+  }
+  const ok = await publishRaw(topic, event, payload);
+  if (ok) {
+    eventsSentCount++;
+    lastEventTimestamp = Date.now();
+  }
+  return ok;
+}
+
 // ─── Teardown ─────────────────────────────────────────────────────────────────
 
 export function disconnectAll(): void {
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
+  }
+  if (flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
   }
   for (const entry of channels.values()) {
     try {
@@ -469,5 +644,9 @@ export function disconnectAll(): void {
   }
   channels.clear();
   seenEventKeys.clear();
+  offlineQueue.length = 0;
+  connectedAt = null;
+  LATENCY_SAMPLES.length = 0;
+  lastLatencyMs = 0;
   setState("disconnected");
 }

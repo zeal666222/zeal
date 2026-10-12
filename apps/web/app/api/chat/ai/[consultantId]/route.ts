@@ -10,6 +10,8 @@ import { handleAIChat, AIChatError } from "@zeal/database/ai-chat-handler";
 import { loadPersona } from "@/lib/ai/persona-loader";
 import { callAI } from "@/lib/ai/engine";
 import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
+import { detectBirthData } from "@/lib/astrology/birth-data-detector";
+import { interpretChart, type AstrologyAIResult } from "@/lib/ai/astrology-ai";
 import { z } from "zod";
 
 // Vercel maxDuration
@@ -83,7 +85,7 @@ export async function POST(
     const { conversationId, content } = parsed.data;
 
     // ─── Load persona (structured role contract) ─────────────────────────
-    const persona = await loadPersona(consultantId);
+    const persona = await loadPersona(consultantId, user.id);
     if (!persona) {
       return NextResponse.json(
         { error: "AI consultant not found or inactive" },
@@ -122,6 +124,58 @@ export async function POST(
     const fillerLocale = hasDevanagari ? "hi" : "hi-en";
     void hasRomanHindi;
 
+    // ─── Build initial SSE events ──────────────────────────────────────────
+    const initialEvents: unknown[] = billing ? [{ billing }] : [];
+
+    // ─── Astrology integration: detect birth data in message ──────────────
+    let astrologyResult: AstrologyAIResult | null = null;
+    let astrologyContext = "";
+    const birthData = detectBirthData(content);
+    if (birthData && birthData.confidence !== "low") {
+      try {
+        astrologyResult = await interpretChart({
+          birthDate: birthData.birthDate,
+          birthTime: birthData.birthTime,
+          birthPlace: birthData.birthPlace,
+          timezone: birthData.timezone,
+          chartType: "vedic",
+        });
+
+        // Build a concise context string to inject into the system prompt
+        const interp = astrologyResult.interpretation;
+        astrologyContext = `\n\n[ASTROLOGY READING — Computed from user's birth data: ${birthData.birthDate} ${birthData.birthTime} at ${birthData.placeName}]\n`;
+        astrologyContext += `\nChart Overview: ${interp.overview}`;
+        if (interp.career) astrologyContext += `\nCareer: ${interp.career}`;
+        if (interp.relationships) astrologyContext += `\nRelationships: ${interp.relationships}`;
+        if (interp.dasha) astrologyContext += `\nCurrent Dasha: ${interp.dasha}`;
+        if (interp.remedies) astrologyContext += `\nRemedies: ${interp.remedies}`;
+        if (interp.chartSummary) astrologyContext += `\nTechnical: ${interp.chartSummary}`;
+        astrologyContext += "\n\nUse this chart data to provide insightful, personalized guidance when relevant. Reference specific planetary positions and classical texts.";
+
+        // Emit astrology data as an initial SSE event so the UI can display it
+        initialEvents.push({
+          astrology: {
+            interpretation: astrologyResult.interpretation,
+            chart: astrologyResult.chart,
+            ruleBasedInterpretations: astrologyResult.ruleBasedInterpretations,
+            birthData: {
+              date: birthData.birthDate,
+              time: birthData.birthTime,
+              place: birthData.placeName,
+            },
+          },
+        });
+      } catch (err) {
+        console.error("[chat/ai] Astrology computation failed:", err);
+        // Non-fatal — continue with normal chat
+      }
+    }
+
+    // Inject astrology context into persona's system prompt if available
+    if (astrologyContext) {
+      persona.systemPrompt = persona.systemPrompt + astrologyContext;
+    }
+
     // ─── Stream ───────────────────────────────────────────────────────────
     const { stream } = await handleAIChat({
       conversationId,
@@ -142,7 +196,7 @@ export async function POST(
         return result;
       },
       fillerLocale,
-      initialEvents: billing ? [{ billing }] : [],
+      initialEvents,
     });
 
     return new Response(stream, {

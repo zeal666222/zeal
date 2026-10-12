@@ -10,6 +10,7 @@ import { PostGrid } from "@/components/profile/PostGrid";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PublicProfileActions } from "./PublicProfileActions";
 import { RetryButton } from "./RetryButton";
+import { getImageUrl } from "@/lib/storage/r2";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -126,7 +127,7 @@ export default async function PublicProfilePage({
                             flex items-center justify-center text-white font-black text-4xl">
               {profile.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
+                <img src={getImageUrl(profile.avatar, "avatar-md")} alt="" className="w-full h-full object-cover" />
               ) : (
                 initial
               )}

@@ -11,6 +11,7 @@ import {
   AlertCircle, ArrowLeft, Check, Loader2, Save, X,
 } from "lucide-react";
 import { updateProfileAction, type ProfileActionState } from "@/actions/profile";
+import { AvatarUpload } from "@/components/shared/AvatarUpload";
 import { toast } from "@/components/ui/toaster";
 
 interface Initial {
@@ -286,7 +287,12 @@ export default function ProfileEditPage() {
           maxLength={100}
         />
 
-        <input type="hidden" name="avatar" value={initial.avatar} />
+        <div>
+          <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+            Avatar
+          </label>
+          <AvatarUpload defaultValue={initial.avatar} size="lg" />
+        </div>
 
         <div className="flex gap-3 pt-4">
           <button

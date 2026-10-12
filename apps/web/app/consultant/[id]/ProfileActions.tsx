@@ -13,7 +13,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Loader2, MessageCircle } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
-import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
+import { useChatIntake } from "@/lib/chat/use-chat-intake";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 
 interface Props {
@@ -35,8 +35,18 @@ export function ProfileActions({
   const [online, setOnline] = useState(initialOnline || isAI);
   const [busy, setBusy] = useState(false);
   const [gateOpen, setGateOpen] = useState(false);
-  const [gateInfo, setGateInfo] = useState<LowBalanceInfo | null>(null);
+  const [gateInfo, setGateInfo] = useState<{ balance: number; required: number; consultantName: string; consultantId: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const { startChat, IntakeModal } = useChatIntake({
+    onLowBalance: (info) => {
+      setGateInfo(info);
+      setGateOpen(true);
+    },
+    onOffline: ({ consultantName: n }) =>
+      showToast(`${n} is currently offline.`),
+    onError: (msg) => showToast(msg),
+  });
 
   // Realtime: presence
   useChannel<
@@ -71,18 +81,13 @@ export function ProfileActions({
       showToast(`${consultantName} is currently offline.`);
       return;
     }
-    await startChatFlow(consultantId, {
-      router,
-      onLoading: setBusy,
-      onLowBalance: (info) => {
-        setGateInfo(info);
-        setGateOpen(true);
-      },
-      onOffline: ({ consultantName: n }) =>
-        showToast(`${n} is currently offline.`),
-      onError: (msg) => showToast(msg),
-    });
-  }, [consultantId, consultantName, isAI, online, router]);
+    setBusy(true);
+    try {
+      await startChat(consultantId, consultantName);
+    } finally {
+      setBusy(false);
+    }
+  }, [consultantId, consultantName, isAI, online, startChat]);
 
   const handleBook = useCallback(() => {
     router.push(`/booking?consultantId=${encodeURIComponent(consultantId)}`);
@@ -136,6 +141,7 @@ export function ProfileActions({
         onOpenChange={setGateOpen}
         info={gateInfo}
       />
+      <IntakeModal />
     </>
   );
 }

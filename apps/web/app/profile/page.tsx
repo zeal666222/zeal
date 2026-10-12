@@ -15,6 +15,7 @@ import {
 import { PostGrid } from "@/components/profile/PostGrid";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@zeal/ui";
+import { getImageUrl } from "@/lib/storage/r2";
 
 interface SelfProfile {
   id: string;
@@ -264,7 +265,7 @@ export default function ProfilePage() {
                               bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
                               flex items-center justify-center text-white font-black text-4xl">
                 {profile.avatar ? (
-                  <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
+                  <img src={getImageUrl(profile.avatar, "avatar-md")} alt="" className="w-full h-full object-cover" />
                 ) : (
                   initial
                 )}

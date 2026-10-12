@@ -45,6 +45,12 @@ export interface GuardSuccess {
   impersonatorId?: string;
   /** True when a super-admin is acting as another user. */
   isImpersonating?: boolean;
+  /** Present when authenticated via API key. Contains granted scopes. */
+  apiKeyScopes?: string[];
+  /** True when this request is an admin impersonating an AI consultant. */
+  isImpersonatingAI?: boolean;
+  /** The AI consultant ID being impersonated (when isImpersonatingAI is true). */
+  aiConsultantId?: string;
 }
 
 export interface GuardFailure {
@@ -101,6 +107,32 @@ async function verifyAccessToken(token: string): Promise<Verified | null> {
   }
 }
 
+// ─── API Key verification ────────────────────────────────────────────────────
+interface APIKeyVerified {
+  adminId: string;
+  scopes: string[];
+  keyName: string;
+}
+
+async function verifyAPIKey(rawKey: string): Promise<APIKeyVerified | null> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin.rpc("validate_admin_api_key", {
+      p_raw_key: rawKey,
+    });
+    if (error || !data || (data as unknown[]).length === 0) return null;
+
+    const row = (data as unknown[])[0] as Record<string, unknown>;
+    return {
+      adminId: row.adminId as string,
+      scopes: (row.scopes as string[]) ?? [],
+      keyName: (row.key_name as string) ?? "unknown",
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Audit helper ─────────────────────────────────────────────────────────────
 export async function logAdminAction(
   admin: ReturnType<typeof createAdminClient>,
@@ -138,6 +170,46 @@ interface ImpersonationResult {
   effectiveEmail: string | null;
   effectiveRole: Role;
   impersonatorId: string | null;
+}
+
+// ─── AI Impersonation resolver ────────────────────────────────────────────────
+interface AIImpersonationResult {
+  aiConsultantId: string;
+  impersonatorId: string;
+}
+
+async function resolveAIImpersonation(
+  aiConsultantId: string,
+  actorUserId: string,
+  actorRole: Role,
+): Promise<AIImpersonationResult | null> {
+  if (actorRole !== "SUPER_ADMIN") return null;
+
+  try {
+    const admin = createAdminClient();
+    // Verify the AI consultant exists
+    const { data: consultant } = await admin
+      .from("Consultant")
+      .select("id, userId")
+      .eq("id", aiConsultantId)
+      .maybeSingle();
+
+    if (!consultant) return null;
+
+    await logAdminAction(admin, {
+      adminId: actorUserId,
+      action: "IMPERSONATE_AI_START",
+      targetType: "ai_consultant",
+      targetId: aiConsultantId,
+    });
+
+    return {
+      aiConsultantId: consultant.id as string,
+      impersonatorId: actorUserId,
+    };
+  } catch {
+    return null;
+  }
 }
 
 async function resolveImpersonation(
@@ -221,6 +293,27 @@ export async function requireAdminAPI(
       }
     }
 
+    // Path C: Admin API Key (zeal_ak_ prefix)
+    let apiKeyScopes: string[] | null = null;
+    if (!resolvedUserId && authHeader?.startsWith("Bearer zeal_ak_")) {
+      const rawKey = authHeader.slice(7).trim();
+      const keyInfo = await verifyAPIKey(rawKey);
+      if (keyInfo) {
+        resolvedUserId = keyInfo.adminId;
+        resolvedRole = "SUPER_ADMIN"; // API keys are SUPER_ADMIN only
+        apiKeyScopes = keyInfo.scopes;
+
+        // Fetch email for the admin
+        const admin = createAdminClient();
+        const { data: adminUser } = await admin
+          .from("User")
+          .select("email")
+          .eq("id", keyInfo.adminId)
+          .maybeSingle();
+        resolvedEmail = (adminUser?.email as string) ?? null;
+      }
+    }
+
     // ─── Auth gate — narrow to non-null string ────────────────────────────
     if (resolvedUserId === null) {
       return {
@@ -256,6 +349,21 @@ export async function requireAdminAPI(
       }
     }
 
+    // ─── AI Impersonation ────────────────────────────────────────────────
+    let aiConsultantId: string | null = null;
+    const actAsAIId = await safeGetHeader("x-act-as-ai-id");
+    if (actAsAIId) {
+      const aiImpersonation = await resolveAIImpersonation(
+        actAsAIId,
+        authenticatedUserId,
+        resolvedRole,
+      );
+      if (aiImpersonation) {
+        aiConsultantId = aiImpersonation.aiConsultantId;
+        impersonatorId = aiImpersonation.impersonatorId;
+      }
+    }
+
     // ─── Role level check ─────────────────────────────────────────────────
     const userLevel = ROLE_LEVEL[effectiveRole] ?? 0;
     const requiredLevel = ROLE_LEVEL[minRole] ?? 100;
@@ -288,6 +396,15 @@ export async function requireAdminAPI(
       result.impersonatorId = impersonatorId;
     }
 
+    if (aiConsultantId !== null) {
+      result.isImpersonatingAI = true;
+      result.aiConsultantId = aiConsultantId;
+    }
+
+    if (apiKeyScopes !== null) {
+      result.apiKeyScopes = apiKeyScopes;
+    }
+
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Auth check failed";
@@ -308,4 +425,19 @@ export async function requireUserAPI(): Promise<GuardResult> {
 
 export async function requireSuperAdminAPI(): Promise<GuardResult> {
   return requireAdminAPI("SUPER_ADMIN");
+}
+
+// ─── API Key scope check ─────────────────────────────────────────────────────
+// Call after requireAdminAPI() when the request was authenticated via API key.
+// Returns true if the key has the required scope, or if the request was NOT
+// authenticated via API key (JWT/session users bypass scope checks).
+export function hasAPIScope(
+  guard: GuardSuccess,
+  requiredScope: string,
+): boolean {
+  // If not authenticated via API key, scope checks don't apply
+  if (!guard.apiKeyScopes) return true;
+  // read-only scope grants GET-level access to everything
+  if (guard.apiKeyScopes.includes("read-only")) return true;
+  return guard.apiKeyScopes.includes(requiredScope);
 }

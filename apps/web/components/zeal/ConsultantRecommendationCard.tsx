@@ -9,6 +9,7 @@
 
 import { motion } from "framer-motion";
 import { Radio, Sparkles, Star } from "lucide-react";
+import { getImageUrl } from "@/lib/storage/r2";
 
 export interface RecommendationConsultant {
   id: string;
@@ -70,7 +71,7 @@ export function ConsultantRecommendationCard({
         />
         <div className="relative w-12 h-12 rounded-full overflow-hidden ring-2 ring-[var(--color-luxury-gold)]/30">
           {avatar ? (
-            <img src={avatar} alt={name} className="w-full h-full object-cover" />
+            <img src={getImageUrl(avatar, "avatar-sm")} alt={name} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-sm">
               {name.charAt(0).toUpperCase()}

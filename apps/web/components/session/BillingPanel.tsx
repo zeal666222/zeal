@@ -134,12 +134,45 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
   }, [sessionId]);
 
   useEffect(() => {
-    void heartbeat();
-    hbRef.current = setInterval(
-      () => { void heartbeat(); },
-      HEARTBEAT_INTERVAL_SECONDS * 1000,
-    );
-    return () => { if (hbRef.current) clearInterval(hbRef.current); };
+    let cancelled = false;
+
+    async function init() {
+      try {
+        const res = await fetch("/api/billing/session/resume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { success: boolean; ended?: boolean; durationSeconds?: number };
+          if (cancelled) return;
+          if (typeof data.durationSeconds === "number") {
+            setElapsedSeconds(data.durationSeconds);
+          }
+        } else {
+          const body = await res.json().catch(() => ({}));
+          if ((body as { ended?: boolean }).ended) {
+            onTerminatedRef.current?.("Session has ended.");
+            return;
+          }
+        }
+      } catch {
+        // Resume is best-effort — proceed with heartbeat regardless
+      }
+
+      if (cancelled) return;
+      void heartbeat();
+      hbRef.current = setInterval(
+        () => { void heartbeat(); },
+        HEARTBEAT_INTERVAL_SECONDS * 1000,
+      );
+    }
+
+    void init();
+    return () => {
+      cancelled = true;
+      if (hbRef.current) clearInterval(hbRef.current);
+    };
   }, [heartbeat]);
 
   const handleEnd = useCallback(async () => {

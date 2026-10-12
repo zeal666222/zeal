@@ -6,14 +6,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Search, SlidersHorizontal, Sparkles, X } from "lucide-react";
+import { ArrowUpDown, Flame, Grid3x3, List, Loader2, MessageCircle, Search, SlidersHorizontal, Sparkles, Star, X } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { staggerContainer, fadeUp } from "@zeal/ui/motion";
 import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
-import { startChatFlow, type LowBalanceInfo } from "@/lib/chat/start-chat-flow";
+import { useChatIntake } from "@/lib/chat/use-chat-intake";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 import type { ConsultantProfile } from "@zeal/types";
 import { cn } from "@zeal/ui";
+import { getImageUrl } from "@/lib/storage/r2";
+import Link from "next/link";
 
 interface MvRow {
   id: string; userId: string; name: string | null; username: string | null;
@@ -65,8 +67,10 @@ export function ConsultantDirectory({
   const [reloadKey, setReloadKey] = useState(0);
   const [fetchError, setFetchError] = useState<string | null>(initialError ?? null);
   const [gateOpen, setGateOpen] = useState(false);
-  const [gateInfo, setGateInfo] = useState<LowBalanceInfo | null>(null);
+  const [gateInfo, setGateInfo] = useState<{ balance: number; required: number; consultantName: string; consultantId: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [sort, setSort] = useState<"relevance" | "rating" | "price-asc" | "price-desc" | "consultations" | "sparks">("relevance");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Skip the first client fetch only when the SSR data is usable as-is (no
   // seeded query, no server error). Otherwise run the mount fetch so results
@@ -78,14 +82,16 @@ export function ConsultantDirectory({
     window.setTimeout(() => setToast(null), 3200);
   }, []);
 
-  const handleChat = useCallback(async (consultantId: string) => {
-    await startChatFlow(consultantId, {
-      router,
-      onLowBalance: (info) => { setGateInfo(info); setGateOpen(true); },
-      onOffline: ({ consultantName }) => showToast(`${consultantName} is currently offline.`),
-      onError: showToast,
-    });
-  }, [router, showToast]);
+  const { startChat, IntakeModal } = useChatIntake({
+    onLowBalance: (info) => { setGateInfo(info); setGateOpen(true); },
+    onOffline: ({ consultantName }) => showToast(`${consultantName} is currently offline.`),
+    onError: showToast,
+  });
+
+  const handleChat = useCallback(async (consultantId: string, consultantName?: string) => {
+    const name = consultantName ?? consultants.find((c) => c.id === consultantId)?.name ?? "Consultant";
+    await startChat(consultantId, name);
+  }, [startChat, consultants]);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +168,18 @@ export function ConsultantDirectory({
   });
 
   const isFiltered = query.trim() !== "" || category !== "all" || onlineOnly;
+
+  const sortedConsultants = [...consultants].sort((a, b) => {
+    switch (sort) {
+      case "rating": return (b.rating ?? 0) - (a.rating ?? 0);
+      case "price-asc": return (a.perMinuteRate ?? 0) - (b.perMinuteRate ?? 0);
+      case "price-desc": return (b.perMinuteRate ?? 0) - (a.perMinuteRate ?? 0);
+      case "consultations": return (b.totalConsultations ?? 0) - (a.totalConsultations ?? 0);
+      case "sparks": return (b.sparkScore ?? 0) - (a.sparkScore ?? 0);
+      default: return (b.sparkScore ?? 0) - (a.sparkScore ?? 0);
+    }
+  });
+
   const clearFilters = useCallback(() => {
     setQuery(""); setCategory("all"); setOnlineOnly(false);
   }, []);
@@ -247,16 +265,80 @@ export function ConsultantDirectory({
         </div>
       </div>
 
+      {/* ─── Sort & view controls ─────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <ArrowUpDown size={13} className="text-muted-foreground shrink-0" />
+          <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar">
+            {([
+              ["relevance", "Relevance"],
+              ["rating", "Top rated"],
+              ["price-asc", "Price ↑"],
+              ["price-desc", "Price ↓"],
+              ["consultations", "Popular"],
+              ["sparks", "Trending"],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setSort(key)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all",
+                  sort === key
+                    ? "bg-[var(--color-luxury-gold)]/[0.12] text-[var(--color-luxury-gold)] border border-[var(--color-luxury-gold)]/25"
+                    : "text-muted-foreground hover:text-foreground hover:bg-surface-raised",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 rounded-xl border border-border bg-surface-raised p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            aria-label="Grid view"
+            className={cn(
+              "p-1.5 rounded-lg transition-all",
+              viewMode === "grid"
+                ? "bg-surface-overlay text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Grid3x3 size={14} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("list")}
+            aria-label="List view"
+            className={cn(
+              "p-1.5 rounded-lg transition-all",
+              viewMode === "list"
+                ? "bg-surface-overlay text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <List size={14} />
+          </button>
+        </div>
+      </div>
+
       {/* ─── Results ─────────────────────────────────────────────────────── */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-72 rounded-2xl glass-luxury animate-pulse"
-            />
-          ))}
-        </div>
+        viewMode === "grid" ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-72 rounded-3xl shimmer" />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-24 rounded-2xl shimmer" />
+            ))}
+          </div>
+        )
       ) : fetchError ? (
         <div className="text-center py-20 rounded-3xl border border-rose-500/20 bg-rose-500/[0.04]">
           <p className="text-rose-400 text-sm mb-3">Failed to load: {fetchError}</p>
@@ -293,22 +375,41 @@ export function ConsultantDirectory({
         </motion.div>
       ) : (
         <>
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
-          >
-            {consultants.map((c) => (
-              <motion.div key={c.id} variants={fadeUp}>
-                <LuxuryConsultantCard
-                  consultant={toProfile(c)}
-                  onChat={handleChat}
-                  onBook={(id) => router.push(`/booking?consultantId=${id}`)}
-                />
-              </motion.div>
-            ))}
-          </motion.div>
+          {viewMode === "grid" ? (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+            >
+              {sortedConsultants.map((c) => (
+                <motion.div key={c.id} variants={fadeUp}>
+                  <LuxuryConsultantCard
+                    consultant={toProfile(c)}
+                    onChat={handleChat}
+                    onBook={(id) => router.push(`/booking?consultantId=${id}`)}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              variants={staggerContainer}
+              initial="hidden"
+              animate="show"
+              className="space-y-3"
+            >
+              {sortedConsultants.map((c) => (
+                <motion.div key={c.id} variants={fadeUp}>
+                  <ListCard
+                    consultant={toProfile(c)}
+                    onChat={handleChat}
+                    onBook={(id) => router.push(`/booking?consultantId=${id}`)}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
 
           {hasMore && (
             <div className="flex justify-center pt-4">
@@ -354,6 +455,7 @@ export function ConsultantDirectory({
         onOpenChange={setGateOpen}
         info={gateInfo}
       />
+      <IntakeModal />
     </div>
   );
 }
@@ -377,5 +479,123 @@ function Chip({
     >
       {children}
     </motion.button>
+  );
+}
+
+/* ─── List view card ───────────────────────────────────────────────────────── */
+
+function ListCard({
+  consultant, onChat, onBook,
+}: {
+  consultant: ConsultantProfile;
+  onChat: (id: string) => void;
+  onBook: (id: string) => void;
+}) {
+  const displayName = consultant.name || consultant.username || "Guide";
+  const initial = displayName.charAt(0).toUpperCase();
+  const chatEnabled = Boolean(consultant.isAI || consultant.isOnline);
+  const rateLabel = consultant.perMinuteRate > 0 ? `₹${consultant.perMinuteRate}/min` : "Free";
+  const href = consultant.isAI
+    ? `/ai-astrologers/${consultant.id}`
+    : `/consultant/${consultant.id}`;
+
+  return (
+    <div
+      className="group flex items-center gap-4 p-4 rounded-2xl
+                 glass-luxury glass-luxury-hover card-lift"
+    >
+      {/* Avatar */}
+      <Link href={href} className="shrink-0">
+        {consultant.avatar ? (
+          <img
+            src={getImageUrl(consultant.avatar, "avatar-sm")}
+            alt=""
+            className="h-14 w-14 rounded-full object-cover"
+          />
+        ) : (
+          <span
+            className="flex h-14 w-14 items-center justify-center rounded-full
+                       bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
+                       font-black text-white text-lg"
+          >
+            {initial}
+          </span>
+        )}
+      </Link>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <Link href={href} className="block">
+          <h3 className="font-bold text-foreground truncate group-hover:text-[var(--color-luxury-gold)] transition-colors">
+            {displayName}
+          </h3>
+          {consultant.username && (
+            <p className="text-[11px] text-muted-foreground font-mono truncate">
+              @{consultant.username}
+            </p>
+          )}
+        </Link>
+        <div className="flex items-center gap-3 mt-1 text-xs">
+          <span className="inline-flex items-center gap-1 text-amber-400">
+            <Star size={11} className="fill-amber-400" />
+            {(consultant.rating || 0).toFixed(1)}
+          </span>
+          {consultant.specialties?.slice(0, 2).map((s) => (
+            <span key={s} className="text-muted-foreground truncate">{s}</span>
+          ))}
+          {consultant.sparks > 0 && (
+            <span className="inline-flex items-center gap-1 text-orange-400">
+              <Flame size={11} />
+              {consultant.sparks.toLocaleString("en-IN")}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Rate + actions */}
+      <div className="shrink-0 flex items-center gap-3">
+        <span className="font-mono font-bold text-sm text-[var(--color-luxury-gold)] hidden sm:block">
+          {rateLabel}
+        </span>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest",
+            consultant.isOnline || consultant.isAI
+              ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+              : "bg-surface-raised text-muted-foreground border border-border",
+          )}
+        >
+          <span className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            consultant.isOnline ? "bg-emerald-400 animate-pulse" : "bg-slate-500",
+          )} />
+          {consultant.isAI ? "AI" : consultant.isOnline ? "Online" : "Offline"}
+        </span>
+        <button
+          type="button"
+          onClick={() => onChat(consultant.id)}
+          disabled={!chatEnabled}
+          className={cn(
+            "px-3 py-2 rounded-xl text-xs font-black transition-all",
+            chatEnabled
+              ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white active:scale-[0.98]"
+              : "cursor-not-allowed bg-surface-raised text-muted-foreground",
+          )}
+        >
+          <MessageCircle size={13} />
+        </button>
+        {!consultant.isAI && (
+          <button
+            type="button"
+            onClick={() => onBook(consultant.id)}
+            className="px-3 py-2 rounded-xl border border-border bg-surface-raised
+                       text-xs font-black text-foreground transition-all
+                       hover:border-[var(--color-luxury-gold)]/40"
+          >
+            Book
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

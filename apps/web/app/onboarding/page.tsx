@@ -1,12 +1,12 @@
 "use client";
 // ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL — Onboarding Wizard (3-step)
+// ZEAL — Onboarding Wizard (4-step)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles, Calendar, Clock, MapPin } from "lucide-react";
 import { createClient } from "@zeal/database";
 
 const INTERESTS = [
@@ -21,13 +21,21 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
+  const [dob, setDob] = useState("");
+  const [tob, setTob] = useState("");
+  const [tobUnknown, setTobUnknown] = useState(false);
+  const [pob, setPob] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
   const [goal, setGoal] = useState("");
 
-  const canNext = () =>
-    step === 1 ? displayName.trim().length >= 2 :
-    step === 2 ? picked.length >= 1 :
-    true;
+  const canNext = () => {
+    switch (step) {
+      case 1: return displayName.trim().length >= 2;
+      case 2: return dob.length >= 8;
+      case 3: return picked.length >= 1;
+      default: return true;
+    }
+  };
 
   const next = () => canNext() && setStep(step + 1);
 
@@ -49,7 +57,17 @@ export default function OnboardingPage() {
 
       if (err) throw err;
 
-      // Optionally persist preferences if the table exists
+      await fetch("/api/profile/birth", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: displayName.trim(),
+          dateOfBirth: dob,
+          timeOfBirth: tobUnknown ? null : (tob || null),
+          placeOfBirth: pob.trim() || null,
+        }),
+      }).catch(() => {});
+
       try {
         await supabase.from("UserPreferences").upsert({
           userId: user.id,
@@ -79,7 +97,7 @@ export default function OnboardingPage() {
         className="relative w-full max-w-lg">
         {/* Progress */}
         <div className="flex items-center justify-center gap-2 mb-10">
-          {[1, 2, 3].map((n) => (
+          {[1, 2, 3, 4].map((n) => (
             <div key={n} className="flex items-center gap-2">
               <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                 step >= n
@@ -88,8 +106,8 @@ export default function OnboardingPage() {
               }`}>
                 {step > n ? <Check size={14} /> : n}
               </div>
-              {n < 3 && (
-                <div className={`w-12 h-0.5 ${step > n ? "bg-purple-500" : "bg-surface-sunken"}`} />
+              {n < 4 && (
+                <div className={`w-8 h-0.5 ${step > n ? "bg-purple-500" : "bg-surface-sunken"}`} />
               )}
             </div>
           ))}
@@ -104,7 +122,7 @@ export default function OnboardingPage() {
             {step === 1 && (
               <>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
-                  <Sparkles size={12} /> Step 1 of 3
+                  <Sparkles size={12} /> Step 1 of 4
                 </div>
                 <h2 className="text-2xl font-black text-foreground mb-2">What should we call you?</h2>
                 <p className="text-sm text-muted-foreground mb-6">This is how you'll appear to consultants.</p>
@@ -118,7 +136,60 @@ export default function OnboardingPage() {
             {step === 2 && (
               <>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
-                  <Sparkles size={12} /> Step 2 of 3
+                  <Calendar size={12} /> Step 2 of 4
+                </div>
+                <h2 className="text-2xl font-black text-foreground mb-2">Your birth details</h2>
+                <p className="text-sm text-muted-foreground mb-6">Required for accurate readings — never shared without consent.</p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground mb-1.5">
+                      <Calendar size={12} /> Date of Birth
+                    </label>
+                    <input type="date" value={dob}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDob(e.target.value)}
+                      max={new Date().toISOString().slice(0, 10)}
+                      className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground outline-none focus:border-purple-500" />
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground mb-1.5">
+                      <Clock size={12} /> Time of Birth
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input type="time" value={tob}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTob(e.target.value)}
+                        disabled={tobUnknown}
+                        className="flex-1 px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground outline-none focus:border-purple-500 disabled:opacity-40" />
+                      <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground cursor-pointer whitespace-nowrap">
+                        <input type="checkbox" checked={tobUnknown}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                            setTobUnknown(e.target.checked);
+                            if (e.target.checked) setTob("");
+                          }}
+                          className="rounded border-border" />
+                        Don't know
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground mb-1.5">
+                      <MapPin size={12} /> Place of Birth <span className="text-muted-foreground/50">(optional)</span>
+                    </label>
+                    <input type="text" value={pob}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPob(e.target.value)}
+                      placeholder="City, Country"
+                      className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground outline-none focus:border-purple-500" />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
+                  <Sparkles size={12} /> Step 3 of 4
                 </div>
                 <h2 className="text-2xl font-black text-foreground mb-2">What interests you?</h2>
                 <p className="text-sm text-muted-foreground mb-6">Pick at least one — we'll personalize your feed.</p>
@@ -137,10 +208,10 @@ export default function OnboardingPage() {
               </>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
-                  <Sparkles size={12} /> Step 3 of 3
+                  <Sparkles size={12} /> Step 4 of 4
                 </div>
                 <h2 className="text-2xl font-black text-foreground mb-2">What brings you here?</h2>
                 <p className="text-sm text-muted-foreground mb-6">Optional — helps us match you faster.</p>
@@ -166,7 +237,7 @@ export default function OnboardingPage() {
               <ArrowLeft size={14} /> Back
             </button>
           )}
-          {step < 3 ? (
+          {step < 4 ? (
             <button onClick={next} disabled={!canNext()}
               className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-sm shadow-xl disabled:opacity-50">
               Continue <ArrowRight size={14} />

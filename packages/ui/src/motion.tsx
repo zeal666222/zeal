@@ -180,3 +180,97 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
   return <>{children}</>;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ZEAL_PHASE6_POLISH
+   ─────────────────────────────────────────────────────────────────────────────
+   Premium motion utilities:
+     • ScrollReveal — fade-in-up wrapper using whileInView
+     • SuccessCheck — animated checkmark for success states
+     • PageTransition — standard page enter animation
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+export function ScrollReveal({
+  children,
+  className,
+  delay = 0,
+  direction = "up",
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+  direction?: "up" | "down" | "left" | "right";
+}) {
+  const dirMap = {
+    up:    { y: 24, x: 0 },
+    down:  { y: -24, x: 0 },
+    left:  { y: 0, x: 24 },
+    right: { y: 0, x: -24 },
+  } as const;
+  const offset = dirMap[direction];
+
+  return (
+    <m.div
+      initial={{ opacity: 0, ...offset }}
+      whileInView={{ opacity: 1, x: 0, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{
+        duration: 0.6,
+        delay,
+        ease: [0.16, 1, 0.3, 1],
+      }}
+      className={className}
+    >
+      {children}
+    </m.div>
+  );
+}
+
+export function SuccessCheck({ size = 48, className }: { size?: number; className?: string }) {
+  return (
+    <m.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      className={cn("flex items-center justify-center", className)}
+    >
+      <m.svg
+        width={size}
+        height={size}
+        viewBox="0 0 48 48"
+        fill="none"
+        initial={{ rotate: -10 }}
+        animate={{ rotate: 0 }}
+        transition={{ type: "spring", stiffness: 200, damping: 15 }}
+      >
+        <m.circle
+          cx={24} cy={24} r={22}
+          stroke="var(--color-success, #22c55e)"
+          strokeWidth={3}
+          fill="var(--color-success-muted, rgba(34,197,94,0.12))"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        />
+        <m.path
+          d="M14 24l7 7 13-13"
+          stroke="var(--color-success, #22c55e)"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.35, delay: 0.3, ease: "easeOut" }}
+        />
+      </m.svg>
+    </m.div>
+  );
+}
+
+export const pageTransition = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit:    { opacity: 0, y: -8 },
+  transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+} as const;

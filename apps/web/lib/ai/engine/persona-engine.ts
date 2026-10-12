@@ -10,6 +10,9 @@
 //   • Explicit prohibitions are more effective than implied constraints.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { buildFewShotsFromTraining } from "../training-data";
+import { buildPsychologyInstructions } from "../psychology-patterns";
+
 export interface PersonaInput {
   id: string;
   name: string;
@@ -27,6 +30,8 @@ export interface PersonaInput {
     pob?: string;
     concern?: string;
   };
+  /** Fields the AI should ask for conversationally (progressive enrichment). */
+  missingFields?: Array<"name" | "dob" | "tob" | "pob" | "concern">;
 }
 
 export interface RoleContract {
@@ -95,25 +100,23 @@ export class PersonaEngine {
         ? `\n\nSEEKER CONTEXT (weave naturally into your answer — don't dump it back):\n${contextLines.join("\n")}`
         : "";
 
-    // ─── Few-shot examples (interview-format prompts) ────────────────────
-    const fewShots: RoleContract["fewShots"] = [
-      {
-        role: "user",
-        content: "Hi, I've been feeling stuck in my career for months.",
-      },
-      {
-        role: "assistant",
-        content: `Thank you for sharing that. "Stuck" can mean a lot of things — sometimes it's the work itself, sometimes it's the direction. Before I look at your chart, tell me one thing: when you imagine the next version of your career, is it a promotion inside your current field, or something entirely different?`,
-      },
-      {
-        role: "user",
-        content: "I keep breaking up with people and I don't know why.",
-      },
-      {
-        role: "assistant",
-        content: `That's a pattern worth sitting with. Patterns like this usually have two layers — what we choose consciously, and what we repeat unconsciously. I'd like to look at your birth chart for the 5th and 7th houses, but first: when a relationship is going well, what's the thought that shows up right before things start to slide?`,
-      },
-    ];
+    // ─── Progressive enrichment block ────────────────────────────────────
+    const missing = input.missingFields ?? [];
+    const enrichmentBlock = missing.length > 0
+      ? `\n\nBIRTH DETAILS TO COLLECT (ask naturally, one at a time, across the first few messages — never all at once):\n${missing.map((f) => {
+          switch (f) {
+            case "name": return "• Their name (if not already known)";
+            case "dob": return "• Date of birth (day, month, year)";
+            case "tob": return "• Time of birth (exact time if they know it; reassure them it's okay if they don't)";
+            case "pob": return "• Place of birth (city/town is enough)";
+            case "concern": return "• What's on their mind — what brought them here today";
+            default: return "";
+          }
+        }).join("\n")}\nAsk for these CONVERSATIONALLY — weave them into your opening. Example: "Welcome! Before we begin, may I know your name and date of birth? It helps me tune into your chart." Never ask more than 2 fields in one message. If they say "I don't know" for time of birth, accept it gracefully and move on.`
+      : "";
+
+    // ─── Few-shot examples from training data ────────────────────────────
+    const fewShots: RoleContract["fewShots"] = buildFewShotsFromTraining(input.category);
 
     // ─── Structured role contract ────────────────────────────────────────
     const systemPrompt = [
@@ -156,9 +159,13 @@ export class PersonaEngine {
       `• Close with one small, actionable step the seeker can take today.`,
       `• Use short paragraphs. Avoid bullet-point dumps unless the user asks for a list.`,
       ``,
+      // Psychology patterns
+      buildPsychologyInstructions(input.category),
+      ``,
       // Bio as flavour, not the whole prompt
       input.bio ? `BACKGROUND (for flavour, not to recite): ${input.bio}` : "",
       contextBlock,
+      enrichmentBlock,
     ]
       .filter(Boolean)
       .join("\n");

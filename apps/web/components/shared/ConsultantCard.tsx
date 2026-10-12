@@ -10,6 +10,7 @@ import { Badge, Button, cn } from "@zeal/ui";
 import { useAppStoreShallow } from "@/lib/store/appStore";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Clock, Sparkles, Star, Zap } from "lucide-react";
+import { getImageUrl } from "@/lib/storage/r2";
 
 interface ConsultantCardProps {
   consultant: ConsultantProfile;
@@ -161,8 +162,9 @@ const ConsultantCard = memo(function ConsultantCard({
           />
           <img
             src={
-              _avatar ||
-              "https://ui-avatars.com/api/?name=U&background=9D7DC5&color=fff"
+              _avatar
+                ? getImageUrl(_avatar, "avatar-sm")
+                : "https://ui-avatars.com/api/?name=U&background=9D7DC5&color=fff"
             }
             alt={consultant.name}
             className="relative w-full h-full rounded-full object-cover"

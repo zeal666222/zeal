@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ArrowLeft, Flame, Star } from "lucide-react";
 import { ConsultantTabs } from "./ConsultantTabs";
 import { ProfileActions } from "./ProfileActions";
+import { getImageUrl } from "@/lib/storage/r2";
 
 export const dynamic = "force-dynamic";
 
@@ -170,7 +171,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
             <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white text-4xl font-black overflow-hidden">
               {user.avatar ? (
                 <img
-                  src={user.avatar}
+                  src={getImageUrl(user.avatar, "avatar-md")}
                   alt={displayName}
                   className="w-full h-full object-cover"
                 />

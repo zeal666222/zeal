@@ -9,6 +9,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { Flame, MessageCircle, Radio, Sparkles, Star, Zap } from "lucide-react";
 import type { ConsultantProfile } from "@zeal/types";
 import { cn } from "@zeal/ui";
+import { getImageUrl } from "@/lib/storage/r2";
 
 export interface LuxuryConsultantInput extends ConsultantProfile {
   lastSeenAt?: string | null;
@@ -168,7 +169,7 @@ export function LuxuryConsultantCard({
             <span className="block rounded-full bg-[var(--color-surface)] p-[2px]">
               {consultant.avatar ? (
                 <img
-                  src={consultant.avatar}
+                  src={getImageUrl(consultant.avatar, "avatar-sm")}
                   alt=""
                   loading={priority ? "eager" : "lazy"}
                   decoding="async"

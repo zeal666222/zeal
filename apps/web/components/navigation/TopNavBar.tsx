@@ -22,6 +22,7 @@ import { useChannel, useConnection, channels, type BroadcastChange } from "@zeal
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { WalletChip } from "./WalletChip";
 import { useAppStore } from "@/lib/store/appStore";
+import { getImageUrl } from "@/lib/storage/r2";
 
 interface NotifRow {
   id?: string;
@@ -134,7 +135,7 @@ export function TopNavBar({ userId, initialBalance }: Props) {
                   >
                     {user?.avatar ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                      <img src={getImageUrl(user.avatar, "avatar-sm")} alt="" className="w-full h-full object-cover" />
                     ) : (
                       (user?.name || user?.email || "?").charAt(0).toUpperCase()
                     )}

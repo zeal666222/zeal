@@ -16,6 +16,7 @@ import {
   type PersonaInput,
   type RoleContract,
 } from "./engine/persona-engine";
+import { fetchBirthProfile, toSeekerContext, getMissingFields } from "../birth-profile";
 
 export interface PersonaContext extends RoleContract {
   id: string;
@@ -53,9 +54,20 @@ interface AIConsultantRow {
 
 export async function loadPersona(
   consultantId: string,
-  seekerContext?: PersonaInput["seekerContext"],
+  seekerContextOrUserId?: PersonaInput["seekerContext"] | string,
 ): Promise<PersonaContext | null> {
   try {
+    let seekerContext: PersonaInput["seekerContext"] = undefined;
+    let missingFields: PersonaInput["missingFields"] = undefined;
+
+    if (typeof seekerContextOrUserId === "string") {
+      const profile = await fetchBirthProfile(seekerContextOrUserId);
+      seekerContext = toSeekerContext(profile);
+      missingFields = getMissingFields(profile);
+    } else if (seekerContextOrUserId && typeof seekerContextOrUserId === "object") {
+      seekerContext = seekerContextOrUserId;
+    }
+
     const admin = createAdminClient();
     const { data, error } = await admin
       .from("AIConsultant")
@@ -87,6 +99,7 @@ export async function loadPersona(
       persona: row.persona,
       systemPrompt: row.systemPrompt,
       seekerContext,
+      missingFields,
     });
 
     return {
