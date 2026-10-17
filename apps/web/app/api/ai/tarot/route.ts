@@ -1,11 +1,12 @@
 // apps/web/app/api/ai/tarot/route.ts
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
-import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
+import { checkRateLimit, aiRateLimiter, aiAnonLimiter } from "@/lib/rate-limit";
 import { withCache } from "@/lib/ai/response-cache";
 import { runAI } from "@/lib/ai/router";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 interface CardInput {
   name: string;
@@ -17,12 +18,18 @@ export async function POST(req: Request) {
   const supabase = await createServerClientFromCookies();
   const { data: { user } } = await supabase.auth.getUser();
 
+  const isAuthenticated = Boolean(user);
   const identifier = user
     ? `tarot:${user.id}`
     : `tarot:ip:${req.headers.get("x-forwarded-for") ?? "anon"}`;
-  const rl = await checkRateLimit(aiRateLimiter, identifier);
+
+  const limiter = isAuthenticated ? aiRateLimiter : aiAnonLimiter;
+  const rl = await checkRateLimit(limiter, identifier);
   if (!rl.ok) {
-    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429, headers: rl.headers });
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Please wait before your next reading." },
+      { status: 429, headers: rl.headers },
+    );
   }
 
   let body: { cards?: (string | CardInput)[]; question?: string };
@@ -79,16 +86,41 @@ export async function POST(req: Request) {
       const result = await runAI({
         task: "tarot",
         systemPrompt: [
-          "You are an expert Tarot reader skilled in Rider-Waite symbolism and psychological archetypes.",
-          "Provide grounded, actionable interpretations that feel personal and insightful.",
-          "For each card, briefly address its meaning in the given position, noting if it appears reversed (which modifies or blocks the upright energy).",
-          "After the card-by-card breakdown, synthesize the combined narrative into a cohesive message.",
-          "Close with one concrete, actionable step the seeker can take.",
-          "Keep the total reading under 400 words.",
+          "You are a master Tarot reader with deep knowledge of Rider-Waite symbolism, Jungian archetypes, and elemental correspondences.",
+          "You provide rich, layered interpretations that feel personal, mystical, and actionable.",
+          "",
+          "## Response Format",
+          "Respond in valid JSON with this exact structure:",
+          "{",
+          '  "cardDetails": [',
+          "    {",
+          '      "position": "the position name",',
+          '      "cardName": "card name",',
+          '      "orientation": "upright or reversed",',
+          '      "coreMeaning": "2-3 sentence deep interpretation of this card in this position",',
+          '      "symbolism": "key symbols, imagery, and archetypal significance (1-2 sentences)",',
+          '      "elementalInfluence": "how the card\'s element (fire/water/air/earth) shapes the reading (1 sentence)",',
+          '      "practicalGuidance": "one concrete, actionable insight from this card (1 sentence)"',
+          "    }",
+          "  ],",
+          '  "synthesis": "A flowing 3-4 paragraph narrative weaving all cards together into a cohesive message. Address the seeker directly. Reference how the cards interact with each other and the position they occupy.",',
+          '  "actionStep": "One specific, concrete action the seeker can take in the next 24-48 hours based on this reading.",',
+          '  "overallEnergy": "A single phrase capturing the reading\'s dominant energy (e.g., \'Transformation through surrender\')"',
+          "}",
+          "",
+          "## Guidelines",
+          "- For REVERSED cards: explain how the energy is blocked, internalized, or shadow-expressed — not just 'bad version of upright'.",
+          "- For each card's symbolism: reference specific Rider-Waite imagery (colors, numbers, figures, objects).",
+          "- For elemental influence: connect the element to the card's message (fire=action/passion, water=emotion/intuition, air=thought/communication, earth=material/stability).",
+          "- The synthesis should NOT repeat card-by-card meanings — it should reveal the STORY the cards tell together.",
+          "- Keep the total response under 800 words.",
+          "- Write with warmth and authority. The seeker trusts you.",
+          "- Plain text only inside JSON string values — never emoji, astrological or tarot glyph characters, markdown fences, or decorative symbols.",
         ].join("\n"),
-        userPrompt: `Provide a profound ${spreadLabel} Tarot reading:\n${cardLines}${questionLine}\n\nFirst, briefly interpret each card in its position. Then synthesize the combined energetic narrative.`,
-        temperature: 0.7,
-        maxTokens: 1000,
+        userPrompt: `Provide a profound ${spreadLabel} Tarot reading:\n${cardLines}${questionLine}\n\nFor each card, give a detailed interpretation covering its meaning in position, symbolism, elemental influence, and practical guidance. Then synthesize all cards into a unified narrative.\n\nRespond ONLY with valid JSON matching the specified structure.`,
+        temperature: 0.75,
+        maxTokens: 2000,
+        totalWallMs: 50_000,
       });
       return { reading: result.content, model: result.model };
     },

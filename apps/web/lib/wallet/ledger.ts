@@ -1,4 +1,5 @@
 import {createAdminClient} from "@zeal/database/server";
+import {publishWalletBalance} from "@/lib/realtime/wallet";
 
 export async function getWalletBalance(userId: string): Promise<number> {
   const supabase = createAdminClient();
@@ -20,6 +21,7 @@ export async function deductFundsSafe(userId: string, amount: number, descriptio
   });
   if (error) throw new Error(`Database Exception: ${error.message}`);
   if (!data?.success) throw new Error(`Ledger Error [${data?.code}]: ${data?.error}`);
+  void publishWalletBalance(userId);
   return data;
 }
 
@@ -30,6 +32,7 @@ export async function creditFunds(params: { userId: string; amount: number; desc
   });
   if (error) throw new Error(`Database Exception: ${error.message}`);
   if (!data?.success) throw new Error(`Ledger Error [${data?.code}]: ${data?.error}`);
+  void publishWalletBalance(params.userId);
   return data;
 }
 
@@ -40,6 +43,7 @@ export async function holdInEscrow(userId: string, amount: number, referenceId: 
   });
   if (error) throw new Error(`Database Exception: ${error.message}`);
   if (!data?.success) throw new Error(`Ledger Error [${data?.code}]: ${data?.error}`);
+  void publishWalletBalance(userId);
   return data;
 }
 

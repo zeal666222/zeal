@@ -23,10 +23,13 @@ export {
   allLimiterSnapshots,
   allBreakerHealth,
   resetAllBreakers,
+  contentToText,
+  hasStructuredContent,
 } from "./engine";
 
 export type {
   AIMessage,
+  AIContentPart,
   CallAIOptions,
   EngineEvent,
   EngineEventHandler,

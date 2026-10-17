@@ -114,9 +114,7 @@ export default function WalletPage() {
           className="flex items-start justify-between gap-4"
         >
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full
-                            bg-emerald-500/10 border border-emerald-500/20
-                            text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-2">
               <ShieldCheck size={11} /> Secure Vault
             </div>
             <h1 className="text-3xl font-black tracking-tight">Wallet</h1>
@@ -138,9 +136,7 @@ export default function WalletPage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.05 }}
-          className="relative overflow-hidden rounded-3xl
-                     bg-gradient-to-br from-emerald-950/60 via-surface to-surface
-                     border border-emerald-500/30 p-6 md:p-8 shadow-2xl"
+          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950/60 via-surface to-surface border border-emerald-500/30 p-6 md:p-8 shadow-2xl"
         >
           <div className="absolute top-0 right-0 w-72 h-72 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
           <div className="relative z-10">
@@ -190,14 +186,9 @@ export default function WalletPage() {
                 key={amt}
                 onClick={() => void handleTopUp(amt)}
                 disabled={processing}
-                className="group relative p-4 rounded-2xl
-                           bg-surface-raised hover:bg-[var(--color-primary)]/10
-                           border border-border hover:border-[var(--color-primary)]/50
-                           transition-all active:scale-[0.97]
-                           disabled:opacity-40 disabled:cursor-not-allowed"
+                className="group relative p-4 rounded-2xl bg-surface-raised hover:bg-[var(--color-primary)]/10 border border-border hover:border-[var(--color-primary)]/50 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <span className="block text-lg font-black font-mono text-foreground
-                                 group-hover:text-[var(--color-primary)] transition-colors">
+                <span className="block text-lg font-black font-mono text-foreground group-hover:text-[var(--color-primary)] transition-colors">
                   ₹{amt}
                 </span>
                 <span className="text-[9px] uppercase tracking-widest text-muted-foreground">
@@ -221,19 +212,13 @@ export default function WalletPage() {
                   max={100000}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                     setCustomAmount(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3.5 rounded-2xl
-                             bg-background border border-border
-                             text-sm font-mono text-foreground
-                             outline-none focus:border-emerald-500 transition-colors"
+                  className="w-full pl-10 pr-4 py-3.5 rounded-2xl bg-background border border-border text-sm font-mono text-foreground outline-none focus:border-emerald-500 transition-colors"
                 />
               </div>
               <button
                 onClick={() => void handleTopUp(Number(customAmount))}
                 disabled={processing || !customAmount}
-                className="px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600
-                           text-white font-black text-sm shadow-lg shadow-emerald-600/20
-                           hover:opacity-95 active:scale-[0.97] transition-all
-                           disabled:opacity-40 flex items-center gap-2"
+                className="px-5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-sm shadow-lg shadow-emerald-600/20 hover:opacity-95 active:scale-[0.97] transition-all disabled:opacity-40 flex items-center gap-2"
               >
                 {processing ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                 Add
@@ -282,8 +267,7 @@ export default function WalletPage() {
             </button>
           </div>
           {autoReloadEnabled && (
-            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20
-                            text-amber-400 text-[11px] font-bold flex items-center gap-2">
+            <div className="mt-4 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[11px] font-bold flex items-center gap-2">
               <Info size={11} />
               Auto-reload uses a Razorpay mandate. You&apos;ll authorize once; charges are automatic.
             </div>
@@ -352,8 +336,7 @@ function LedgerRow({ tx, index }: { tx: LedgerEntry; index: number }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ delay: Math.min(index * 0.02, 0.2) }}
-      className="flex items-center justify-between gap-3 p-3 rounded-xl
-                 bg-surface-raised hover:bg-surface-overlay transition-colors"
+      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-surface-raised hover:bg-surface-overlay transition-colors"
     >
       <div className="flex items-center gap-3 min-w-0">
         <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${

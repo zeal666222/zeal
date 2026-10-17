@@ -150,6 +150,8 @@ export async function GET(req: Request) {
         consultants,
         total: legacy.count ?? consultants.length,
         source: "fallback",
+      }, {
+        headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
       });
     }
 
@@ -163,6 +165,8 @@ export async function GET(req: Request) {
       consultants: payload.consultants ?? [],
       total: payload.total ?? 0,
       source: "mv",
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
     });
   } catch (err) {
     console.error("[explore/consultants] unexpected:", err);

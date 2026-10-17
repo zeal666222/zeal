@@ -83,6 +83,8 @@ const PUBLIC_CHANNELS = new Set<string>([
   "consultants:live",
   "consultant:ai:updates",
   "system:health",
+  // Public post feed — same data as the public /api/posts/feed endpoint.
+  "feed:posts",
 ]);
 
 const KNOWN_EVENTS = [
@@ -115,7 +117,21 @@ let client: SupabaseClient | null = null;
 const channels = new Map<string, ChannelEntry>();
 const stateListeners = new Set<(s: ConnectionState) => void>();
 const qualityListeners = new Set<(s: ConnectionQualityStats) => void>();
-const seenEventKeys = new Set<string>();
+const clientSeen = new Map<string, number>();
+const DUP_WINDOW_MS = 750;
+
+function isDuplicateEvent(key: string): boolean {
+  const now = Date.now();
+  const prev = clientSeen.get(key);
+  if (prev !== undefined && now - prev < DUP_WINDOW_MS) return true;
+  clientSeen.set(key, now);
+  if (clientSeen.size > MAX_SEEN) {
+    for (const k of Array.from(clientSeen.keys()).slice(0, MAX_SEEN - TRIM_TO)) {
+      clientSeen.delete(k);
+    }
+  }
+  return false;
+}
 
 const MAX_SEEN = 500;
 const TRIM_TO = 250;
@@ -354,11 +370,46 @@ function scheduleReconnect(): void {
   }, delay);
 }
 
+// ─── Network recovery ─────────────────────────────────────────────────────────
+// After MAX_ATTEMPTS the backoff loop gives up permanently. A browser
+// "online" event (or tab returning to foreground after a long offline spell)
+// resets the budget and re-subscribes every live channel.
+
+function resubscribeAll(): void {
+  if (!client || channels.size === 0) return;
+  reconnectAttempt = 0;
+  if (currentState !== "connected") setState("connecting");
+  for (const entry of channels.values()) {
+    if (entry.status !== "subscribed") {
+      try {
+        entry.channel.subscribe();
+      } catch {
+        /* best-effort */
+      }
+    }
+  }
+}
+
+let networkRecoveryInstalled = false;
+function installNetworkRecovery(): void {
+  if (networkRecoveryInstalled) return;
+  if (typeof window === "undefined") return;
+  networkRecoveryInstalled = true;
+  window.addEventListener("online", resubscribeAll);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && navigator.onLine && currentState === "disconnected") {
+      resubscribeAll();
+    }
+  });
+}
+
 // ─── Channel management ───────────────────────────────────────────────────────
 
 function getOrCreateChannel(topic: string): ChannelEntry | null {
   const sb = getRealtimeClient();
   if (!sb) return null;
+
+  installNetworkRecovery();
 
   const existing = channels.get(topic);
   if (existing) return existing;
@@ -393,22 +444,17 @@ function makeDispatcher(
     eventsReceivedCount++;
     lastEventTimestamp = Date.now();
 
-    // Dedup by (event, payload.id). The same row can legitimately arrive as
-    // INSERT and UPDATE — the event name disambiguates them.
+    // Dedup only near-simultaneous double deliveries (network retransmits).
+    // Repeated UPDATEs to the same row (cheer toggles, billing ticks) must
+    // pass through — so the key is windowed by time, not memorized forever.
     const id =
       typeof payload === "object" && payload !== null
-        ? (payload as { id?: string }).id
+        ? (payload as { record?: { id?: string }; id?: string }).record?.id ??
+          (payload as { id?: string }).id
         : undefined;
 
     if (typeof id === "string") {
-      const key = `${eventName}:${id}`;
-      if (seenEventKeys.has(key)) return;
-      seenEventKeys.add(key);
-      if (seenEventKeys.size > MAX_SEEN) {
-        const arr = Array.from(seenEventKeys);
-        seenEventKeys.clear();
-        for (const k of arr.slice(-TRIM_TO)) seenEventKeys.add(k);
-      }
+      if (isDuplicateEvent(`${eventName}:${id}`)) return;
     }
 
     // Exact-event listeners
@@ -643,7 +689,7 @@ export function disconnectAll(): void {
     }
   }
   channels.clear();
-  seenEventKeys.clear();
+  clientSeen.clear();
   offlineQueue.length = 0;
   connectedAt = null;
   LATENCY_SAMPLES.length = 0;

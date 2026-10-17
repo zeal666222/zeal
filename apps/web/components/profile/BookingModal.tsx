@@ -2,7 +2,7 @@
 
 import { toast } from "@/components/ui/toaster";
 import {useState} from "react";
-import { CreditCard, X } from "lucide-react";
+import { ArrowRight, CreditCard, X } from "lucide-react";
 import {useAuth} from "@/components/providers/SupabaseAuthProvider";
 import {useRouter} from "next/navigation";
 
@@ -16,44 +16,17 @@ interface BookingModalProps {
 export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: BookingModalProps) {
   const { user } = useAuth();
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
   const [duration, setDuration] = useState(15);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const totalAmount = (duration / 60) * perMinuteRate;
 
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    try {
-      // Use Supabase user fields
-      const customerEmail = user?.email || "";
-      const customerName = user?.user_metadata?.full_name || user?.user_metadata?.username || user?.email?.split("@")[0] || "User";
-
-      const response = await fetch("/api/payments/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          healerId,
-          amount: totalAmount,
-          currency: "INR",
-          description: `Booking with ${healerName}`,
-          customerEmail,
-          customerName,
-        }),
-      });
-      const data = await response.json();
-      if (data.payment_url) {
-        window.location.href = data.payment_url;
-      } else {
-        toast({ title: "Payment initiation failed. Please try again.", variant: "destructive" });
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      toast({ title: "Something went wrong. Please try again.", variant: "destructive" });
-    } finally {
-      setIsProcessing(false);
+  const handleBook = () => {
+    if (!user) {
+      toast({ title: "Please sign in to book a session.", variant: "destructive" });
+      router.push("/login");
+      return;
     }
+    router.push(`/booking?consultantId=${healerId}&duration=${duration}`);
   };
 
   return (
@@ -67,24 +40,6 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
         </div>
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-[var(--color-muted-foreground)] mb-1">Date</label>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--color-primary-muted)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-[var(--color-muted-foreground)] mb-1">Time</label>
-            <input
-              type="time"
-              value={selectedTime}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedTime(e.target.value)}
-              className="w-full px-3 py-2 border border-[var(--color-primary-muted)] rounded-xl focus:ring-2 focus:ring-[var(--color-primary)] outline-none"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-[var(--color-muted-foreground)] mb-1">Duration</label>
             <select
@@ -109,24 +64,21 @@ export function BookingModal({ healerId, healerName, perMinuteRate, onClose }: B
               <span className="text-[var(--color-muted-foreground)]">{duration} min</span>
             </div>
             <div className="flex justify-between font-bold mt-2 pt-2 border-t border-[var(--color-primary-muted)]">
-              <span className="text-[var(--color-muted-foreground)]">Total</span>
+              <span className="text-[var(--color-muted-foreground)]">Estimated Total</span>
               <span className="text-[var(--color-primary)]">₹{totalAmount.toFixed(2)}</span>
             </div>
+            <p className="text-xs text-[var(--color-subtle-foreground)] mt-2">
+              Pick your date, time slot, and service on the next step. Payment is secured via Razorpay.
+            </p>
           </div>
 
           <button
-            onClick={handlePayment}
-            disabled={!selectedDate || !selectedTime || isProcessing}
-            className="w-full py-3 bg-[var(--color-primary)] text-white rounded-xl font-medium hover:bg-[var(--color-primary-hover)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            onClick={handleBook}
+            className="w-full py-3 bg-[var(--color-primary)] text-white rounded-xl font-medium hover:bg-[var(--color-primary-hover)] transition-all flex items-center justify-center gap-2"
           >
-            {isProcessing ? (
-              "Processing..."
-            ) : (
-              <>
-                <CreditCard className="w-4 h-4" />
-                Pay ₹{totalAmount.toFixed(2)} & Book
-              </>
-            )}
+            <CreditCard className="w-4 h-4" />
+            Continue to secure booking
+            <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </div>

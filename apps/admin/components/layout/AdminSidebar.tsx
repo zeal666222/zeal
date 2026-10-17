@@ -9,7 +9,7 @@ import {
   Heart, Key, LayoutDashboard, LogOut, Megaphone, Menu, Radio, Scale,
   Settings, Shield, Tag, UserCog, UserPlus, Users, Video, Wallet, X, Zap,
 } from "lucide-react";
-import { cn } from "@zeal/ui";
+import { cn, ZealMark } from "@zeal/ui";
 import { useAuth } from "@/components/providers/SupabaseAuthProvider";
 import { useAdminStore, type AdminRole } from "@/lib/store/adminStore";
 import { Avatar, AvatarImage, AvatarFallback } from "@zeal/ui";
@@ -131,12 +131,12 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
       {/* Logo */}
       <div className="flex items-center justify-between h-16 px-4 border-b border-border/50">
         <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-rose-500 to-rose-700 flex items-center justify-center shadow-lg shadow-rose-500/20 group-hover:shadow-rose-500/40 transition-shadow">
-            <Zap size={16} className="text-white" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center">
+            <ZealMark size={32} />
           </div>
           <div>
-            <span className="text-base font-black bg-gradient-to-r from-rose-500 to-rose-400 bg-clip-text text-transparent">
-              Zeal
+            <span className="text-base font-black tracking-[0.14em]" style={{ color: "var(--zeal-g2)" }}>
+              ZEAL
             </span>
             <span className="block text-[8px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 -mt-0.5">
               Command Center

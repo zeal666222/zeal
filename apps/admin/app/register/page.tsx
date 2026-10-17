@@ -457,7 +457,9 @@ function Content() {
               <Sparkles size={10} className="inline mr-1.5 text-purple-600 dark:text-purple-400" />
               Just looking for guidance?{" "}
               <a
-                href={`${WEB_URL}/register`}
+                href="https://zealer.co.in"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 font-bold"
               >
                 Join as a Seeker

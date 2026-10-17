@@ -1,4 +1,7 @@
 import {z} from "zod";
+import {callAIJson, AIUnavailableError} from "@/lib/ai";
+import type {AIMessage} from "@/lib/ai";
+import {detectLanguage, languageDirective} from "@/lib/ai/language";
 
 const AI_RESPONSE_SCHEMA = z.object({
   content: z.string(),
@@ -7,50 +10,83 @@ const AI_RESPONSE_SCHEMA = z.object({
 
 type AIResponse = z.infer<typeof AI_RESPONSE_SCHEMA>;
 
+/** Timeout for the outer AbortController wrapping the engine call. */
+const OUTER_TIMEOUT_MS = 15_000;
+
+/**
+ * Shared Zeal Consultant directive — mirrors the one in app/api/ai/route.ts.
+ * Always applied so chat replies default to Hinglish and follow the
+ * background-analysis → past-event-verification → prediction protocol.
+ */
+const ZEAL_CONSULTANT_DIRECTIVE = [
+  "ZEAL CONSULTANT DIRECTIVE (applies to everything you output):",
+  "",
+  "LANGUAGE:",
+  'Start in Hinglish (warm Roman-script Hindi+English mix, e.g. "Aapki kundali mein Shani ki position bahut interesting hai..."). If the user clearly writes full English, switch to English; if full Hindi (Devanagari), match it. Default = Hinglish.',
+  "",
+  "BACKGROUND ANALYSIS:",
+  "Before answering, do a detailed analysis of everything the user provided (birth details, question, symbols, uploaded file). State briefly what you observed before interpreting.",
+  "",
+  "VERIFY PAST EVENTS FIRST:",
+  "To build confidence, first reference verifiable past patterns/events implied by the input (e.g. past Saturn transit effects the user can confirm), then give self-reasoned predictions about the future. Be specific and grounded, not generic.",
+  "",
+  "CONFIDENCE:",
+  "Give a confidence level and explain your reasoning. Never fabricate exact dates as certainty; frame probabilities honestly.",
+].join("\n");
+
 export async function getAIResponse(
   prompt: string,
   context?: string,
   systemPrompt?: string,
 ): Promise<AIResponse> {
+  const baseSystem =
+    systemPrompt || "You are a helpful assistant for wellness and astrology.";
+  const seekerLang = detectLanguage(prompt);
+  const userContent = context
+    ? `SEEKER CONTEXT (analyse this before answering):\n${context}\n\n${prompt}`
+    : prompt;
+  const messages: AIMessage[] = [
+    {
+      role: "system",
+      content: `${ZEAL_CONSULTANT_DIRECTIVE}\n\n${baseSystem}`,
+    },
+    {
+      role: "system",
+      content: `TURN LANGUAGE: ${languageDirective(seekerLang)}`,
+    },
+    {
+      role: "user",
+      content: userContent,
+    },
+  ];
+
+  // 15-second hard timeout via AbortController
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), OUTER_TIMEOUT_MS);
+
   try {
-    const groqApiKey = process.env.GROQ_API_KEY;
-    if (!groqApiKey) {
-      console.warn("GROQ_API_KEY not set, using fallback responses.");
-      return getFallbackResponse(prompt);
-    }
-
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${groqApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { role: "system", content: systemPrompt || "You are a helpful assistant for wellness and astrology." },
-          { role: "user", content: context ? `${context}\n\n${prompt}` : prompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
-      }),
+    const content = await callAIJson({
+      messages,
+      temperature: 0.7,
+      maxTokens: 500,
+      signal: ctrl.signal,
     });
-
-    if (!response.ok) {
-      console.warn(`Groq API error: ${response.status} ${response.statusText}`);
-      return getFallbackResponse(prompt);
-    }
-
-    const data = await response.json();
-    const content = data?.choices?.[0]?.message?.content || "I'm not sure how to respond to that.";
 
     return AI_RESPONSE_SCHEMA.parse({
       content,
       confidence: 0.85,
     });
   } catch (error) {
-    console.error("AI request failed:", error);
+    if (error instanceof AIUnavailableError) {
+      console.warn(
+        `[ai-chat] engine unavailable: ${error.internalReason}`,
+      );
+    } else {
+      console.error("[ai-chat] AI request failed:", error);
+    }
     return getFallbackResponse(prompt);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

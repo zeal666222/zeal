@@ -10,6 +10,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { publishWalletBalance } from "@/lib/realtime/wallet";
 
 async function getSupabaseServerClient() {
   const cookieStore = await cookies();
@@ -290,6 +291,8 @@ export async function processWalletRecharge(amount: number) {
   if (result && result.success === false) {
     return { success: false, error: result.error || "Top-up failed" };
   }
+
+  void publishWalletBalance(user.id, Number(result?.balance ?? NaN) || undefined);
 
   revalidatePath("/profile");
   revalidatePath("/wallet");

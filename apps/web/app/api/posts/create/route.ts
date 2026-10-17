@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies, getUserId } from "@zeal/database/server";
 import { withErrorHandler, AppError, ErrorCode, mapPgError } from "@/lib/errors";
+import { serverPublish } from "@/lib/realtime/server";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -58,13 +59,31 @@ export const POST = withErrorHandler(async (req: Request) => {
       locationTag: parsed.data.locationTag ?? null,
       mediaType: (parsed.data.mediaUrls ?? []).length > 1 ? "carousel" : "image",
     })
-    .select("id, content, mediaUrls, cheerCount, commentCount, createdAt")
+    .select(`
+      id, content, mediaUrls, cheerCount, commentCount, shareCount, createdAt,
+      author:User!authorId (id, username, name, avatar)
+    `)
     .single();
 
   if (error) {
     const mapped = mapPgError(error.code ?? "", error.message ?? "");
     throw new AppError(mapped.userMessage, mapped.httpStatus, ErrorCode.INTERNAL_SERVER);
   }
+
+  const p = data as Record<string, unknown>;
+  void serverPublish("feed:posts", "INSERT", {
+    type: "INSERT",
+    record: {
+      id: p.id,
+      content: p.content,
+      imageUrl: Array.isArray(p.mediaUrls) && p.mediaUrls.length ? p.mediaUrls[0] : null,
+      author: p.author,
+      cheerCount: p.cheerCount,
+      commentCount: p.commentCount,
+      shareCount: p.shareCount,
+      createdAt: p.createdAt,
+    },
+  });
 
   return NextResponse.json({
     post: data,

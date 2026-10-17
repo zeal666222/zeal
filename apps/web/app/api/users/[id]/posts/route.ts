@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { withErrorHandler } from "@/lib/errors";
+import { normalizeMediaUrl } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,7 @@ export const GET = withErrorHandler(
       items: rows.map((p) => ({
         id: p.id,
         content: p.content,
-        imageUrl: Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0 ? p.mediaUrls[0] : null,
+        imageUrl: Array.isArray(p.mediaUrls) && p.mediaUrls.length > 0 ? normalizeMediaUrl(String(p.mediaUrls[0])) : null,
         mediaUrls: p.mediaUrls ?? [],
         mediaType: p.mediaType ?? "image",
         cheerCount: p.cheerCount ?? 0,
@@ -64,6 +65,8 @@ export const GET = withErrorHandler(
       offset,
       limit,
       hasMore: (count ?? 0) > offset + limit,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=300" },
     });
   },
 );

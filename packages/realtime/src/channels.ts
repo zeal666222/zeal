@@ -12,6 +12,7 @@ export const channels = {
   userPayments:      (uid: string) => `user:${uid}:payments`,
   roomMessages:      (conversationId: string) => `room:${conversationId}:messages`,
   roomTyping:        (conversationId: string) => `room:${conversationId}:typing`,
+  feedPosts:         () => `feed:posts`,
   sessionBilling:    (sessionId: string) => `session:${sessionId}:billing`,
   consultantIncoming:  (uid: string) => `consultant:${uid}:incoming`,
   consultantSparks:    (uid: string) => `consultant:${uid}:sparks`,

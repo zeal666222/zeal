@@ -2,13 +2,21 @@
 // /explore — editorial discovery
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import type { Metadata } from "next";
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { Compass, ShieldCheck, Sparkles } from "lucide-react";
 import { ConsultantDirectory } from "./ConsultantDirectory";
 import { FreeServicesGrid } from "@/components/shared/FreeServicesGrid";
+import { SEO } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: SEO.explore.title,
+  description: SEO.explore.description,
+  keywords: SEO.explore.keywords,
+};
 
 interface MvRow {
   id: string; userId: string; name: string | null; username: string | null;
@@ -54,38 +62,27 @@ export default async function ExplorePage({
   return (
     <div className="min-h-screen-app bg-background text-foreground pb-24">
       {/* ─── Editorial hero ───────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden noise-overlay
-                          border-b border-[var(--color-luxury-glass-border)]">
-        <div className="absolute -top-40 -left-40 w-[600px] h-[600px]
-                        bg-[var(--color-primary)]/[0.14] blur-[180px] rounded-full pointer-events-none" />
-        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px]
-                        bg-[var(--color-luxury-gold)]/[0.10] blur-[180px] rounded-full pointer-events-none" />
+      <section className="relative overflow-hidden noise-overlay border-b border-[var(--color-luxury-glass-border)]">
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-[var(--color-primary)]/[0.14] blur-[180px] rounded-full pointer-events-none" />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-[var(--color-luxury-gold)]/[0.10] blur-[180px] rounded-full pointer-events-none" />
 
-        <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 lg:px-16
-                        py-14 md:py-20">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full
-                          bg-[var(--color-luxury-gold)]/[0.08]
-                          border border-[var(--color-luxury-gold)]/[0.20]
-                          text-[var(--color-luxury-gold)]
-                          text-[10px] font-black uppercase tracking-[0.25em] mb-6">
+        <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 lg:px-16 py-14 md:py-20">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--color-luxury-gold)]/[0.08] border border-[var(--color-luxury-gold)]/[0.20] text-[var(--color-luxury-gold)] text-[10px] font-black uppercase tracking-[0.25em] mb-6">
             <Compass size={12} /> Discovery
           </div>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black
-                         tracking-[-0.03em] leading-[0.95] text-foreground
-                         max-w-3xl">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-[-0.03em] leading-[0.95] text-foreground max-w-3xl">
             Find your{" "}
             <span className="text-luxury-gradient">sanctuary.</span>
           </h1>
 
-          <p className="mt-6 text-base md:text-lg text-muted-foreground
-                        max-w-2xl leading-relaxed">
-            {total.toLocaleString("en-IN")} verified guides across every
-            tradition.{" "}
+          <p className="mt-6 text-base md:text-lg text-muted-foreground max-w-2xl leading-relaxed">
+            {total.toLocaleString("en-IN")} verified guides — har tradition, ek
+            jagah.{" "}
             {onlineCount > 0 && (
               <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                {onlineCount} online now
+                {onlineCount} abhi online
               </span>
             )}
           </p>

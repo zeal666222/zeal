@@ -8,13 +8,24 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle, ArrowLeft, ArrowRight, Calendar, CheckCircle2,
   Clock, Loader2, ShieldCheck, Sparkles, Video,
 } from "lucide-react";
-import { SlotPicker } from "@/components/booking/SlotPicker";
+// SlotPicker only renders in the "slot" step — lazy-load it so the booking
+// page's initial chunk stays small.
+const SlotPicker = dynamic(
+  () => import("@/components/booking/SlotPicker").then((m) => m.SlotPicker),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-40 rounded-2xl bg-surface border border-border animate-pulse" />
+    ),
+  },
+);
 import { useWallet, loadRazorpayScript } from "@/hooks/useWallet";
 import { toast } from "@/components/ui/toaster";
 
@@ -93,7 +104,9 @@ function BookingContent() {
   const [state, dispatch] = useReducer(reducer, {
     step: "duration",
     service: "chat",
-    duration: 30,
+    duration: [15, 30, 45, 60].includes(Number(params.get("duration")))
+      ? Number(params.get("duration"))
+      : 30,
     slot: null,
   });
 
@@ -248,8 +261,7 @@ function BookingContent() {
       <div className="max-w-2xl mx-auto">
         <button
           onClick={() => (state.step === "duration" ? router.back() : dispatch({ type: "BACK" }))}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground
-                     hover:text-[var(--color-primary)] mb-6 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-[var(--color-primary)] mb-6 transition-colors"
         >
           <ArrowLeft size={15} /> Back
         </button>
@@ -267,8 +279,7 @@ function BookingContent() {
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20
-                       text-rose-400 text-xs font-bold flex items-center gap-2"
+            className="mb-5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-center gap-2"
           >
             <AlertCircle size={13} /> {error}
           </motion.div>
@@ -433,9 +444,7 @@ function BookingContent() {
             {state.step === "slot" && (
               <button
                 onClick={() => dispatch({ type: "BACK" })}
-                className="px-5 py-3 rounded-2xl bg-surface border border-border
-                           text-muted-foreground text-sm font-black
-                           transition-all active:scale-95"
+                className="px-5 py-3 rounded-2xl bg-surface border border-border text-muted-foreground text-sm font-black transition-all active:scale-95"
               >
                 Back
               </button>
@@ -444,13 +453,7 @@ function BookingContent() {
               <button
                 onClick={() => dispatch({ type: "NEXT" })}
                 disabled={!canAdvance}
-                className="flex-1 py-3.5 rounded-2xl
-                           bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                           text-white text-sm font-black
-                           shadow-xl shadow-[var(--color-primary-hover)]/20
-                           disabled:opacity-50 disabled:cursor-not-allowed
-                           flex items-center justify-center gap-2
-                           transition-all active:scale-[0.98]"
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black shadow-xl shadow-[var(--color-primary-hover)]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
               >
                 Continue <ArrowRight size={15} />
               </button>
@@ -459,13 +462,7 @@ function BookingContent() {
               <button
                 onClick={() => dispatch({ type: "NEXT" })}
                 disabled={!canAdvance}
-                className="flex-1 py-3.5 rounded-2xl
-                           bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                           text-white text-sm font-black
-                           shadow-xl shadow-[var(--color-primary-hover)]/20
-                           disabled:opacity-50 disabled:cursor-not-allowed
-                           flex items-center justify-center gap-2
-                           transition-all active:scale-[0.98]"
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black shadow-xl shadow-[var(--color-primary-hover)]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
               >
                 Continue <ArrowRight size={15} />
               </button>
@@ -474,13 +471,7 @@ function BookingContent() {
               <button
                 onClick={() => void handlePay()}
                 disabled={submitting}
-                className="flex-1 py-3.5 rounded-2xl
-                           bg-gradient-to-r from-emerald-600 to-teal-600
-                           text-white text-sm font-black
-                           shadow-xl shadow-emerald-600/20
-                           disabled:opacity-50
-                           flex items-center justify-center gap-2
-                           transition-all active:scale-[0.98]"
+                className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-black shadow-xl shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
               >
                 {submitting ? (
                   <><Loader2 size={15} className="animate-spin" /> Opening checkout…</>

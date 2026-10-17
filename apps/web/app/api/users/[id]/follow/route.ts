@@ -5,6 +5,23 @@ import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
+export const GET = withErrorHandler(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
+  const me = await getUserId();
+  if (!me) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);
+  const { id: targetId } = await params;
+
+  const supabase = await createServerClientFromCookies();
+  const { data } = await supabase
+    .from("UserActivity")
+    .select("id")
+    .eq("userId", me)
+    .eq("consultantId", targetId)
+    .eq("type", "follow")
+    .maybeSingle();
+
+  return NextResponse.json({ following: !!data });
+});
+
 export const POST = withErrorHandler(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const me = await getUserId();
   if (!me) throw new AppError("Unauthorized", 401, ErrorCode.AUTH_UNAUTHORIZED);

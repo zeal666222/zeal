@@ -55,9 +55,9 @@
       "default": "./src/utils.ts"
     },
     "./package.json": "./package.json",
-    "./animated-zeal-mark": {
-      "types": "./src/animated-zeal-mark.tsx",
-      "default": "./src/animated-zeal-mark.tsx"
+    "./brand": {
+      "types": "./src/brand/zeal-mark.tsx",
+      "default": "./src/brand/zeal-mark.tsx"
     },
     "./kpi-card": {
       "types": "./src/kpi-card.tsx",

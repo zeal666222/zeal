@@ -3,7 +3,7 @@
 // ZEAL — Onboarding Wizard (4-step)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles, Calendar, Clock, MapPin } from "lucide-react";
@@ -39,7 +39,13 @@ export default function OnboardingPage() {
 
   const next = () => canNext() && setStep(step + 1);
 
+  // In-flight ref guard: disabled-state rendering is async, so also block
+  // rapid double-clicks on Finish from firing two saves.
+  const savingRef = useRef(false);
   const finish = async () => {
+    if (savingRef.current) return;
+    if (!canNext()) return;
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     try {
@@ -80,6 +86,7 @@ export default function OnboardingPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
       setSaving(false);
+      savingRef.current = false; // allow retry after failure
     }
   };
 
@@ -125,10 +132,10 @@ export default function OnboardingPage() {
                   <Sparkles size={12} /> Step 1 of 4
                 </div>
                 <h2 className="text-2xl font-black text-foreground mb-2">What should we call you?</h2>
-                <p className="text-sm text-muted-foreground mb-6">This is how you'll appear to consultants.</p>
+                <p className="text-sm text-muted-foreground mb-6">Your consultants will see this name.</p>
                 <input type="text" value={displayName}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
-                  placeholder="Your name" autoFocus
+                  placeholder="Your name" autoFocus aria-label="Display name"
                   className="w-full px-4 py-3.5 bg-background border border-border rounded-2xl text-sm text-foreground outline-none focus:border-purple-500" />
               </>
             )}
@@ -138,8 +145,8 @@ export default function OnboardingPage() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
                   <Calendar size={12} /> Step 2 of 4
                 </div>
-                <h2 className="text-2xl font-black text-foreground mb-2">Your birth details</h2>
-                <p className="text-sm text-muted-foreground mb-6">Required for accurate readings — never shared without consent.</p>
+                <h2 className="text-2xl font-black text-foreground mb-2">Your birth chart details</h2>
+                <p className="text-sm text-muted-foreground mb-6">Needed for accurate readings — never shared without your permission.</p>
 
                 <div className="space-y-4">
                   <div>
@@ -168,7 +175,7 @@ export default function OnboardingPage() {
                             if (e.target.checked) setTob("");
                           }}
                           className="rounded border-border" />
-                        Don't know
+                        I don&apos;t know
                       </label>
                     </div>
                   </div>
@@ -191,12 +198,13 @@ export default function OnboardingPage() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
                   <Sparkles size={12} /> Step 3 of 4
                 </div>
-                <h2 className="text-2xl font-black text-foreground mb-2">What interests you?</h2>
-                <p className="text-sm text-muted-foreground mb-6">Pick at least one — we'll personalize your feed.</p>
+                <h2 className="text-2xl font-black text-foreground mb-2">What are you interested in?</h2>
+                <p className="text-sm text-muted-foreground mb-6">Pick at least one — your feed will personalize accordingly.</p>
                 <div className="flex flex-wrap gap-2">
                   {INTERESTS.map((i) => (
                     <button key={i} type="button" onClick={() => toggle(i)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                      aria-pressed={picked.includes(i)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.97] ${
                         picked.includes(i)
                           ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg"
                           : "bg-background border border-border text-muted-foreground hover:border-purple-500/40"
@@ -213,42 +221,67 @@ export default function OnboardingPage() {
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold mb-4">
                   <Sparkles size={12} /> Step 4 of 4
                 </div>
-                <h2 className="text-2xl font-black text-foreground mb-2">What brings you here?</h2>
-                <p className="text-sm text-muted-foreground mb-6">Optional — helps us match you faster.</p>
+                <h2 className="text-2xl font-black text-foreground mb-2">What brought you here?</h2>
+                <p className="text-sm text-muted-foreground mb-6">Optional — it helps us find the right guide for you.</p>
                 <textarea value={goal}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setGoal(e.target.value)}
-                  rows={3} maxLength={500}
-                  placeholder="e.g. I'm navigating a career change and want clarity…"
+                  rows={3} maxLength={500} aria-label="Your goal"
+                  placeholder="e.g. I need clarity about a career change, or want to understand my next step in life…"
                   className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground resize-none outline-none focus:border-purple-500" />
               </>
             )}
 
             {error && (
-              <div className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">{error}</div>
+              <div role="alert" className="mt-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">{error}</div>
             )}
           </motion.div>
         </AnimatePresence>
 
         {/* Navigation */}
-        <div className="flex gap-3 mt-6">
+        <div className="flex items-center gap-3 mt-6">
           {step > 1 && (
-            <button onClick={() => setStep(step - 1)} disabled={saving}
-              className="flex items-center gap-1 px-5 py-3 rounded-2xl bg-surface border border-border text-muted-foreground font-bold text-sm">
+            <motion.button
+              type="button"
+              onClick={() => !saving && setStep(step - 1)}
+              disabled={saving}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-1 px-5 py-3 rounded-2xl bg-surface border border-border text-muted-foreground font-bold text-sm hover:text-foreground transition-colors disabled:opacity-50"
+            >
               <ArrowLeft size={14} /> Back
-            </button>
+            </motion.button>
           )}
           {step < 4 ? (
-            <button onClick={next} disabled={!canNext()}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-sm shadow-xl disabled:opacity-50">
+            <motion.button
+              type="button"
+              onClick={next}
+              disabled={!canNext()}
+              whileHover={canNext() ? { scale: 1.01 } : undefined}
+              whileTap={canNext() ? { scale: 0.98 } : undefined}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-sm shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Continue <ArrowRight size={14} />
-            </button>
+            </motion.button>
           ) : (
-            <button onClick={finish} disabled={saving}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-sm shadow-xl disabled:opacity-50">
-              {saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : <><Check size={16} /> Finish</>}
-            </button>
+            <motion.button
+              type="button"
+              onClick={() => void finish()}
+              disabled={saving}
+              whileHover={!saving ? { scale: 1.01 } : undefined}
+              whileTap={!saving ? { scale: 0.98 } : undefined}
+              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-sm shadow-xl disabled:opacity-60 disabled:cursor-wait"
+            >
+              {saving ? <><Loader2 size={16} className="animate-spin" /> Saving…</> : <><Check size={16} /> Begin Your Journey</>}
+            </motion.button>
           )}
         </div>
+        {step < 4 && !canNext() && (
+          <p className="mt-2 text-[11px] text-muted-foreground text-right">
+            {step === 1 && "Name must be at least 2 letters."}
+            {step === 2 && "Date of birth is required."}
+            {step === 3 && "Pick at least one interest."}
+          </p>
+        )}
       </motion.div>
     </div>
   );

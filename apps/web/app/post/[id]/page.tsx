@@ -11,6 +11,8 @@ import {
   ArrowLeft, Heart, Loader2, MessageCircle, Share2,
 } from "lucide-react";
 import { getImageUrl } from "@/lib/storage/r2";
+import { CommentThread } from "@/components/feed/CommentThread";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 interface PostData {
   id: string;
@@ -30,6 +32,7 @@ interface PostData {
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { guard } = useAuthGuard();
   const [post, setPost] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +60,17 @@ export default function PostDetailPage() {
     return () => { cancelled = true; };
   }, [params.id]);
 
-  const handleCheer = async () => {
+  const handleCheer = () => {
     if (!post) return;
-    setCheered((v) => !v);
-    setCheers((c) => (cheered ? c - 1 : c + 1));
-    try {
-      await fetch(`/api/posts/${post.id}/cheer`, {
-        method: cheered ? "DELETE" : "POST",
-      });
-    } catch { /* revert on next load */ }
+    guard(async () => {
+      setCheered((v) => !v);
+      setCheers((c) => (cheered ? c - 1 : c + 1));
+      try {
+        await fetch(`/api/posts/${post.id}/cheer`, {
+          method: "POST",
+        });
+      } catch { /* revert on next load */ }
+    });
   };
 
   const handleShare = async () => {
@@ -92,9 +97,7 @@ export default function PostDetailPage() {
           <p className="text-muted-foreground mb-4">{error ?? "Post not found"}</p>
           <button
             onClick={() => router.push("/")}
-            className="px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-sm font-black"
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black"
           >
             Back to feed
           </button>
@@ -129,9 +132,7 @@ export default function PostDetailPage() {
         <header className="flex items-center gap-3 mb-4">
           <Link
             href={author?.id ? `/profile?userId=${author.id}` : "#"}
-            className="w-12 h-12 rounded-full overflow-hidden
-                       bg-surface-raised flex items-center justify-center
-                       font-black text-foreground"
+            className="w-12 h-12 rounded-full overflow-hidden bg-surface-raised flex items-center justify-center font-black text-foreground"
           >
             {author?.avatar ? (
               <img src={author.avatar} alt="" className="w-full h-full object-cover" />
@@ -186,6 +187,13 @@ export default function PostDetailPage() {
         <p className="mt-6 text-[10px] uppercase tracking-widest text-muted-foreground font-black">
           {new Date(post.createdAt).toLocaleString("en-IN")}
         </p>
+
+        <div className="mt-8 pt-6 border-t border-border">
+          <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-4">
+            Comments
+          </h2>
+          <CommentThread postId={post.id} />
+        </div>
       </motion.article>
     </div>
   );

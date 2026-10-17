@@ -31,9 +31,7 @@ export function PerMinuteBilling({
         </div>
         <button
           onClick={onStart}
-          className="mt-3 w-full py-2.5 rounded-xl
-                     bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                     text-white text-sm font-black transition-all active:scale-95"
+          className="mt-3 w-full py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black transition-all active:scale-95"
         >
           Start Session
         </button>

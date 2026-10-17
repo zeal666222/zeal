@@ -33,6 +33,13 @@ try {
 
 const MONOREPO_ROOT = path.join(__dirname, "..", "..");
 
+// Immutable asset caching is a PRODUCTION-ONLY concern. In webpack dev, chunk
+// URLs like /_next/static/chunks/app/layout.js carry no ?v= buster and their
+// bytes change on every recompile — caching them for a year poisons the
+// browser cache (a truncated mid-rebuild stub stays pinned forever and the
+// flight parser hangs waiting for the chunk, with no console error).
+const IS_PROD = process.env.NODE_ENV === "production";
+
 // ─── Cloudflare / R2 image hosts (added to CSP img-src when configured) ───────
 // R2_PUBLIC_URL may be an r2.dev bucket URL or a custom Cloudflare zone; both
 // must be allowed for <img> and next/image. imagedelivery.net is allowed for the
@@ -83,37 +90,82 @@ const nextConfig = {
       { protocol: "https", hostname: "imagedelivery.net" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
     ],
+    // Seeded/user avatars come from ui-avatars.com as SVG; without this the
+    // optimizer answers /_next/image with 400 "image type is not allowed".
+    // Output is rasterized to webp/avif (see formats) and served under a
+    // script-less sandbox CSP, so raw SVG never reaches the page.
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,
+    // Keep the default Next.js loader (Cloudflare Workers AI / Pages can proxy
+    // /_next/image transparently). Long-lived cache directives for the
+    // optimizer's responses are applied via the `/_next/image` entry in
+    // headers() below — CDN-Cache-Control is what Cloudflare honours at the
+    // edge, so both Cloudflare and the browser hold the rendered bytes.
   },
   poweredByHeader: false,
   compress: true,
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      {
-        // Immutable, content-hashed build assets — cache aggressively at the
-        // edge (Cloudflare/CDN) and in the browser.
-        source: "/_next/static/:path*",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
-      {
-        // Next.js image optimizer output is keyed by source URL + params, so it
-        // is safe to cache long-term.
-        source: "/_next/image",
-        headers: [
-          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
-        ],
-      },
+      ...(IS_PROD ? [
+        {
+          // Immutable, content-hashed build assets — cache aggressively at the
+          // edge (Cloudflare/CDN) and in the browser. CDN-Cache-Control is what
+          // Cloudflare honours for edge caching, so it's set alongside the
+          // browser-facing Cache-Control.
+          source: "/_next/static/:path*",
+          headers: [
+            { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+            { key: "CDN-Cache-Control", value: "public, max-age=31536000, immutable" },
+            { key: "Cloudflare-CDN-Cache-Control", value: "public, max-age=31536000, immutable" },
+          ],
+        },
+        {
+          // Next.js image optimizer output is keyed by source URL + params, so it
+          // is safe to cache long-term at the edge.
+          source: "/_next/image",
+          headers: [
+            { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+            { key: "CDN-Cache-Control", value: "public, max-age=31536000, immutable" },
+            { key: "Cloudflare-CDN-Cache-Control", value: "public, max-age=31536000, immutable" },
+          ],
+        },
+      ] : []),
       {
         // Hashed public media (avatars, post thumbnails) served from /public.
         source: "/media/:path*",
         headers: [
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          { key: "CDN-Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
+      // Static, non-user-specific marketing / service catalog pages. Cached
+      // at Cloudflare's edge with soft-revalidation so first paint is instant
+      // but content never goes stale by more than ~10 min. Kept PRIVATE-safe:
+      // NO `public` on anything under the authed dashboard / account surface.
+      // (Next 16 headers sources don't support `(a|b)` alternations — list each.)
+      ...["/services", "/astrology", "/ai-astrologers", "/explore", "/sparks"].map(
+        (source) => ({
+          source,
+          headers: [
+            { key: "Cache-Control", value: "public, max-age=0, s-maxage=120, stale-while-revalidate=600" },
+            { key: "CDN-Cache-Control", value: "public, s-maxage=120, stale-while-revalidate=600" },
+            { key: "Vary", value: "Accept-Language, Cookie" },
+          ],
+        }),
+      ),
+      // Authenticated / personalised surfaces must never be edge-cached.
+      ...["/dashboard", "/profile", "/wallet", "/bookings", "/notifications", "/chat", "/create", "/onboarding", "/u"].map(
+        (prefix) => ({
+          source: `${prefix}/:path*`,
+          headers: [
+            { key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" },
+            { key: "CDN-Cache-Control", value: "private, no-store" },
+          ],
+        }),
+      ),
     ];
   },
   async redirects() {

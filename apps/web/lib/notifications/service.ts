@@ -39,12 +39,17 @@ export class NotificationService {
     if (error || !notif) throw new Error(error?.message || "Notification insert failed");
 
     try {
-      await serverPublish(`user:${params.userId}`, "notification", {
-        id: notif.id,
-        type: notif.type,
-        message: notif.message,
-        redirectUrl: notif.redirectUrl,
-        createdAt: notif.createdAt,
+      // Subscribers (TopNavBar, RealtimeProvider, /notifications) listen on
+      // `user:<uid>:notifications` and read payload.record — match that shape.
+      await serverPublish(`user:${params.userId}:notifications`, "notification", {
+        type: "INSERT",
+        record: {
+          id: notif.id,
+          type: notif.type,
+          message: notif.message,
+          redirectUrl: notif.redirectUrl,
+          createdAt: notif.createdAt,
+        },
       });
     } catch (err) {
       console.warn("[Notifications] Realtime publish failed:", err);

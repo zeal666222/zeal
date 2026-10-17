@@ -1,13 +1,28 @@
 // apps/web/app/api/ai/kundali/route.ts
+// Public-API variant of /api/kundali: deterministic local chart computation via
+// @zeal/astrology engine + AI interpretation of ONLY the computed chart.
+// Never returns a blank "success" reading — if the AI layer fails the client
+// still gets the real chart plus an honest message.
 import { NextResponse } from "next/server";
-import {createServerClientFromCookies} from "@zeal/database/server";
-import {checkRateLimit, aiStrictLimiter} from "@/lib/rate-limit";
-import {withCache} from "@/lib/ai/response-cache";
-import {fetchKundali} from "@/lib/ai/astroask-client";
-import {runAI} from "@/lib/ai/router";
+import { createServerClientFromCookies } from "@zeal/database/server";
+import { checkRateLimit, aiStrictLimiter } from "@/lib/rate-limit";
+import { getCached, setCached } from "@/lib/ai/response-cache";
+import { runAI } from "@/lib/ai/router";
+import {
+  KundaliInputError,
+  validateName,
+  validateBirthDate,
+  validateBirthTime,
+  validatePlace,
+  computeKundali,
+  formatKundaliForPrompt,
+} from "@/lib/kundali/engine";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+const AI_DOWN_MESSAGE =
+  "Your Kundali has been fully computed by the astronomical engine (see chart), but the AI interpretation is temporarily unavailable. Please try again in a moment.";
 
 export async function POST(req: Request) {
   // 1. Auth
@@ -19,7 +34,7 @@ export async function POST(req: Request) {
   const rl = await checkRateLimit(aiStrictLimiter, identifier);
   if (!rl.ok) {
     return NextResponse.json(
-      { error: "Rate limit exceeded — 3 kundali/minute" },
+      { error: "Rate limit exceeded — 3 kundali/minute", code: "RATE_LIMIT", retryable: true },
       { status: 429, headers: rl.headers }
     );
   }
@@ -30,53 +45,68 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { name, dob, tob, pob, lat, lng } = body;
+  const { name, dob, tob, pob } = body;
   if (!name || !dob || !tob || !pob) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  // 4. Cache by birth details (charts are static per person)
-  const { value, cached } = await withCache(
-    { namespace: "kundali", ttl: 24 * 60 * 60 },  // 24h
-    { name, dob, tob, pob },
-    async () => {
-      // Try AstroAsk first (precise Vedic computation)
-      const astroResult = await fetchKundali({
-        date: `${dob}T${tob}:00`,
-        lat: lat ?? 28.6139,
-        lng: lng ?? 77.2090,
-        lang: "en",
-      });
+  try {
+    // 4. Deterministic chart computation (pure astronomical engine, no external worker)
+    const birthDate = validateBirthDate(dob);
+    const birthTime = validateBirthTime(tob);
+    const { place, resolved } = await validatePlace(pob);
+    const kundali = computeKundali(name, birthDate, birthTime, place, resolved);
+    const chartText = formatKundaliForPrompt(kundali);
 
-      if (astroResult.source === "astroask" && astroResult.chart) {
-        return {
-          source: "astroask" as const,
-          chart: astroResult.chart,
-          svg: astroResult.svg,
-          analysis: null,
-        };
+    // 5. AI interpretation over the computed chart (cached 24h per birth details)
+    // Cache stores ONLY successful readings; a degraded cached entry is
+    // recomputed, never replayed.
+    const cacheKey = { name, dob, tob, pob };
+    type Cached = { source: "engine"; chart: unknown; svg: null; analysis: string; aiAvailable: boolean };
+    const hit = await getCached<Cached>("kundali", cacheKey);
+    let value: Cached;
+    let cached = false;
+    if (hit && hit.aiAvailable) {
+      value = hit;
+      cached = true;
+    } else {
+      let analysis = "";
+      let aiAvailable = true;
+      try {
+        const result = await runAI({
+          task: "kundali",
+          systemPrompt:
+            "You are an expert Vedic astrologer (Jyotishi) with mastery over Janam Kundali, planetary houses, nakshatras, and Vimshottari Dashas. The chart below is ALREADY computed by an astronomical engine — NEVER recompute or change degrees, signs or dasha dates; interpret them as given.",
+          userPrompt: `Interpret this computed Janam Kundali for ${name}:\n\n${chartText}\n\nInclude Lagna, planetary strengths, house placements, and current Dasha overview. Be specific, kind, and non-fatalistic.`,
+          temperature: 0.7,
+          maxTokens: 1500,
+        });
+        analysis = result.content?.trim() ?? "";
+      } catch {
+        aiAvailable = false;
       }
-
-      // Fallback: Groq-generated analysis
-      const fallback = await runAI({
-        task: "kundali",
-        systemPrompt: "You are an expert Vedic astrologer (Jyotishi) with mastery over Janam Kundali, planetary houses, nakshatras, and Vimshottari Dashas.",
-        userPrompt: `Generate a detailed Vedic Janam Kundali analysis for:\nName: ${name}\nDate: ${dob}\nTime: ${tob}\nPlace: ${pob}\n\nInclude Lagna, planetary strengths, house placements, and current Dasha overview.`,
-        temperature: 0.7,
-        maxTokens: 1500,
-      });
-      return {
-        source: "fallback" as const,
-        chart: null,
+      if (!analysis) aiAvailable = false;
+      value = {
+        source: "engine",
+        chart: kundali,
         svg: null,
-        analysis: fallback.content,
+        analysis: aiAvailable ? analysis : AI_DOWN_MESSAGE,
+        aiAvailable,
       };
+      if (aiAvailable) await setCached("kundali", cacheKey, value, 24 * 60 * 60);
     }
-  );
 
-  return NextResponse.json({
-    success: true,
-    ...value,
-    cached,
-  }, { headers: { ...rl.headers, "X-Cache": cached ? "HIT" : "MISS" } });
+    return NextResponse.json({
+      success: true,
+      ...value,
+      cached,
+    }, { headers: { ...rl.headers, "X-Cache": cached ? "HIT" : "MISS" } });
+  } catch (err) {
+    if (err instanceof KundaliInputError) {
+      return NextResponse.json({ error: err.message, code: "VALIDATION" }, { status: 400 });
+    }
+    const message = err instanceof Error ? err.message : "Kundali failed";
+    console.error("[ai/kundali]", message);
+    return NextResponse.json({ success: false, error: message, code: "INTERNAL" }, { status: 500 });
+  }
 }

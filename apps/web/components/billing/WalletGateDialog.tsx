@@ -170,10 +170,7 @@ export function WalletGateDialog({ open, onOpenChange, info, resume = true }: Pr
                     key={amt}
                     onClick={() => void recharge(amt)}
                     disabled={busy}
-                    className="py-3 rounded-xl bg-surface-raised hover:bg-[var(--color-primary)]/10
-                               border border-border hover:border-[var(--color-primary)]/40
-                               text-xs font-black font-mono
-                               transition-all active:scale-95 disabled:opacity-40"
+                    className="py-3 rounded-xl bg-surface-raised hover:bg-[var(--color-primary)]/10 border border-border hover:border-[var(--color-primary)]/40 text-xs font-black font-mono transition-all active:scale-95 disabled:opacity-40"
                   >
                     ₹{amt}
                   </button>
@@ -183,13 +180,7 @@ export function WalletGateDialog({ open, onOpenChange, info, resume = true }: Pr
               <button
                 onClick={() => void recharge(suggested)}
                 disabled={busy}
-                className="mt-3 w-full py-3.5 rounded-2xl
-                           bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                           text-white text-sm font-black
-                           shadow-lg shadow-[var(--color-primary-hover)]/20
-                           hover:opacity-95 active:scale-[0.98] transition-all
-                           disabled:opacity-50
-                           flex items-center justify-center gap-2"
+                className="mt-3 w-full py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black shadow-lg shadow-[var(--color-primary-hover)]/20 hover:opacity-95 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {busy ? (
                   <><Loader2 size={15} className="animate-spin" /> Opening checkout…</>
@@ -201,8 +192,7 @@ export function WalletGateDialog({ open, onOpenChange, info, resume = true }: Pr
               <button
                 onClick={() => onOpenChange(false)}
                 disabled={busy}
-                className="mt-2 w-full py-2.5 text-xs font-bold text-muted-foreground
-                           hover:text-foreground transition-colors"
+                className="mt-2 w-full py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>

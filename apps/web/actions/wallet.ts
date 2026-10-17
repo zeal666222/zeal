@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {createServerClientFromCookies} from "@zeal/database/server";
+import {publishWalletBalance} from "@/lib/realtime/wallet";
 
 export async function getWalletBalance(): Promise<{ balance: number }> {
   const supabase = await createServerClientFromCookies();
@@ -51,6 +52,8 @@ export async function topUpWalletAction(amount: number): Promise<{
     if (result && result.success === false) {
       return { success: false, error: result.error || "RPC failed" };
     }
+
+    void publishWalletBalance(user.id, result?.balance);
 
     return {
       success: true,

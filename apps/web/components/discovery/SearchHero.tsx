@@ -7,6 +7,7 @@
 
 import {useEffect, useRef, useState} from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Loader2, Search, Sparkles } from "lucide-react";
 import {motion, AnimatePresence} from "framer-motion";
 import { getImageUrl } from "@/lib/storage/r2";
@@ -179,9 +180,9 @@ export function SearchHero() {
                 <div className="flex items-center gap-3 mb-4">
                   {result.consultants.slice(0, 4).map((c) => (
                     <div key={c.id} className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-surface-sunken overflow-hidden flex-shrink-0">
+                      <div className="relative w-8 h-8 rounded-full bg-surface-sunken overflow-hidden flex-shrink-0">
                         {c.user.avatar ? (
-                          <img src={getImageUrl(c.user.avatar, "avatar-sm")} alt="" className="w-full h-full object-cover" />
+                          <Image src={getImageUrl(c.user.avatar, "avatar-sm")} alt="" fill sizes="32px" className="object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xs font-bold text-foreground">
                             {(c.user.name ?? "?").charAt(0).toUpperCase()}

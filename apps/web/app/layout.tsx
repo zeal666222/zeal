@@ -13,6 +13,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { ThemeScript } from "@zeal/ui/theme-script";
 import { Toaster } from "@/components/ui/toaster";
+import { OrganizationSchema, WebSiteSchema } from "@/components/seo/StructuredData";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -32,18 +33,54 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Project Zeal | Metaphysical Consultations",
-    template: "%s · Zeal",
+    default: "Zeal — Free Astrology, Tarot, Therapy & 37+ Spiritual Services Online",
+    template: "%s | Zeal",
   },
-  description: "Enterprise-grade metaphysical consultation platform.",
+  description:
+    "Free online astrology, tarot, kundali, numerology, palmistry, dream interpretation, therapy, reiki, meditation & more. 37+ spiritual services — connect with verified astrologers, therapists, healers & life coaches. AI-powered readings available 24/7.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://zeal.app"),
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     siteName: "Zeal",
-    title: "Project Zeal — Metaphysical Consultations",
-    description: "Connect with verified astrologers, healers, and AI consultants.",
+    title: "Zeal — Free Astrology, Tarot, Therapy & 37+ Spiritual Services",
+    description:
+      "37+ spiritual services: astrology, tarot, kundali, numerology, therapy, reiki, meditation & more. Free AI readings 24/7 or connect with verified experts.",
+    locale: "en_US",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Zeal — Free Astrology, Tarot & Spiritual Consultations",
+      },
+    ],
   },
-  robots: { index: true, follow: true },
+  twitter: {
+    card: "summary_large_image",
+    title: "Zeal — Free Astrology, Tarot & Spiritual Consultations",
+    description:
+      "Free online astrology, tarot, kundali, numerology & more. Connect with verified astrologers and AI consultants.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icon-192.png",
+  },
+  category: "spirituality",
 };
 
 export const viewport: Viewport = {
@@ -97,7 +134,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       className={`${inter.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
-      <head><ThemeScript /></head>
+      <head>
+        <ThemeScript />
+        <OrganizationSchema />
+        <WebSiteSchema />
+      </head>
       <body className="antialiased">
         <a href="#main-content" className="skip-link">Skip to main content</a>
         <ThemeProvider
@@ -112,12 +153,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <RealtimeProvider>
                 <MotionProvider>
                   <SmoothScroll>
-                    
+
                   {user && <GlobalCallListener userId={user.id} />}
                   <AppLayout user={user} profile={profile}>
                     {children}
                   </AppLayout>
-                
+
                   </SmoothScroll>
                 </MotionProvider>
               </RealtimeProvider>

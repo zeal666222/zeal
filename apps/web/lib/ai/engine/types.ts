@@ -2,19 +2,45 @@
 // ZEAL AI Engine — Types
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/**
+ * OpenAI-compatible multimodal content part. Providers that understand images
+ * receive these directly; providers without vision support get the message
+ * flattened back to text by `engine/index.ts` before the call.
+ */
+export type AIContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string; detail?: "auto" | "low" | "high" } };
+
 export interface AIMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | AIContentPart[];
   cache_control?: { type: "ephemeral" };
 }
 
-export type ProviderName = "agnes" | "groqPro" | "groqFast" | "zhipu";
+/** True when any message carries structured (non-string) content. */
+export function hasStructuredContent(messages: AIMessage[]): boolean {
+  return messages.some((m) => typeof m.content !== "string");
+}
+
+/** Flatten a message body to plain text (image parts become labelled links). */
+export function contentToText(content: string | AIContentPart[]): string {
+  if (typeof content === "string") return content;
+  return content
+    .map((part) => {
+      if (part.type === "text") return part.text;
+      return `[The user has attached an image. Image URL: ${part.image_url.url}. Please acknowledge the attachment and respond based on any context available.]`;
+    })
+    .join("\n");
+}
+
+export type ProviderName = "agnes" | "groqPro" | "groqFast" | "zhipu" | "ovh" | "kilo" | "llm7" | "duckduckgo" | "freegpt" | "cloudflareAi" | "pollinations";
 
 export interface ProviderDef {
   readonly name: ProviderName;
   readonly label: string;
   readonly url: string;
-  readonly key: () => string | undefined;
+  /** Returns API key, or undefined/empty for free keyless providers. */
+  readonly key: () => string | undefined | null;
   readonly model: string;
   /** Max simultaneous in-flight requests against this provider. */
   readonly maxConcurrent: number;
@@ -24,6 +50,16 @@ export interface ProviderDef {
   readonly tpm: number;
   /** Weight for priority in the fallback chain (higher = preferred). */
   readonly weight: number;
+  /** If true, no Authorization header is sent (truly keyless). */
+  readonly keyless?: boolean;
+  /** Custom headers to merge into the request (for non-standard auth). */
+  readonly extraHeaders?: () => Record<string, string>;
+  /**
+   * True when the configured `model` accepts `image_url` content parts.
+   * Non-vision providers receive flattened text so an attached photo can
+   * never make the whole fallback chain fail.
+   */
+  readonly supportsVision?: boolean;
 }
 
 export interface CallAIOptions {
@@ -37,6 +73,13 @@ export interface CallAIOptions {
   signal?: AbortSignal;
   /** Correlation id for logs. */
   requestId?: string;
+  /**
+   * Per-request override of the engine's global wall-clock budget
+   * (TOTAL_WALL_MS). Long generations (e.g. a full kundali reading at
+   * 1100 tokens) legitimately need more than the default across slow
+   * free-provider lanes; short UX-critical calls keep the default.
+   */
+  totalWallMs?: number;
 }
 
 export interface ProviderHealth {
@@ -57,6 +100,7 @@ export type EngineEvent =
   | { type: "provider:attempt"; provider: ProviderName; attempt: number }
   | { type: "provider:success"; provider: ProviderName; latencyMs: number }
   | { type: "provider:fail"; provider: ProviderName; reason: string; status?: number }
+  | { type: "provider:skip"; provider: ProviderName; reason: string }
   | { type: "provider:circuit-open"; provider: ProviderName; cooldownMs: number }
   | { type: "provider:retry"; provider: ProviderName; attempt: number; delayMs: number }
   | { type: "filler"; text: string; reason: "first-token" | "slow" | "fallback" }

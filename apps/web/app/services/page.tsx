@@ -2,6 +2,7 @@
 // Services — AI concierge + bubble category grid
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Sparkles } from "lucide-react";
 import { SkeletonGrid } from "@zeal/ui";
@@ -10,9 +11,16 @@ import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
 import { ZealChat } from "@/components/zeal/ZealChat";
 import { CategoryGridRealtime } from "./CategoryGridRealtime";
 import { FreeServicesGrid } from "@/components/shared/FreeServicesGrid";
+import { SEO } from "@/lib/seo/metadata";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+export const metadata: Metadata = {
+  title: SEO.services.title,
+  description: SEO.services.description,
+  keywords: SEO.services.keywords,
+};
 
 async function getCategoryCounts() {
   try {
@@ -48,28 +56,19 @@ export default function ServicesPage() {
   return (
     <div className="min-h-screen-app bg-background pb-24">
       {/* ─── Editorial hero ──────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden noise-overlay
-                          border-b border-[var(--color-luxury-glass-border)]">
-        <div className="absolute -top-40 -right-40 w-[600px] h-[600px]
-                        bg-[var(--color-luxury-gold)]/[0.10] blur-[180px] rounded-full pointer-events-none" />
-        <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px]
-                        bg-[var(--color-primary)]/[0.14] blur-[180px] rounded-full pointer-events-none" />
+      <section className="relative overflow-hidden noise-overlay border-b border-[var(--color-luxury-glass-border)]">
+        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-[var(--color-luxury-gold)]/[0.10] blur-[180px] rounded-full pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-[var(--color-primary)]/[0.14] blur-[180px] rounded-full pointer-events-none" />
 
         <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 lg:px-16 py-14 md:py-20">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full
-                          bg-[var(--color-luxury-gold)]/[0.08]
-                          border border-[var(--color-luxury-gold)]/[0.20]
-                          text-[var(--color-luxury-gold)]
-                          text-[10px] font-black uppercase tracking-[0.25em] mb-6">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--color-luxury-gold)]/[0.08] border border-[var(--color-luxury-gold)]/[0.20] text-[var(--color-luxury-gold)] text-[10px] font-black uppercase tracking-[0.25em] mb-6">
             <Sparkles size={12} /> Powered by Agnes + Groq
           </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black
-                         tracking-[-0.03em] leading-[0.95] text-foreground max-w-3xl">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-[-0.03em] leading-[0.95] text-foreground max-w-3xl">
             Ask Zeal,{" "}
             <span className="text-luxury-gradient">find your guide.</span>
           </h1>
-          <p className="mt-6 text-base md:text-lg text-muted-foreground
-                        max-w-2xl leading-relaxed">
+          <p className="mt-6 text-base md:text-lg text-muted-foreground max-w-2xl leading-relaxed">
             Describe what you're looking for. Zeal reads the entire directory —
             human and AI — and connects you with the right match.
           </p>
@@ -90,8 +89,7 @@ export default function ServicesPage() {
         {/* ─── Category bubble grid ────────────────────────────────────── */}
         <section id="category-grid">
           <div className="mb-8">
-            <p className="text-[10px] uppercase tracking-[0.25em]
-                          text-[var(--color-luxury-gold)] font-bold mb-2">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-luxury-gold)] font-bold mb-2">
               Every tradition
             </p>
             <h2 className="text-2xl md:text-4xl font-black tracking-tight text-foreground">

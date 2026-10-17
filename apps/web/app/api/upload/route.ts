@@ -12,12 +12,15 @@ import {getStorageAdapter} from "@/lib/storage";
 import {randomUUID} from "crypto";
 
 const ALLOWED_MIME = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
   "application/pdf",
+  "text/plain",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
+
+function isAllowedMime(mime: string) {
+  return mime.startsWith("image/") || ALLOWED_MIME.has(mime);
+}
 
 const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
@@ -35,7 +38,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   const mime = file.type || "application/octet-stream";
-  if (!ALLOWED_MIME.has(mime)) {
+  if (!isAllowedMime(mime)) {
     throw new AppError(`Unsupported file type: ${mime}`, 400, ErrorCode.VALIDATION_INPUT);
   }
 
@@ -50,7 +53,13 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   // Sanitize folder to prevent path traversal
   const safeFolder = folder.replace(/[^a-zA-Z0-9_\-/]/g, "").replace(/\/+/g, "/");
-  const ext = (mime.split("/")[1] || "bin").replace(/[^a-z0-9]/g, "");
+  const extMap: Record<string, string> = {
+    "application/pdf": "pdf",
+    "text/plain": "txt",
+    "application/msword": "doc",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  };
+  const ext = extMap[mime] ?? (mime.split("/")[1] || "bin").replace(/[^a-z0-9]/g, "").slice(0, 8);
   const key = `${safeFolder}/${userId}/${randomUUID()}.${ext}`;
 
   const arrayBuffer = await file.arrayBuffer();

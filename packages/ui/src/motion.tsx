@@ -20,13 +20,17 @@ interface MotionProviderProps {
 /**
  * Wrap the app once (in root layout) with this provider.
  * All `Motion*` components below use the lazy-loaded `m` component.
+ *
+ * NOTE: We intentionally do NOT wrap children in `<LazyMotion>`. The web app
+ * uses the full `motion` component from its own framer-motion copy (apps/web
+ * has its own node_modules), and packages/ui has a separate copy. Wrapping
+ * with `<LazyMotion>` here only affects packages/ui's copy — apps/web's
+ * `<motion>` elements never see it, so variants don't propagate and elements
+ * stay at their initial state (e.g. opacity 0). Drop the wrapper; the full
+ * motion component works on its own.
  */
 export function MotionProvider({ children }: MotionProviderProps) {
-  return (
-    <LazyMotion features={domMax} strict>
-      {children}
-    </LazyMotion>
-  );
+  return <>{children}</>;
 }
 
 export { AnimatePresence };

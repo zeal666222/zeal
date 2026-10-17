@@ -8,10 +8,11 @@ import {
 } from "@zeal/database/server";
 import { handleAIChat, AIChatError } from "@zeal/database/ai-chat-handler";
 import { loadPersona } from "@/lib/ai/persona-loader";
-import { callAI } from "@/lib/ai/engine";
+import { callAI, type AIMessage as EngineAIMessage, type AIContentPart } from "@/lib/ai/engine";
 import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
 import { detectBirthData } from "@/lib/astrology/birth-data-detector";
 import { interpretChart, type AstrologyAIResult } from "@/lib/ai/astrology-ai";
+import { withAdvisoryLock } from "@/lib/billing/concurrency";
 import { z } from "zod";
 
 // Vercel maxDuration
@@ -25,6 +26,101 @@ const BodySchema = z.object({
   conversationId: z.string().uuid(),
   content: z.string().min(1).max(4000),
 });
+
+// ─── Uploaded-file detection ────────────────────────────────────────────────
+// ChatInterface uploads files via /api/upload and appends markdown links to
+// the message content: ![name](url) for images, [name](url) for docs/PDFs.
+const ATTACHMENT_RE = /(!?)\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g;
+
+interface DetectedFile {
+  name: string;
+  url: string;
+  kind: "image" | "pdf" | "document";
+}
+
+function detectUploadedFiles(content: string): DetectedFile[] {
+  const files: DetectedFile[] = [];
+  for (const match of content.matchAll(ATTACHMENT_RE)) {
+    const url = match[3] ?? "";
+    const name = (match[2] || "").trim() || "uploaded file";
+    const ext = (url.split("?")[0]?.split(".").pop() ?? "").toLowerCase();
+    const kind: DetectedFile["kind"] = ["png", "jpg", "jpeg", "webp", "gif"].includes(ext)
+      ? "image"
+      : ext === "pdf"
+        ? "pdf"
+        : "document";
+    files.push({ name, url, kind });
+  }
+  return files;
+}
+
+// Text-ish attachments we can read server-side and hand to the model verbatim.
+const TEXTUAL_EXT = new Set(["txt", "md", "csv", "json", "log", "xml", "html", "svg", "vcard", "ics"]);
+const MAX_INLINE_CHARS = 6000;
+
+/** Hosts we are willing to fetch server-side (our own storage + CDN only). */
+function isTrustedStorageHost(rawUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const supabaseHost = (() => {
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!base) return null;
+    try {
+      return new URL(base).hostname;
+    } catch {
+      return null;
+    }
+  })();
+  const hosts = [
+    supabaseHost,
+    "imagedelivery.net",
+    "r2.cloudflarestorage.com",
+  ].filter(Boolean) as string[];
+  return hosts.some((h) => url.hostname === h || url.hostname.endsWith(`.${h}`));
+}
+
+async function readTextualAttachment(file: DetectedFile): Promise<string | null> {
+  const ext = (file.url.split("?")[0]?.split(".").pop() ?? "").toLowerCase();
+  if (!TEXTUAL_EXT.has(ext) || !isTrustedStorageHost(file.url)) return null;
+  try {
+    const res = await fetch(file.url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const text = await res.text();
+    const clipped = text.replace(/\s+/g, " ").trim().slice(0, MAX_INLINE_CHARS);
+    return clipped || null;
+  } catch {
+    return null;
+  }
+}
+
+function buildFileAnalysisDirective(
+  files: Array<DetectedFile & { extractedText?: string | null }>,
+): string {
+  if (files.length === 0) return "";
+  const lines = files.map((f, i) => {
+    const head = `${i + 1}. ${f.kind.toUpperCase()} — "${f.name}" (URL: ${f.url})`;
+    return f.extractedText
+      ? `${head}\n   EXTRACTED TEXT (already read by our server — analyse this directly):\n   """${f.extractedText}"""`
+      : head;
+  });
+  return [
+    "",
+    "",
+    "[UPLOADED FILES DETECTED IN THIS MESSAGE]",
+    ...lines,
+    "",
+    "FILE-ANALYSIS PROTOCOL (mandatory whenever the seeker attaches files):",
+    '1. ACKNOWLEDGE the file first, warmly and specifically — e.g. "Aapne jo palm photo bheji hai, maine use receive kar liya..."',
+    '2. EXTRACT RELEVANT DETAILS: where EXTRACTED TEXT is given above, quote and analyse it directly — do not claim you cannot read it. For images, describe what you can actually observe (or infer); if a visual detail cannot be confidently resolved, say so honestly — NEVER invent specifics you cannot see.',
+    '3. PROACTIVELY ASK CLARIFYING QUESTIONS about the file — e.g. "Aapne palm photo bheji hai — kya aap right hand ki baat kar rahe hain, aur aapki dominant hand kaunsi hai?" or for a PDF: "Is report mein se kaunsa section aap decode karwana chahenge?" Ask only the 1-2 questions that most change the reading.',
+    "4. WEAVE THE FILE into your background analysis and past-event verification before giving any prediction.",
+  ].join("\n");
+}
 
 export async function POST(
   req: Request,
@@ -98,11 +194,17 @@ export async function POST(
     // ─── Per-minute billing (auto-start for paid conversations) ───────────
     let billing: Record<string, unknown> | null = null;
     try {
-      const { data: billingData } = await admin.rpc("auto_start_chat_billing", {
-        p_conversation_id: conversationId,
-        p_user_id: user.id,
-      });
-      billing = (billingData ?? null) as Record<string, unknown> | null;
+      const lockResult = await withAdvisoryLock(
+        `billing:${conversationId}:${user.id}`,
+        async () => {
+          const { data: billingData } = await admin.rpc("auto_start_chat_billing", {
+            p_conversation_id: conversationId,
+            p_user_id: user.id,
+          });
+          return (billingData ?? null) as Record<string, unknown> | null;
+        },
+      );
+      billing = lockResult.result ?? null;
     } catch {
       /* billing is best-effort; stream continues */
     }
@@ -176,6 +278,25 @@ export async function POST(
       persona.systemPrompt = persona.systemPrompt + astrologyContext;
     }
 
+    // ─── Uploaded-file analysis: detect attachments in the message ────────
+    const detectedFiles = detectUploadedFiles(content);
+    const analyzedFiles = await Promise.all(
+      detectedFiles.map(async (f) => {
+        // Textual docs are fetched server-side so even text-only providers
+        // analyse the real content; images go to vision-capable providers.
+        if (f.kind === "image") return f;
+        return { ...f, extractedText: await readTextualAttachment(f) };
+      }),
+    );
+    const fileDirective = buildFileAnalysisDirective(analyzedFiles);
+    if (fileDirective) {
+      persona.systemPrompt = persona.systemPrompt + fileDirective;
+    }
+    const imageParts: AIContentPart[] = analyzedFiles
+      .filter((f) => f.kind === "image")
+      .slice(0, 4)
+      .map((f) => ({ type: "image_url", image_url: { url: f.url } }));
+
     // ─── Stream ───────────────────────────────────────────────────────────
     const { stream } = await handleAIChat({
       conversationId,
@@ -185,9 +306,26 @@ export async function POST(
       persona,
       admin,
       callAI: async (opts) => {
+        // Attach uploaded images to the newest user message as multimodal
+        // parts. Non-vision providers receive them flattened back to text
+        // (engine-side), so a photo can never break the fallback chain.
+        const messages: EngineAIMessage[] =
+          imageParts.length === 0
+            ? opts.messages
+            : opts.messages.map((m, i, arr) =>
+                i === arr.length - 1 && m.role === "user"
+                  ? {
+                      ...m,
+                      content: [
+                        { type: "text" as const, text: typeof m.content === "string" ? m.content : "" },
+                        ...imageParts,
+                      ],
+                    }
+                  : m,
+              );
         // The engine returns { response, provider, attempts }
         const result = await callAI({
-          messages: opts.messages,
+          messages,
           temperature: opts.temperature,
           maxTokens: opts.maxTokens,
           stream: true,

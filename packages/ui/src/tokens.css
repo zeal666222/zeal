@@ -291,13 +291,20 @@ body {
 }
 
 /* ─── Gradient text ────────────────────────────────────────────────────────── */
+/* NOTE: do NOT use the `background:` shorthand here — Next.js / lightning-css
+ * split the shorthand into empty longhands in dev, stripping the gradient.
+ * Use explicit `background-image` + matching longhands so the gradient survives
+ * the CSS pipeline regardless of order vs. `background-clip: text`. */
 .text-luxury-gradient {
-  background: linear-gradient(
+  background-image: linear-gradient(
     135deg,
     var(--color-luxury-gold) 0%,
     oklch(0.85 0.08 300) 50%,
     oklch(0.78 0.12 85) 100%
   );
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -306,15 +313,19 @@ body {
 
 /* Light mode needs deeper stops so gradient text stays readable on white. */
 .light .text-luxury-gradient {
-  background: linear-gradient(
+  background-image: linear-gradient(
     135deg,
     oklch(0.55 0.13 85) 0%,
     oklch(0.5 0.14 300) 50%,
     oklch(0.55 0.13 85) 100%
   );
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 /* ─── Ambient noise overlay ────────────────────────────────────────────────── */
@@ -502,3 +513,359 @@ body {
   .btn-premium   { transition: none !important; }
   .card-lift     { transition: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ZEAL BRAND MOTION IDENTITY  —  prefix "zb-"
+   ─────────────────────────────────────────────────────────────────────────────
+   Who we are: Zeal reads sidereal charts, so the mark is an astronomical
+   diagram before it is a letter.
+     • the Z is the sun's traced path — summer arc, equinox diagonal, winter arc
+     • the outer ring is the 12-house chart wheel, cardinal axes struck longer
+     • the inner polygon is a graha aspect morphing trikona → shadaspatha →
+       chaturbhuj (trine → six-point → square) on a 27s cycle
+     • three grahas ride the wheel on 21s / 34s / 57s — non-harmonic, so the
+       configuration never repeats
+   The mark itself NEVER morphs. A logo has to be legible in every frame; the
+   motion lives in what surrounds it.
+
+   Three choreographed states, one geometry at every size:
+     IGNITION   wheel strokes in → sun path draws → word rises over its own
+                horizon → gold rule wipes. ~1.8s, once per mount.
+     ORBIT      ambient loops only: rotation, opacity, dash travel. 96s down to
+                5s periods so nothing ever looks like a metronome.
+     RESPONSE   hover + press animate TRANSITIONS on wrapper elements that carry
+                no keyframes, so a response can never restart or jump an ambient
+                loop (changing animation-duration mid-flight does jump).
+   Only transform / opacity / stroke-dashoffset animate — no layout property,
+   no JS, no rAF.
+
+   Deliberately not Framer Motion: apps/web and packages/ui each carry their own
+   framer copy and no shared <LazyMotion> is mounted, so `m` elements in this
+   package freeze at their `initial` state. prefers-reduced-motion kills the CSS
+   loops below and ZealMark calls svg.pauseAnimations() for the SMIL ones.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --zeal-g1: #9d7dc5;
+  --zeal-g2: #c4b5fd;
+  --zeal-g3: #533afd;
+  --zeal-gold: #d4af37;
+  --zeal-core: #ffffff;
+  --zeal-word-gradient: linear-gradient(
+    100deg,
+    var(--zeal-g1) 0%,
+    var(--zeal-g2) 26%,
+    var(--zeal-g3) 48%,
+    #ffffff 60%,
+    var(--zeal-g3) 72%,
+    var(--zeal-g2) 88%,
+    var(--zeal-g1) 100%
+  );
+
+  /* Motion signature: "resolve" — long deceleration, never bouncy. */
+  --zb-e-resolve: cubic-bezier(0.16, 1, 0.3, 1);
+  --zb-e-draw: cubic-bezier(0.22, 1, 0.36, 1);
+  --zb-e-drift: cubic-bezier(0.45, 0, 0.55, 1);
+
+  /* Tempo: one beat, and every entrance value is a multiple of it. */
+  --zb-beat: 620ms;
+  --zb-t-dial: 96s;
+  --zb-t-aspect: 66s;
+  --zb-t-sheen: 6.4s;
+}
+
+/* ─── Ignition ─────────────────────────────────────────────────────────────── */
+
+@keyframes zb-draw {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+@keyframes zb-pop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Light travelling the sun path, then holding off-stage until the next cycle. */
+@keyframes zb-sheen {
+  0%   { stroke-dashoffset: 1.18; opacity: 0; }
+  5%   { opacity: 0.85; }
+  26%  { stroke-dashoffset: 0; opacity: 0.85; }
+  33%  { opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* The word rises the way the sun does: over a horizon, not out of a blur. */
+@keyframes zb-sunrise {
+  from { transform: translateY(108%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes zb-tracking {
+  from { letter-spacing: 0.5em; opacity: 0; }
+  35%  { opacity: 1; }
+  to   { letter-spacing: 0.16em; opacity: 1; }
+}
+
+/* ─── Orbit ────────────────────────────────────────────────────────────────── */
+
+@keyframes zb-spin  { to { transform: rotate(360deg); } }
+@keyframes zb-spin-r { to { transform: rotate(-360deg); } }
+
+@keyframes zb-breathe {
+  0%, 100% { opacity: 0.28; transform: scale(0.94); }
+  50%      { opacity: 0.62; transform: scale(1.08); }
+}
+
+@keyframes zb-twinkle {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+@keyframes zb-shine {
+  0%        { background-position: 170% 0; }
+  55%, 100% { background-position: -70% 0; }
+}
+
+@keyframes zb-rule-travel {
+  0%   { transform: translateX(-160%); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateX(620%); opacity: 0; }
+}
+
+/* ─── Response ─────────────────────────────────────────────────────────────── */
+
+@keyframes zb-pulse {
+  from { opacity: 0.55; transform: scale(0.62); }
+  to   { opacity: 0; transform: scale(1.58); }
+}
+
+@keyframes zb-spark {
+  0%   { opacity: 0; transform: rotate(var(--zb-a)) translateY(0) scale(0.5); }
+  22%  { opacity: 1; }
+  100% { opacity: 0; transform: rotate(var(--zb-a)) translateY(calc(-1 * var(--zb-spark-r, 30px))) scale(1); }
+}
+
+/* ─── The mark ─────────────────────────────────────────────────────────────── */
+
+.zb-mark {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  line-height: 0;
+}
+.zb-svg {
+  display: block;
+  overflow: visible;
+}
+
+.zb-glow {
+  position: absolute;
+  inset: -26%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--zeal-g1) 52%, transparent) 0%,
+    transparent 68%
+  );
+  animation: zb-breathe 5.2s var(--zb-e-drift) infinite;
+}
+
+/* SVG groups rotate about the chart centre, not the element box. */
+.zb-dial,
+.zb-aspect,
+.zb-orbit {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+}
+.zb-dial   { animation: zb-spin var(--zb-t-dial) linear infinite; }
+.zb-aspect { animation: zb-spin-r var(--zb-t-aspect) linear infinite; }
+.zb-orbit  {
+  animation:
+    zb-spin var(--zb-t-orbit, 21s) linear infinite,
+    zb-pop 420ms var(--zb-e-draw) both;
+  animation-direction: var(--zb-dir, normal);
+}
+.zb-graha { animation: zb-twinkle 3.2s var(--zb-e-drift) infinite; }
+
+/* pathLength=1 on every drawn element, so one dash rule scales across the chart */
+.zb-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: zb-draw 960ms var(--zb-e-draw) both;
+}
+.zb-ring.zb-draw   { animation-duration: 1100ms; }
+.zb-ticks.zb-draw  { animation-duration: 900ms; animation-delay: 260ms; }
+.zb-sun.zb-draw    { animation-duration: 900ms; animation-delay: 340ms; }
+.zb-aspect-path.zb-draw { animation-duration: 1300ms; animation-delay: 900ms; }
+
+.zb-sheen {
+  stroke-dasharray: 0.16 1.16;
+  opacity: 0;
+  animation: zb-sheen var(--zb-t-sheen) var(--zb-e-drift) infinite;
+  animation-delay: calc(var(--zb-beat) * 1.9);
+}
+/* Kept warm but invisible until pointer entry — no restart, no jump. */
+.zb-sheen--response {
+  animation-duration: 1600ms;
+  animation-iteration-count: infinite;
+  animation-delay: 0s;
+  opacity: 0 !important;
+}
+
+/* ─── The lockup ───────────────────────────────────────────────────────────── */
+
+.zb-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.zb-hit {
+  display: inline-grid;
+  place-items: center;
+  transition: transform 420ms var(--zb-e-resolve);
+}
+.zb-word-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.zb-word {
+  display: inline-flex;
+  align-items: baseline;
+  font-weight: 900;
+  line-height: 1.02;
+  letter-spacing: 0.16em;
+  animation: zb-tracking calc(var(--zb-beat) * 1.9) calc(var(--zb-beat) * 0.5) var(--zb-e-draw) both;
+}
+.zb-horizon {
+  display: inline-block;
+  overflow: hidden;
+  transition: transform 420ms var(--zb-e-resolve);
+  transition-delay: calc(var(--zb-i, 0) * 45ms);
+}
+.zb-letter {
+  display: inline-block;
+  padding-bottom: 0.06em;
+  background-image: var(--zeal-word-gradient);
+  background-size: 260% 100%;
+  background-position: 170% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    zb-sunrise calc(var(--zb-beat) * 1.1) var(--zb-e-resolve) both,
+    zb-shine 6.8s var(--zb-e-drift) infinite;
+  animation-delay:
+    calc(var(--zb-beat) * 0.6 + var(--zb-i, 0) * 90ms),
+    calc(var(--zb-beat) * 2.6 + var(--zb-i, 0) * 90ms);
+}
+
+.zb-rule {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 1px;
+  overflow: hidden;
+  transform-origin: left center;
+  background-image: linear-gradient(
+    90deg,
+    var(--zeal-g1),
+    color-mix(in srgb, var(--zeal-gold) 80%, transparent),
+    transparent
+  );
+  animation: zb-draw-line calc(var(--zb-beat) * 1.5) calc(var(--zb-beat) * 1.6) var(--zb-e-draw) both;
+}
+@keyframes zb-draw-line {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.zb-rule::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 16%;
+  height: 3px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--zeal-gold), transparent 70%);
+  filter: blur(0.6px);
+  animation: zb-rule-travel 5.4s calc(var(--zb-beat) * 3.2) var(--zb-e-drift) infinite;
+}
+
+/* Response: lift, bloom, and a faster sweep of light. Nothing restarts. */
+.zb-lockup:hover .zb-hit { transform: translateY(-1px) scale(1.035); }
+.zb-lockup:hover .zb-glow { opacity: 1; animation-duration: 2.8s; }
+.zb-lockup:hover .zb-sheen--response { opacity: 0.9 !important; }
+.zb-lockup:hover .zb-horizon { transform: translateY(-2px); }
+
+/* ─── Actuation (dock orb press) ───────────────────────────────────────────── */
+
+.zb-burst {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 30;
+}
+.zb-burst-ring {
+  position: absolute;
+  width: 62%;
+  height: 62%;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--zeal-gold) 70%, transparent);
+  animation: zb-pulse 720ms var(--zb-e-resolve) forwards;
+}
+.zb-spark {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--zeal-gold);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--zeal-gold) 80%, transparent);
+  animation: zb-spark 720ms var(--zb-e-resolve) forwards;
+  animation-delay: calc(var(--zb-i, 0) * 14ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zb-dial,
+  .zb-aspect,
+  .zb-orbit,
+  .zb-graha,
+  .zb-glow,
+  .zb-sheen,
+  .zb-rule::after,
+  .zb-word,
+  .zb-letter,
+  .zb-burst-ring,
+  .zb-spark {
+    animation: none !important;
+  }
+  .zb-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .zb-sheen,
+  .zb-burst,
+  .zb-rule::after {
+    display: none !important;
+  }
+  .zb-glow { opacity: 0.6; }
+  .zb-word  { animation: none !important; letter-spacing: 0.16em !important; opacity: 1 !important; }
+  .zb-letter {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    background-position: 50% 0 !important;
+  }
+  .zb-rule { animation: none !important; transform: none !important; }
+  .zb-hit,
+  .zb-horizon { transition: none !important; }
+}
+

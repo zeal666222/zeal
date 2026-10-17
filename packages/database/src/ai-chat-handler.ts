@@ -40,6 +40,7 @@ export interface PersonaContext {
   perMinuteRate: number;
   safetyLevel?: "RELAXED" | "STANDARD" | "STRICT";
   bannedPatterns?: string[];
+  fewShots?: Array<{ role: "assistant" | "user"; content: string }>;
 }
 
 export interface CallAIOptions {
@@ -174,12 +175,15 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
     content: m.content,
   }));
 
+  const fewShotSlice = (persona.fewShots ?? []).slice(-4);
+
   const messages: AIMessage[] = [
     {
       role: "system",
       content: persona.systemPrompt,
       cache_control: { type: "ephemeral" },
     },
+    ...fewShotSlice,
     ...history.slice(-12),
     { role: "user", content: trimmed },
   ];

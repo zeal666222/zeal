@@ -4,6 +4,7 @@
 // POST → insert + best-effort auto_start_chat_billing
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
+import { serverPublish } from "@/lib/realtime/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -105,6 +106,13 @@ export async function POST(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Fan out to the room so the partner (and the sender's other tabs) see the
+  // message instantly instead of waiting for the fallback poll.
+  void serverPublish(`room:${conversationId}:messages`, "INSERT", {
+    type: "INSERT",
+    record: message,
+  });
 
   return NextResponse.json({ message, billing });
 }

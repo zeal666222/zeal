@@ -23,6 +23,7 @@ export interface AIRequest {
   userPrompt: string;
   temperature?: number;
   maxTokens?: number;
+  totalWallMs?: number;
 }
 
 export interface AIResponse {
@@ -47,6 +48,7 @@ export async function runAI(req: AIRequest): Promise<AIResponse> {
     stream: false,
     temperature: req.temperature,
     maxTokens: req.maxTokens,
+    totalWallMs: req.totalWallMs,
   });
 
   const data = await response.json();

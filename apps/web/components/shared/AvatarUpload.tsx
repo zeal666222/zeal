@@ -209,8 +209,7 @@ export function AvatarUpload({
           <button
             type="button"
             onClick={handleClear}
-            className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white
-              flex items-center justify-center shadow-lg hover:bg-rose-600 transition-colors z-10"
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-lg hover:bg-rose-600 transition-colors z-10"
             aria-label="Remove avatar"
           >
             <X size={10} />

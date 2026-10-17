@@ -256,11 +256,7 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
             <button
               onClick={() => void handleEnd()}
               disabled={ending}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                         bg-rose-500/10 hover:bg-rose-500/20
-                         border border-rose-500/20
-                         text-rose-400 text-xs font-black
-                         transition-all disabled:opacity-50 active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 text-xs font-black transition-all disabled:opacity-50 active:scale-95"
             >
               {ending ? (
                 <><Loader2 size={11} className="animate-spin" /> Ending…</>

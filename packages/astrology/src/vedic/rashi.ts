@@ -170,9 +170,49 @@ export function computeRashiChart(birthData: BirthData): NatalChart {
 }
 
 /**
+ * Compute the (tz → UTC) offset in minutes for a given wall-clock instant in
+ * an IANA timezone, via Intl.DateTimeFormat. This correctly accounts for
+ * historical DST rules and non-whole-hour offsets (e.g. IST +5:30, Nepal +5:45).
+ */
+function tzOffsetMinutes(wallUtcMs: number, timeZone: string): number {
+  try {
+    const dtf = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+    const parts: Record<string, number> = {};
+    for (const p of dtf.formatToParts(new Date(wallUtcMs))) {
+      if (p.type !== "literal") parts[p.type] = Number(p.value);
+    }
+    // Intl renders hour "24" at midnight on some engines — normalize.
+    const hour = parts.hour === 24 ? 0 : parts.hour ?? 0;
+    const asUtc = Date.UTC(
+      parts.year ?? 1970,
+      (parts.month ?? 1) - 1,
+      parts.day ?? 1,
+      hour,
+      parts.minute ?? 0,
+      parts.second ?? 0,
+    );
+    return Math.round((asUtc - wallUtcMs) / 60000);
+  } catch {
+    return 0; // unknown timezone — treat as UTC
+  }
+}
+
+/**
  * Parse birth date and time into a UTC Date object.
- * Assumes the birth time is in the local timezone of the birth place.
- * For India, we use IST (UTC+5:30) as default.
+ *
+ * Birth time is interpreted as LOCAL wall-clock time at the birth place. The
+ * correct UTC instant is derived from the IANA timezone (handles DST + offsets
+ * precisely). When no timezone is supplied, we fall back to an India (IST +5:30)
+ * heuristic based on the coordinates, else UTC.
  */
 export function parseBirthDateTime(birthData: BirthData): Date {
   const [year, month, day] = birthData.birthDate.split("-").map(Number);
@@ -182,16 +222,20 @@ export function parseBirthDateTime(birthData: BirthData): Date {
     throw new Error("Invalid birth date or time format. Use YYYY-MM-DD and HH:MM");
   }
 
-  // If timezone is specified, use it; otherwise assume IST for Indian locations
-  // For simplicity, we convert to UTC assuming the given time is local
-  // In production, this should use proper timezone handling
-  const isIndia = birthData.birthPlace.lat > 6 && birthData.birthPlace.lat < 36
-    && birthData.birthPlace.lng > 68 && birthData.birthPlace.lng < 98;
+  const wallUtcMs = Date.UTC(year, month - 1, day, hours, minutes);
 
-  const utcOffsetMinutes = isIndia ? 330 : 0; // IST = UTC+5:30
+  let utcOffsetMinutes: number;
+  if (birthData.timezone) {
+    // Offset is date-dependent (DST): evaluate it at the wall time, then apply.
+    utcOffsetMinutes = tzOffsetMinutes(wallUtcMs, birthData.timezone);
+  } else {
+    const isIndia = birthData.birthPlace.lat > 6 && birthData.birthPlace.lat < 36
+      && birthData.birthPlace.lng > 68 && birthData.birthPlace.lng < 98;
+    utcOffsetMinutes = isIndia ? 330 : 0; // IST = UTC+5:30
+  }
 
-  const date = new Date(Date.UTC(year, month - 1, day, hours, minutes));
   // Adjust for timezone: subtract the offset to get UTC
+  const date = new Date(wallUtcMs);
   date.setMinutes(date.getMinutes() - utcOffsetMinutes);
 
   return date;

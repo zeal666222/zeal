@@ -117,7 +117,7 @@ function setCache(key: string, result: AstrologyAIResult): void {
 
 // ─── Chart Computation ────────────────────────────────────────────────────────
 
-async function computeChart(req: AstrologyInterpretRequest): Promise<{
+export async function computeChart(req: AstrologyInterpretRequest): Promise<{
   chart: Record<string, unknown>;
   chartForRAG: ChartDataForRAG;
   dasha?: VimshottariDasha;

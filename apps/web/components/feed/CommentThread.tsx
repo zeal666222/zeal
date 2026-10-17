@@ -5,6 +5,7 @@ import {motion} from "framer-motion";
 import { Loader2, MessageCircle, Send } from "lucide-react";
 import {formatDistanceToNow} from "date-fns";
 import {Avatar, AvatarImage, AvatarFallback, Button} from "@zeal/ui";
+import {useAuthGuard} from "@/hooks/useAuthGuard";
 
 interface Comment {
  id: string;
@@ -17,6 +18,7 @@ interface Comment {
 export function CommentThread({ postId }: { postId: string }) {
  const qc = useQueryClient();
  const [text, setText] = useState("");
+ const { isAuthenticated, guard } = useAuthGuard();
 
  const { data, isLoading } = useQuery<{ comments: Comment[] }>({
  queryKey: ["comments", postId],
@@ -43,14 +45,15 @@ export function CommentThread({ postId }: { postId: string }) {
  const handleSubmit = useCallback((e: React.FormEvent) => {
  e.preventDefault();
  if (!text.trim()) return;
- send.mutate(text.trim());
- }, [text, send]);
+ guard(() => { send.mutate(text.trim()); });
+ }, [text, send, guard]);
 
  if (isLoading) return <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" /></div>;
  const comments = data?.comments || [];
 
  return (
  <div className="space-y-4">
+ {isAuthenticated ? (
  <form onSubmit={handleSubmit} className="flex gap-2">
  <input
  type="text"
@@ -65,6 +68,15 @@ export function CommentThread({ postId }: { postId: string }) {
  {send.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
  </Button>
  </form>
+ ) : (
+ <div className="text-center py-4 px-6 rounded-xl bg-surface border border-border">
+ <MessageCircle className="w-6 h-6 mx-auto mb-2 text-[var(--color-subtle-foreground)]" />
+ <p className="text-sm text-muted-foreground mb-3">Log in to join the conversation</p>
+ <Button variant="primary" size="sm" onClick={() => guard(() => {})}>
+ Log in to comment
+ </Button>
+ </div>
+ )}
 
  {comments.length === 0 ? (
  <div className="text-center py-8 text-[var(--color-subtle-foreground)] text-sm flex flex-col items-center gap-2">

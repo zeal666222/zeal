@@ -21,7 +21,20 @@ function adminClient() {
 
 export async function POST(req: Request) {
   try {
-    const { token, password } = BodySchema.parse(await req.json());
+    let raw: unknown;
+    try {
+      raw = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON", code: "VALIDATION" }, { status: 400 });
+    }
+    const parsed = BodySchema.safeParse(raw);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid request: a token and a password of at least 12 characters are required", code: "VALIDATION" },
+        { status: 400 },
+      );
+    }
+    const { token, password } = parsed.data;
 
     const invite = await verifyInvite(token);
     if (!invite) return NextResponse.json({ error: "Invalid invite" }, { status: 404 });
@@ -63,6 +76,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    console.error("[accept-invite] unexpected error:", err);
+    return NextResponse.json({ error: "Invite acceptance failed", code: "INTERNAL" }, { status: 500 });
   }
 }

@@ -18,6 +18,7 @@
 
 import { createAdminClient } from "@zeal/database/server";
 import { logger } from "@/lib/logger";
+import { publishWalletBalance } from "@/lib/realtime/wallet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -137,6 +138,8 @@ export async function debitWalletOptimistic(
       };
     }
 
+    void publishWalletBalance(userId, Number(result?.new_balance ?? NaN));
+
     return {
       success: true,
       newBalance: Number(result?.new_balance ?? 0),
@@ -146,8 +149,7 @@ export async function debitWalletOptimistic(
 
   return {
     success: false,
-    error: `Optimistic lock retries exhausted (${MAX_OPTIMISTIC_RETRIES})`,
-    retries: MAX_OPTIMISTIC_RETRIES,
+    error: `Optimistic lock retries exhausted (${MAX_OPTIMISTIC_RETRIES})`,    retries: MAX_OPTIMISTIC_RETRIES,
   };
 }
 
@@ -197,6 +199,8 @@ export async function creditWalletOptimistic(
     if (r?.success === false) {
       return { success: false, error: "Credit failed", retries: attempt };
     }
+
+    void publishWalletBalance(userId, Number(r?.new_balance ?? NaN));
 
     return {
       success: true,

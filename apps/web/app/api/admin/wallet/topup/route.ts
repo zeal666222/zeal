@@ -1,5 +1,6 @@
 import {NextResponse} from "next/server";
 import {requireAdminAPI, logAdminAction} from "@/lib/auth/api-guard";
+import {publishWalletBalance} from "@/lib/realtime/wallet";
 import {z} from "zod";
 
 export const dynamic = "force-dynamic";
@@ -38,5 +39,6 @@ export async function POST(req: Request) {
   });
 
   const {data: wallet} = await admin.from("Wallet").select("*").eq("userId", adminId).maybeSingle();
+  void publishWalletBalance(adminId);
   return NextResponse.json({wallet});
 }

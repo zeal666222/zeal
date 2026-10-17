@@ -243,10 +243,12 @@ export function getImageUrl(
   if (!key) return "";
   if (key.startsWith("http://") || key.startsWith("https://")) return key;
 
-  const base = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
+  const r2Base = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
+  const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
+  const supabaseBucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "zeal-uploads";
 
-  if (process.env.NEXT_PUBLIC_CF_IMAGE_RESIZE === "1" && base) {
-    return `${base}/cdn-cgi/image/${VARIANT_MAP[variant]}/${key}`;
+  if (process.env.NEXT_PUBLIC_CF_IMAGE_RESIZE === "1" && r2Base) {
+    return `${r2Base}/cdn-cgi/image/${VARIANT_MAP[variant]}/${key}`;
   }
 
   const hash = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
@@ -254,5 +256,8 @@ export function getImageUrl(
     return `https://imagedelivery.net/${hash}/${key}/${CF_NAMED_VARIANT[variant]}`;
   }
 
-  return base ? `${base}/${key}` : key;
+  if (r2Base) return `${r2Base}/${key}`;
+  if (supabaseUrl) return `${supabaseUrl}/storage/v1/object/public/${supabaseBucket}/${key}`;
+
+  return key;
 }

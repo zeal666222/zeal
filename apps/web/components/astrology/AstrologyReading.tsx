@@ -553,8 +553,7 @@ export default function AstrologyReading({
                   setTimeout(() => setShareToast(false), 2500);
                 }
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
-                         glass-luxury text-muted-foreground hover:text-foreground transition-all btn-premium"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground transition-all btn-premium"
             >
               <Share2 size={12} /> Share reading
             </button>
@@ -564,8 +563,7 @@ export default function AstrologyReading({
                 setShareToast(true);
                 setTimeout(() => setShareToast(false), 2500);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold
-                         glass-luxury text-muted-foreground hover:text-foreground transition-all btn-premium"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground transition-all btn-premium"
             >
               <Download size={12} /> Download PDF
             </button>

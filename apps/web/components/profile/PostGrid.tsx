@@ -153,8 +153,7 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: Math.min(idx * 0.03, 0.3) }}
               onClick={() => setSelected(post)}
-              className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden
-                         bg-surface-raised group"
+              className="relative aspect-square rounded-lg md:rounded-xl overflow-hidden bg-surface-raised group"
             >
               {thumb ? (
                 <img
@@ -164,9 +163,7 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center
-                                bg-gradient-to-br from-surface to-surface-raised
-                                p-3">
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-surface to-surface-raised p-3">
                   <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-5 text-center leading-tight">
                     {post.content}
                   </p>
@@ -174,16 +171,13 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
               )}
 
               {post.mediaType === "carousel" && (
-                <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md
-                                 bg-black/60 backdrop-blur-sm
-                                 text-white text-[9px] font-black">
+                <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-sm text-white text-[9px] font-black">
                   1/{post.mediaUrls.length}
                 </span>
               )}
 
               {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100
-                              transition-opacity flex items-center justify-center gap-4 text-white text-xs font-bold">
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-xs font-bold">
                 <span className="flex items-center gap-1">
                   <Heart size={13} className="fill-white" /> {post.cheerCount}
                 </span>
@@ -204,8 +198,7 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setSelected(null)}
-            className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md
-                       flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
@@ -215,8 +208,7 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
               role="dialog"
               aria-modal="true"
               aria-label="Post detail"
-              className="w-full max-w-2xl bg-surface border border-border rounded-3xl
-                         overflow-hidden max-h-[90vh] flex flex-col"
+              className="w-full max-w-2xl bg-surface border border-border rounded-3xl overflow-hidden max-h-[90vh] flex flex-col"
             >
               <div className="flex items-center justify-between px-5 py-3 border-b border-border">
                 <p className="text-xs font-bold text-muted-foreground">
@@ -287,8 +279,7 @@ export function PostGrid({ userId, isSelf = false, onDeleted }: Props) {
                   <p className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
                     {selected.content}
                   </p>
-                  <div className="flex items-center gap-5 mt-4 pt-3 border-t border-border
-                                  text-xs text-muted-foreground">
+                  <div className="flex items-center gap-5 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Heart size={12} /> {selected.cheerCount}
                     </span>

@@ -19,8 +19,9 @@ import {
   createAdminClient,
 } from "@zeal/database/server";
 import { checkRateLimit, aiRateLimiter, aiStrictLimiter } from "@/lib/rate-limit";
-import { callAIJson, withAICache } from "@/lib/ai";
+import { callAIJson, withAICache, AIUnavailableError } from "@/lib/ai";
 import { CATEGORY_ID_TO_NAME } from "@/lib/services/slug";
+import { detectLanguage, languageDirective } from "@/lib/ai/language";
 
 // ═══════════════════════════════════════════════════════════════════
 // Vercel maxDuration — extends the default 10s/15s limit.
@@ -31,6 +32,25 @@ export const maxDuration = 60;
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+// ─── Shared Zeal Consultant Directive ───────────────────────────────────────
+// Prepended to every free-text handler's system prompt. JSON-contract handlers
+// (search, concierge) get a scoped note so the strict output shape survives.
+const ZEAL_CONSULTANT_DIRECTIVE = [
+  "ZEAL CONSULTANT DIRECTIVE (applies to everything you output):",
+  "",
+  "LANGUAGE:",
+  'Default to warm Hinglish (Roman-script Hindi+English mix). Always mirror the seeker\'s language on this turn — see the TURN LANGUAGE system message that follows.',
+  "",
+  "BACKGROUND ANALYSIS:",
+  "Before answering, do a detailed analysis of everything the user provided (birth details, question, symbols, uploaded file). State briefly what you observed before interpreting.",
+  "",
+  "VERIFY PAST EVENTS FIRST:",
+  "To build confidence, first reference verifiable past patterns/events implied by the input (e.g. past Saturn transit effects the user can confirm), then give self-reasoned predictions about the future. Be specific and grounded, not generic.",
+  "",
+  "CONFIDENCE:",
+  "Give a confidence level and explain your reasoning. Never fabricate exact dates as certainty; frame probabilities honestly.",
+].join("\n");
 
 // ─── Error taxonomy ─────────────────────────────────────────────────────────
 // Handlers throw ValidationError for caller mistakes (bad input, short
@@ -54,6 +74,7 @@ type TaskName =
   | "concierge";
 
 const STRICT_TASKS: TaskName[] = ["search", "concierge"];
+const CACHEABLE_TASKS = new Set<TaskName>(["horoscope", "tarot", "numerology"]);
 
 interface TaskCtx {
   body: Record<string, unknown>;
@@ -67,6 +88,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   search: async ({ body }) => {
     const query = String(body?.query ?? "").trim();
     if (query.length < 3) throw new ValidationError("Query too short");
+    if (query.length > 500) throw new ValidationError("Input too long");
 
     const categoryIds = Object.keys(CATEGORY_ID_TO_NAME);
     const catList = categoryIds
@@ -82,7 +104,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
           messages: [
             {
               role: "system",
-              content: `You are a wellness query classifier. Given a user query, pick ONE category ID from this list:\n${catList}\n\nReturn ONLY JSON: {"categoryId":"<id>","confidence":0.0-1.0,"mood":"<short>"}. No markdown, no explanation.`,
+              content: `${ZEAL_CONSULTANT_DIRECTIVE}\n\nIMPORTANT: the strict JSON-only contract below overrides this directive's language and free-text rules — return raw JSON only. The "mood" field may follow the Hinglish default.\n\nYou are a wellness query classifier. Given a user query, pick ONE category ID from this list:\n${catList}\n\nReturn ONLY JSON: {"categoryId":"<id>","confidence":0.0-1.0,"mood":"<short>"}. No markdown, no explanation.`,
             },
             { role: "user", content: query },
           ],
@@ -151,7 +173,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
             {
               role: "system",
               content:
-                "You are an expert Vedic astrologer. Provide specific, practical daily horoscopes. Avoid generic fortune-teller clichés.",
+                `${ZEAL_CONSULTANT_DIRECTIVE}\n\nYou are an expert Vedic astrologer. Provide specific, practical daily horoscopes. Avoid generic fortune-teller clichés. Briefly note the chart/transit pattern you are reading (background analysis), reference a verifiable past transit pattern, then give the forward-looking guidance with an honest confidence note.`,
               cache_control: { type: "ephemeral" },
             },
             {
@@ -185,7 +207,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
             {
               role: "system",
               content:
-                "You are an expert Tarot reader using Rider-Waite symbolism. Provide grounded, actionable interpretations.",
+                `${ZEAL_CONSULTANT_DIRECTIVE}\n\nYou are an expert Tarot reader using Rider-Waite symbolism. Provide grounded, actionable interpretations. Name what each card shows (background analysis), relate the Past card to something the seeker can verify, then reason forward.`,
               cache_control: { type: "ephemeral" },
             },
             {
@@ -218,7 +240,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
             {
               role: "system",
               content:
-                "You are a master numerologist. Calculate Life Path, Destiny, Soul Urge accurately. Provide grounded readings.",
+                `${ZEAL_CONSULTANT_DIRECTIVE}\n\nYou are a master numerologist. Calculate Life Path, Destiny, Soul Urge accurately. Provide grounded readings. Show the numbers you derived (background analysis), point to a past cycle the seeker can confirm, then project ahead with a confidence note.`,
               cache_control: { type: "ephemeral" },
             },
             {
@@ -239,14 +261,20 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   chat: async ({ body }) => {
     const prompt = String(body?.prompt ?? "").trim();
     if (!prompt) throw new ValidationError("Prompt required");
+    if (prompt.length > 4000) throw new ValidationError("Input too long");
 
     const reply = await callAIJson({
       messages: [
         {
           role: "system",
-          content:
+          content: `${ZEAL_CONSULTANT_DIRECTIVE}\n\n${
             (body?.system as string | undefined) ??
-            "You are Zeal, an empathetic wellness concierge.",
+            "You are Zeal, an empathetic wellness concierge."
+          }`,
+        },
+        {
+          role: "system",
+          content: `TURN LANGUAGE: ${languageDirective(detectLanguage(prompt))}`,
         },
         { role: "user", content: prompt },
       ],
@@ -266,7 +294,11 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
         {
           role: "system",
           content:
-            "You are an AI assistant for wellness consultants. Provide 3 short empathetic reply suggestions. Return only the suggestions, one per line, numbered 1-3.",
+            `${ZEAL_CONSULTANT_DIRECTIVE}\n\nIMPORTANT: keep the strict output format below — exactly 3 numbered lines, no paragraphs. You are an AI assistant for wellness consultants. Provide 3 short empathetic reply suggestions the consultant can send back to the seeker. Suggestions follow the seeker's language on this turn. Return only the suggestions, one per line, numbered 1-3.`,
+        },
+        {
+          role: "system",
+          content: `TURN LANGUAGE: ${languageDirective(detectLanguage(query))}`,
         },
         { role: "user", content: query },
       ],
@@ -297,6 +329,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
   concierge: async ({ body }) => {
     const query = String(body?.query ?? "").trim();
     if (query.length < 3) throw new ValidationError("Query too short");
+    if (query.length > 500) throw new ValidationError("Input too long");
 
     // 1. Cached directory (search_consultants MV)
     const { value: directory } = await withAICache(
@@ -381,6 +414,10 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
 
     // 4. System prompt — structured JSON contract
     const systemPrompt = [
+      ZEAL_CONSULTANT_DIRECTIVE,
+      "",
+      "IMPORTANT: the strict JSON-only contract below overrides this directive's free-text rules — return raw JSON only. Inside the \"response\" string field, follow the LANGUAGE rule (Hinglish default) and keep the warm, grounded tone.",
+      "",
       "You are Zeal, a warm, empathetic concierge for a multi-faith wellness platform.",
       "Your job: understand what the user needs and connect them with the right guide.",
       "",
@@ -497,11 +534,14 @@ export async function POST(req: Request) {
     }
 
     // 3. Parse body
-    let body: Record<string, unknown> = {};
+    let body: Record<string, unknown>;
     try {
       body = (await req.json()) as Record<string, unknown>;
     } catch {
-      body = {};
+      return NextResponse.json(
+        { error: "Invalid JSON body", code: "VALIDATION" },
+        { status: 400 },
+      );
     }
 
     // 4. Execute handler
@@ -511,15 +551,32 @@ export async function POST(req: Request) {
       supabase,
     });
 
+    const responseHeaders: Record<string, string> = { ...rl.headers };
+    if (CACHEABLE_TASKS.has(task)) {
+      responseHeaders["Cache-Control"] = "public, max-age=300";
+    } else {
+      responseHeaders["Cache-Control"] = "no-store";
+    }
+
     return NextResponse.json(
       { success: true, task, ...(result as Record<string, unknown>) },
-      { headers: rl.headers },
+      { headers: responseHeaders },
     );
   } catch (err) {
     if (err instanceof ValidationError) {
       return NextResponse.json(
         { error: err.message, code: "VALIDATION" },
         { status: 400 },
+      );
+    }
+    if (err instanceof AIUnavailableError) {
+      return NextResponse.json(
+        {
+          error: "AI services are temporarily unavailable. Please try again.",
+          code: "AI_UNAVAILABLE",
+          retryable: true,
+        },
+        { status: 503 },
       );
     }
     const message = err instanceof Error ? err.message : "AI request failed";

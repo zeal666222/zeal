@@ -1,17 +1,17 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL AI Engine — Main Router
+// ZEAL AI Engine — Main Router (v3 — 100-concurrent scaling)
 // ═══════════════════════════════════════════════════════════════════════════════
-// Single entry point: `callAI(opts)`.
 //
 // Pipeline per request:
-//   1. Build provider chain (preferProvider first, then by weight)
+//   0. Dedup check — collapse identical requests within 5s window
+//   1. Build provider chain — health-weighted sort (success rate × base weight)
 //   2. For each provider:
 //      a. Skip if circuit breaker is open
 //      b. Acquire ConcurrencyGate slot
 //      c. Check TokenBucket (RPM + TPM)
 //      d. Fire request with 30s AbortController
 //      e. On 200 → record success, return Response
-//      f. On 429 → honour Retry-After, backoff, retry (max 3)
+//      f. On 429 → honour Retry-After, backoff, retry (max 2)
 //      g. On 5xx → backoff with jitter, retry (max 2)
 //      h. On 4xx other → skip provider
 //   3. If all providers fail → throw AIUnavailableError
@@ -20,6 +20,15 @@
 import { getGate } from "./concurrency-gate";
 import { getLimiter } from "./token-bucket";
 import { getBreaker } from "./circuit-breaker";
+import {
+  CF_AI_MODEL,
+  workersAiChatUrl,
+  workersAiKey,
+} from "./cloudflare-workers-ai";
+import {
+  contentToText,
+  hasStructuredContent,
+} from "./types";
 import type {
   AIMessage,
   CallAIOptions,
@@ -31,46 +40,123 @@ import type {
 
 // ─── Provider registry ────────────────────────────────────────────────────────
 //
-// Rates reflect Groq free-tier defaults (30 RPM / 12K TPM for 70b, 30 RPM /
-// 6K TPM for 8b). Agnes uses the 1000 RPM Token Plan tier. Adjust via env
-// when you upgrade tiers.
+// Scaled for 100 concurrent users. Total slots: ~95.
+// Keyless providers carry the bulk of free-tier traffic.
 //
-// __ZEAL_PROVIDERS_V2__
+// __ZEAL_PROVIDERS_V3__
+const ZHIPU_MODEL = process.env.ZHIPU_MODEL || "glm-4v-flash";
+
 const PROVIDERS: Record<ProviderName, ProviderDef> = {
   groqPro: {
     name: "groqPro", label: "Groq 70B",
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.3-70b-versatile",
-    maxConcurrent: 3, rpm: 28, tpm: 10_000, weight: 100,
+    maxConcurrent: 8, rpm: 28, tpm: 10_000, weight: 100,
   },
   groqFast: {
     name: "groqFast", label: "Groq 8B",
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.1-8b-instant",
-    maxConcurrent: 6, rpm: 28, tpm: 5_500, weight: 80,
+    maxConcurrent: 10, rpm: 30, tpm: 6_000, weight: 80,
   },
   agnes: {
     name: "agnes", label: "Agnes 2.5 Flash",
     url: "https://apihub.agnes-ai.com/v1/chat/completions",
     key: () => process.env.AGNES_API_KEY,
     model: "agnes-2.5-flash",
-    maxConcurrent: 4, rpm: 18, tpm: 32_000, weight: 70,
+    maxConcurrent: 8, rpm: 20, tpm: 32_000, weight: 70,
   },
   zhipu: {
     name: "zhipu", label: "Zhipu GLM",
     url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     key: () => process.env.ZHIPU_API_KEY,
-    model: "glm-4-flash",
-    maxConcurrent: 2, rpm: 30, tpm: 15_000, weight: 40,
+    model: ZHIPU_MODEL,
+    maxConcurrent: 6, rpm: 30, tpm: 15_000, weight: 40,
+    // Set ZHIPU_MODEL=glm-4v-flash (their free vision model, same auth + shape)
+    // to let uploaded photos reach the model instead of being flattened to text.
+    supportsVision: ZHIPU_MODEL.includes("4v"),
+  },
+  cloudflareAi: {
+    name: "cloudflareAi", label: "Cloudflare Workers AI",
+    // OpenAI-compatible endpoint → fits the existing engine interface exactly
+    // (same { model, messages, temperature, max_tokens } body, same
+    // { choices[0].message.content } response parsed by callAIJson).
+    // URL is built from CF_ACCOUNT_ID at module load; fails safe when unset
+    // because `key()` returns null → engine silently skips the provider.
+    url: workersAiChatUrl(),
+    key: workersAiKey,
+    model: CF_AI_MODEL,
+    maxConcurrent: 8, rpm: 20, tpm: 15_000, weight: 35,
+    supportsVision: CF_AI_MODEL.includes("vision"),
+  },
+  ovh: {
+    name: "ovh", label: "OVHcloud Qwen",
+    url: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions",
+    key: () => null,
+    model: "qwen3-32b",
+    maxConcurrent: 8, rpm: 15, tpm: 20_000, weight: 30,
+    keyless: true,
+  },
+  kilo: {
+    name: "kilo", label: "Kilo Free",
+    url: "https://api.kilo.ai/api/gateway",
+    key: () => null,
+    model: "kilo-auto/free",
+    maxConcurrent: 8, rpm: 20, tpm: 20_000, weight: 25,
+    keyless: true,
+  },
+  llm7: {
+    name: "llm7", label: "LLM7 Free",
+    url: "https://api.llm7.io/v1/chat/completions",
+    key: () => null,
+    model: "gpt-oss",
+    maxConcurrent: 8, rpm: 25, tpm: 20_000, weight: 22,
+    keyless: true,
+  },
+  duckduckgo: {
+    name: "duckduckgo", label: "DuckDuckGo AI",
+    url: "https://duckduckgo.com/duckchat/v1/chat",
+    key: () => null,
+    model: "gpt-4o-mini",
+    maxConcurrent: 6, rpm: 15, tpm: 15_000, weight: 18,
+    keyless: true,
+    extraHeaders: () => ({
+      "x-vqd-accept": "1",
+      "Content-Type": "application/json",
+    }),
+  },
+  freegpt: {
+    name: "freegpt", label: "FreeGPT API",
+    url: "https://api.freegpt4.cc/v1/chat/completions",
+    key: () => null,
+    model: "gpt-4",
+    maxConcurrent: 6, rpm: 15, tpm: 15_000, weight: 15,
+    keyless: true,
+  },
+  // Pollinations — OpenAI-compatible keyless endpoint, currently the most
+  // reliable free fallback. `text.pollinations.ai/openai` accepts the standard
+  // {model, messages, ...} body and returns {choices[0].message.content}.
+  // Pinned ahead of the dead keyless providers so the engine actually has a
+  // working last-resort lane when paid keys (GROQ/etc.) are absent/invalid.
+  pollinations: {
+    name: "pollinations", label: "Pollinations Free",
+    url: "https://text.pollinations.ai/openai",
+    key: () => null,
+    model: "openai-fast",
+    maxConcurrent: 8, rpm: 30, tpm: 20_000, weight: 55,
+    keyless: true,
   },
 };
 
-const FALLBACK_CHAIN: ProviderName[] = ["groqPro", "agnes", "groqFast", "zhipu"];
-// __ZEAL_ENGINE_BUDGET__
-const PROVIDER_WALL_MS = 12_000;
-const TOTAL_WALL_MS = 25_000;
+const FALLBACK_CHAIN: ProviderName[] = [
+  "groqPro", "agnes", "groqFast", "zhipu", "cloudflareAi",
+  "pollinations", "ovh", "kilo", "llm7", "duckduckgo", "freegpt",
+];
+// __ZEAL_ENGINE_BUDGET_V3__
+const PROVIDER_WALL_MS = 10_000;
+const TOTAL_WALL_MS = 22_000;
 
 // ─── Human-facing error ───────────────────────────────────────────────────────
 export class AIUnavailableError extends Error {
@@ -86,6 +172,39 @@ export class AIUnavailableError extends Error {
 const HUMAN_UNAVAILABLE =
   "I'm taking a brief pause — give me a moment and try again.";
 
+// ─── Request deduplication ────────────────────────────────────────────────────
+// Collapses identical requests within a 5s window (e.g. user double-clicks).
+const DEDUP_TTL_MS = 5_000;
+const dedupMap = new Map<string, { promise: Promise<CallAIResult>; ts: number }>();
+
+function dedupKey(opts: CallAIOptions): string {
+  const msgHash = opts.messages.map((m) => `${m.role}:${contentToText(m.content).slice(0, 200)}`).join("|");
+  return `${msgHash}|${opts.temperature ?? 0.7}|${opts.maxTokens ?? 1200}|${opts.stream ? "s" : "n"}`;
+}
+
+function purgeDedup(): void {
+  const cutoff = Date.now() - DEDUP_TTL_MS;
+  for (const [k, v] of dedupMap) {
+    if (v.ts < cutoff) dedupMap.delete(k);
+  }
+}
+
+// ─── Health-based provider scoring ────────────────────────────────────────────
+// Dynamically adjusts provider order based on recent success rate.
+function healthWeightedChain(): ProviderName[] {
+  return [...FALLBACK_CHAIN].sort((a, b) => {
+    const ha = getBreaker(a).health();
+    const hb = getBreaker(b).health();
+    const totalA = ha.successCount + ha.failureCount;
+    const totalB = hb.successCount + hb.failureCount;
+    const rateA = totalA > 0 ? ha.successCount / totalA : 1;
+    const rateB = totalB > 0 ? hb.successCount / totalB : 1;
+    const scoreA = PROVIDERS[a].weight * rateA;
+    const scoreB = PROVIDERS[b].weight * rateB;
+    return scoreB - scoreA;
+  });
+}
+
 // ─── Backoff ──────────────────────────────────────────────────────────────────
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -100,12 +219,32 @@ async function callProviderOnce(
   provider: ProviderDef,
   opts: CallAIOptions,
 ): Promise<Response> {
-  const apiKey = provider.key();
-  if (!apiKey) throw new Error(`missing API key for ${provider.name}`);
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (!provider.keyless) {
+    const apiKey = provider.key();
+    if (!apiKey) throw new Error(`missing API key for ${provider.name}`);
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+
+  if (provider.extraHeaders) {
+    Object.assign(headers, provider.extraHeaders());
+  }
+
+  // Vision-blind providers receive flattened text so one attached photo can
+  // never hard-fail the whole fallback chain on an image_url part.
+  const messages: AIMessage[] =
+    provider.supportsVision || !hasStructuredContent(opts.messages)
+      ? opts.messages
+      : opts.messages.map((m) =>
+          typeof m.content === "string" ? m : { ...m, content: contentToText(m.content) },
+        );
 
   const body: Record<string, unknown> = {
     model: provider.model,
-    messages: opts.messages,
+    messages,
     temperature: opts.temperature ?? 0.7,
     max_tokens: opts.maxTokens ?? 1200,
   };
@@ -128,10 +267,7 @@ async function callProviderOnce(
     return await fetch(provider.url, {
       method: "POST",
       signal: ctrl.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
     });
   } finally {
@@ -151,24 +287,52 @@ export async function callAI(
 ): Promise<CallAIResult> {
   const emit = opts.onEvent ?? (() => {});
   const requestId = opts.requestId ?? `req-${Date.now().toString(36)}`;
-  const maxRetries = opts.maxRetriesPerProvider ?? 1;
+  const maxRetries = opts.maxRetriesPerProvider ?? 2;
 
-  // Build provider chain: preferred first, then remaining by weight desc
+  // ─── Dedup: collapse identical requests within 5s ───────────────────────
+  // Streaming responses are single-consumer; sharing one Response.body between
+  // two callers would tear the stream apart, so streams are never deduped.
+  purgeDedup();
+  if (!opts.stream) {
+    const dk = dedupKey(opts);
+    const existing = dedupMap.get(dk);
+    if (existing) {
+      return existing.promise;
+    }
+
+    const actualCall = _callAIInner(opts, emit, requestId, maxRetries);
+    dedupMap.set(dk, { promise: actualCall, ts: Date.now() });
+    // Swallow on the cleanup chain — `p.finally(cb)` re-throws, and nothing
+    // awaits that derived promise (unhandledRejection on every provider failure).
+    void actualCall.catch(() => {}).finally(() => { dedupMap.delete(dk); });
+    return actualCall;
+  }
+
+  return _callAIInner(opts, emit, requestId, maxRetries);
+}
+
+async function _callAIInner(
+  opts: CallAIOptions & { onEvent?: EngineEventHandler },
+  emit: EngineEventHandler,
+  requestId: string,
+  maxRetries: number,
+): Promise<CallAIResult> {
+  // Build provider chain: preferred first, then health-weighted sort
+  const baseChain = healthWeightedChain();
   const chain: ProviderName[] = opts.preferProvider
     ? [
         opts.preferProvider,
-        ...FALLBACK_CHAIN.filter((p) => p !== opts.preferProvider),
+        ...baseChain.filter((p) => p !== opts.preferProvider),
       ]
-    : [...FALLBACK_CHAIN].sort(
-        (a, b) => PROVIDERS[b].weight - PROVIDERS[a].weight,
-      );
+    : baseChain;
 
   const attempts: Array<{ provider: ProviderName; reason: string }> = [];
   let lastInternal = "all providers failed";
 
   const __chainStart = Date.now();
+  const totalWallMs = opts.totalWallMs ?? TOTAL_WALL_MS;
   for (const key of chain) {
-    if (Date.now() - __chainStart > TOTAL_WALL_MS) {
+    if (Date.now() - __chainStart > totalWallMs) {
       lastInternal = "global wall-clock budget exceeded";
       attempts.push({ provider: key, reason: "budget-exceeded" });
       break;
@@ -207,10 +371,19 @@ export async function callAI(
         provider: key,
         reason: `rate-limited:${limit.reason}:wait=${limit.waitMs}ms`,
       });
-      // If we have time budget, wait then continue to next provider
-      // (we don't wait here — we fall through to the next provider)
       lastInternal = `${provider.label}: ${limit.reason} exhausted`;
       continue;
+    }
+
+    // ─── Silent skip: missing API key (no failure recorded) ────────────
+    if (!provider.keyless) {
+      const apiKey = provider.key();
+      if (!apiKey) {
+        emit({ type: "provider:skip", provider: key, reason: "missing-api-key" });
+        attempts.push({ provider: key, reason: "missing-api-key" });
+        lastInternal = `${provider.label}: no API key configured`;
+        continue;
+      }
     }
 
     // ─── Retry loop ────────────────────────────────────────────────────
@@ -372,4 +545,5 @@ export async function callAIJson(
 export { allGateStats } from "./concurrency-gate";
 export { allLimiterSnapshots } from "./token-bucket";
 export { allBreakerHealth, resetAllBreakers } from "./circuit-breaker";
-export type { AIMessage, CallAIOptions, EngineEvent, EngineEventHandler } from "./types";
+export type { AIMessage, AIContentPart, CallAIOptions, EngineEvent, EngineEventHandler } from "./types";
+export { contentToText, hasStructuredContent } from "./types";

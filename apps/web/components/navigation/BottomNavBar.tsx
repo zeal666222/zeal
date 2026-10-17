@@ -2,13 +2,13 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // BottomNavBar — a premium floating glass dock
 // ─────────────────────────────────────────────────────────────────────────────
-// Home · Explore · (Morph-Z brand orb) · Chat · Me
+// Home · Explore · (brand orb) · Chat · Me
 //
 // Design intent: industry-grade, brand-forward, buttery, and stable.
 //   • Floating "island" dock — luxury glass, gold hairline ring, deep shadow.
 //   • Magic-move active capsule (shared layoutId) glides between tabs.
-//   • Central Z orb = the brand anchor: rotating conic aura + concentric
-//     pulse rings + SMIL path-morphing mark + spring press feedback.
+//   • Central orb = ZealMark, the same chart geometry the header lockup uses,
+//     on a night-sky tile with a rotating conic aura and a spring press.
 //   • Top-edge light sweep for a living, glassy surface.
 //   • All infinite/ambient motion is gated by prefers-reduced-motion for
 //     accessibility and to avoid needless GPU churn.
@@ -16,9 +16,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Compass, Home, MessageCircle, User } from "lucide-react";
-import { AnimatedZealMark, cn } from "@zeal/ui";
+import { ZealMark, ZealBurst, cn } from "@zeal/ui";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { useEffect, useState } from "react";
 
@@ -31,13 +31,6 @@ interface MessageRow {
 // ─── Motion presets (tuned for a weighted, expensive feel) ───────────────────
 const GLIDE = { type: "spring", stiffness: 300, damping: 26, mass: 0.9 } as const;
 const POP   = { type: "spring", stiffness: 520, damping: 20, mass: 0.7 } as const;
-const DOCK_ENTRY: Variants = {
-  hidden: { y: 88, opacity: 0, filter: "blur(6px)" },
-  show: {
-    y: 0, opacity: 1, filter: "blur(0px)",
-    transition: { type: "spring", stiffness: 220, damping: 26, mass: 1.05, delay: 0.08 },
-  },
-};
 
 interface DockItemProps {
   href: string;
@@ -65,11 +58,7 @@ function DockItem({ href, icon: Icon, label, active, badge = 0 }: DockItemProps)
         <motion.span
           layoutId="dock-active-capsule"
           transition={GLIDE}
-          className="pointer-events-none absolute inset-x-1.5 inset-y-1 rounded-2xl
-                     bg-gradient-to-b from-[var(--color-primary)]/18
-                     via-[var(--color-primary)]/10 to-[var(--color-luxury-gold)]/12
-                     ring-1 ring-inset ring-[var(--color-primary)]/25"
-          style={{ boxShadow: "0 0 24px -8px rgba(157,125,197,0.6)" }}
+          className="app-dock-capsule pointer-events-none absolute inset-x-1.5 inset-y-1 rounded-2xl"
         />
       )}
 
@@ -83,13 +72,13 @@ function DockItem({ href, icon: Icon, label, active, badge = 0 }: DockItemProps)
         <Icon
           size={21}
           strokeWidth={active ? 2.5 : 1.9}
-          className={cn(
-            "transition-colors duration-200",
-            active
-              ? "text-[var(--color-primary)]"
-              : "text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)]",
-          )}
-          style={active ? { filter: "drop-shadow(0 0 8px rgba(157,125,197,0.5))" } : undefined}
+          className="transition-colors duration-200"
+          style={{
+            color: active
+              ? "var(--appdock-accent)"
+              : "var(--appdock-muted)",
+            filter: active ? "drop-shadow(0 0 9px color-mix(in srgb, var(--appdock-accent) 55%, transparent))" : undefined,
+          }}
         />
 
         {badge > 0 && (
@@ -98,10 +87,7 @@ function DockItem({ href, icon: Icon, label, active, badge = 0 }: DockItemProps)
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
             transition={POP}
-            className="absolute -top-1.5 -right-2 grid min-w-[16px] place-items-center
-                       rounded-full bg-gradient-to-br from-rose-500 to-rose-600 px-1
-                       text-[9px] font-black text-white
-                       shadow-[0_2px_8px_-1px_rgba(244,63,94,0.7)] ring-2 ring-[var(--color-surface)]"
+            className="absolute -top-1.5 -right-2 grid min-w-[16px] place-items-center rounded-full bg-gradient-to-br from-rose-500 to-rose-600 px-1 text-[9px] font-black text-white shadow-[0_2px_8px_-1px_rgba(244,63,94,0.7)] ring-2 ring-[var(--appdock-1)]"
           >
             {badge > 9 ? "9+" : badge}
           </motion.span>
@@ -109,13 +95,8 @@ function DockItem({ href, icon: Icon, label, active, badge = 0 }: DockItemProps)
       </motion.span>
 
       <span
-        className={cn(
-          "relative z-10 text-[9.5px] font-black uppercase tracking-[0.14em]",
-          "transition-colors duration-200",
-          active
-            ? "text-[var(--color-primary)]"
-            : "text-[var(--color-muted-foreground)] group-hover:text-[var(--color-foreground)]",
-        )}
+        className="relative z-10 text-[9.5px] font-black uppercase tracking-[0.14em] transition-colors duration-200"
+        style={{ color: active ? "var(--appdock-accent)" : "var(--appdock-muted)" }}
       >
         {label}
       </span>
@@ -124,86 +105,54 @@ function DockItem({ href, icon: Icon, label, active, badge = 0 }: DockItemProps)
 }
 
 // ─── The central brand orb ───────────────────────────────────────────────────
-function BrandOrb({ reduced }: { reduced: boolean }) {
+// A piece of night sky parked in the middle of the dock: the canonical chart
+// mark on a deep tile, one rotating conic aura, one bloom ring. Ambient loops
+// are CSS (they survive HMR, never touch layout, and cost no JS); only press
+// feedback stays spring-driven.
+function BrandOrb({ reduced, active }: { reduced: boolean; active: boolean }) {
+  const [burstKey, setBurstKey] = useState(0);
+
   return (
     <Link
       href="/services"
       aria-label="Services"
+      onPointerDown={() => setBurstKey((n) => n + 1)}
       className={cn(
         "group relative z-20 grid h-16 w-16 -translate-y-8 place-items-center rounded-[22px]",
         "select-none touch-manipulation outline-none",
-        "focus-visible:ring-2 focus-visible:ring-[var(--color-luxury-gold)]/60",
+        "focus-visible:ring-2 focus-visible:ring-[var(--zeal-gold)]",
       )}
     >
-      {/* Ambient floor glow, sitting just under the orb */}
+      {/* Light pooling under the orb */}
       <span
         aria-hidden
-        className="pointer-events-none absolute left-1/2 top-1/2 h-20 w-24 -translate-x-1/2 -translate-y-1/2
-                   rounded-full bg-[var(--color-primary)]/30 blur-2xl"
+        className="orb-pool pointer-events-none absolute left-1/2 top-1/2 h-20 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full blur-2xl"
+        style={{ opacity: active ? 1 : 0.7 }}
       />
 
-      {/* Rotating conic aura (the signature) */}
-      <motion.span
+      <span
         aria-hidden
-        className="pointer-events-none absolute -inset-1.5 rounded-[26px] opacity-80"
-        style={{
-          background:
-            "conic-gradient(from 0deg, var(--color-primary), var(--color-luxury-gold), var(--color-primary-hover), var(--color-primary), var(--color-luxury-gold), var(--color-primary))",
-          filter: "blur(9px)",
-        }}
-        animate={reduced ? undefined : { rotate: 360 }}
-        transition={reduced ? undefined : { duration: 9, repeat: Infinity, ease: "linear" }}
+        className="orb-aura"
+        style={{ opacity: active ? 0.95 : 0.68 }}
       />
+      <span aria-hidden className="orb-aura orb-aura--counter" />
 
-      {/* Counter-rotating inner shimmer ring for depth */}
+      {!reduced && (
+        <>
+          <span aria-hidden className="orb-pulse" />
+          <span aria-hidden className="orb-pulse orb-pulse--late" />
+        </>
+      )}
+
+      {burstKey > 0 && <ZealBurst key={burstKey} radius={30} />}
+
       <motion.span
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-[22px] opacity-60"
-        style={{
-          background:
-            "conic-gradient(from 180deg, transparent, rgba(255,255,255,0.35), transparent 40%)",
-          maskImage: "radial-gradient(circle, transparent 58%, black 62%, black 100%)",
-          WebkitMaskImage: "radial-gradient(circle, transparent 58%, black 62%, black 100%)",
-        }}
-        animate={reduced ? undefined : { rotate: -360 }}
-        transition={reduced ? undefined : { duration: 6, repeat: Infinity, ease: "linear" }}
-      />
-
-      {/* Expanding pulse rings */}
-      {!reduced &&
-        [0, 1].map((i) => (
-          <motion.span
-            key={i}
-            aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-[22px] border border-[var(--color-luxury-gold)]/50"
-            initial={{ scale: 1, opacity: 0.5 }}
-            animate={{ scale: 1.5, opacity: 0 }}
-            transition={{ duration: 2.6, repeat: Infinity, ease: "easeOut", delay: i * 1.3 }}
-          />
-        ))}
-
-      {/* Orb face */}
-      <motion.span
-        whileHover={{ scale: 1.06, rotate: 2 }}
-        whileTap={{ scale: 0.9, rotate: -5 }}
+        whileHover={{ scale: 1.06, y: -3 }}
+        whileTap={{ scale: 0.9 }}
         transition={POP}
-        className="relative grid h-14 w-14 place-items-center rounded-[18px]
-                   bg-gradient-to-br from-[var(--color-primary)] via-[#7A5A9E] to-[var(--color-primary-hover)]
-                   ring-1 ring-white/25
-                   shadow-[0_10px_28px_-8px_rgba(83,58,253,0.7),inset_0_1px_1px_rgba(255,255,255,0.4)]"
+        className="orb-tile relative z-10 grid place-items-center"
       >
-        {/* Glass top sheen */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-[18px]
-                     bg-gradient-to-b from-white/25 to-transparent"
-        />
-        <AnimatedZealMark
-          size={30}
-          glow={false}
-          variant="mono"
-          className="relative z-10 text-white"
-        />
+        <ZealMark size={38} detail="full" title="Zeal services" />
       </motion.span>
     </Link>
   );
@@ -236,38 +185,32 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-center">
-      <motion.div
-        variants={DOCK_ENTRY}
-        initial="hidden"
-        animate="show"
+      <div
         className={cn(
-          "pointer-events-auto relative",
+          "dock-entry pointer-events-auto relative",
           "mb-[max(env(safe-area-inset-bottom),12px)] w-[min(calc(100%-16px),460px)]",
         )}
       >
         {/* Gold-tinted hairline ring wraps the glass */}
         <div
-          className="rounded-[30px] bg-gradient-to-b p-px
-                     from-white/30 via-[var(--color-luxury-glass-border)]/80
-                     to-[var(--color-luxury-gold)]/50"
-          style={{ boxShadow: "0 8px 32px -4px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.2), var(--shadow-luxury-glow)" }}
+          className="rounded-[30px] p-px"
+          style={{
+            backgroundImage:
+              "linear-gradient(180deg, var(--appdock-hairline), color-mix(in srgb, var(--color-luxury-gold) 55%, transparent))",
+          }}
         >
           {/* Clipped glass surface + decorative light */}
-          <div className="relative h-16 overflow-hidden rounded-[29px]
-                         border border-[var(--color-luxury-glass-border)]
-                         bg-[var(--color-surface)]/95 backdrop-blur-2xl">
+          <div className="app-dock relative h-16 overflow-hidden rounded-[29px] border border-[var(--appdock-hairline)]">
             {/* Inner top highlight for the glassy bevel */}
             <span
               aria-hidden
-              className="pointer-events-none absolute inset-x-6 top-0 h-px
-                         bg-gradient-to-r from-transparent via-white/40 to-transparent"
+              className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-[var(--appdock-hairline)] to-transparent"
             />
             {/* Sweeping edge light along the top hairline */}
             {!reduced && (
               <motion.span
                 aria-hidden
-                className="pointer-events-none absolute top-0 left-0 h-px w-1/3
-                           bg-gradient-to-r from-transparent via-[var(--color-luxury-gold)]/90 to-transparent"
+                className="pointer-events-none absolute top-0 left-0 h-px w-1/3 bg-gradient-to-r from-transparent via-[var(--color-luxury-gold)] to-transparent"
                 initial={{ x: "-140%" }}
                 animate={{ x: "360%" }}
                 transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut", repeatDelay: 1.6 }}
@@ -276,8 +219,8 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
             {/* Warm floor glow beneath the brand orb */}
             <span
               aria-hidden
-              className="pointer-events-none absolute left-1/2 bottom-[-40%] h-24 w-40 -translate-x-1/2
-                         rounded-full bg-[var(--color-primary)]/22 blur-2xl"
+              className="pointer-events-none absolute left-1/2 bottom-[-40%] h-24 w-40 -translate-x-1/2 rounded-full blur-2xl"
+              style={{ background: "color-mix(in srgb, var(--color-primary) 26%, transparent)" }}
             />
 
             {/* Tab row */}
@@ -289,13 +232,11 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
                   The brand orb itself is drawn in a non-clipped overlay below. */}
               <div className="relative flex h-full flex-1 items-center justify-center">
                 <span
-                  className={cn(
-                    "relative z-10 text-[9.5px] font-black uppercase tracking-[0.14em]",
-                    "transition-colors duration-200",
-                    isServices
-                      ? "text-[var(--color-luxury-gold)]"
-                      : "text-[var(--color-muted-foreground)]",
-                  )}
+                  className="relative z-10 text-[9.5px] font-black uppercase tracking-[0.14em] transition-colors duration-200"
+                  style={{
+                    color: isServices ? "var(--appdock-accent)" : "var(--appdock-muted)",
+                    letterSpacing: "0.14em",
+                  }}
                 >
                   Services
                 </span>
@@ -311,10 +252,10 @@ export function BottomNavBar({ userId }: { userId?: string | null }) {
             the dock without being cut off. Centered on the bar, raised upward. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-center">
           <div className="pointer-events-auto">
-            <BrandOrb reduced={reduced} />
+            <BrandOrb reduced={reduced} active={isServices} />
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

@@ -58,6 +58,8 @@ const CreateSchema = z.object({
   isFeatured: z.boolean().default(false),
   specialties: z.array(z.string()).max(20).default([]),
   languages: z.array(z.string()).max(20).default(["English"]),
+  location: z.string().max(80).optional().nullable(),
+  country: z.string().max(80).optional().nullable(),
 });
 
 export const POST = withErrorHandler(async (req: Request) => {
@@ -155,6 +157,8 @@ export const POST = withErrorHandler(async (req: Request) => {
       isFeatured: data.isFeatured,
       specialties: data.specialties,
       languages: data.languages,
+      location: data.location ?? null,
+      country: data.country ?? null,
       model: "groq",
       responseTime: 200,
       accuracy: 0.95,

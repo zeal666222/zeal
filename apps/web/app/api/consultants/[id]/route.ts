@@ -29,6 +29,10 @@ interface ConsultantRow {
   id: string;
   category: string | null;
   perMinuteRate: number | null;
+  chatRate: number | null;
+  audioRate: number | null;
+  videoRate: number | null;
+  physicalRate: number | null;
   rating: number | null;
   totalConsultations: number | null;
   sparkScore: number | null;
@@ -46,6 +50,10 @@ export interface ConsultantPublicResponse {
     avatar: string | null;
     category: string;
     perMinuteRate: number;
+    chatRate: number;
+    audioRate: number;
+    videoRate: number;
+    physicalRate: number;
     rating: number;
     totalConsultations: number;
     sparks: number;
@@ -84,7 +92,7 @@ export async function GET(
     const { data, error } = await admin
       .from("Consultant")
       .select(
-        `id, category, "perMinuteRate", rating, "totalConsultations", "sparkScore",
+        `id, category, "perMinuteRate", "chatRate", "audioRate", "videoRate", "physicalRate", rating, "totalConsultations", "sparkScore",
          specialties, languages, bio,
          user:User!userId(id, name, username, avatar, is_online)`,
       )
@@ -117,6 +125,10 @@ export async function GET(
         avatar: u?.avatar ?? null,
         category: row.category ?? "HEALER",
         perMinuteRate: Number(row.perMinuteRate ?? 50),
+        chatRate: Number(row.chatRate ?? row.perMinuteRate ?? 50),
+        audioRate: Number(row.audioRate ?? row.perMinuteRate ?? 50),
+        videoRate: Number(row.videoRate ?? row.perMinuteRate ?? 50),
+        physicalRate: Number(row.physicalRate ?? row.perMinuteRate ?? 50),
         rating: Number(row.rating ?? 0),
         totalConsultations: Number(row.totalConsultations ?? 0),
         sparks: Number(row.sparkScore ?? 0),

@@ -79,7 +79,11 @@ export default function CreatePage() {
         return null;
       }
       const data = (await res.json()) as { url?: string; key?: string };
-      return data.key ?? data.url ?? null;
+      if (!data.url) {
+        toast({ title: "Upload returned no URL", variant: "destructive" });
+        return null;
+      }
+      return data.url;
     } catch {
       return null;
     } finally {
@@ -123,8 +127,9 @@ export default function CreatePage() {
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => router.back()}
-            className="p-2 rounded-xl hover:bg-surface-raised"
+            className="p-2 rounded-xl hover:bg-surface-raised active:scale-95 transition-all"
             aria-label="Back"
           >
             <ArrowLeft size={16} />
@@ -139,8 +144,7 @@ export default function CreatePage() {
           <motion.div
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20
-                       text-amber-400 text-xs font-bold flex items-start gap-2"
+            className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold flex items-start gap-2"
           >
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <span>
@@ -151,8 +155,7 @@ export default function CreatePage() {
         )}
 
         {!isBlocked && limit && (
-          <div className="mb-6 p-3 rounded-2xl bg-surface border border-border
-                          text-xs text-muted-foreground flex items-center gap-2">
+          <div className="mb-6 p-3 rounded-2xl bg-surface border border-border text-xs text-muted-foreground flex items-center gap-2">
             <Sparkles size={12} className="text-[var(--color-luxury-gold)]" />
             <span>
               {limit.remaining} of {limit.limit} posts remaining
@@ -161,8 +164,7 @@ export default function CreatePage() {
         )}
 
         {state && !state.ok && (
-          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20
-                          text-rose-400 text-xs font-bold">
+          <div className="mb-6 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold">
             {state.error}
           </div>
         )}
@@ -184,8 +186,7 @@ export default function CreatePage() {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); setFile(null); setMediaUrls([]); }}
-                  className="absolute top-2 right-2 p-2 bg-black/60 rounded-full
-                             text-white hover:bg-black/80"
+                  className="absolute top-2 right-2 p-2 bg-black/60 rounded-full text-white hover:bg-black/80"
                   aria-label="Remove image"
                 >
                   <X size={14} />
@@ -215,8 +216,7 @@ export default function CreatePage() {
           </div>
 
           <div>
-            <label htmlFor="caption" className="block text-[10px] font-black
-                       text-muted-foreground uppercase tracking-widest mb-2">
+            <label htmlFor="caption" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
               Caption
             </label>
             <textarea
@@ -226,10 +226,7 @@ export default function CreatePage() {
               placeholder="Write a caption…"
               rows={4}
               maxLength={2200}
-              className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl
-                         text-sm text-foreground resize-none
-                         placeholder:text-muted-foreground
-                         outline-none focus:border-[var(--color-primary)] transition-colors"
+              className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground resize-none placeholder:text-muted-foreground outline-none focus:border-[var(--color-primary)] transition-colors"
             />
             <p className="text-[10px] text-muted-foreground mt-1.5">
               {caption.length} / 2200
@@ -237,8 +234,7 @@ export default function CreatePage() {
           </div>
 
           <div>
-            <label htmlFor="locationTag" className="block text-[10px] font-black
-                       text-muted-foreground uppercase tracking-widest mb-2">
+            <label htmlFor="locationTag" className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
               Location (optional)
             </label>
             <input
@@ -248,20 +244,14 @@ export default function CreatePage() {
               onChange={(e) => setLocationTag(e.target.value)}
               placeholder="Mumbai, India"
               maxLength={100}
-              className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl
-                         text-sm text-foreground placeholder:text-muted-foreground
-                         outline-none focus:border-[var(--color-primary)] transition-colors"
+              className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-primary)] transition-colors"
             />
           </div>
 
           <button
             type="submit"
             disabled={isBlocked || isPending || uploading || (!caption.trim() && !file)}
-            className="w-full py-4 rounded-2xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white font-black text-sm
-                       disabled:opacity-50 disabled:cursor-not-allowed
-                       flex items-center justify-center gap-2"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {uploading || isPending ? (
               <><Loader2 size={16} className="animate-spin" /> Publishing…</>

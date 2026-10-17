@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Edit3, Loader2, MessageCircle } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
+import { FollowButton } from "@/components/shared/FollowButton";
 
 export function PublicProfileActions({
   userId,
@@ -21,10 +22,7 @@ export function PublicProfileActions({
     return (
       <Link
         href="/profile/edit"
-        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl
-                   border border-border bg-surface
-                   text-foreground text-xs font-black
-                   hover:scale-[1.02] active:scale-[0.98] transition-transform"
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl border border-border bg-surface text-foreground text-xs font-black hover:scale-[1.02] active:scale-[0.98] transition-transform"
       >
         <Edit3 size={14} />
         Edit profile
@@ -62,19 +60,17 @@ export function PublicProfileActions({
   };
 
   return (
-    <button
-      type="button"
-      onClick={() => void openDm()}
-      disabled={busy}
-      className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl
-                 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                 text-white text-xs font-black
-                 shadow-lg shadow-[var(--color-primary-hover)]/20
-                 hover:scale-[1.02] active:scale-[0.98] transition-transform
-                 disabled:opacity-50"
-    >
-      {busy ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
-      Message
-    </button>
+    <div className="flex items-center gap-2">
+      <FollowButton userId={userId} />
+      <button
+        type="button"
+        onClick={() => void openDm()}
+        disabled={busy}
+        className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black shadow-lg shadow-[var(--color-primary-hover)]/20 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50"
+      >
+        {busy ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+        Message
+      </button>
+    </div>
   );
 }

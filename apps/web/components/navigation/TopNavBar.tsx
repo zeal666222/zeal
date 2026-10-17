@@ -5,11 +5,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { LogOut, Settings, Sparkles, UserCircle, Wallet } from "lucide-react";
 import {
-  AnimatedZealMark,
+  ZealLockup,
   ThemeToggle,
   DropdownMenu,
   DropdownMenuTrigger,
@@ -83,10 +84,8 @@ export function TopNavBar({ userId, initialBalance }: Props) {
       initial={{ y: -72, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 h-16 transition-all duration-300 ${
-        scrolled
-          ? "bg-[var(--color-surface)]/80 backdrop-blur-xl border-b border-[var(--color-border)] shadow-sm"
-          : "bg-transparent border-b border-transparent"
+      className={`fixed top-0 left-0 right-0 z-50 h-16 border-b transition-all duration-300 ${
+        scrolled ? "app-bar" : "border-transparent bg-transparent"
       }`}
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
@@ -97,25 +96,14 @@ export function TopNavBar({ userId, initialBalance }: Props) {
 
         <Link
           href="/"
-          className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2.5 group"
+          className="absolute left-1/2 -translate-x-1/2 flex items-center"
           aria-label="Zeal home"
         >
-          <motion.div
-            whileHover={{ scale: 1.08, rotate: -3 }}
-            whileTap={{ scale: 0.94 }}
-            transition={{ type: "spring", stiffness: 400, damping: 18 }}
-          >
-            <AnimatedZealMark size={34} glow />
-          </motion.div>
-
-          <motion.span
-            initial={{ opacity: 0, letterSpacing: "0.3em" }}
-            animate={{ opacity: 1, letterSpacing: "0.15em" }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="hidden sm:inline-block text-lg font-black tracking-tight bg-gradient-to-r from-[var(--color-primary)] via-purple-300 to-[var(--color-primary-hover)] bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(157,125,197,0.35)]"
-          >
-            ZEAL
-          </motion.span>
+          <ZealLockup
+            size={34}
+            glow
+            wordClassName="text-[15px] sm:text-lg"
+          />
         </Link>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -134,8 +122,7 @@ export function TopNavBar({ userId, initialBalance }: Props) {
                     aria-label="Account menu"
                   >
                     {user?.avatar ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={getImageUrl(user.avatar, "avatar-sm")} alt="" className="w-full h-full object-cover" />
+                      <Image src={getImageUrl(user.avatar, "avatar-sm")} alt="" fill sizes="36px" className="object-cover" />
                     ) : (
                       (user?.name || user?.email || "?").charAt(0).toUpperCase()
                     )}

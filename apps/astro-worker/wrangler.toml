@@ -1,6 +1,8 @@
 name = "zeal-astro"
 main = "src/index.ts"
 compatibility_date = "2025-04-01"
+# nodejs_compat keeps Node built-ins (buffer, crypto, path…) available so the
+# astro ephemeris / chart libs run unchanged on the Workers runtime. Do not drop.
 compatibility_flags = ["nodejs_compat"]
 
 [build]
@@ -8,6 +10,46 @@ command = ""
 
 [vars]
 ENVIRONMENT = "production"
+
+# ─── Observability (FREE tier: "Logs for Workers") ─────────────────────────────
+# Streams tail logs to the Cloudflare dashboard at no cost on the Free plan.
+# `tail_sampling_rate` keeps high-traffic charts cheap without losing errors.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+# ─── KV namespace for astro caching (OPTIONAL — FREE tier) ─────────────────────
+# Cache deterministic chart/ephemeris computations at the edge so repeat
+# requests never re-hit the CPU. Create the namespace FIRST, then uncomment:
+#
+#   wrangler kv namespace create ASTRO_CACHE
+#   # copy the printed `id` below, and the preview_id for local dev
+#
+# [[kv_namespaces]]
+# binding = "ASTRO_CACHE"
+# id          = "<production namespace id>"
+# preview_id  = "<development namespace id>"
+#
+# In src, read the binding off the standard `env.ASTRO_CACHE` (TypedCloudflare
+# / ExportedHandlerEnv). Guard every access with `if (env.ASTRO_CACHE)` so the
+# Worker still runs (just uncached) when the binding is absent — fail-safe.
+
+# ─── Static assets (OPTIONAL — only if this Worker also serves files) ──────────
+# Not needed for the current API-only Worker. If you later ship a small admin
+# / status dashboard, point `directory` at the built folder (served free):
+#
+# [assets]
+# directory = "./dist"
+# binding   = "ASSETS"
+# run_worker_first = true   # keep /api routes on the Worker, static from assets
+
+# ─── Execution limits / cost guardrails (guidance) ─────────────────────────────
+# The Free plan already caps CPU time; you do NOT need [limits] (that block is
+# for paid "extended CPU" / GPU). Keep charts inside the free CPU budget by
+# bounding work in code. Left commented so it never trips on the free tier:
+#
+# [limits]
+# cpu_ms = 50        # soft ceiling guidance — enforce in code instead on Free
 
 # ─── Rate limiting (optional — uncomment after creating in CF dashboard) ─────
 # [[unsafe.bindings]]
@@ -20,3 +62,4 @@ ENVIRONMENT = "production"
 [dev]
 port = 8787
 local_protocol = "http"
+

@@ -41,9 +41,9 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   const newSparks = result?.sparks ?? 0;
 
-  await serverPublish("user:" + userId, "sparks:updated", {
-    sparks: newSparks,
-    delta: reward,
+  await serverPublish("consultant:" + userId + ":sparks", "sparks:updated", {
+    type: "UPDATE",
+    record: { id: userId, sparkScore: newSparks, delta: reward },
   });
 
   return NextResponse.json({ success: true, sparks: newSparks });

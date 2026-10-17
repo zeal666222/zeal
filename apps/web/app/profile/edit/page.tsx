@@ -144,9 +144,7 @@ export default function ProfileEditPage() {
           <p className="text-muted-foreground mb-5">Please sign in to edit your profile.</p>
           <Link
             href="/login"
-            className="inline-block px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-sm font-black"
+            className="inline-block px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black"
           >
             Sign in
           </Link>
@@ -164,9 +162,7 @@ export default function ProfileEditPage() {
           <button
             type="button"
             onClick={() => { setError(null); setLoading(true); setRetryKey((k) => k + 1); }}
-            className="inline-block px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-sm font-black"
+            className="inline-block px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black"
           >
             Retry
           </button>
@@ -196,8 +192,7 @@ export default function ProfileEditPage() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20
-                       text-rose-400 text-xs font-bold flex items-start gap-2"
+            className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-bold flex items-start gap-2"
           >
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <span>{state.error}</span>
@@ -224,9 +219,7 @@ export default function ProfileEditPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
               maxLength={30}
-              className="w-full pl-9 pr-10 py-3.5 bg-surface border border-border rounded-2xl
-                         text-sm font-mono text-foreground
-                         outline-none focus:border-[var(--color-primary)] transition-colors"
+              className="w-full pl-9 pr-10 py-3.5 bg-surface border border-border rounded-2xl text-sm font-mono text-foreground outline-none focus:border-[var(--color-primary)] transition-colors"
             />
             <div className="absolute right-4 top-1/2 -translate-y-1/2">
               {usernameStatus.kind === "checking" && (
@@ -264,9 +257,7 @@ export default function ProfileEditPage() {
             defaultValue={initial.bio}
             rows={4}
             maxLength={500}
-            className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl
-                       text-sm text-foreground resize-none
-                       outline-none focus:border-[var(--color-primary)] transition-colors"
+            className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground resize-none outline-none focus:border-[var(--color-primary)] transition-colors"
           />
         </div>
 
@@ -298,19 +289,14 @@ export default function ProfileEditPage() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="flex-1 py-3.5 rounded-2xl bg-surface-raised border border-border
-                       text-muted-foreground text-sm font-black"
+            className="flex-1 py-3.5 rounded-2xl bg-surface-raised border border-border text-muted-foreground text-sm font-black"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={!canSubmit()}
-            className="flex-1 py-3.5 rounded-2xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-sm font-black
-                       disabled:opacity-50 disabled:cursor-not-allowed
-                       flex items-center justify-center gap-2"
+            className="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isPending ? (
               <><Loader2 size={15} className="animate-spin" /> Saving…</>
@@ -354,10 +340,7 @@ function Field({
         defaultValue={defaultValue}
         placeholder={placeholder}
         maxLength={maxLength}
-        className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl
-                   text-sm text-foreground
-                   placeholder:text-muted-foreground
-                   outline-none focus:border-[var(--color-primary)] transition-colors"
+        className="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-primary)] transition-colors"
       />
     </div>
   );

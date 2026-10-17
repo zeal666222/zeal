@@ -1,0 +1,46 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ZEAL Web — Cloudflare deploy guidance (FREE tier only)
+# ─────────────────────────────────────────────────────────────────────────────
+# This file is intentionally conservative: EVERY optional binding is commented
+# out so that `wrangler` / `@opennextjs/cloudflare` deployments succeed even
+# with zero Cloudflare resources provisioned. Uncomment a block only AFTER you
+# have created the matching resource in the dashboard. Nothing here introduces a
+# paid dependency.
+#
+# The middleware (apps/web/middleware.ts) checks EDGE_KV_RATELIMIT at runtime
+# and no-ops when the binding is absent, so leaving these commented is safe.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name = "zeal-web"
+main = "node_modules/@opennextjs/cloudflare/dist/index.js"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+# EDGE_KV_RATELIMIT / EDGE_KV_TTL_SECONDS gate the OPTIONAL distributed limiter.
+# Leave unset to run purely on the edge in-memory fast path (default, free).
+EDGE_KV_RATELIMIT = ""
+EDGE_KV_TTL_SECONDS = "60"
+
+# ─── Workers AI (FREE: ~10k neurons/day) ───────────────────────────────────────
+# Preferred: bind the AI object so the Worker uses `env.AI` (no token exchange,
+# zero network hop, no per-request cost). The engine's cloudflareAi provider
+# also supports the REST fallback via CF_ACCOUNT_ID + CF_AI_TOKEN env vars, so
+# the app works with EITHER this binding OR the REST env vars.
+# [ai]
+# binding = "AI"
+
+# ─── KV namespace: distributed edge rate limiting (OPTIONAL, free) ─────────────
+#   wrangler kv namespace create rateLimitKv
+# then set EDGE_KV_RATELIMIT = "rateLimitKv" above and uncomment:
+#
+# [[kv_namespaces]]
+# binding    = "rateLimitKv"
+# id         = "<production namespace id>"
+# preview_id = "<development namespace id>"
+
+# ─── Observability (FREE: Logs for Workers) ────────────────────────────────────
+[observability]
+enabled = true
+head_sampling_rate = 1

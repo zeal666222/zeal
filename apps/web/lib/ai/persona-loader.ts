@@ -16,7 +16,8 @@ import {
   type PersonaInput,
   type RoleContract,
 } from "./engine/persona-engine";
-import { fetchBirthProfile, toSeekerContext, getMissingFields } from "../birth-profile";
+import { fetchBirthProfile, toSeekerContext, getMissingFields, type BirthProfile } from "../birth-profile";
+import { computeChart } from "./astrology-ai";
 
 export interface PersonaContext extends RoleContract {
   id: string;
@@ -50,6 +51,8 @@ interface AIConsultantRow {
   safetyLevel: string | null;
   bannedPatterns: string[] | null;
   isActive: boolean | null;
+  location: string | null;
+  country: string | null;
 }
 
 export async function loadPersona(
@@ -64,6 +67,40 @@ export async function loadPersona(
       const profile = await fetchBirthProfile(seekerContextOrUserId);
       seekerContext = toSeekerContext(profile);
       missingFields = getMissingFields(profile);
+
+      // Compute ephemeris if we have complete birth data (DOB + POB with coords)
+      if (profile?.dateOfBirth && profile?.latitude && profile?.longitude) {
+        try {
+          const { chartForRAG, dasha } = await computeChart({
+            birthDate: profile.dateOfBirth,
+            birthTime: profile.timeOfBirth ?? "12:00",
+            birthPlace: { lat: profile.latitude, lng: profile.longitude },
+            timezone: "Asia/Kolkata",
+            chartType: "vedic",
+          });
+
+          // Build a concise chart summary to inject into the system prompt
+          const planets = chartForRAG.planets ?? [];
+          const planetSummary = planets
+            .slice(0, 9)
+            .map((p: { name?: string; sign?: string; degree?: number; house?: number }) =>
+              `${p.name}: ${p.sign} ${p.degree?.toFixed(1) ?? "?"}° (House ${p.house ?? "?"})`
+            )
+            .join(", ");
+
+          const dashaSummary = dasha
+            ? `Current Mahadasha: ${dasha.mahadasha.planet} (until ${dasha.mahadasha.endDate}), Antardasha: ${dasha.antardasha.planet} (until ${dasha.antardasha.endDate})`
+            : "";
+
+          // Append chart data to seekerContext for the persona engine
+          seekerContext = {
+            ...seekerContext,
+            chartSummary: planetSummary + (dashaSummary ? `. ${dashaSummary}` : ""),
+          };
+        } catch {
+          // Non-fatal — continue without computed chart
+        }
+      }
     } else if (seekerContextOrUserId && typeof seekerContextOrUserId === "object") {
       seekerContext = seekerContextOrUserId;
     }
@@ -72,7 +109,7 @@ export async function loadPersona(
     const { data, error } = await admin
       .from("AIConsultant")
       .select(
-        'id, name, category, bio, specialties, languages, persona, "systemPrompt", "isPaid", "perMinuteRate", "safetyLevel", "bannedPatterns", "isActive"',
+        'id, name, category, bio, specialties, languages, persona, "systemPrompt", "isPaid", "perMinuteRate", "safetyLevel", "bannedPatterns", "isActive", location, country',
       )
       .eq("id", consultantId)
       .eq("isActive", true)
@@ -98,6 +135,8 @@ export async function loadPersona(
       languages: row.languages ?? [],
       persona: row.persona,
       systemPrompt: row.systemPrompt,
+      location: row.location,
+      country: row.country,
       seekerContext,
       missingFields,
     });

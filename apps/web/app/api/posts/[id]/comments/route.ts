@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {createServerClientFromCookies} from "@zeal/database/server";
 import {getUserId} from "@/lib/auth";
 import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import {serverPublish} from "@/lib/realtime/server";
 import {z} from "zod";
 
 export const dynamic = "force-dynamic";
@@ -53,11 +54,13 @@ export const POST = withErrorHandler(async (req: Request, { params }: { params: 
 
   if (error) throw new AppError(error.message, 500, ErrorCode.INTERNAL_SERVER);
 
-  // Increment comment count
-  const { data: current } = await supabase
-    .from("Post").select("commentCount").eq("id", postId).maybeSingle();
-  const next = (current?.commentCount ?? 0) + 1;
-  await supabase.from("Post").update({ commentCount: next }).eq("id", postId);
+  const { data: newCount } = await supabase.rpc("increment_comment_count", { p_post_id: postId });
+  const commentCount = typeof newCount === "number" ? newCount : null;
+
+  void serverPublish("feed:posts", "UPDATE", {
+    type: "UPDATE",
+    record: { id: postId, commentCount: commentCount ?? 0 },
+  });
 
   return NextResponse.json({ comment });
 });

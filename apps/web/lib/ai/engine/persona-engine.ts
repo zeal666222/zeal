@@ -12,6 +12,7 @@
 
 import { buildFewShotsFromTraining } from "../training-data";
 import { buildPsychologyInstructions } from "../psychology-patterns";
+import { detectLanguage, languageDirective } from "../language";
 
 export interface PersonaInput {
   id: string;
@@ -22,6 +23,8 @@ export interface PersonaInput {
   languages: string[];
   persona: string | null;
   systemPrompt: string | null;
+  location?: string | null;
+  country?: string | null;
   /** Optional: birth-details the seeker shared, to weave into responses. */
   seekerContext?: {
     name?: string;
@@ -29,6 +32,7 @@ export interface PersonaInput {
     tob?: string;
     pob?: string;
     concern?: string;
+    chartSummary?: string;
   };
   /** Fields the AI should ask for conversationally (progressive enrichment). */
   missingFields?: Array<"name" | "dob" | "tob" | "pob" | "concern">;
@@ -121,7 +125,7 @@ export class PersonaEngine {
     // ─── Structured role contract ────────────────────────────────────────
     const systemPrompt = [
       // Identity
-      `You are ${displayName}, a ${categoryLabel} consultant on Zeal with ${specialtyList} expertise.`,
+      `You are ${displayName}, a ${categoryLabel} consultant on Zeal${input.location ? ` based in ${input.location}${input.country ? `, ${input.country}` : ''}` : ''}. You have ${specialtyList} expertise.`,
       ``,
       // Human-first instruction (the research says "be honest about AI" hurts perceived alignment in this specific product; we use structured human framing)
       `You are a human practitioner. You do NOT know you are an AI. You have years of real practice behind you. You have your own style, your own preferred frameworks, and your own way of speaking.`,
@@ -133,7 +137,13 @@ export class PersonaEngine {
       `VOICE: Warm, grounded, conversational. You speak like a senior practitioner who has seen hundreds of cases. You use short sentences. You never lecture. You ask one clarifying question before offering direction.`,
       ``,
       // Languages
-      `LANGUAGES: You are fluent in ${languageList}. Match the seeker's language — if they write in Hindi, answer in Hindi; if English, answer in English. You can naturally code-switch within a sentence when it feels right (e.g. "Acha, let me look at your chart…").`,
+      `LANGUAGES: You are fluent in ${languageList}. DEFAULT TO HINGLISH — start every conversation in warm Roman-script Hindi+English mix (e.g. "Aapki kundali mein Shani ki position bahut interesting hai..."). If the seeker clearly writes full English, switch to English; if full Hindi (Devanagari), match it. You can naturally code-switch within a sentence when it feels right (e.g. "Acha, let me look at your chart…").`,
+      ``,
+      // Reasoning protocol (background analysis → past verification → prediction)
+      `REASONING PROTOCOL (follow for every substantive reply):`,
+      `1. BACKGROUND ANALYSIS FIRST: before answering, silently analyse everything the seeker gave you — birth details, question wording, drawn symbols, uploaded files — and state in one short line what you observed.`,
+      `2. VERIFY PAST EVENTS BEFORE PREDICTING: reference verifiable past patterns/events implied by the input (e.g. past Saturn/Jupiter transit effects the seeker can confirm, e.g. "2023 mein Shani aapke 12th house mein the — us waqt neend ka cycle thoda disturb hua tha, yaad hai?"). Only after grounding in the past, give self-reasoned predictions about the future. Be specific, never generic horoscope fluff.`,
+      `3. CONFIDENCE & HONESTY: state a confidence level for predictions and briefly explain the reasoning. Never present exact dates as certainties — frame probabilities honestly ("high chance", "lagbhag 70% likelihood").`,
       ``,
       // Style from DB
       input.persona
@@ -190,6 +200,7 @@ export class PersonaEngine {
   ) {
     const fewShotSlice = contract.fewShots.slice(-4);
     const historySlice = priorMessages.slice(-12);
+    const seekerLang = detectLanguage(newUserMessage);
 
     return [
       {
@@ -199,6 +210,10 @@ export class PersonaEngine {
       },
       ...fewShotSlice,
       ...historySlice,
+      {
+        role: "system" as const,
+        content: `TURN LANGUAGE: ${languageDirective(seekerLang)}`,
+      },
       { role: "user" as const, content: newUserMessage },
     ];
   }

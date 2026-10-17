@@ -27,7 +27,10 @@ export async function GET() {
     if (!i && !r) throw new Error("No payment provider configured");
   }));
   checks.push(await timed("env-ai", async () => {
-    if (!process.env.GROQ_API_KEY) throw new Error("Groq key missing");
+    // The unified engine falls back to keyless providers (Pollinations etc.),
+    // so a missing GROQ key is acceptable — never fail this check outright.
+    if (process.env.GROQ_API_KEY) return;
+    console.warn("[health] GROQ_API_KEY missing — using keyless provider fallback");
   }));
   checks.push(await timed("env-email", async () => {
     if (!process.env.RESEND_API_KEY) throw new Error("Resend key missing");

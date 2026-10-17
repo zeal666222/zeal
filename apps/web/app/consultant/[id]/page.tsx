@@ -10,8 +10,26 @@ import { ArrowLeft, Flame, Star } from "lucide-react";
 import { ConsultantTabs } from "./ConsultantTabs";
 import { ProfileActions } from "./ProfileActions";
 import { getImageUrl } from "@/lib/storage/r2";
+import { cache } from "react";
 
 export const dynamic = "force-dynamic";
+
+// Shared per-request lookup so generateMetadata + page issue ONE DB query
+// instead of two sequential ones for the same consultant row.
+const getConsultant = cache(async (id: string) => {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("Consultant")
+    .select(`
+      id, "userId", category, specialties, languages, bio, "perMinuteRate",
+      rating, "totalConsultations", "sparkScore", "isVerified", status, subdomain,
+      user:User!userId(id, name, username, avatar, is_online)
+    `)
+    .eq("id", id)
+    .eq("status", "VERIFIED")
+    .maybeSingle();
+  return data;
+});
 
 type Relation<T> = T | T[] | null | undefined;
 function pickOne<T>(relation: Relation<T>): T | null {
@@ -67,15 +85,11 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps) {
   const { id } = await params;
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("Consultant")
-    .select("user:User!userId(name, username)")
-    .eq("id", id)
-    .maybeSingle();
+  const data = (await getConsultant(id)) as
+    | { user?: Relation<{ name?: string | null; username?: string }> }
+    | null;
 
-  const rel = (data as { user?: Relation<{ name?: string | null; username?: string }> } | null)
-    ?.user;
+  const rel = data?.user;
   const user = pickOne(rel);
   const displayName = user?.name ?? user?.username ?? "Consultant";
   return { title: `${displayName} — Zeal` };
@@ -85,16 +99,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
   const { id } = await params;
   const admin = createAdminClient();
 
-  const { data: profileData } = await admin
-    .from("Consultant")
-    .select(`
-      id, "userId", category, specialties, languages, bio, "perMinuteRate",
-      rating, "totalConsultations", "sparkScore", "isVerified", status, subdomain,
-      user:User!userId(id, name, username, avatar, is_online)
-    `)
-    .eq("id", id)
-    .eq("status", "VERIFIED")
-    .maybeSingle();
+  const profileData = await getConsultant(id);
 
   if (!profileData) notFound();
 

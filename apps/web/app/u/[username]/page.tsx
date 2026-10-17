@@ -5,12 +5,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient, getUserId } from "@zeal/database/server";
-import { AlertTriangle, Check, MapPin, Link as LinkIcon, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, Flame, Heart, MapPin, Link as LinkIcon, Sparkles } from "lucide-react";
 import { PostGrid } from "@/components/profile/PostGrid";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PublicProfileActions } from "./PublicProfileActions";
 import { RetryButton } from "./RetryButton";
+import { ProfileSparkCounter } from "@/components/profile/ProfileSparkCounter";
 import { getImageUrl } from "@/lib/storage/r2";
+import { PersonSchema } from "@/components/seo/StructuredData";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -55,9 +57,10 @@ export default async function PublicProfilePage({
   const userId = (userRow as { id?: string } | null)?.id;
   if (!userId) notFound();
 
-  const { data: raw, error: statsError } = await admin.rpc("get_profile_stats", {
-    p_user_id: userId,
-  });
+  const [{ data: raw, error: statsError }, viewerId] = await Promise.all([
+    admin.rpc("get_profile_stats", { p_user_id: userId }),
+    getUserId(),
+  ]);
 
   // The user row exists but the stats RPC faulted — a transient DB error, not a
   // missing profile. Show a retryable error instead of a misleading 404.
@@ -88,7 +91,6 @@ export default async function PublicProfilePage({
   const profile = payload.user;
   if (!profile) notFound();
 
-  const viewerId = await getUserId();
   const isSelf = viewerId !== null && viewerId === userId;
 
   const stats = payload.stats;
@@ -98,16 +100,20 @@ export default async function PublicProfilePage({
 
   return (
     <div className="min-h-screen-app bg-background pb-24">
+      <PersonSchema
+        name={displayName}
+        description={profile.bio || `${displayName} on Zeal`}
+        url={`/u/${profile.username}`}
+        image={profile.avatar ? getImageUrl(profile.avatar, "avatar-md") : undefined}
+        jobTitle={isConsultant ? "Spiritual Consultant" : undefined}
+        knowsAbout={isConsultant ? ["Astrology", "Tarot", "Spiritual Consultation"] : undefined}
+        address={profile.location || undefined}
+      />
       {/* ─── Cover banner ────────────────────────────────────────────────── */}
       <div className="relative h-40 md:h-56 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br
-                        from-[var(--color-primary)]/[0.18]
-                        via-[var(--color-surface)]
-                        to-[var(--color-luxury-gold)]/[0.15]" />
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px]
-                        bg-[var(--color-primary)]/[0.22] blur-[160px] rounded-full" />
-        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px]
-                        bg-[var(--color-luxury-gold)]/[0.16] blur-[160px] rounded-full" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/[0.18] via-[var(--color-surface)] to-[var(--color-luxury-gold)]/[0.15]" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-[var(--color-primary)]/[0.22] blur-[160px] rounded-full" />
+        <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-[var(--color-luxury-gold)]/[0.16] blur-[160px] rounded-full" />
         <div className="absolute inset-0 noise-overlay opacity-60" />
       </div>
 
@@ -117,14 +123,9 @@ export default async function PublicProfilePage({
           <div className="relative">
             <div
               aria-hidden
-              className="absolute -inset-1 rounded-full
-                         bg-gradient-to-br from-[var(--color-luxury-gold)]/40
-                         via-[var(--color-primary)]/30 to-transparent blur-md"
+              className="absolute -inset-1 rounded-full bg-gradient-to-br from-[var(--color-luxury-gold)]/40 via-[var(--color-primary)]/30 to-transparent blur-md"
             />
-            <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full
-                            ring-4 ring-background overflow-hidden
-                            bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                            flex items-center justify-center text-white font-black text-4xl">
+            <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full ring-4 ring-background overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-4xl">
               {profile.avatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={getImageUrl(profile.avatar, "avatar-md")} alt="" className="w-full h-full object-cover" />
@@ -133,8 +134,7 @@ export default async function PublicProfilePage({
               )}
             </div>
             {profile.is_online && (
-              <span className="absolute bottom-2 right-2 w-5 h-5 rounded-full
-                               bg-emerald-500 border-4 border-background animate-pulse" />
+              <span className="absolute bottom-2 right-2 w-5 h-5 rounded-full bg-emerald-500 border-4 border-background animate-pulse" />
             )}
           </div>
 
@@ -144,16 +144,12 @@ export default async function PublicProfilePage({
                 {displayName}
               </h1>
               {profile.isVerified && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                                 bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30
-                                 text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30 text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest">
                   <Check size={10} /> Verified
                 </span>
               )}
               {isConsultant && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                                 bg-[var(--color-luxury-gold)]/15 border border-[var(--color-luxury-gold)]/30
-                                 text-[var(--color-luxury-gold)] text-[10px] font-black uppercase tracking-widest">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-luxury-gold)]/15 border border-[var(--color-luxury-gold)]/30 text-[var(--color-luxury-gold)] text-[10px] font-black uppercase tracking-widest">
                   <Sparkles size={10} /> Consultant
                 </span>
               )}
@@ -161,18 +157,21 @@ export default async function PublicProfilePage({
             {profile.username && (
               <p className="mt-1 text-sm text-muted-foreground font-mono">@{profile.username}</p>
             )}
-            <div className="mt-4 flex justify-center sm:justify-start">
+            <div className="mt-4 flex flex-wrap items-center gap-3 justify-center sm:justify-start">
               <PublicProfileActions userId={profile.id} isSelf={isSelf} />
+              <ProfileSparkCounter userId={profile.id} initialSparks={profile.sparks ?? 0} />
             </div>
           </div>
         </div>
 
         {/* ─── Stats row ─────────────────────────────────────────────────── */}
         {stats && (
-          <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6 max-w-2xl">
+          <div className="grid grid-cols-5 gap-2 md:gap-3 mb-6 max-w-2xl">
             <Stat label="Posts" value={stats.posts} />
             <Stat label="Followers" value={stats.followers} />
             <Stat label="Following" value={stats.following} />
+            <Stat label="Cheers" value={stats.cheers} icon={<Heart size={12} className="text-rose-400" />} />
+            <Stat label="Sparks" value={profile.sparks ?? 0} icon={<Flame size={12} className="text-orange-400" />} highlight />
           </div>
         )}
 
@@ -222,14 +221,17 @@ export default async function PublicProfilePage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, icon, highlight }: { label: string; value: number; icon?: React.ReactNode; highlight?: boolean }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">
-        {label}
-      </p>
-      <p className="text-2xl font-black font-mono text-foreground mt-1 tabular-nums">
-        {value.toLocaleString("en-IN")}
+    <div className={`rounded-2xl border p-3 md:p-4 ${highlight ? "border-orange-400/30 bg-orange-500/[0.06]" : "border-border bg-surface"}`}>
+      <div className="flex items-center gap-1">
+        {icon}
+        <p className="text-[9px] md:text-[10px] uppercase tracking-widest text-muted-foreground font-black">
+          {label}
+        </p>
+      </div>
+      <p className={`text-lg md:text-2xl font-black font-mono mt-1 tabular-nums ${highlight ? "text-orange-400" : "text-foreground"}`}>
+        {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString("en-IN")}
       </p>
     </div>
   );

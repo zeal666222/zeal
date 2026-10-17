@@ -18,7 +18,7 @@ export class ConcurrencyGate {
   private readonly max: number;
   private readonly maxWaitMs: number;
 
-  constructor(max: number, maxWaitMs = 15_000) {
+  constructor(max: number, maxWaitMs = 20_000) {
     this.max = Math.max(1, max);
     this.maxWaitMs = maxWaitMs;
   }

@@ -131,7 +131,7 @@ export async function startChatFlow(
     const convRes = await fetch("/api/chat/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ partnerId: consultant.userId }),
+      body: JSON.stringify({ partnerId: consultant.userId, isAI: consultant.isAI }),
     });
     if (!convRes.ok) {
       onError?.("Could not start conversation");

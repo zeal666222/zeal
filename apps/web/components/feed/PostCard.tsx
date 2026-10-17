@@ -1,16 +1,18 @@
 "use client";
 import {useState, useCallback} from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Flag, Heart, MessageCircle, Share2 } from "lucide-react";
 import {formatDistanceToNow} from "date-fns";
 import {motion} from "framer-motion";
 import {Avatar, AvatarImage, AvatarFallback} from "@zeal/ui";
+import {useAuthGuard} from "@/hooks/useAuthGuard";
 
 export interface PostCardData {
  id: string;
  content: string;
  imageUrl?: string | null;
- author: { id?: string; username: string; name?: string | null; avatar?: string | null };
+ author: { id?: string; username?: string; name?: string | null; avatar?: string | null } | null;
  cheerCount: number;
  commentCount: number;
  shareCount: number;
@@ -52,17 +54,19 @@ function ReportMenu({ postId }: { postId: string }) {
  );
 }
 export function PostCard({ post }: PostCardProps) {
+ const { guard } = useAuthGuard();
  const [cheered, setCheered] = useState(false);
  const [cheers, setCheers] = useState(post.cheerCount);
 
- const handleCheer = useCallback(async () => {
+ const handleCheer = useCallback(() => {
+ guard(async () => {
  const wasCheered = cheered;
  const next = wasCheered ? cheers - 1 : cheers + 1;
  setCheers(next);
  setCheered(!wasCheered);
  try {
  const res = await fetch("/api/posts/" + post.id + "/cheer", {
- method: wasCheered ? "DELETE" : "POST",
+ method: "POST",
  });
  if (!res.ok) throw new Error("Failed");
  const data = await res.json();
@@ -71,7 +75,8 @@ export function PostCard({ post }: PostCardProps) {
  setCheers(cheers);
  setCheered(wasCheered);
  }
- }, [post.id, cheered, cheers]);
+ });
+ }, [post.id, cheered, cheers, guard]);
 
  const handleShare = useCallback(async () => {
  const url = typeof window !== "undefined" ? window.location.origin + "/post/" + post.id : "";
@@ -89,18 +94,20 @@ export function PostCard({ post }: PostCardProps) {
  >
  <header className="flex items-center gap-3 p-4">
  <Avatar className="w-10 h-10">
- <AvatarImage src={post.author.avatar || undefined} alt={post.author.username} />
- <AvatarFallback>{post.author.username[0]?.toUpperCase()}</AvatarFallback>
+ <AvatarImage src={post.author?.avatar || undefined} alt={post.author?.username ?? "user"} />
+ <AvatarFallback>{(post.author?.username ?? "Z")[0]?.toUpperCase()}</AvatarFallback>
  </Avatar>
  <div className="min-w-0">
- <p className="font-medium text-muted-foreground truncate">@{post.author.username}</p>
+ <p className="font-medium text-muted-foreground truncate">@{post.author?.username ?? "user"}</p>
  <p className="text-xs text-[var(--color-subtle-foreground)] dark:text-gray-400">
  {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
  </p>
  </div>
  </header>
  {post.imageUrl && (
- <img src={post.imageUrl} alt="Post" className="w-full aspect-square object-cover" loading="lazy" />
+ <div className="relative w-full aspect-square">
+ <Image src={post.imageUrl} alt="Post" fill sizes="(max-width: 768px) 100vw, 420px" className="object-cover" loading="lazy" />
+ </div>
  )}
  <p className="p-4 text-muted-foreground whitespace-pre-wrap break-words">{post.content}</p>
  <footer className="flex items-center justify-around p-3 border-t border-border">

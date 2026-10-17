@@ -8,7 +8,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { motion } from "framer-motion";
-import { AnimatedZealMark } from "@zeal/ui";
+import { ZealMark } from "@zeal/ui";
 import { ArrowRight, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -63,7 +63,7 @@ export function PostAuthTransition({ destination, email }: Props) {
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 18 }}
           >
-            <AnimatedZealMark size={64} glow />
+            <ZealMark size={72} glow />
           </motion.div>
         </div>
 

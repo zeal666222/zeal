@@ -29,6 +29,8 @@ export interface AiConsultant {
   sparks: number;
   model: string;
   voiceStyle: string | null;
+  location: string | null;
+  country: string | null;
 }
 
 export function useAiConsultants(category?: string) {

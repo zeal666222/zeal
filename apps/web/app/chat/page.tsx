@@ -25,31 +25,66 @@ export default async function ChatIndexPage({ searchParams }: ChatIndexProps) {
 
     if (user) {
       const admin = createAdminClient();
-      let partnerUserId: string | null = null;
+      let conversationId: string | null = null;
 
+      // Check if it's an AI consultant
       const { data: aiRow } = await admin
         .from("AIConsultant")
         .select("id")
         .eq("id", consultantId)
         .maybeSingle();
+      
       if (aiRow) {
-        partnerUserId = (aiRow as { id: string }).id;
+        // AI consultant — check for existing conversation or create new one
+        const { data: existing } = await admin
+          .from("ConversationParticipant")
+          .select("conversationId, Conversation!inner(id, metadata)")
+          .eq("userId", user.id)
+          .eq("Conversation.metadata->>aiConsultantId", consultantId)
+          .maybeSingle();
+        
+        if (existing?.conversationId) {
+          conversationId = existing.conversationId;
+        } else {
+          // Create new conversation for AI chat
+          const { data: newConv } = await admin
+            .from("Conversation")
+            .insert({
+              isGroup: false,
+              metadata: { aiConsultantId: consultantId, type: "ai" },
+            })
+            .select("id")
+            .single();
+          
+          if (newConv) {
+            await admin
+              .from("ConversationParticipant")
+              .insert({
+                conversationId: newConv.id,
+                userId: user.id,
+              });
+            conversationId = newConv.id;
+          }
+        }
       } else {
+        // Human consultant
         const { data: cRow } = await admin
           .from("Consultant")
           .select("userId")
           .eq("id", consultantId)
           .maybeSingle();
-        partnerUserId = (cRow as { userId: string } | null)?.userId ?? null;
+        const partnerUserId = (cRow as { userId: string } | null)?.userId ?? null;
+        
+        if (partnerUserId && partnerUserId !== user.id) {
+          const { data: convId } = await supabase.rpc(
+            "get_or_create_conversation",
+            { p_user_a: user.id, p_user_b: partnerUserId },
+          );
+          conversationId = convId;
+        }
       }
 
-      if (partnerUserId && partnerUserId !== user.id) {
-        const { data: conversationId } = await supabase.rpc(
-          "get_or_create_conversation",
-          { p_user_a: user.id, p_user_b: partnerUserId },
-        );
-        if (conversationId) redirect(`/chat/${conversationId}`);
-      }
+      if (conversationId) redirect(`/chat/${conversationId}`);
     }
     redirect("/explore");
   }
@@ -69,14 +104,14 @@ export default async function ChatIndexPage({ searchParams }: ChatIndexProps) {
           Your Direct Messages
         </h2>
         <p className="text-muted-foreground text-sm leading-relaxed mb-6">
-          Send private astrological inquiries, review previous readings, or establish real-time video sessions.
+          All your private chats in one place — revisit past readings or start a new conversation with a guide.
         </p>
 
         <Link
           href="/explore"
           className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-sm shadow-xl shadow-purple-600/20 transition-all active:scale-95 flex items-center gap-2"
         >
-          <Sparkles size={16} /> Explore Consultants
+          <Sparkles size={16} /> Browse Guides
         </Link>
       </div>
     </div>

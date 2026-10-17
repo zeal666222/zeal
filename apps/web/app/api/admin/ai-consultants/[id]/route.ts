@@ -18,6 +18,8 @@ const PatchSchema = z.object({
   isFeatured: z.boolean().optional(),
   specialties: z.array(z.string()).max(20).optional(),
   languages: z.array(z.string()).max(20).optional(),
+  location: z.string().max(80).optional().nullable(),
+  country: z.string().max(80).optional().nullable(),
 }).strict();
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +43,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     .eq("id", id).select("*").single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Sync avatar to the shadow User row so chat partner resolution stays consistent
+  if (parsed.data.avatar) {
+    await admin.from("User").update({ avatar: parsed.data.avatar }).eq("id", id);
+  }
 
   await logAdminAction(admin, {
     adminId, action: "AI_CONSULTANT_UPDATE", targetType: "ai_consultant",

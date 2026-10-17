@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@zeal/database/server";
+import { publishWalletBalance } from "@/lib/realtime/wallet";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
             p_description: `Razorpay top-up ${payment.id}`,
             p_reference_id: payment.id,
           });
+          void publishWalletBalance(userId);
           await admin
             .from("RazorpayPayment")
             .update({

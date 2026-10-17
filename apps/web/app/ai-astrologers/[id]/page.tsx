@@ -1,13 +1,17 @@
 "use client";
 
-import {useParams, useRouter} from "next/navigation";
+import {useParams} from "next/navigation";
 import {useEffect, useState} from "react";
 import {motion} from "framer-motion";
 import {
   AlertCircle, ArrowLeft, Loader2, Sparkles, Star, Zap, Bot,
-  MessageCircle, Clock, Globe, Shield, ChevronRight, Heart,
+  MessageCircle, Clock, Globe, ChevronRight, Heart,
+  MapPin, Sun, Moon, Brain, Hash, Hand, Compass,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import {useRouter} from "next/navigation";
+import {startChatFlow} from "@/lib/chat/start-chat-flow";
 
 interface AIDetail {
   id: string;
@@ -29,19 +33,23 @@ interface AIDetail {
   model: string;
   voiceStyle: string | null;
   isActive: boolean;
+  location: string | null;
+  country: string | null;
 }
 
-const CATEGORY_THEMES: Record<string, {from: string; to: string; glow: string; accent: string; ring: string}> = {
-  vedic_astrology: {from: "from-amber-500", to: "to-orange-600", glow: "bg-amber-500/10", accent: "text-amber-400", ring: "ring-amber-500/30"},
-  western_astrology: {from: "from-blue-500", to: "to-indigo-600", glow: "bg-blue-500/10", accent: "text-blue-400", ring: "ring-blue-500/30"},
-  chinese_astrology: {from: "from-red-500", to: "to-rose-600", glow: "bg-red-500/10", accent: "text-red-400", ring: "ring-red-500/30"},
-  tarot: {from: "from-purple-500", to: "to-violet-600", glow: "bg-purple-500/10", accent: "text-purple-400", ring: "ring-purple-500/30"},
-  numerology: {from: "from-cyan-500", to: "to-teal-600", glow: "bg-cyan-500/10", accent: "text-cyan-400", ring: "ring-cyan-500/30"},
-  vaastu: {from: "from-emerald-500", to: "to-green-600", glow: "bg-emerald-500/10", accent: "text-emerald-400", ring: "ring-emerald-500/30"},
+const CATEGORY_META: Record<string, {from: string; to: string; glow: string; accent: string; ring: string; icon: typeof Sun; label: string; pill: string; pillBorder: string}> = {
+  ASTROLOGER: {from: "from-amber-500", to: "to-orange-600", glow: "bg-amber-500/10", accent: "text-amber-400", ring: "ring-amber-500/30", icon: Sun, label: "Astrologer", pill: "bg-amber-500/10 text-amber-400", pillBorder: "border-amber-500/20"},
+  TAROT: {from: "from-purple-500", to: "to-violet-600", glow: "bg-purple-500/10", accent: "text-purple-400", ring: "ring-purple-500/30", icon: Moon, label: "Tarot Reader", pill: "bg-purple-500/10 text-purple-400", pillBorder: "border-purple-500/20"},
+  PSYCHOLOGIST: {from: "from-rose-500", to: "to-pink-600", glow: "bg-rose-500/10", accent: "text-rose-400", ring: "ring-rose-500/30", icon: Brain, label: "Psychologist", pill: "bg-rose-500/10 text-rose-400", pillBorder: "border-rose-500/20"},
+  HEALER: {from: "from-emerald-500", to: "to-green-600", glow: "bg-emerald-500/10", accent: "text-emerald-400", ring: "ring-emerald-500/30", icon: Heart, label: "Healer", pill: "bg-emerald-500/10 text-emerald-400", pillBorder: "border-emerald-500/20"},
+  NUMEROLOGIST: {from: "from-cyan-500", to: "to-teal-600", glow: "bg-cyan-500/10", accent: "text-cyan-400", ring: "ring-cyan-500/30", icon: Hash, label: "Numerologist", pill: "bg-cyan-500/10 text-cyan-400", pillBorder: "border-cyan-500/20"},
+  PALMIST: {from: "from-fuchsia-500", to: "to-pink-600", glow: "bg-fuchsia-500/10", accent: "text-fuchsia-400", ring: "ring-fuchsia-500/30", icon: Hand, label: "Palmist", pill: "bg-fuchsia-500/10 text-fuchsia-400", pillBorder: "border-fuchsia-500/20"},
+  VASTU: {from: "from-teal-500", to: "to-cyan-600", glow: "bg-teal-500/10", accent: "text-teal-400", ring: "ring-teal-500/30", icon: Compass, label: "Vastu Expert", pill: "bg-teal-500/10 text-teal-400", pillBorder: "border-teal-500/20"},
 };
+const DEFAULT_META = {from: "from-[var(--color-primary)]", to: "to-[var(--color-primary-hover)]", glow: "bg-[var(--color-primary)]/10", accent: "text-[var(--color-primary)]", ring: "ring-white/20", icon: Sparkles, label: "Consultant", pill: "bg-[var(--color-primary)]/10 text-[var(--color-primary)]", pillBorder: "border-[var(--color-primary)]/20"};
 
 function getTheme(category: string) {
-  return CATEGORY_THEMES[category.toLowerCase()] ?? {from: "from-[var(--color-primary)]", to: "to-[var(--color-primary-hover)]", glow: "bg-[var(--color-primary)]/10", accent: "text-[var(--color-primary)]", ring: "ring-white/20"};
+  return CATEGORY_META[category] ?? DEFAULT_META;
 }
 
 export default function AIAstrologerDetailPage() {
@@ -73,20 +81,18 @@ export default function AIAstrologerDetailPage() {
     setStarting(true);
     setError(null);
     try {
-      const res = await fetch("/api/chat/conversations", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({partnerId: ai.id}),
+      const result = await startChatFlow(ai.id, {
+        router,
+        onError: (message) => {
+          setError(message);
+          setStarting(false);
+        },
+        onLoading: (loading) => {
+          if (!loading) setStarting(false);
+        },
       });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error((body as {error?: string})?.error || "Could not start chat");
-      }
-      const data = (await res.json()) as {conversationId?: string};
-      if (data.conversationId) {
-        router.push(`/chat/${data.conversationId}`);
-      } else {
-        throw new Error("No conversation returned");
+      if (!result.ok) {
+        setStarting(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start chat");
@@ -120,6 +126,7 @@ export default function AIAstrologerDetailPage() {
   }
 
   const theme = getTheme(ai.category);
+  const CatIcon = theme.icon;
   const isFree = !ai.isPaid || ai.perMinuteRate === 0;
 
   return (
@@ -148,9 +155,9 @@ export default function AIAstrologerDetailPage() {
             <div className="relative">
               <motion.div
                 whileHover={{scale: 1.05}}
-                className={`w-28 h-28 sm:w-32 sm:h-32 rounded-3xl overflow-hidden ring-4 ${theme.ring} shadow-2xl`}
+                className={`relative w-28 h-28 sm:w-32 sm:h-32 rounded-3xl overflow-hidden ring-4 ${theme.ring} shadow-2xl`}
               >
-                <img src={ai.avatar} alt={ai.name} className="w-full h-full object-cover" />
+                <Image src={ai.avatar} alt={ai.name} fill sizes="(min-width: 640px) 128px, 112px" className="object-cover" />
               </motion.div>
               <motion.span
                 animate={{rotate: [0, 5, -5, 0]}}
@@ -171,9 +178,17 @@ export default function AIAstrologerDetailPage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h1 className="text-2xl sm:text-3xl font-black text-foreground">{ai.name}</h1>
-                  <p className={`text-sm capitalize mt-1 ${theme.accent}`}>
-                    {ai.category.toLowerCase().replace(/_/g, " ")}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <span className={`inline-flex items-center gap-1 text-sm font-semibold ${theme.accent}`}>
+                      <CatIcon size={14} />
+                      {theme.label}
+                    </span>
+                    {(ai.location || ai.country) && (
+                      <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+                        <MapPin size={10} /> {[ai.location, ai.country].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 {isFree ? (
                   <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-wider rounded-full">
@@ -214,24 +229,17 @@ export default function AIAstrologerDetailPage() {
                 )}
               </div>
 
-              {/* Badges */}
-              <div className="flex flex-wrap gap-2 mt-3">
-                {ai.persona && (
-                  <span className="px-2.5 py-1 text-[10px] font-bold bg-surface-raised border border-border/50 rounded-full text-muted-foreground flex items-center gap-1">
-                    <Sparkles size={9} /> {ai.persona}
-                  </span>
-                )}
-                {ai.gender && (
-                  <span className="px-2.5 py-1 text-[10px] font-bold bg-surface-raised border border-border/50 rounded-full text-muted-foreground">
-                    {ai.gender}
-                  </span>
-                )}
-                {ai.model && (
-                  <span className="px-2.5 py-1 text-[10px] font-bold bg-surface-raised border border-border/50 rounded-full text-muted-foreground flex items-center gap-1">
-                    <Shield size={9} /> {ai.model}
-                  </span>
-                )}
-              </div>
+              {/* Languages inline */}
+              {ai.languages && ai.languages.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-3">
+                  <Globe size={11} className="text-muted-foreground" />
+                  {ai.languages.map((l) => (
+                    <span key={l} className="px-2 py-0.5 text-[10px] font-semibold bg-surface-raised border border-border/50 rounded-full text-foreground">
+                      {l}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -263,29 +271,8 @@ export default function AIAstrologerDetailPage() {
             <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">Specialties</h2>
             <div className="flex flex-wrap gap-2">
               {ai.specialties.map((s) => (
-                <span key={s} className="px-3 py-1.5 text-xs font-medium bg-surface-raised border border-border/50 rounded-full text-foreground">
+                <span key={s} className={`px-3 py-1.5 text-xs font-semibold rounded-full border ${theme.pill} ${theme.pillBorder}`}>
                   {s}
-                </span>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Languages */}
-        {ai.languages && ai.languages.length > 0 && (
-          <motion.div
-            initial={{opacity: 0, y: 12}}
-            animate={{opacity: 1, y: 0}}
-            transition={{delay: 0.25}}
-            className="bg-surface/80 backdrop-blur-xl border border-border/60 rounded-2xl p-6"
-          >
-            <h2 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
-              <Globe size={12} /> Languages
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {ai.languages.map((l) => (
-                <span key={l} className="px-3 py-1.5 text-xs font-medium bg-surface-raised border border-border/50 rounded-full text-foreground">
-                  {l}
                 </span>
               ))}
             </div>

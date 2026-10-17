@@ -1,13 +1,13 @@
 import {getUserId} from "@/lib/auth";
 import { NextResponse } from "next/server";
 import {createServerClientFromCookies} from "@zeal/database/server";
-import {withErrorHandler, AppError, HTTP_STATUS} from "@/lib/errors";
+import {withErrorHandler, AppError, ErrorCode, HTTP_STATUS} from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withErrorHandler(async (req: Request) => {
   const userId = await getUserId();
-  if (!userId) throw new AppError("Unauthorized", HTTP_STATUS.UNAUTHORIZED);
+  if (!userId) throw new AppError("Unauthorized", HTTP_STATUS.UNAUTHORIZED, ErrorCode.AUTH_UNAUTHORIZED);
 
   const url = new URL(req.url);
   const limit = Math.min(parseInt(url.searchParams.get("limit") || "50"), 200);

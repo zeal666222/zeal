@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {useCallback, useEffect, useRef, useState} from "react";
-import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
+import {useChannel, useConnection, channels, type BroadcastChange} from "@zeal/realtime";
 
 export interface ChatMessage {
   id: string;
@@ -141,8 +141,13 @@ export function useChat({
   });
 
   // ─── Background poll fallback ─────────────────────────────────────────────
+  // Only polls while the realtime socket is NOT connected — broadcasts are the
+  // primary transport, the poll is the guaranteed fallback, and an idle 15s
+  // fetch per open chat is exactly the waterfall load we avoid when live.
+  const connection = useConnection();
   useEffect(() => {
     if (!conversationId || pollMs <= 0) return;
+    if (connection === "connected") return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -154,9 +159,10 @@ export function useChat({
         }
       } catch { /* transient — retry on next tick */ }
     };
+    void tick();
     const id = setInterval(() => { void tick(); }, pollMs);
     return () => { cancelled = true; clearInterval(id); };
-  }, [conversationId, pageSize, pollMs, mergeIncoming]);
+  }, [conversationId, pageSize, pollMs, mergeIncoming, connection]);
 
   // ─── send (user-to-user) ──────────────────────────────────────────────────
   const send = useCallback(
@@ -231,7 +237,7 @@ export function useChat({
   }
 
   const sendToAI = useCallback(
-    async (consultantId: string, content: string, handlers: SendToAIHandlers | ((acc: string) => void)) => {
+    async (consultantId: string, content: string, handlers: SendToAIHandlers | ((acc: string) => void), retryCount = 0) => {
       const onDelta = typeof handlers === "function" ? handlers : handlers.onDelta;
       const onFiller = typeof handlers === "function" ? undefined : handlers.onFiller;
       const onBilling = typeof handlers === "function" ? undefined : handlers.onBilling;
@@ -254,79 +260,119 @@ export function useChat({
       setIsSending(true);
       setError(null);
 
-      try {
-        const res = await fetch(`/api/chat/ai/${consultantId}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId, content: trimmed }),
-        });
-        if (!res.ok || !res.body) {
-          const body = await res.json().catch(() => ({})) as {
-            error?: string; code?: string; required?: number; available?: number;
-          };
-          if (body?.code === "insufficient_balance" && onBilling) {
-            onBilling({
-              success: false,
-              error: "insufficient_balance",
-              required: body.required,
-              available: body.available,
-            });
-          }
-          throw new Error(body?.error || `HTTP ${res.status}`);
-        }
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let acc = "";
-        let finalMessage: ChatMessage | null = null;
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6);
-            if (!data || data === "[DONE]") continue;
-            try {
-              const parsed = JSON.parse(data) as {
-                delta?: string;
-                filler?: string;
-                userMessageId?: string;
-                billing?: BillingInfo;
-                done?: boolean;
-                message?: ChatMessage | null;
-                fullText?: string;
-              };
-              if (parsed.userMessageId) {
-                // Replace the optimistic bubble's temp id with the real one.
-                seenIds.current.add(parsed.userMessageId);
-                setMessages((prev) => prev.map((m) =>
-                  m.id === tempId ? { ...m, id: parsed.userMessageId!, _optimistic: false } : m,
-                ));
-              }
-              if (parsed.billing && onBilling) onBilling(parsed.billing);
-              if (parsed.filler && !acc) onFiller?.(parsed.filler);
-              if (parsed.delta) { acc += parsed.delta; onDelta(acc); }
-              if (parsed.done) {
-                if (parsed.message) finalMessage = parsed.message;
-              }
-            } catch { /* malformed chunk — skip */ }
-          }
-        }
+      const MAX_RETRIES = 2;
 
-        // Guarantee the assistant reply appears without a refresh.
-        if (finalMessage?.id) {
-          mergeIncoming(finalMessage);
-        } else if (acc) {
-          // Streamed text but no persisted row returned — refetch shortly.
-          setTimeout(() => setReloadKey((k) => k + 1), 500);
+      try {
+        let lastEventId = "";
+        let progressed = false;
+
+        const attempt = async (): Promise<void> => {
+          const headers: Record<string, string> = { "Content-Type": "application/json" };
+          if (lastEventId) headers["Last-Event-ID"] = lastEventId;
+
+          const res = await fetch(`/api/chat/ai/${consultantId}`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ conversationId, content: trimmed }),
+          });
+          if (!res.ok || !res.body) {
+            const body = await res.json().catch(() => ({})) as {
+              error?: string; code?: string; required?: number; available?: number;
+            };
+            if (body?.code === "insufficient_balance" && onBilling) {
+              onBilling({
+                success: false,
+                error: "insufficient_balance",
+                required: body.required,
+                available: body.available,
+              });
+            }
+            const httpErr = new Error(body?.error || `HTTP ${res.status}`) as Error & { httpStatus?: number };
+            httpErr.httpStatus = res.status;
+            throw httpErr;
+          }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let acc = "";
+          let finalMessage: ChatMessage | null = null;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() ?? "";
+            for (const line of lines) {
+              if (line.startsWith("id: ")) { lastEventId = line.slice(4); continue; }
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6);
+              if (!data || data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data) as {
+                  delta?: string;
+                  filler?: string;
+                  userMessageId?: string;
+                  billing?: BillingInfo;
+                  done?: boolean;
+                  message?: ChatMessage | null;
+                  fullText?: string;
+                };
+                if (parsed.userMessageId) {
+                  // The server has persisted our message — retrying the POST
+                  // now would store a duplicate, so mark progress.
+                  progressed = true;
+                  // Replace the optimistic bubble's temp id with the real one.
+                  seenIds.current.add(parsed.userMessageId);
+                  setMessages((prev) => prev.map((m) =>
+                    m.id === tempId ? { ...m, id: parsed.userMessageId!, _optimistic: false } : m,
+                  ));
+                }
+                if (parsed.billing && onBilling) onBilling(parsed.billing);
+                if (parsed.filler && !acc) onFiller?.(parsed.filler);
+                if (parsed.delta) { progressed = true; acc += parsed.delta; onDelta(acc); }
+                if (parsed.done) {
+                  if (parsed.message) finalMessage = parsed.message;
+                }
+              } catch { /* malformed chunk — skip */ }
+            }
+          }
+
+          // Guarantee the assistant reply appears without a refresh.
+          if (finalMessage?.id) {
+            mergeIncoming(finalMessage);
+          } else if (acc) {
+            // Streamed text but no persisted row returned — refetch shortly.
+            setTimeout(() => setReloadKey((k) => k + 1), 500);
+          }
+        };
+
+        for (let attempt_num = 0; attempt_num <= MAX_RETRIES; attempt_num++) {
+          try {
+            await attempt();
+            break; // success — exit retry loop
+          } catch (err) {
+            const status = (err as { httpStatus?: number }).httpStatus;
+            // Once the server persisted the message or streamed text, a retry
+            // would create a duplicate user message — never retry then.
+            const retryable =
+              !progressed &&
+              (status === undefined || status === 408 || status === 429 || status >= 500);
+            if (retryable && attempt_num < MAX_RETRIES) {
+              await new Promise((r) => setTimeout(r, (attempt_num + 1) * 1000));
+              continue;
+            }
+            if (progressed) {
+              // Partial stream died — keep what arrived and resync from DB.
+              setTimeout(() => setReloadKey((k) => k + 1), 500);
+              break;
+            }
+            // Not retryable or retries exhausted — show error to user
+            onDelta("I'm having trouble connecting right now. Please try again in a moment.");
+          }
         }
       } catch (err) {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setError(err instanceof Error ? err.message : "AI chat failed");
-        throw err;
       } finally {
         setIsSending(false);
       }

@@ -8,6 +8,7 @@ import {
   getPublicKeyId,
   verifyPaymentSignature,
 } from "@/lib/wallet/instamojo";
+import { publishWalletBalance } from "@/lib/realtime/wallet";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
       p_description: `Wallet top-up ${parsed.data.razorpay_payment_id}`,
       p_reference_id: parsed.data.razorpay_payment_id,
     });
+    void publishWalletBalance(user.id);
     await admin
       .from("RazorpayPayment")
       .update({

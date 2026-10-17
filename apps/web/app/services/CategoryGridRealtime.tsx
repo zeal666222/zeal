@@ -66,23 +66,18 @@ function BubbleCard({ category }: { category: CategoryCard }) {
   return (
     <Link
       href={`/services/${category.id}`}
-      className="group relative block aspect-square overflow-hidden rounded-[2rem]
-                 glass-luxury transition-all duration-500"
+      className="group relative block aspect-square overflow-hidden rounded-[2rem] glass-luxury transition-all duration-500"
     >
       {/* Ambient hover glow */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-0
-                   group-hover:opacity-100 transition-opacity duration-500
-                   bg-gradient-to-br from-[var(--color-luxury-gold)]/[0.15]
-                   via-transparent to-[var(--color-primary)]/[0.20]"
+        className="pointer-events-none absolute inset-0 rounded-[2rem] opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[var(--color-luxury-gold)]/[0.15] via-transparent to-[var(--color-primary)]/[0.20]"
       />
 
       {/* Morphing bubble blob */}
       <motion.span
         aria-hidden
-        className="absolute -top-20 -right-20 w-48 h-48 rounded-full
-                   bg-[var(--color-primary)]/[0.18] blur-[60px] pointer-events-none"
+        className="absolute -top-20 -right-20 w-48 h-48 rounded-full bg-[var(--color-primary)]/[0.18] blur-[60px] pointer-events-none"
         animate={{ scale: [1, 1.25, 1], x: [0, -8, 0] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -91,17 +86,12 @@ function BubbleCard({ category }: { category: CategoryCard }) {
         <motion.div
           whileHover={{ scale: 1.12, rotate: -3 }}
           transition={{ type: "spring", stiffness: 400, damping: 16 }}
-          className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4
-                     bg-gradient-to-br from-[var(--color-luxury-gold)]/25
-                     to-[var(--color-primary)]/[0.15]
-                     text-[var(--color-luxury-gold)]"
+          className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 bg-gradient-to-br from-[var(--color-luxury-gold)]/25 to-[var(--color-primary)]/[0.15] text-[var(--color-luxury-gold)]"
         >
           <Sparkles size={20} />
         </motion.div>
 
-        <h3 className="text-sm md:text-base font-black text-foreground leading-tight
-                       line-clamp-2 group-hover:text-[var(--color-luxury-gold)]
-                       transition-colors">
+        <h3 className="text-sm md:text-base font-black text-foreground leading-tight line-clamp-2 group-hover:text-[var(--color-luxury-gold)] transition-colors">
           {category.name}
         </h3>
 
@@ -119,10 +109,7 @@ function BubbleCard({ category }: { category: CategoryCard }) {
 
         <ArrowUpRight
           size={14}
-          className="absolute top-4 right-4 text-muted-foreground
-                     group-hover:text-[var(--color-luxury-gold)]
-                     group-hover:-translate-y-0.5 group-hover:translate-x-0.5
-                     transition-all"
+          className="absolute top-4 right-4 text-muted-foreground group-hover:text-[var(--color-luxury-gold)] group-hover:-translate-y-0.5 group-hover:translate-x-0.5 transition-all"
         />
       </div>
     </Link>

@@ -348,7 +348,9 @@ function Content() {
               </Link>
 
               <a
-                href={WEB_URL}
+                href="https://zealer.co.in"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="group p-4 rounded-2xl bg-surface border border-border hover:border-purple-500/40 hover:bg-surface/90 transition-all text-left"
               >
                 <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center mb-3 group-hover:scale-105 transition-transform">

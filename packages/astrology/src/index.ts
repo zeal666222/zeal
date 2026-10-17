@@ -78,5 +78,12 @@ export { computeFourPillars } from "./chinese/index";
 
 // Utils
 export { getAyanamsa, computeLahiriAyanamsa } from "./utils/ayanamsa";
+export {
+  getAstroTime,
+  getVedicPlanetPositions,
+  getWesternPlanetPositions,
+  getRahuLongitude,
+  type PlanetState,
+} from "./utils/ephemeris";
 export { computeHouses, getHouseForPlanet, computeAscendant, computeMC, computeLST } from "./utils/houses";
 export { computeAllAspects, checkAspect, angularDistance, ASPECT_DEFINITIONS } from "./utils/aspects";

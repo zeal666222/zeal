@@ -2,7 +2,7 @@
 
 import { toast } from "@/components/ui/toaster";
 import {useState} from "react";
-import {createBrowserClient} from "@supabase/ssr";
+import {getBrowserSupabase} from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 
 export function GoogleAuthButton({
@@ -19,10 +19,12 @@ export function GoogleAuthButton({
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const supabase = getBrowserSupabase();
+      if (!supabase) {
+        toast({ title: "Supabase env is not configured", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
 
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL 
         ? process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '') 

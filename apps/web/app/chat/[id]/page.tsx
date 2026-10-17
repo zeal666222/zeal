@@ -33,8 +33,35 @@ export default async function ChatRoomPage({ params }: { params: Promise<{ id: s
 
   let view = (viewRaw ?? {}) as PartnerViewResult;
 
+  const { data: convRow } = await admin
+    .from("Conversation")
+    .select("id, metadata")
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  const convMetadata = (convRow as { metadata?: Record<string, unknown> } | null)?.metadata ?? {};
+  const aiConsultantId = typeof convMetadata.aiConsultantId === "string" ? convMetadata.aiConsultantId : null;
+
+  // If conversation metadata points to an AI consultant, resolve directly
+  if (aiConsultantId) {
+    const { data: aiRow } = await admin
+      .from("AIConsultant")
+      .select("id, name, username, avatar, isPaid, perMinuteRate")
+      .eq("id", aiConsultantId)
+      .maybeSingle();
+    if (aiRow) {
+      const a = aiRow as { id: string; name: string; username: string | null; avatar: string | null; isPaid: boolean | null; perMinuteRate: number | null };
+      view = {
+        ok: true,
+        partner: { id: a.id, name: a.name, username: a.username ?? "", avatar: a.avatar, role: "AI" },
+        isAI: true,
+        rate: a.isPaid ? Number(a.perMinuteRate ?? 0) : 0,
+      };
+    }
+  }
+
   // Fallback: resolve the partner directly if the RPC is unavailable/failed.
-  if (!view.ok || !view.partner) {
+  if ((!view.ok || !view.partner) && !aiConsultantId) {
     const { data: others } = await admin
       .from("ConversationParticipant")
       .select("userId")

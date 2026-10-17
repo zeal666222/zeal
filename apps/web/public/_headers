@@ -1,0 +1,49 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Cloudflare Pages / edge _headers — FREE tier
+# ─────────────────────────────────────────────────────────────────────────────
+# Applied by Cloudflare Pages at the edge. Mirrors next.config.js so the CDN and
+# the origin agree on caching. `CDN-Cache-Control` is what Cloudflare honours for
+# its own cache while `Cache-Control` targets the browser. Kept consistent with
+# the middleware so no header is ever set twice with conflicting values.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Immutable, content-hashed build assets
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+
+# Next.js image optimizer output (keyed by src + params → safe long-term)
+/_next/image
+  Cache-Control: public, max-age=31536000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+
+# Hashed public media (avatars, thumbnails)
+/media/*
+  Cache-Control: public, max-age=31536000, immutable
+  CDN-Cache-Control: public, max-age=31536000, immutable
+
+# Static public assets from /public
+/assets/*
+  Cache-Control: public, max-age=2592000, immutable
+  CDN-Cache-Control: public, max-age=2592000, immutable
+
+# Deterministic, public AI-backed GET reads (cached at the edge — FREE tier).
+# Pair with a Cache Rules entry so the query string is part of the cache key.
+/astrology/kundli
+  Cache-Control: public, max-age=0, s-maxage=120, stale-while-revalidate=600
+  CDN-Cache-Control: public, s-maxage=120, stale-while-revalidate=600
+
+# Baseline hardening for everything else
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+# Authenticated / personalised surfaces — NEVER edge cache
+/dashboard/*
+  Cache-Control: private, no-store, max-age=0, must-revalidate
+  CDN-Cache-Control: private, no-store
+/profile/*
+  Cache-Control: private, no-store, max-age=0, must-revalidate
+  CDN-Cache-Control: private, no-store

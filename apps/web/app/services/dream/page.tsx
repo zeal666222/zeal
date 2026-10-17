@@ -8,10 +8,14 @@ import {
   Zap, Heart, Brain, Compass, Eye, Cloud, Feather, X,
 } from "lucide-react";
 import { analyzeDream } from "@/lib/dream/analyzer";
+import { consumeOpenAIStream } from "@/lib/ai/sse";
 import { interpretDream } from "@/lib/dream/interpreter";
 import { THEME_INTERPRETATIONS, ARCHETYPE_PROFILES, EMOTION_PROFILES } from "@/lib/dream/knowledge";
 import type { DreamAnalysisResult, DreamReading, DreamFocus, DreamReadingSection } from "@/lib/dream/types";
 import { DREAM_FOCUS_OPTIONS } from "@/lib/dream/types";
+import ParticleBurst from "@/components/ui/ParticleBurst";
+import GlowAura from "@/components/ui/GlowAura";
+import ShimmerOverlay from "@/components/ui/ShimmerOverlay";
 
 type Phase = "intro" | "input" | "analyzing" | "visualizing" | "reading";
 
@@ -45,7 +49,9 @@ export default function DreamPage() {
   const [loadingConsultants, setLoadingConsultants] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+  const [showBurst, setShowBurst] = useState(false);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const aiStartRef = useRef(false);
 
   const reset = () => {
     setPhase("intro");
@@ -59,11 +65,12 @@ export default function DreamPage() {
     setEmotions("");
     setRecurringDream(false);
     setLucidElements("");
+    aiStartRef.current = false;
   };
 
   const handleSubmit = useCallback(() => {
     if (dreamText.trim().length < 20) {
-      setError("Please describe your dream in more detail — at least a few sentences.");
+      setError("Please describe your dream in a bit more detail — at least a few lines.");
       return;
     }
     setError(null);
@@ -86,10 +93,10 @@ export default function DreamPage() {
         setReading(dreamReading);
         clearInterval(progressInterval);
         setScanProgress(100);
-        setTimeout(() => setPhase("visualizing"), 600);
-      } catch (err) {
+        setTimeout(() => { setPhase("visualizing"); setShowBurst(true); }, 600);
+      } catch {
         clearInterval(progressInterval);
-        setError(err instanceof Error ? err.message : "Analysis failed. Please try again.");
+        setError("We couldn't interpret the dream. Please tweak the description and try again.");
         setPhase("input");
       }
     })();
@@ -106,8 +113,10 @@ export default function DreamPage() {
   }, [phase]);
 
   const startAIReading = useCallback(async () => {
-    if (!analysis) return;
+    if (!analysis || aiStartRef.current) return;
+    aiStartRef.current = true;
     setPhase("reading");
+    setShowBurst(true);
     setLoadingAI(true);
     setAiSynthesis("");
     try {
@@ -123,26 +132,18 @@ export default function DreamPage() {
           analysis,
         }),
       });
-      if (!res.ok || !res.body) throw new Error("AI reading unavailable");
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let full = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n").filter((l) => l.startsWith("data: "));
-        for (const line of lines) {
-          const data = line.slice(6);
-          if (data === "[DONE]") continue;
-          full += data;
-          setAiSynthesis(full);
-        }
+      if (res.status === 401) {
+        setAiSynthesis("Please sign in to unlock your full AI interpretation — the detailed analysis below is already ready for you.");
+        return;
       }
+      if (!res.ok || !res.body) throw new Error("AI reading unavailable");
+      const full = await consumeOpenAIStream(res, { onDelta: (acc) => setAiSynthesis(acc) });
+      if (!full.trim()) throw new Error("Empty AI reading");
     } catch {
-      setAiSynthesis("The AI dream interpreter is momentarily unavailable. Your detailed analysis below is still complete and accurate based on the computational dream analysis.");
+      setAiSynthesis("Our AI dream interpreter is briefly unavailable right now. No worries — your detailed analysis is fully ready below, based on computational dream analysis.");
     } finally {
       setLoadingAI(false);
+      aiStartRef.current = false;
     }
   }, [analysis, dreamText, dreamFocus, emotions, recurringDream, lucidElements]);
 
@@ -158,12 +159,14 @@ export default function DreamPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+      <ParticleBurst active={showBurst} color="#a855f7" />
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-1/4 w-[600px] h-[600px] bg-indigo-600/8 blur-[200px] rounded-full" />
         <div className="absolute bottom-20 right-1/4 w-[500px] h-[500px] bg-purple-500/6 blur-[180px] rounded-full" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-blue-500/5 blur-[150px] rounded-full" />
         <StarField />
         <FloatingOrbs />
+        <DreamSymbolParticles />
       </div>
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 py-8 md:py-12">
@@ -226,6 +229,12 @@ function StarField() {
     duration: Math.random() * 3 + 2,
   }));
 
+  const shootingStars = [
+    { id: 0, delay: 0, duration: 1.2 },
+    { id: 1, delay: 8, duration: 1.0 },
+    { id: 2, delay: 16, duration: 1.4 },
+  ];
+
   return (
     <div className="absolute inset-0 overflow-hidden">
       {stars.map((star) => (
@@ -241,6 +250,27 @@ function StarField() {
           animate={{ opacity: [0.2, 0.8, 0.2], scale: [1, 1.3, 1] }}
           transition={{ duration: star.duration, repeat: Infinity, delay: star.delay }}
         />
+      ))}
+      {shootingStars.map((ss) => (
+        <motion.div
+          key={`shoot-${ss.id}`}
+          className="absolute w-1 h-1 bg-white rounded-full"
+          style={{ left: "-5%", top: "-5%" }}
+          animate={{
+            x: ["0vw", "120vw"],
+            y: ["0vh", "120vh"],
+            opacity: [0, 1, 1, 0],
+          }}
+          transition={{
+            duration: ss.duration,
+            repeat: Infinity,
+            delay: ss.delay,
+            repeatDelay: 24,
+            ease: "easeIn",
+          }}
+        >
+          <div className="absolute w-16 h-px bg-gradient-to-r from-white to-transparent -rotate-45 origin-left" />
+        </motion.div>
       ))}
     </div>
   );
@@ -272,6 +302,42 @@ function FloatingOrbs() {
   );
 }
 
+function DreamSymbolParticles() {
+  const symbols = ["🌙", "✨", "💫", "🌟", "⭐", "🪐", "🌙", "✨", "💫", "🌟"];
+  const particles = symbols.map((emoji, i) => ({
+    emoji,
+    x: 5 + (i * 9.5),
+    y: 10 + ((i * 17) % 80),
+    duration: 18 + (i % 3) * 6,
+    delay: i * 1.8,
+  }));
+
+  return (
+    <>
+      {particles.map((p, i) => (
+        <motion.div
+          key={`dream-sym-${i}`}
+          className="absolute text-sm opacity-20 select-none"
+          style={{ left: `${p.x}%`, top: `${p.y}%` }}
+          animate={{
+            y: [0, -30, 10, 0],
+            x: [0, 15, -10, 0],
+            opacity: [0.1, 0.25, 0.15, 0.1],
+          }}
+          transition={{
+            duration: p.duration,
+            repeat: Infinity,
+            delay: p.delay,
+            ease: "easeInOut",
+          }}
+        >
+          {p.emoji}
+        </motion.div>
+      ))}
+    </>
+  );
+}
+
 // ─── HERO HEADER ────────────────────────────────────────────────────────────────
 
 function HeroHeader({ phase, onReset }: { phase: Phase; onReset: () => void }) {
@@ -283,19 +349,22 @@ function HeroHeader({ phase, onReset }: { phase: Phase; onReset: () => void }) {
         transition={spring}
         className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold mb-4"
       >
-        <Moon size={12} /> Free AI Dream Interpretation
+        <Moon size={12} /> Completely Free AI Dream Interpretation
       </motion.div>
       <h1 className="text-3xl md:text-5xl font-black bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent mb-3">
         Dream Interpreter
       </h1>
       <p className="text-muted-foreground text-sm md:text-base max-w-xl mx-auto">
-        Jungian depth psychology meets AI — decode the symbolic language of your unconscious mind
+        Where Jungian depth psychology meets AI — understand the symbolic language of your subconscious
       </p>
       {phase !== "intro" && (
         <motion.button
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
+          type="button"
           onClick={onReset}
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface border border-border text-muted-foreground text-xs font-bold hover:text-foreground transition-colors"
         >
           <RotateCcw size={12} /> New Dream
@@ -309,10 +378,10 @@ function HeroHeader({ phase, onReset }: { phase: Phase; onReset: () => void }) {
 
 function IntroPhase({ onStart }: { onStart: () => void }) {
   const features = [
-    { icon: Brain, title: "Jungian Analysis", desc: "Archetype detection, shadow work, and individuation mapping from 30+ years of depth psychology" },
-    { icon: Eye, title: "Symbol Dictionary", desc: "200+ dream symbols interpreted through multiple psychological lenses — Jungian, Gestalt, cognitive" },
-    { icon: Sparkles, title: "AI Master Interpreter", desc: "Our AI combines computational analysis with the warmth of an experienced dream therapist" },
-    { icon: Feather, title: "Emotional Mapping", desc: "Track the emotional landscape of your dreams — joy, fear, awe, sadness — and what they reveal" },
+    { icon: Brain, title: "Jungian Analysis", desc: "Archetype detection, shadow work and individuation mapping — drawn from 30+ years of depth psychology" },
+    { icon: Eye, title: "Symbol Dictionary", desc: "200+ dream symbols, read through several psychological lenses — Jungian, Gestalt, cognitive" },
+    { icon: Sparkles, title: "AI Master Interpreter", desc: "Our AI blends computational analysis with the warmth of an experienced dream therapist" },
+    { icon: Feather, title: "Emotional Mapping", desc: "Explore the emotional journey of your dreams — joy, fear, expansion, sadness — and their meaning" },
   ];
 
   return (
@@ -364,6 +433,7 @@ function IntroPhase({ onStart }: { onStart: () => void }) {
             key={f.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02, y: -4 }}
             transition={{ delay: i * 0.12 + 0.3 }}
             className="p-4 rounded-2xl bg-surface/80 backdrop-blur border border-border/60 hover:border-indigo-500/30 transition-colors"
           >
@@ -377,7 +447,10 @@ function IntroPhase({ onStart }: { onStart: () => void }) {
       <motion.button
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
+        whileHover={{ scale: 1.02, y: -2 }}
+        whileTap={{ scale: 0.97 }}
         transition={{ delay: 0.8, ...spring }}
+        type="button"
         onClick={onStart}
         className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-black text-base shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-shadow active:scale-[0.98] flex items-center justify-center gap-2"
       >
@@ -408,13 +481,14 @@ function InputPhase({
     <motion.div {...fadeSlide} transition={spring} className="space-y-6">
       {/* Dream text input */}
       <div>
-        <label className="text-xs font-bold text-muted-foreground mb-2 block">Describe your dream</label>
+        <label htmlFor="dream-text" className="text-xs font-bold text-muted-foreground mb-2 block">Describe your dream</label>
         <div className="relative">
           <textarea
+            id="dream-text"
             ref={textRef}
             value={dreamText}
             onChange={(e) => setDreamText(e.target.value)}
-            placeholder="I was walking through a vast forest when I noticed the trees were made of crystal. A golden light was pulsing from the ground, and I could hear music coming from somewhere above. I started to float..."
+            placeholder="I was walking through a vast forest when suddenly I saw the trees were made of crystal. Golden light was flowing from the ground, and music drifted from somewhere far above. I began to float in the air..."
             className="w-full h-48 p-4 rounded-2xl bg-surface/80 backdrop-blur border-2 border-border focus:border-indigo-500/50 text-sm text-foreground placeholder:text-muted-foreground/50 resize-none focus:outline-none transition-colors"
           />
           <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground/50">
@@ -422,19 +496,23 @@ function InputPhase({
           </div>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1.5">
-          Write as much detail as you can remember — scenes, emotions, colors, people, actions. The more detail, the deeper the interpretation.
+          Write down everything you remember — scenes, emotions, colours, people, movements. The more detail, the deeper the interpretation.
         </p>
       </div>
 
       {/* Focus selector */}
       <div>
-        <label className="text-xs font-bold text-muted-foreground mb-2 block">Interpretation focus</label>
+        <label className="text-xs font-bold text-muted-foreground mb-2 block">Analysis focus</label>
         <div className="grid grid-cols-3 gap-2">
           {DREAM_FOCUS_OPTIONS.map((opt) => (
-            <button
+            <motion.button
               key={opt.value}
               type="button"
               onClick={() => setDreamFocus(opt.value as DreamFocus)}
+              layout
+              aria-pressed={dreamFocus === opt.value}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               className={`p-2.5 rounded-xl border text-xs font-bold transition-all ${
                 dreamFocus === opt.value
                   ? "border-indigo-500 bg-indigo-500/10 text-foreground"
@@ -443,7 +521,7 @@ function InputPhase({
             >
               <span className="block text-base mb-0.5">{opt.icon}</span>
               {opt.label}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
@@ -452,10 +530,11 @@ function InputPhase({
       <button
         type="button"
         onClick={() => setShowAdvanced(!showAdvanced)}
+        aria-expanded={showAdvanced}
         className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronRight size={14} className={`transition-transform ${showAdvanced ? "rotate-90" : ""}`} />
-        Additional context (optional)
+        More details (optional)
       </button>
 
       <AnimatePresence>
@@ -468,12 +547,13 @@ function InputPhase({
           >
             {/* Emotions */}
             <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">How did this dream make you feel?</label>
+              <label htmlFor="dream-emotions" className="text-xs font-bold text-muted-foreground mb-2 block">How did this dream make you feel?</label>
               <input
+                id="dream-emotions"
                 type="text"
                 value={emotions}
                 onChange={(e) => setEmotions(e.target.value)}
-                placeholder="e.g., anxious, peaceful, confused, amazed..."
+                placeholder="e.g. anxiety, calm, confusion, wonder..."
                 className="w-full p-3 rounded-xl bg-surface/80 backdrop-blur border border-border focus:border-indigo-500/50 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none transition-colors"
               />
             </div>
@@ -482,8 +562,11 @@ function InputPhase({
             <div className="flex items-center gap-3">
               <button
                 type="button"
+                role="switch"
+                aria-checked={recurringDream}
+                aria-label="This is a recurring dream"
                 onClick={() => setRecurringDream(!recurringDream)}
-                className={`w-10 h-6 rounded-full transition-colors relative ${
+                className={`w-10 h-6 rounded-full transition-colors relative focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${
                   recurringDream ? "bg-indigo-500" : "bg-border"
                 }`}
               >
@@ -498,12 +581,13 @@ function InputPhase({
 
             {/* Lucid elements */}
             <div>
-              <label className="text-xs font-bold text-muted-foreground mb-2 block">Were you aware you were dreaming?</label>
+              <label htmlFor="dream-lucid" className="text-xs font-bold text-muted-foreground mb-2 block">Were you aware you were dreaming?</label>
               <input
+                id="dream-lucid"
                 type="text"
                 value={lucidElements}
                 onChange={(e) => setLucidElements(e.target.value)}
-                placeholder="e.g., I knew I was dreaming and tried to fly..."
+                placeholder="e.g. I knew I was dreaming and tried to fly..."
                 className="w-full p-3 rounded-xl bg-surface/80 backdrop-blur border border-border focus:border-indigo-500/50 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none transition-colors"
               />
             </div>
@@ -513,8 +597,11 @@ function InputPhase({
 
       {/* Submit */}
       <motion.button
+        type="button"
         onClick={onSubmit}
         disabled={dreamText.trim().length < 20}
+        whileHover={{ scale: dreamText.trim().length >= 20 ? 1.02 : 1, y: -2 }}
+        whileTap={{ scale: 0.97 }}
         className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-black text-base shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <Sparkles size={18} /> Interpret My Dream <ArrowRight size={16} />
@@ -532,12 +619,12 @@ function InputPhase({
 
       {/* Tips */}
       <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10">
-        <p className="text-xs font-bold text-indigo-400 mb-2">For deeper interpretation:</p>
+        <p className="text-xs font-bold text-indigo-400 mb-2">For a deeper interpretation:</p>
         <div className="space-y-1 text-[11px] text-muted-foreground">
-          <p>• Include specific symbols — objects, animals, people, locations</p>
-          <p>• Describe the emotional tone — were you scared, peaceful, confused?</p>
-          <p>• Note colors, numbers, and any unusual details</p>
-          <p>• Mention if you've had similar dreams before</p>
+          <p>• Note the key symbols — objects, animals, people, places</p>
+          <p>• Describe the emotional tone — fear, calm, or confusion?</p>
+          <p>• Record colours, numbers and unusual details</p>
+          <p>• Mention it if you have had dreams like this before</p>
         </div>
       </div>
     </motion.div>
@@ -548,16 +635,17 @@ function InputPhase({
 
 function AnalyzingPhase({ progress }: { progress: number }) {
   const steps = [
-    { label: "Parsing dream narrative", threshold: 10 },
-    { label: "Extracting symbols", threshold: 25 },
-    { label: "Identifying themes", threshold: 40 },
-    { label: "Classifying archetypes", threshold: 55 },
-    { label: "Mapping emotional landscape", threshold: 70 },
-    { label: "Generating interpretation", threshold: 85 },
+    { label: "Reading your dream story…", threshold: 10 },
+    { label: "Extracting symbols…", threshold: 25 },
+    { label: "Recognizing themes…", threshold: 40 },
+    { label: "Classifying archetypes…", threshold: 55 },
+    { label: "Mapping the emotional journey…", threshold: 70 },
+    { label: "Preparing the interpretation…", threshold: 85 },
   ];
 
   return (
-    <motion.div {...fadeSlide} transition={spring} className="space-y-6">
+    <motion.div {...fadeSlide} transition={spring} className="space-y-6 relative">
+      <ShimmerOverlay active={progress > 85} color="rgba(168, 85, 247, 0.12)" />
       <div className="relative mx-auto w-48 h-48">
         <motion.div
           animate={{ rotate: 360 }}
@@ -570,6 +658,7 @@ function AnalyzingPhase({ progress }: { progress: number }) {
           className="absolute inset-4 rounded-full border border-purple-500/20"
         />
         <div className="absolute inset-0 flex items-center justify-center">
+          <GlowAura active color="rgba(99, 102, 241, 0.4)" size={120} />
           <motion.div
             animate={{ scale: [1, 1.2, 1], opacity: [0.6, 1, 0.6] }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -595,7 +684,7 @@ function AnalyzingPhase({ progress }: { progress: number }) {
 
       <div className="space-y-2">
         <div className="flex justify-between text-xs font-bold">
-          <span className="text-muted-foreground">Analyzing your dream...</span>
+          <span className="text-muted-foreground">Analyzing your dream…</span>
           <span className="text-indigo-400">{Math.round(progress)}%</span>
         </div>
         <div className="h-2 rounded-full bg-surface overflow-hidden">
@@ -649,23 +738,26 @@ function VisualizingPhase({
   return (
     <motion.div {...fadeSlide} transition={spring} className="space-y-6">
       {/* Summary card */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2 }}
-        className="p-6 rounded-3xl bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/20 backdrop-blur"
-      >
-        <div className="flex items-center gap-2 mb-3">
-          <Moon size={16} className="text-indigo-400" />
-          <h3 className="font-bold text-sm text-foreground">Dream Summary</h3>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed">{reading.summary}</p>
-      </motion.div>
+      <div className="relative">
+        <GlowAura active color="rgba(99, 102, 241, 0.25)" size={300} className="absolute inset-0" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+          className="relative p-6 rounded-3xl bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-pink-500/10 border border-indigo-500/20 backdrop-blur"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <Moon size={16} className="text-indigo-400" />
+            <h3 className="font-bold text-sm text-foreground">Dream Summary</h3>
+          </div>
+          <p className="text-sm text-muted-foreground leading-relaxed">{reading.summary}</p>
+        </motion.div>
+      </div>
 
       {/* Section carousel */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-muted-foreground">Interpretation Sections</h3>
+          <h3 className="text-xs font-bold text-muted-foreground">Analysis Highlights</h3>
           <span className="text-[10px] text-muted-foreground/60">
             {(activeSectionIdx ?? 0) + 1} / {sections.length}
           </span>
@@ -714,26 +806,31 @@ function VisualizingPhase({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="p-3 rounded-xl bg-surface/60 border border-border/40 text-center">
-          <p className="text-lg font-black text-indigo-400">{reading.analysis.symbols.length}</p>
-          <p className="text-[10px] text-muted-foreground font-bold">Symbols</p>
-        </div>
-        <div className="p-3 rounded-xl bg-surface/60 border border-border/40 text-center">
-          <p className="text-lg font-black text-purple-400">{reading.analysis.themes.length}</p>
-          <p className="text-[10px] text-muted-foreground font-bold">Themes</p>
-        </div>
-        <div className="p-3 rounded-xl bg-surface/60 border border-border/40 text-center">
-          <p className="text-lg font-black text-pink-400">{reading.analysis.archetypes.length}</p>
-          <p className="text-[10px] text-muted-foreground font-bold">Archetypes</p>
+      <div className="perspective-800">
+        <div className="grid grid-cols-3 gap-3">
+          <motion.div whileHover={{ rotateY: 5, rotateX: -5, scale: 1.05 }} className="p-3 rounded-xl bg-surface/60 border border-border/40 text-center">
+            <p className="text-lg font-black text-indigo-400">{reading.analysis.symbols.length}</p>
+            <p className="text-[10px] text-muted-foreground font-bold">Symbols</p>
+          </motion.div>
+          <motion.div whileHover={{ rotateY: 5, rotateX: -5, scale: 1.05 }} className="p-3 rounded-xl bg-surface/60 border border-border/40 text-center">
+            <p className="text-lg font-black text-purple-400">{reading.analysis.themes.length}</p>
+            <p className="text-[10px] text-muted-foreground font-bold">Themes</p>
+          </motion.div>
+          <motion.div whileHover={{ rotateY: 5, rotateX: -5, scale: 1.05 }} className="p-3 rounded-xl bg-surface/60 border border-border/40 text-center">
+            <p className="text-lg font-black text-pink-400">{reading.analysis.archetypes.length}</p>
+            <p className="text-[10px] text-muted-foreground font-bold">Archetypes</p>
+          </motion.div>
         </div>
       </div>
 
       <motion.button
+        type="button"
         onClick={onContinue}
-        className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-black text-base shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-shadow active:scale-[0.98] flex items-center justify-center gap-2"
+        whileHover={{ scale: 1.02, y: -2 }}
+        whileTap={{ scale: 0.97 }}
+        className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 text-white font-black text-base shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 transition-shadow active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <Sparkles size={18} /> Get AI Master Interpretation <ArrowRight size={16} />
+        <Sparkles size={18} /> Get Your AI Reading <ArrowRight size={16} />
       </motion.button>
     </motion.div>
   );
@@ -781,7 +878,7 @@ function ReadingPhase({
 
       {/* Full sections */}
       <div className="space-y-4">
-        <h3 className="text-xs font-bold text-muted-foreground">Complete Analysis</h3>
+        <h3 className="text-xs font-bold text-muted-foreground">Full Interpretation</h3>
         {reading.sections.map((section, i) => (
           <SectionCard key={i} section={section} index={i} />
         ))}
@@ -795,15 +892,18 @@ function ReadingPhase({
         </div>
         {loadingConsultants ? (
           <div className="flex items-center justify-center py-6">
-            <Loader2 size={20} className="text-indigo-400 animate-spin" />
+            <Loader2 size={20} className="text-indigo-400 animate-spin" aria-hidden />
           </div>
         ) : consultants.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
             {consultants.map((c) => (
-              <motion.div
+              <motion.a
                 key={c.id}
-                whileHover={{ scale: 1.02 }}
-                className="p-3 rounded-xl bg-surface/80 border border-border/60 cursor-pointer"
+                href={`/consultant/${c.id}`}
+                aria-label={`View ${c.name}'s profile`}
+                whileHover={{ scale: 1.03, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="block p-3 rounded-xl bg-surface/80 border border-border/60 hover:border-indigo-500/40 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-400">
@@ -818,7 +918,7 @@ function ReadingPhase({
                   <span className="text-amber-400">★ {c.rating.toFixed(1)}</span>
                   {c.perMinuteRate && <span className="text-muted-foreground">₹{c.perMinuteRate}/min</span>}
                 </div>
-              </motion.div>
+              </motion.a>
             ))}
           </div>
         ) : (
@@ -836,11 +936,15 @@ function SectionCard({ section, index }: { section: DreamReadingSection; index: 
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ scale: 1.01 }}
+      layout
       transition={{ delay: index * 0.1 }}
       className="p-4 rounded-2xl bg-surface/60 border border-border/40"
     >
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="w-full flex items-center justify-between text-left"
       >
         <div className="flex items-center gap-2">

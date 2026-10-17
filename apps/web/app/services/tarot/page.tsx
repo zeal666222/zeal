@@ -1,19 +1,38 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { fetchAIJson } from "@/lib/ai/json-fetch";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers, Loader2, RotateCcw, Sparkles, Star, Eye, Moon, Sun,
   ChevronRight, Zap, Heart, Target, Shuffle, ArrowRight, MessageCircle,
-  Users, Clock, CheckCircle2,
+  Users, Clock, CheckCircle2, Wand2, Flame, Droplets, Wind, Mountain,
 } from "lucide-react";
 import {
-  FULL_DECK, SPREADS, ELEMENT_COLORS, SUIT_GRADIENTS, MAJOR_GRADIENT,
-  shuffleDeck,
-  type TarotCard, type DrawnCard, type SpreadName, type TarotElement,
+  FULL_DECK, MAJOR_ARCANA, SPREADS, ELEMENT_COLORS, SUIT_GRADIENTS, MAJOR_GRADIENT, MAJOR_ARCANA_IMAGES,
+  shuffleDeck, buildTarotReading,
+  type TarotCard, type DrawnCard, type SpreadName, type TarotElement, type TarotReading,
 } from "@/lib/tarot/deck";
+import { ReadingMarkdown } from "@/components/astrology/ReadingMarkdown";
 
 type Phase = "intro" | "spread-select" | "question" | "shuffling" | "picking" | "revealing" | "reading";
+
+interface CardDetail {
+  position: string;
+  cardName: string;
+  orientation: string;
+  coreMeaning: string;
+  symbolism: string;
+  elementalInfluence: string;
+  practicalGuidance: string;
+}
+
+interface ParsedReading {
+  cardDetails: CardDetail[];
+  synthesis: string;
+  actionStep: string;
+  overallEnergy: string;
+}
 
 interface AvailableConsultant {
   id: string;
@@ -34,11 +53,30 @@ const SPREAD_ICONS: Record<SpreadName, typeof Layers> = {
 };
 
 const SPREAD_DESCRIPTIONS: Record<SpreadName, string> = {
-  single: "One card. One truth. Perfect for daily guidance.",
+  single: "One card. One truth. Perfect for everyday guidance.",
   three: "Past, Present, Future — the classic timeline reading.",
-  love: "Five cards exploring the dynamics of love.",
-  celtic: "A focused 5-card Celtic Cross for deep insight.",
+  love: "5 cards to understand the depth of love and relationships.",
+  celtic: "A focused 5-card Celtic Cross for deeper insight.",
 };
+
+const ELEMENT_ICONS: Record<TarotElement, typeof Flame> = {
+  fire: Flame,
+  water: Droplets,
+  air: Wind,
+  earth: Mountain,
+};
+
+function parseReading(raw: string): ParsedReading | null {
+  try {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]) as ParsedReading;
+    if (!parsed.cardDetails || !parsed.synthesis) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 export default function TarotPage() {
   const [phase, setPhase] = useState<Phase>("intro");
@@ -48,9 +86,10 @@ export default function TarotPage() {
   const [pickedIndices, setPickedIndices] = useState<number[]>([]);
   const [drawnCards, setDrawnCards] = useState<DrawnCard[]>([]);
   const [flippedSet, setFlippedSet] = useState<Set<number>>(new Set());
-  const [reading, setReading] = useState("");
+  const [parsedReading, setParsedReading] = useState<ParsedReading | null>(null);
   const [loadingReading, setLoadingReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [consultants, setConsultants] = useState<AvailableConsultant[]>([]);
   const [loadingConsultants, setLoadingConsultants] = useState(false);
   const pickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,7 +136,7 @@ export default function TarotPage() {
     setPickedIndices([]);
     setDrawnCards([]);
     setFlippedSet(new Set());
-    setReading("");
+    setParsedReading(null);
     setError(null);
 
     setTimeout(() => setPhase("picking"), 1800);
@@ -131,11 +170,11 @@ export default function TarotPage() {
     const revealSequential = async () => {
       for (let i = 0; i < drawnCards.length; i++) {
         if (cancelled) return;
-        await new Promise((r) => setTimeout(r, 700));
+        await new Promise((r) => setTimeout(r, 800));
         setFlippedSet((prev) => new Set(prev).add(i));
       }
       if (!cancelled) {
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 600));
         setPhase("reading");
       }
     };
@@ -155,42 +194,58 @@ export default function TarotPage() {
       position: d.position,
     }));
 
-    fetch("/api/ai/tarot", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cards: cardPayload, question: question || undefined }),
-    })
-      .then(async (res) => {
+    fetchAIJson<{ reading?: string; error?: string }>(
+      "/api/ai/tarot",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cards: cardPayload, question: question || undefined }),
+      },
+    )
+      .then(({ res, data }) => {
         if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error((body as { error?: string })?.error || `HTTP ${res.status}`);
+          throw new Error(data?.error || `HTTP ${res.status}`);
         }
-        return res.json() as Promise<{ reading?: string }>;
+        return data;
       })
       .then((data) => {
-        if (!cancelled) setReading(data.reading ?? "Your cards have been drawn.");
+        if (cancelled) return;
+        setParsedReading(parseReading(data?.reading ?? ""));
       })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to interpret");
+      .catch(() => {
+        if (!cancelled) setError("The AI deep-dive couldn't load right now — the traditional pre-coded reading below is still complete.");
       })
       .finally(() => {
         if (!cancelled) setLoadingReading(false);
       });
 
     return () => { cancelled = true; };
-  }, [phase, drawnCards, question]);
+  }, [phase, drawnCards, question, retryKey]);
 
   const handleReset = () => {
     setPhase("intro");
     setDrawnCards([]);
     setPickedIndices([]);
     setFlippedSet(new Set());
-    setReading("");
+    setParsedReading(null);
     setQuestion("");
     setError(null);
   };
 
+  const handleRetryReading = () => {
+    if (loadingReading) return;
+    setError(null);
+    setRetryKey((k) => k + 1);
+  };
+
   const spread = SPREADS[selectedSpread];
+
+  // Deterministic, pre-coded 78-deck reading — renders instantly and always,
+  // independent of AI availability. The AI deep-dive overlays it when it lands.
+  const localReading = useMemo(
+    () => (drawnCards.length > 0 ? buildTarotReading(drawnCards) : null),
+    [drawnCards],
+  );
 
   return (
     <div className="min-h-screen-app pb-16">
@@ -234,18 +289,145 @@ export default function TarotPage() {
             <ReadingPhase
               key="reading"
               drawnCards={drawnCards}
-              reading={reading}
+              parsedReading={parsedReading}
+              fallback={localReading}
               loading={loadingReading}
               error={error}
               question={question}
               consultants={consultants}
               loadingConsultants={loadingConsultants}
               onReset={handleReset}
+              onRetry={handleRetryReading}
             />
           )}
         </AnimatePresence>
       </div>
+
+      {/* Major Arcana Gallery — all 22 cards */}
+      <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl sm:text-4xl font-black text-foreground">The Major Arcana</h2>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">22 cards · The Fool's Journey from innocence to enlightenment</p>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 sm:gap-6">
+          {MAJOR_ARCANA.map((card) => {
+            const imagePath = MAJOR_ARCANA_IMAGES[card.id];
+            return (
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: card.number * 0.05 }}
+                whileHover={{ y: -8, scale: 1.03 }}
+                className="group relative"
+              >
+                <div className="relative aspect-[9/16] rounded-2xl overflow-hidden border border-border/40 bg-surface shadow-lg group-hover:shadow-2xl group-hover:shadow-purple-500/20 transition-all">
+                  {imagePath ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={imagePath}
+                      alt={card.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className={`w-full h-full bg-gradient-to-br ${MAJOR_GRADIENT} flex items-center justify-center`}>
+                      <span className="text-5xl">{card.symbol}</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform">
+                    <p className="text-white text-xs font-bold text-center">{card.name}</p>
+                    <p className="text-white/70 text-[9px] text-center mt-0.5">{card.keywords.slice(0, 2).join(" · ")}</p>
+                  </div>
+                </div>
+                <div className="mt-2 text-center">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{card.name}</p>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
     </div>
+  );
+}
+
+/* ─── Particle Burst on Card Flip ──────────────────────────────────────────── */
+
+function ParticleBurst({ element, active }: { element: TarotElement; active: boolean }) {
+  const colors: Record<TarotElement, string> = {
+    fire: "bg-orange-400",
+    water: "bg-blue-400",
+    air: "bg-yellow-400",
+    earth: "bg-emerald-400",
+  };
+  const particles = useMemo(() => Array.from({ length: 16 }, (_, i) => ({
+    angle: (i / 16) * Math.PI * 2,
+    distance: 40 + Math.random() * 30,
+    size: 2 + Math.random() * 3,
+    delay: Math.random() * 0.15,
+  })), []);
+
+  if (!active) return null;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+      {particles.map((p, i) => (
+        <motion.div
+          key={i}
+          className={`absolute rounded-full ${colors[element]}`}
+          style={{ width: p.size, height: p.size }}
+          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+          animate={{
+            x: Math.cos(p.angle) * p.distance,
+            y: Math.sin(p.angle) * p.distance,
+            opacity: 0,
+            scale: 0,
+          }}
+          transition={{ duration: 0.7, delay: p.delay, ease: "easeOut" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─── Golden Aura on Reveal ────────────────────────────────────────────────── */
+
+function GoldenAura({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <motion.div
+      className="absolute -inset-2 rounded-3xl pointer-events-none"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: [0, 0.8, 0] }}
+      transition={{ duration: 1.2, ease: "easeOut" }}
+      style={{
+        boxShadow: "0 0 40px 8px rgba(234,179,8,0.4), 0 0 80px 16px rgba(139,92,246,0.2)",
+      }}
+    />
+  );
+}
+
+/* ─── Shimmer Overlay ──────────────────────────────────────────────────────── */
+
+function ShimmerOverlay({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <motion.div
+      className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <motion.div
+        className="absolute top-0 -left-full w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-[-20deg]"
+        animate={{ left: "200%" }}
+        transition={{ duration: 0.8, ease: "easeInOut" }}
+      />
+    </motion.div>
   );
 }
 
@@ -271,13 +453,16 @@ function HeroHeader({ phase, onReset }: { phase: Phase; onReset: () => void }) {
             Mystic Tarot
           </h1>
           <p className="mt-3 text-muted-foreground text-sm sm:text-base max-w-lg mx-auto">
-            78-card deck · Gamified readings · AI-synthesized interpretations
+            78-card deck · Interactive reading · AI interpretation — all completely free
           </p>
           {phase !== "intro" && (
             <motion.button
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
+              type="button"
               onClick={onReset}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               className="mt-4 px-4 py-2 bg-surface-raised border border-border/60 rounded-xl text-xs font-medium hover:bg-surface-overlay transition-colors text-foreground inline-flex items-center gap-1.5"
             >
               <RotateCcw size={12} /> Start Over
@@ -291,6 +476,13 @@ function HeroHeader({ phase, onReset }: { phase: Phase; onReset: () => void }) {
 
 /* ─── Floating particles background ────────────────────────────────────────── */
 
+// Deterministic per-index pseudo-random: SSR and client must produce the same
+// initial style or React 19 hydration mismatches (Math.random() at render = error).
+function stableRand(i: number, salt: number): number {
+  const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 function FloatingParticles() {
   const particles = Array.from({ length: 12 }, (_, i) => i);
   return (
@@ -300,8 +492,8 @@ function FloatingParticles() {
           key={i}
           className="absolute w-1 h-1 rounded-full bg-indigo-400/30"
           initial={{
-            x: Math.random() * 100 + "%",
-            y: Math.random() * 100 + "%",
+            x: stableRand(i, 1) * 100 + "%",
+            y: stableRand(i, 2) * 100 + "%",
             opacity: 0,
           }}
           animate={{
@@ -309,10 +501,10 @@ function FloatingParticles() {
             opacity: [0, 0.6, 0.3, 0.5, 0],
           }}
           transition={{
-            duration: 6 + Math.random() * 4,
-            delay: Math.random() * 3,
+            duration: 6 + stableRand(i, 3) * 4,
+            delay: stableRand(i, 4) * 3,
             repeat: Infinity,
-            repeatDelay: Math.random() * 2,
+            repeatDelay: stableRand(i, 5) * 2,
           }}
         />
       ))}
@@ -358,12 +550,13 @@ function IntroPhase({ onBegin }: { onBegin: () => void }) {
       <div className="text-center space-y-3 max-w-md">
         <h2 className="text-2xl font-bold text-foreground">Begin Your Reading</h2>
         <p className="text-muted-foreground text-sm">
-          Choose a spread, focus your intention, and select your cards from the deck.
-          The 78-card Rider-Waite deck awaits.
+          Choose a spread, settle into your intention, and pick your cards from the deck.
+          The 78-card Rider-Waite deck is waiting for you.
         </p>
       </div>
 
       <motion.button
+        type="button"
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
         onClick={onBegin}
@@ -376,7 +569,7 @@ function IntroPhase({ onBegin }: { onBegin: () => void }) {
         {[
           { icon: "🃏", label: "78 Cards" },
           { icon: "🔄", label: "Reversed" },
-          { icon: "✨", label: "Free" },
+          { icon: "✨", label: "Completely Free" },
         ].map((item) => (
           <div key={item.label} className="flex flex-col items-center gap-1">
             <span className="text-xl">{item.icon}</span>
@@ -411,7 +604,7 @@ function SpreadSelectPhase({
     >
       <div className="text-center">
         <h2 className="text-2xl font-bold text-foreground">Choose Your Spread</h2>
-        <p className="text-sm text-muted-foreground mt-1">Each spread reveals a different dimension of insight</p>
+        <p className="text-sm text-muted-foreground mt-1">Every spread opens a new dimension of insight</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto">
@@ -426,6 +619,7 @@ function SpreadSelectPhase({
               transition={{ delay: idx * 0.08, type: "spring", stiffness: 200, damping: 20 }}
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
+              type="button"
               onClick={() => onSelect(key)}
               className={`relative rounded-2xl border p-5 text-left transition-all ${
                 isSelected
@@ -461,10 +655,11 @@ function SpreadSelectPhase({
       </div>
 
       <div className="flex justify-center gap-3">
-        <button onClick={onBack} className="px-5 py-2.5 bg-surface-raised border border-border/60 rounded-xl text-sm font-medium hover:bg-surface-overlay transition-colors text-foreground">
-          Back
+        <button type="button" onClick={onBack} className="px-5 py-2.5 bg-surface-raised border border-border/60 rounded-xl text-sm font-medium hover:bg-surface-overlay transition-colors text-foreground">
+          Go Back
         </button>
         <motion.button
+          type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => onSelect(selected)}
@@ -505,13 +700,13 @@ function QuestionPhase({
       </div>
 
       <div className="text-center">
-        <h2 className="text-xl font-bold text-foreground">Focus Your Intention</h2>
+        <h2 className="text-xl font-bold text-foreground">Focus on Your Intention</h2>
         <p className="text-sm text-muted-foreground mt-1">
           {spreadName === "single"
-            ? "What guidance do you seek today?"
+            ? "What kind of guidance are you seeking today?"
             : spreadName === "love"
-            ? "What question weighs on your heart?"
-            : "What would you like the cards to reveal?"}
+            ? "What question is on your heart?"
+            : "What do the cards want to reveal for you?"}
         </p>
       </div>
 
@@ -519,26 +714,28 @@ function QuestionPhase({
         <textarea
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Focus on your question... (optional)"
+          placeholder="Center your attention on your question… (optional)"
+          aria-label="Write your question (optional)"
           rows={3}
           className="w-full rounded-2xl bg-surface/80 backdrop-blur-xl border border-border/60 p-4 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 resize-none transition-all"
         />
         <p className="text-[10px] text-muted-foreground mt-2 text-center">
-          You can also draw cards without a question — the cards will speak to your energy
+          You can pick cards even without a question — the cards will speak to your energy
         </p>
       </div>
 
       <div className="flex gap-3">
-        <button onClick={onBack} className="px-5 py-2.5 bg-surface-raised border border-border/60 rounded-xl text-sm font-medium hover:bg-surface-overlay transition-colors text-foreground">
-          Back
+        <button type="button" onClick={onBack} className="px-5 py-2.5 bg-surface-raised border border-border/60 rounded-xl text-sm font-medium hover:bg-surface-overlay transition-colors text-foreground">
+          Go Back
         </button>
         <motion.button
+          type="button"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={onBegin}
           className="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-bold inline-flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20 transition-shadow"
         >
-          <Shuffle size={14} /> Shuffle & Draw
+          <Shuffle size={14} /> Shuffle &amp; Choose
         </motion.button>
       </div>
     </motion.div>
@@ -604,8 +801,8 @@ function ShufflePhase({ deckSize }: { deckSize: number }) {
         className="flex flex-col items-center gap-2"
       >
         <Sparkles size={20} className="text-indigo-400 animate-spin" style={{ animationDuration: "3s" }} />
-        <p className="text-sm font-medium text-foreground">Shuffling the deck...</p>
-        <p className="text-xs text-muted-foreground">78 cards · Randomized · Energized</p>
+        <p className="text-sm font-medium text-foreground">Shuffling the cards…</p>
+        <p className="text-xs text-muted-foreground">78 cards · Random · Arranged alongside your energy</p>
       </motion.div>
     </motion.div>
   );
@@ -636,20 +833,28 @@ function PickingPhase({
       className="flex flex-col items-center gap-6 py-6"
     >
       <div className="text-center">
-        <h2 className="text-xl font-bold text-foreground">
+        <motion.h2
+          key={remaining}
+          initial={{ scale: 0.8 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 15 }}
+          className="text-xl font-bold text-foreground"
+        >
           {remaining > 0
-            ? `Pick ${remaining} more card${remaining > 1 ? "s" : ""}`
-            : "All cards selected!"}
-        </h2>
+            ? `Choose ${remaining} more cards`
+            : "All cards have been chosen!"}
+        </motion.h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Trust your intuition — click the cards that call to you
+          Trust your intuition — pick the cards that feel like they're calling to you
         </p>
       </div>
 
       <div className="flex items-center gap-2">
         {Array.from({ length: totalNeeded }, (_, i) => (
-          <div
+          <motion.div
             key={i}
+            animate={i < pickedIndices.length ? { scale: [1, 1.3, 1] } : {}}
+            transition={{ duration: 0.45, ease: "easeInOut" }}
             className={`w-3 h-3 rounded-full transition-all ${
               i < pickedIndices.length
                 ? "bg-indigo-500 shadow-md shadow-indigo-500/50"
@@ -680,9 +885,11 @@ function PickingPhase({
               }}
               whileHover={!isPicked ? { y: -8, scale: 1.05 } : {}}
               whileTap={!isPicked ? { scale: 0.95 } : {}}
+              type="button"
+              aria-label={isPicked ? `Card ${i + 1} chosen` : `Choose card ${i + 1}`}
               onClick={() => !isPicked && onPick(i)}
               disabled={isPicked || remaining <= 0}
-              className={`relative w-16 h-24 sm:w-20 sm:h-28 rounded-xl border transition-all ${
+              className={`relative w-16 h-24 sm:w-20 sm:h-28 rounded-xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                 isPicked
                   ? "bg-indigo-500/20 border-indigo-500/30"
                   : remaining <= 0
@@ -691,9 +898,16 @@ function PickingPhase({
               }`}
             >
               {!isPicked && remaining > 0 && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-2xl opacity-60">✦</span>
-                </div>
+                <>
+                  <motion.div
+                    animate={{ opacity: [0.3, 0.6, 0.3] }}
+                    transition={{ duration: 2, repeat: Infinity, delay: i * 0.1 }}
+                    className="absolute inset-0 rounded-xl bg-indigo-400/10"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-2xl opacity-60">✦</span>
+                  </div>
+                </>
               )}
               {isPicked && (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -706,7 +920,7 @@ function PickingPhase({
       </div>
 
       <p className="text-[10px] text-muted-foreground">
-        {deck.length} cards in the spread · Tap to select
+        {deck.length} cards in the spread · Tap to choose
       </p>
     </motion.div>
   );
@@ -734,7 +948,7 @@ function RevealPhase({
           animate={{ opacity: 1, y: 0 }}
           className="text-xl font-bold text-foreground"
         >
-          Revealing your cards...
+          Revealing your cards…
         </motion.h2>
       </div>
 
@@ -783,11 +997,13 @@ function CardReveal({
         {position}
       </span>
 
-      <div className="relative" style={{ perspective: "600px" }}>
+      <div className="relative" style={{ perspective: "800px" }}>
+        <GoldenAura active={isFlipped} />
+
         <motion.div
           animate={{ rotateY: isFlipped ? 0 : 180 }}
-          transition={{ duration: 0.7, ease: "easeInOut" }}
-          className="relative w-28 h-40 sm:w-32 sm:h-44"
+          transition={{ duration: 0.8, ease: [0.23, 1, 0.32, 1] }}
+          className="relative w-32 h-44 sm:w-36 sm:h-48"
           style={{ transformStyle: "preserve-3d" }}
         >
           {/* Back face */}
@@ -804,24 +1020,37 @@ function CardReveal({
             style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
           >
             <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-10`} />
-            <div className="relative flex flex-col items-center gap-1">
-              <motion.span
-                animate={isFlipped ? { scale: [0.8, 1.1, 1] } : {}}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                className="text-3xl"
-                style={{ transform: isReversed ? "rotate(180deg)" : "none" }}
-              >
-                {card.symbol}
-              </motion.span>
-              <span className="text-[10px] font-bold text-foreground text-center leading-tight mt-1">
+            <ShimmerOverlay active={isFlipped} />
+            <div className="relative flex flex-col items-center gap-1 w-full h-full">
+              {card.arcana === "major" && MAJOR_ARCANA_IMAGES[card.id] ? (
+                <div className="flex-1 w-full relative overflow-hidden rounded-xl mb-1">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={MAJOR_ARCANA_IMAGES[card.id]}
+                    alt={card.name}
+                    className="w-full h-full object-cover"
+                    style={{ transform: isReversed ? "rotate(180deg)" : "none" }}
+                  />
+                </div>
+              ) : (
+                <motion.span
+                  animate={isFlipped ? { scale: [0.8, 1.15, 1] } : {}}
+                  transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+                  className="text-4xl"
+                  style={{ transform: isReversed ? "rotate(180deg)" : "none" }}
+                >
+                  {card.symbol}
+                </motion.span>
+              )}
+              <span className="text-[11px] font-bold text-foreground text-center leading-tight mt-auto">
                 {card.name}
               </span>
               {isReversed && (
-                <span className="text-[8px] font-black uppercase tracking-wider text-rose-400 mt-0.5">
+                <span className="text-[8px] font-black uppercase tracking-wider text-rose-400">
                   Reversed
                 </span>
               )}
-              <div className={`mt-1 px-2 py-0.5 rounded-full ${elColors.bg} ${elColors.border} border`}>
+              <div className={`mt-0.5 px-2 py-0.5 rounded-full ${elColors.bg} ${elColors.border} border`}>
                 <span className={`text-[8px] font-bold uppercase ${elColors.text}`}>
                   {element}
                 </span>
@@ -829,13 +1058,15 @@ function CardReveal({
             </div>
           </div>
         </motion.div>
+
+        <ParticleBurst element={element} active={isFlipped} />
       </div>
 
       {isFlipped && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
           className="text-center max-w-[140px]"
         >
           <div className="flex flex-wrap justify-center gap-1">
@@ -855,23 +1086,31 @@ function CardReveal({
 
 function ReadingPhase({
   drawnCards,
-  reading,
+  parsedReading,
+  fallback,
   loading,
   error,
   question,
   consultants,
   loadingConsultants,
   onReset,
+  onRetry,
 }: {
   drawnCards: DrawnCard[];
-  reading: string;
+  parsedReading: ParsedReading | null;
+  fallback: TarotReading | null;
   loading: boolean;
   error: string | null;
   question: string;
   consultants: AvailableConsultant[];
   loadingConsultants: boolean;
   onReset: () => void;
+  onRetry: () => void;
 }) {
+  const overallEnergy = parsedReading?.overallEnergy || fallback?.overallEnergy;
+  const synthesis = parsedReading?.synthesis || fallback?.synthesis || "";
+  const actionStep = parsedReading?.actionStep || fallback?.actionStep;
+  const hasReading = drawnCards.length > 0;
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -893,9 +1132,21 @@ function ReadingPhase({
               transition={{ delay: i * 0.08 }}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${elColors.bg} ${elColors.border}`}
             >
-              <span className="text-lg" style={{ transform: d.isReversed ? "rotate(180deg)" : "none", display: "inline-block" }}>
-                {d.card.symbol}
-              </span>
+              {d.card.arcana === "major" && MAJOR_ARCANA_IMAGES[d.card.id] ? (
+                <div className="w-8 h-11 rounded overflow-hidden shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={MAJOR_ARCANA_IMAGES[d.card.id]}
+                    alt={d.card.name}
+                    className="w-full h-full object-cover"
+                    style={{ transform: d.isReversed ? "rotate(180deg)" : "none" }}
+                  />
+                </div>
+              ) : (
+                <span className="text-lg" style={{ transform: d.isReversed ? "rotate(180deg)" : "none", display: "inline-block" }}>
+                  {d.card.symbol}
+                </span>
+              )}
               <div>
                 <p className="text-[10px] font-bold text-foreground">{d.card.name}</p>
                 <p className={`text-[8px] font-black uppercase ${elColors.text}`}>
@@ -914,28 +1165,43 @@ function ReadingPhase({
         </div>
       )}
 
-      {/* Error */}
+      {/* Overall Energy Badge */}
+      {overallEnergy && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+          className="flex justify-center"
+        >
+          <div className="px-5 py-2.5 rounded-full bg-gradient-to-r from-indigo-500/15 via-purple-500/15 to-violet-500/15 border border-indigo-500/25">
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mr-2">Energy</span>
+            <span className="text-sm font-bold text-foreground">{overallEnergy}</span>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Soft AI-unavailable notice (reading below stays complete) */}
       {error && (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-rose-400 text-sm max-w-3xl mx-auto">
-          {error}
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && !reading && (
-        <div className="flex flex-col items-center gap-3 py-8">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-amber-300 text-sm max-w-3xl mx-auto text-center"
+        >
+          <p className="mb-3">{error}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={loading}
+            aria-busy={loading}
+            className="px-4 py-2 bg-surface-raised border border-border/60 rounded-xl text-xs font-medium hover:bg-surface-overlay transition-colors text-foreground inline-flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Sparkles className="w-6 h-6 text-indigo-400" />
-          </motion.div>
-          <p className="text-sm text-muted-foreground">Interpreting the cards...</p>
-        </div>
+            <RotateCcw size={12} /> Retry AI Deep-Dive
+          </button>
+        </motion.div>
       )}
 
-      {/* Reading */}
-      {reading && (
+      {/* Reading — deterministic pre-coded always renders; AI overlays it */}
+      {hasReading && (
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -944,59 +1210,125 @@ function ReadingPhase({
         >
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/[0.04] blur-3xl rounded-full pointer-events-none" />
           <div className="relative">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-foreground">
-              <Sparkles className="text-indigo-400" /> Your Reading
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+                <Sparkles className="text-indigo-400" /> Your Reading
+              </h2>
+              {loading && !parsedReading && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider text-indigo-300" role="status">
+                  <Loader2 size={10} className="animate-spin" /> AI deep-dive
+                </span>
+              )}
+            </div>
 
             {/* Card-by-card breakdown */}
-            <div className="space-y-4 mb-6">
+            <div className="space-y-5 mb-6">
               {drawnCards.map((d, i) => {
-                const meaning = d.isReversed ? d.card.reversed : d.card.upright;
                 const element = d.card.element ?? "air";
                 const elColors = ELEMENT_COLORS[element];
+                const ElementIcon = ELEMENT_ICONS[element];
+                const detail = parsedReading?.cardDetails?.[i] ?? fallback?.cardDetails?.[i] ?? null;
+                const meaning = d.isReversed ? d.card.reversed : d.card.upright;
+
                 return (
                   <motion.div
                     key={`meaning-${d.card.id}-${i}`}
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.2 + i * 0.15 }}
-                    className={`rounded-xl border ${elColors.border} ${elColors.bg} p-4`}
+                    className={`rounded-2xl border ${elColors.border} ${elColors.bg} p-5`}
                   >
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-base" style={{ transform: d.isReversed ? "rotate(180deg)" : "none", display: "inline-block" }}>
-                        {d.card.symbol}
-                      </span>
-                      <span className="text-xs font-bold text-foreground">{d.card.name}</span>
+                    <div className="flex items-center gap-2 mb-3">
+                      {d.card.arcana === "major" && MAJOR_ARCANA_IMAGES[d.card.id] ? (
+                        <div className="w-10 h-14 rounded-lg overflow-hidden shrink-0 border border-border/40">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={MAJOR_ARCANA_IMAGES[d.card.id]}
+                            alt={d.card.name}
+                            className="w-full h-full object-cover"
+                            style={{ transform: d.isReversed ? "rotate(180deg)" : "none" }}
+                          />
+                        </div>
+                      ) : (
+                        <span className="text-xl" style={{ transform: d.isReversed ? "rotate(180deg)" : "none", display: "inline-block" }}>
+                          {d.card.symbol}
+                        </span>
+                      )}
+                      <span className="text-sm font-bold text-foreground">{d.card.name}</span>
                       {d.isReversed && (
                         <span className="text-[8px] font-black uppercase text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded">Reversed</span>
                       )}
-                      <span className="text-[8px] font-bold text-muted-foreground ml-auto">{d.position}</span>
+                      <span className="text-[9px] font-bold text-muted-foreground ml-auto">{d.position}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{meaning}</p>
+
+                    {detail ? (
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-indigo-400 mb-1">Core Meaning</p>
+                          <p className="text-sm text-foreground leading-relaxed">{detail.coreMeaning}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-purple-400 mb-1">Symbolism</p>
+                          <p className="text-sm text-muted-foreground leading-relaxed">{detail.symbolism}</p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <ElementIcon size={14} className={`${elColors.text} mt-0.5 shrink-0`} />
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground mb-0.5">Elemental Influence</p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{detail.elementalInfluence}</p>
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-amber-400 mb-1">Guidance</p>
+                          <p className="text-sm text-foreground leading-relaxed">{detail.practicalGuidance}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground leading-relaxed">{meaning}</p>
+                    )}
                   </motion.div>
                 );
               })}
             </div>
 
-            {/* AI synthesis */}
-            <div className="border-t border-border/40 pt-6">
-              <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                <Eye size={14} className="text-indigo-400" /> Synthesis
-              </h3>
-              <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-[15px]">
-                {reading}
-              </p>
-            </div>
+            {/* Synthesis — AI narrative when available, pre-coded otherwise */}
+            {synthesis && (
+              <div className="border-t border-border/40 pt-6">
+                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                  <Eye size={14} className="text-indigo-400" /> The Full Picture
+                </h3>
+                <ReadingMarkdown source={synthesis} />
+              </div>
+            )}
+
+            {/* Action Step */}
+            {actionStep && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="mt-6 p-4 rounded-2xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20"
+              >
+                <p className="text-[10px] font-black uppercase tracking-wider text-indigo-400 mb-1.5 flex items-center gap-1.5">
+                  <Zap size={10} /> Your Next Step
+                </p>
+                <p className="text-sm text-foreground leading-relaxed">{actionStep}</p>
+              </motion.div>
+            )}
 
             <div className="mt-6 pt-4 border-t border-border/40 flex items-center justify-between">
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><Sparkles size={9} className="text-indigo-400" /> AI interpretation</span>
+                <span className="flex items-center gap-1">
+                  <Sparkles size={9} className="text-indigo-400" />
+                  {parsedReading ? "AI interpretation" : "Traditional 78-deck meanings"}
+                </span>
                 <span>·</span>
                 <span>78-card deck</span>
                 <span>·</span>
                 <span>Free</span>
               </div>
               <button
+                type="button"
                 onClick={onReset}
                 className="px-4 py-2 bg-surface-raised border border-border/60 rounded-xl text-xs font-medium hover:bg-surface-overlay transition-colors text-foreground flex items-center gap-1.5"
               >
@@ -1008,7 +1340,7 @@ function ReadingPhase({
       )}
 
       {/* Go Deeper CTA */}
-      {reading && (
+      {hasReading && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1019,30 +1351,30 @@ function ReadingPhase({
             <div className="absolute top-0 left-0 w-48 h-48 bg-indigo-500/10 blur-[100px] rounded-full pointer-events-none" />
             <div className="relative">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                <Zap size={18} className="text-indigo-400" /> Go Deeper
+                <Zap size={18} className="text-indigo-400" /> Want to Go Deeper?
               </h3>
               <p className="text-sm text-muted-foreground mt-1 mb-5">
-                Your reading is just the beginning. Explore further with AI or connect with a live tarot expert.
+                Your reading is only the beginning. Keep exploring with AI, or connect with a live tarot expert.
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <a
                   href="/services/tarot-consultation"
-                  className="group flex items-center gap-4 p-4 rounded-2xl bg-surface/80 border border-border/60 hover:border-indigo-500/30 transition-all hover:shadow-lg hover:shadow-indigo-500/5"
+                  className="group flex items-center gap-4 p-4 rounded-2xl bg-surface/80 border border-border/60 hover:border-indigo-500/30 hover:-translate-y-0.5 transition-all hover:shadow-lg hover:shadow-indigo-500/5"
                 >
                   <div className="w-12 h-12 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
                     <MessageCircle size={20} className="text-indigo-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-foreground">AI Tarot Consultant</p>
-                    <p className="text-xs text-muted-foreground">Free · Instant deep-dive into your cards</p>
+                    <p className="text-xs text-muted-foreground">Free · An instant deep-dive into your cards</p>
                   </div>
                   <ArrowRight size={14} className="text-muted-foreground group-hover:text-indigo-400 transition-colors shrink-0" />
                 </a>
 
                 <a
                   href="/explore?category=TAROT"
-                  className="group flex items-center gap-4 p-4 rounded-2xl bg-surface/80 border border-border/60 hover:border-purple-500/30 transition-all hover:shadow-lg hover:shadow-purple-500/5"
+                  className="group flex items-center gap-4 p-4 rounded-2xl bg-surface/80 border border-border/60 hover:border-purple-500/30 hover:-translate-y-0.5 transition-all hover:shadow-lg hover:shadow-purple-500/5"
                 >
                   <div className="w-12 h-12 rounded-xl bg-purple-500/15 flex items-center justify-center shrink-0">
                     <Users size={20} className="text-purple-400" />
@@ -1061,9 +1393,9 @@ function ReadingPhase({
           <div className="rounded-3xl bg-surface/80 backdrop-blur-xl border border-border/60 p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                <Users size={14} className="text-purple-400" /> Available Tarot Experts
+                <Users size={14} className="text-purple-400" /> Online Tarot Experts
               </h3>
-              {loadingConsultants && <Loader2 size={12} className="animate-spin text-muted-foreground" />}
+              {loadingConsultants && <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />}
             </div>
 
             {consultants.length === 0 && !loadingConsultants ? (
@@ -1073,7 +1405,7 @@ function ReadingPhase({
                   href="/explore?category=TAROT"
                   className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center gap-1"
                 >
-                  Browse all tarot consultants <ChevronRight size={10} />
+                  View all tarot consultants <ChevronRight size={10} />
                 </a>
               </div>
             ) : (
@@ -1084,6 +1416,8 @@ function ReadingPhase({
                     href={`/consultant/${c.id}`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
                     transition={{ delay: i * 0.08 }}
                     className="flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-purple-500/30 bg-surface-raised/30 hover:bg-surface-raised/60 transition-all group"
                   >
@@ -1124,7 +1458,7 @@ function ReadingPhase({
 
             <div className="mt-4 pt-3 border-t border-border/30 text-center">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-emerald-400 text-[10px] font-medium">
-                <Star size={9} /> 100% Free Reading · No sign-up required
+                <Star size={9} /> Reading Completely Free · No sign-up required
               </span>
             </div>
           </div>

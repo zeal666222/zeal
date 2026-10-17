@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {createServerClientFromCookies} from "@zeal/database/server";
 import {withErrorHandler, AppError, ErrorCode} from "@/lib/errors";
+import { normalizeMediaUrl } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export const GET = withErrorHandler(async (_req: Request, { params }: { params: 
     post: {
       id: p.id,
       content: p.content,
-      imageUrl: Array.isArray(p.mediaUrls) && p.mediaUrls.length ? p.mediaUrls[0] : null,
+      imageUrl: Array.isArray(p.mediaUrls) && p.mediaUrls.length ? normalizeMediaUrl(String(p.mediaUrls[0])) : null,
       author: p.author,
       cheerCount: p.cheerCount,
       commentCount: p.commentCount,

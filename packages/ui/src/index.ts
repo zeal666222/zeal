@@ -20,6 +20,12 @@ export {
   Select, SelectGroup, SelectValue, SelectTrigger, SelectContent, SelectItem, SelectLabel,
 } from "./select";
 
+// ─── Location ─────────────────────────────────────────────────────────────
+export {
+  LocationAutocomplete,
+  type PlaceSuggestionData,
+} from "./location-autocomplete";
+
 // ─── Overlays ─────────────────────────────────────────────────────────────
 export {
   Dialog, DialogPortal, DialogOverlay, DialogClose, DialogTrigger,
@@ -57,7 +63,16 @@ export {
   MotionHeader, MotionFooter, MotionMain, MotionNav, MotionA,
   MotionLi, MotionUl, MotionP, MotionH1, MotionH2, MotionH3, MotionImg, MotionForm,
 } from "./motion";
-export { AnimatedZealMark } from "./animated-zeal-mark";
+export {
+  ZealMark,
+  ZealWordmark,
+  ZealLockup,
+  ZealBurst,
+  type ZealMarkProps,
+  type ZealMarkDetail,
+  type ZealMarkTone,
+  type ZealLockupProps,
+} from "./brand/zeal-mark";
 
 // ─── Dashboard primitives ─────────────────────────────────────────────────
 export { KpiCard } from "./kpi-card";

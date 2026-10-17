@@ -127,9 +127,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => { setLoadError(null); setLoading(true); setRetryKey((k) => k + 1); }}
-            className="inline-block px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-sm font-black"
+            className="inline-block px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black"
           >
             Retry
           </button>
@@ -146,9 +144,7 @@ export default function ProfilePage() {
           <p className="text-muted-foreground mb-5">Please sign in to view your profile.</p>
           <Link
             href="/login"
-            className="inline-block px-5 py-2.5 rounded-xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-sm font-black"
+            className="inline-block px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black"
           >
             Sign in
           </Link>
@@ -166,8 +162,7 @@ export default function ProfilePage() {
       {/* ─── Sticky header (fades in on scroll) ───────────────────────────── */}
       <motion.div
         style={{ opacity: headerOpacity }}
-        className="fixed top-0 left-0 right-0 z-30 bg-background/80 backdrop-blur-xl
-                   border-b border-border"
+        className="fixed top-0 left-0 right-0 z-30 bg-background/80 backdrop-blur-xl border-b border-border"
       >
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
@@ -196,14 +191,9 @@ export default function ProfilePage() {
           style={{ y: coverY, scale: coverScale }}
           className="absolute inset-0 will-change-transform"
         >
-          <div className="absolute inset-0 bg-gradient-to-br
-                          from-[var(--color-primary)]/[0.18]
-                          via-[var(--color-surface)]
-                          to-[var(--color-luxury-gold)]/[0.15]" />
-          <div className="absolute -top-40 -left-40 w-[500px] h-[500px]
-                          bg-[var(--color-primary)]/[0.25] blur-[160px] rounded-full" />
-          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px]
-                          bg-[var(--color-luxury-gold)]/[0.18] blur-[160px] rounded-full" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-primary)]/[0.18] via-[var(--color-surface)] to-[var(--color-luxury-gold)]/[0.15]" />
+          <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-[var(--color-primary)]/[0.25] blur-[160px] rounded-full" />
+          <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-[var(--color-luxury-gold)]/[0.18] blur-[160px] rounded-full" />
           <div className="absolute inset-0 noise-overlay opacity-60" />
         </motion.div>
 
@@ -214,8 +204,7 @@ export default function ProfilePage() {
         >
           <button
             onClick={() => router.back()}
-            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md
-                       text-white hover:bg-black/60 transition-colors"
+            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-colors"
             aria-label="Back"
           >
             <ArrowLeft size={16} />
@@ -225,16 +214,14 @@ export default function ProfilePage() {
         <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
           <Link
             href="/wallet"
-            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md
-                       text-white hover:bg-black/60 transition-colors"
+            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-colors"
             aria-label="Wallet"
           >
             <Wallet size={16} />
           </Link>
           <Link
             href="/profile/edit"
-            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md
-                       text-white hover:bg-black/60 transition-colors"
+            className="p-2.5 rounded-xl bg-black/40 backdrop-blur-md text-white hover:bg-black/60 transition-colors"
             aria-label="Edit profile"
           >
             <Edit3 size={16} />
@@ -255,15 +242,9 @@ export default function ProfilePage() {
             >
               <div
                 aria-hidden
-                className="absolute -inset-1 rounded-full
-                           bg-gradient-to-br from-[var(--color-luxury-gold)]/40
-                           via-[var(--color-primary)]/30
-                           to-transparent blur-md"
+                className="absolute -inset-1 rounded-full bg-gradient-to-br from-[var(--color-luxury-gold)]/40 via-[var(--color-primary)]/30 to-transparent blur-md"
               />
-              <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full
-                              ring-4 ring-background overflow-hidden
-                              bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                              flex items-center justify-center text-white font-black text-4xl">
+              <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full ring-4 ring-background overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-4xl">
                 {profile.avatar ? (
                   <img src={getImageUrl(profile.avatar, "avatar-md")} alt="" className="w-full h-full object-cover" />
                 ) : (
@@ -271,9 +252,7 @@ export default function ProfilePage() {
                 )}
               </div>
               {profile.is_online && (
-                <span className="absolute bottom-2 right-2 w-5 h-5 rounded-full
-                                 bg-emerald-500 border-4 border-background
-                                 animate-pulse" />
+                <span className="absolute bottom-2 right-2 w-5 h-5 rounded-full bg-emerald-500 border-4 border-background animate-pulse" />
               )}
             </motion.div>
           </div>
@@ -285,20 +264,12 @@ export default function ProfilePage() {
                 {displayName}
               </h1>
               {profile.isVerified && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                                 bg-[var(--color-primary)]/15
-                                 border border-[var(--color-primary)]/30
-                                 text-[var(--color-primary)] text-[10px] font-black
-                                 uppercase tracking-widest">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30 text-[var(--color-primary)] text-[10px] font-black uppercase tracking-widest">
                   <Check size={10} /> Verified
                 </span>
               )}
               {isConsultant && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                                 bg-[var(--color-luxury-gold)]/15
-                                 border border-[var(--color-luxury-gold)]/30
-                                 text-[var(--color-luxury-gold)] text-[10px] font-black
-                                 uppercase tracking-widest">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-luxury-gold)]/15 border border-[var(--color-luxury-gold)]/30 text-[var(--color-luxury-gold)] text-[10px] font-black uppercase tracking-widest">
                   <Sparkles size={10} /> Consultant
                 </span>
               )}
@@ -309,8 +280,7 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground font-mono">@{profile.username}</p>
                 <button
                   onClick={handleCopy}
-                  className="p-1 rounded-lg hover:bg-surface-raised text-muted-foreground
-                             transition-colors"
+                  className="p-1 rounded-lg hover:bg-surface-raised text-muted-foreground transition-colors"
                   aria-label="Copy profile link"
                 >
                   {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
@@ -340,8 +310,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="rounded-3xl border border-border bg-surface
-                       p-5 md:p-6 mb-6 max-w-2xl"
+            className="rounded-3xl border border-border bg-surface p-5 md:p-6 mb-6 max-w-2xl"
           >
             {profile.bio && (
               <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words">
@@ -360,8 +329,7 @@ export default function ProfilePage() {
                   href={profile.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-[var(--color-primary)] hover:underline
-                             truncate max-w-[240px]"
+                  className="flex items-center gap-1.5 text-[var(--color-primary)] hover:underline truncate max-w-[240px]"
                 >
                   <LinkIcon size={12} /> {profile.website}
                 </a>
@@ -384,17 +352,12 @@ export default function ProfilePage() {
           {canPost?.canPost ? (
             <Link
               href="/create"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl
-                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                         text-white text-xs font-black
-                         shadow-lg shadow-[var(--color-primary-hover)]/20
-                         hover:scale-[1.02] active:scale-[0.98] transition-transform"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black shadow-lg shadow-[var(--color-primary-hover)]/20 hover:scale-[1.02] active:scale-[0.98] transition-transform"
             >
               <Plus size={14} /> New post
             </Link>
           ) : (
-            <div className="px-5 py-3 rounded-2xl bg-surface-raised border border-border
-                            text-xs font-bold text-muted-foreground">
+            <div className="px-5 py-3 rounded-2xl bg-surface-raised border border-border text-xs font-bold text-muted-foreground">
               Post limit reached · {canPost?.current}/{canPost?.limit}
             </div>
           )}
@@ -421,8 +384,7 @@ export default function ProfilePage() {
                 {tab === t && (
                   <motion.span
                     layoutId="profile-tab-indicator"
-                    className="absolute bottom-0 left-0 right-0 h-0.5
-                               bg-gradient-to-r from-[var(--color-luxury-gold)] to-[var(--color-primary)]"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[var(--color-luxury-gold)] to-[var(--color-primary)]"
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}
@@ -463,9 +425,7 @@ export default function ProfilePage() {
               <div className="pt-4 border-t border-border">
                 <Link
                   href="/profile/edit"
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl
-                             bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                             text-white text-sm font-black"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black"
                 >
                   <Edit3 size={14} /> Edit profile
                 </Link>
@@ -482,8 +442,7 @@ export default function ProfilePage() {
               transition={{ duration: 0.25 }}
               className="max-w-2xl space-y-4"
             >
-              <div className="flex items-center gap-3 p-5 rounded-3xl border border-border
-                              bg-surface hover:border-[var(--color-primary)]/40 transition-colors">
+              <div className="flex items-center gap-3 p-5 rounded-3xl border border-border bg-surface hover:border-[var(--color-primary)]/40 transition-colors">
                 <Shield size={20} className="text-[var(--color-primary)]" />
                 <div className="flex-1">
                   <p className="text-sm font-black text-foreground">Two-factor authentication</p>
@@ -500,9 +459,7 @@ export default function ProfilePage() {
                   <form action={signOutAction}>
                     <button
                       type="submit"
-                      className="px-4 py-2.5 rounded-xl bg-rose-500/10 text-rose-400
-                                 hover:bg-rose-500/20 text-xs font-black
-                                 flex items-center gap-1.5 transition-colors"
+                      className="px-4 py-2.5 rounded-xl bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs font-black flex items-center gap-1.5 transition-colors"
                     >
                       <LogOut size={13} /> Sign out
                     </button>
@@ -522,8 +479,7 @@ function StatCard({ label, value }: { label: string; value: number }) {
     <motion.div
       whileHover={{ y: -2 }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className="rounded-2xl border border-border bg-surface p-4
-                 hover:border-[var(--color-luxury-gold)]/30 transition-colors"
+      className="rounded-2xl border border-border bg-surface p-4 hover:border-[var(--color-luxury-gold)]/30 transition-colors"
     >
       <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-black">
         {label}

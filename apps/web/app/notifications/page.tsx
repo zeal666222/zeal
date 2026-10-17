@@ -46,13 +46,16 @@ export default function NotificationsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const meRes = await fetch("/api/users/me/profile", { cache: "no-store" });
-        if (!cancelled && meRes.ok) {
+        const [meRes, res] = await Promise.all([
+          fetch("/api/users/me/profile", { cache: "no-store" }),
+          fetch("/api/notifications?limit=50", { cache: "no-store" }),
+        ]);
+        if (cancelled) return;
+        if (meRes.ok) {
           const me = (await meRes.json()) as MeResponse;
           if (me.user?.id) setUserId(me.user.id);
         }
-        const res = await fetch("/api/notifications?limit=50", { cache: "no-store" });
-        if (!cancelled && res.ok) {
+        if (res.ok) {
           const data = (await res.json()) as { items?: NotificationItem[] };
           setItems(data.items ?? []);
         }

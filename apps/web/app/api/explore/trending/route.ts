@@ -28,5 +28,7 @@ export const GET = withErrorHandler(async () => {
     .sort((a, b) => b.count - a.count)
     .slice(0, 8);
 
-  return NextResponse.json(items);
+  return NextResponse.json(items, {
+    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+  });
 });

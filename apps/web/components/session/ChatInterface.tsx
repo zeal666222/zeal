@@ -28,12 +28,56 @@ function formatTime(ts: string) {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+function MessageContent({ content }: { content: string }) {
+  const parts = content.split(/(!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g);
+  const hasVisual = parts.some((p) => p.startsWith("!["));
+  if (!hasVisual && !content.includes("](http")) {
+    return <>{content}</>;
+  }
+  return (
+    <div className="space-y-2">
+      {parts.map((part, i) => {
+        const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        if (imgMatch) {
+          return (
+            <img
+              key={i}
+              src={imgMatch[2]}
+              alt={imgMatch[1] || "attachment"}
+              className="max-w-full rounded-xl border border-border/50"
+              loading="lazy"
+            />
+          );
+        }
+        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+        if (linkMatch) {
+          return (
+            <a
+              key={i}
+              href={linkMatch[2]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[var(--color-primary)] underline underline-offset-2 text-xs"
+            >
+              <Paperclip size={10} /> {linkMatch[1]}
+            </a>
+          );
+        }
+        if (part.trim()) {
+          return <span key={i}>{part}</span>;
+        }
+        return null;
+      })}
+    </div>
+  );
+}
+
 const AI_QUICK_REPLIES = [
-  "What's my sun sign?",
+  "What is my Sun sign?",
   "Tell me about my career",
-  "Compatibility reading",
-  "Today's horoscope",
-  "Dasha period analysis",
+  "I'd like a compatibility reading",
+  "Today's Horoscope",
+  "Analyze my Dasha period",
 ];
 
 export function ChatInterface({
@@ -67,8 +111,14 @@ export function ChatInterface({
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [failedText, setFailedText] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Synchronous in-flight guard — state-based disabling is async, so rapid
+  // double-clicks can slip past `isSending` before React re-renders.
+  const inFlightRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -77,6 +127,18 @@ export function ChatInterface({
   useEffect(() => {
     void fetch(`/api/chat/${conversationId}/read`, { method: "POST" }).catch(() => {});
   }, [conversationId]);
+
+  // Mobile keyboard handling — keep composer visible when virtual keyboard opens
+  useEffect(() => {
+    if (!window.visualViewport) return;
+    const vv = window.visualViewport;
+    const handler = () => {
+      const offsetBottom = window.innerHeight - vv.height - vv.offsetTop;
+      document.documentElement.style.setProperty("--kb-offset", `${offsetBottom}px`);
+    };
+    vv.addEventListener("resize", handler);
+    return () => vv.removeEventListener("resize", handler);
+  }, []);
 
   const handleBilling = (billing: BillingInfo) => {
     if (billing.sessionId) setSessionId(billing.sessionId);
@@ -91,18 +153,23 @@ export function ChatInterface({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const text = input.trim();
-    if ((!text && attachments.length === 0) || isSending) return;
-    const fileNames = attachments.map((f) => f.name);
-    const fileNote = fileNames.length
-      ? `\n\n📎 Attached ${fileNames.length} file${fileNames.length > 1 ? "s" : ""}: ${fileNames.join(", ")}`
-      : "";
-    const messageText = text + fileNote;
-    setInput("");
-    clearAttachments();
-    setTyping(false);
+  const uploadFiles = async (files: File[]): Promise<Array<{ url: string; name: string; mime: string }>> => {
+    const results: Array<{ url: string; name: string; mime: string }> = [];
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) throw new Error(`Upload failed: ${file.name}`);
+      const data = await res.json();
+      results.push({ url: data.url, name: file.name, mime: data.mime ?? file.type });
+    }
+    return results;
+  };
+
+  /** Deliver an already-composed message (text may include uploaded-file markdown). */
+  const deliver = async (messageText: string, restoreText: string) => {
+    if (inFlightRef.current || isSending) return;
+    inFlightRef.current = true;
     try {
       if (isAI) {
         setStreamingText("");
@@ -119,17 +186,70 @@ export function ChatInterface({
         if (result?.billing) handleBilling(result.billing);
         const b = result?.billing;
         if (b && b.success === false && b.error === "insufficient_balance") {
-          setInput((cur) => (cur ? cur : text));
+          setInput((cur) => (cur ? cur : restoreText));
         }
       }
-    } catch {
-      setInput(text);
+      setSendError(null);
+      setFailedText(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setSendError(
+        msg.includes("insufficient_balance")
+          ? "Low wallet balance — recharge and send again."
+          : msg.includes("rate limit")
+            ? "You hit a rate limit — please wait a moment and try again."
+            : "Message wasn't sent. Try again.",
+      );
+      setInput((cur) => (cur ? cur : restoreText));
+      setFailedText(messageText);
       setStreamingText(null);
       setFillerText(null);
+    } finally {
+      inFlightRef.current = false;
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = input.trim();
+    if (uploading || (!text && attachments.length === 0) || isSending || inFlightRef.current) return;
+    setSendError(null);
+    setFailedText(null);
+    setInput("");
+    setTyping(false);
+
+    let messageText = text;
+    let uploadedFiles: Array<{ url: string; name: string; mime: string }> = [];
+
+    if (attachments.length > 0) {
+      setUploading(true);
+      try {
+        uploadedFiles = await uploadFiles(attachments);
+        const fileLines = uploadedFiles
+          .map((f) => {
+            const isImage = f.mime.startsWith("image/");
+            return isImage
+              ? `![${f.name}](${f.url})`
+              : `[${f.name}](${f.url})`;
+          })
+          .join("\n");
+        messageText = text
+          ? `${text}\n\n${fileLines}`
+          : fileLines;
+      } catch (err) {
+        setSendError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+        setInput((cur) => (cur ? cur : text));
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
+
+    clearAttachments();
+    await deliver(messageText, text);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     if (!isAI) setTyping(e.target.value.length > 0);
   };
@@ -178,9 +298,10 @@ export function ChatInterface({
       <div className="flex-none h-16 bg-surface backdrop-blur-2xl border-b border-border px-3 md:px-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <button
+            type="button"
             onClick={() => router.push("/chat")}
             className="md:hidden p-2 -ml-1 rounded-lg hover:bg-surface-raised active:scale-95"
-            aria-label="Back"
+            aria-label="Back to inbox"
           >
             <ArrowLeft size={18} className="text-foreground" />
           </button>
@@ -259,7 +380,7 @@ export function ChatInterface({
             <ShieldCheck size={14} /> Encrypted Session
           </div>
           <p className="text-muted-foreground text-[11px]">
-            {isAI ? "AI consultant ready." : "Your session has begun."}
+            {isAI ? "AI consultant is ready — go ahead and ask." : "Your session has started."}
           </p>
         </div>
 
@@ -274,7 +395,7 @@ export function ChatInterface({
             </div>
             <p className="text-sm font-bold text-foreground">No messages yet</p>
             <p className="text-[11px] text-muted-foreground max-w-[240px]">
-              {isAI ? "Ask a question to start the conversation." : "Say hello to start the conversation."}
+              {isAI ? "Start the conversation by asking a question." : "Say hello to start the conversation."}
             </p>
           </div>
         ) : (
@@ -296,7 +417,7 @@ export function ChatInterface({
                       : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
                     msg._optimistic && "opacity-70"
                   )}>
-                    {msg.content}
+                    <MessageContent content={msg.content} />
                   </div>
                   <span className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
                     {formatTime(msg.createdAt)}
@@ -349,9 +470,43 @@ export function ChatInterface({
 
       {/* Input */}
       <div
-        className="flex-none p-3 md:p-4 bg-background backdrop-blur-3xl border-t border-border"
-        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+        className="flex-none p-3 md:p-4 bg-background backdrop-blur-3xl border-t border-border transition-[padding] duration-150"
+        style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px + var(--kb-offset, 0px))" }}
       >
+        {/* Send error banner */}
+        <AnimatePresence>
+          {sendError && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -4, height: 0 }}
+              className="max-w-4xl mx-auto mb-2"
+            >
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs font-bold">
+                <AlertTriangle size={12} className="shrink-0" />
+                <span className="flex-1">{sendError}</span>
+                {failedText && (
+                  <button
+                    type="button"
+                    onClick={() => void deliver(failedText, "")}
+                    disabled={isSending || uploading}
+                    className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                  >
+                    Retry
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSendError(null)}
+                  className="p-0.5 rounded-full hover:bg-rose-500/20 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* Quick replies for AI */}
         {isAI && messages.length === 0 && (
           <div className="max-w-4xl mx-auto mb-3 flex flex-wrap gap-2">
@@ -360,10 +515,7 @@ export function ChatInterface({
                 key={q}
                 type="button"
                 onClick={() => { setInput(q); }}
-                className="px-3 py-1.5 rounded-full text-[11px] font-bold
-                           glass-luxury text-muted-foreground hover:text-foreground
-                           hover:border-[var(--color-luxury-gold)]/30 transition-all
-                           active:scale-[0.97]"
+                className="px-3 py-1.5 rounded-full text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground hover:border-[var(--color-luxury-gold)]/30 transition-all active:scale-[0.97]"
               >
                 <Sparkles size={10} className="inline mr-1" />{q}
               </button>
@@ -377,8 +529,7 @@ export function ChatInterface({
               {attachments.map((file, idx) => (
                 <div
                   key={`${file.name}-${idx}`}
-                  className="relative group flex items-center gap-2 px-3 py-2 rounded-xl
-                             bg-surface-sunken border border-border text-xs"
+                  className="relative group flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken border border-border text-xs"
                 >
                   {file.type.startsWith("image/") && previewUrls[idx] ? (
                     <img
@@ -422,40 +573,53 @@ export function ChatInterface({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={attachments.length >= 5}
-              aria-label="Attach file"
-              title="Upload image or file for analysis"
+              disabled={attachments.length >= 5 || uploading}
+              aria-label="Attach a file or photo"
+              title={attachments.length >= 5 ? "Too many files — remove some first" : "Send an image or file for analysis"}
               className={cn(
                 "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shrink-0 transition-all",
-                attachments.length >= 5
+                attachments.length >= 5 || uploading
                   ? "bg-surface-sunken text-muted-foreground/50 cursor-not-allowed"
                   : "bg-surface border border-border text-muted-foreground hover:text-[var(--color-primary)] hover:border-[var(--color-primary)]/40 active:scale-95"
               )}
             >
-              <Paperclip size={18} />
+              {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
             </button>
-            <input
-              type="text"
+            <textarea
               value={input}
               onChange={handleChange}
               onBlur={() => !isAI && setTyping(false)}
-              placeholder={isAI ? `Message ${partnerName}…` : "Type your message…"}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit(e as unknown as React.FormEvent);
+                }
+              }}
+              placeholder={isAI ? `Write a message to ${partnerName}…` : "Type your message…"}
               aria-label={`Message ${partnerName}`}
               maxLength={4000}
-              className="flex-1 bg-surface border border-border rounded-full px-5 py-3.5 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground"
+              rows={1}
+              className="flex-1 bg-surface border border-border rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground resize-none overflow-hidden min-h-[48px] max-h-[120px] leading-snug"
+              style={{ height: "auto" }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = "auto";
+                  el.style.height = Math.min(el.scrollHeight, 120) + "px";
+                }
+              }}
             />
             <button
               type="submit"
-              disabled={(!input.trim() && attachments.length === 0) || isSending || showStreaming}
-              aria-label="Send"
+              disabled={(!input.trim() && attachments.length === 0) || isSending || showStreaming || uploading}
+              aria-label="Send message"
               className={cn(
                 "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all shrink-0",
-                (input.trim() || attachments.length > 0) && !isSending && !showStreaming
+                (input.trim() || attachments.length > 0) && !isSending && !showStreaming && !uploading
                   ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-[0_0_15px_rgba(157,125,197,0.3)] active:scale-95"
                   : "bg-surface-sunken text-muted-foreground cursor-not-allowed"
               )}
             >
-              {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
+              {isSending || uploading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
             </button>
           </div>
         </form>

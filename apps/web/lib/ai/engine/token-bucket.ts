@@ -9,7 +9,7 @@
 // If a bucket is dry, the caller is told how long to wait.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import type { AIMessage, ProviderName } from "./types";
+import { contentToText, type AIMessage, type ProviderName } from "./types";
 
 interface Bucket {
   capacity: number;
@@ -51,8 +51,9 @@ export function estimateTokens(messages: AIMessage[], maxOutput = 0): number {
   let chars = 0;
   let devanagariChars = 0;
   for (const m of messages) {
-    chars += m.content.length;
-    const dev = m.content.match(/[\u0900-\u097F]/g);
+    const text = contentToText(m.content);
+    chars += text.length;
+    const dev = text.match(/[\u0900-\u097F]/g);
     if (dev) devanagariChars += dev.length;
   }
   // English: 4 chars/token. Devanagari: 2 chars/token (approximation).

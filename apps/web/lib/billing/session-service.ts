@@ -13,6 +13,7 @@ import {
   type WalletState,
 } from "./types";
 import { withSessionLock } from "./concurrency";
+import { publishWalletBalance } from "@/lib/realtime/wallet";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -171,8 +172,11 @@ export async function startSession(params: {
       p_description: "Session hold rollback",
       p_reference_id: `${referenceId}:rollback`,
     });
+    void publishWalletBalance(userId);
     return { success: false, error: "Could not start session.", code: "INTERNAL" };
   }
+
+  void publishWalletBalance(userId);
 
   return {
     success: true,
@@ -319,6 +323,8 @@ async function heartbeatSessionInner(
         })
         .eq("id", sessionId);
 
+      void publishWalletBalance(userId);
+
       return {
         success: true, sessionId, elapsedSeconds,
         minutesBilled: endedMinutes,
@@ -347,6 +353,8 @@ async function heartbeatSessionInner(
   const remaining = ws ? ws.balance + ws.escrow : 0;
   const minutesRemaining = rate > 0 ? Math.floor(remaining / rate) : 999;
   const terminate = minutesRemaining <= LOW_BALANCE_THRESHOLD_MINUTES;
+
+  if (billed > 0 && ws) void publishWalletBalance(userId, ws.balance);
 
   const advance: Record<string, unknown> = {
     durationSeconds: newWatermark * 60,
@@ -446,6 +454,8 @@ export async function endSession(params: {
       amount: totalCost,
     })
     .eq("id", sessionId);
+
+  if (refunded > 0 || (heldAmount > 0 && !isAI)) void publishWalletBalance(session.userId);
 
   return {
     success: true, sessionId, durationSeconds,

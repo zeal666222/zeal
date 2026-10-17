@@ -117,12 +117,21 @@ function createLimiter(tokens: number, windowSeconds: number, prefix: string) {
 }
 
 // ─── Public limiters ────────────────────────────────────────────────────────
-export const generalLimiter   = createLimiter(60, 60, "general");
-export const authLimiter      = createLimiter(5,  60, "auth");
-export const aiRateLimiter    = createLimiter(10, 60, "ai");
-export const aiStrictLimiter  = createLimiter(3,  60, "ai-strict");
-export const billingLimiter   = createLimiter(30, 60, "billing");
-export const adminLimiter     = createLimiter(120, 60, "admin");
+// Tiered for 100+ concurrent users:
+//   - general: 120/min (up from 60)
+//   - auth: 10/min (up from 5)
+//   - ai: 30/min authenticated, 10/min anonymous (per-endpoint)
+//   - aiStrict: 5/min authenticated, 3/min anonymous
+//   - billing: 60/min (up from 30)
+//   - admin: 240/min (up from 120)
+export const generalLimiter   = createLimiter(120, 60, "general");
+export const authLimiter      = createLimiter(10,  60, "auth");
+export const aiRateLimiter    = createLimiter(30, 60, "ai");
+export const aiAnonLimiter    = createLimiter(10, 60, "ai:anon");
+export const aiStrictLimiter  = createLimiter(5,  60, "ai-strict");
+export const aiStrictAnonLimiter = createLimiter(3, 60, "ai-strict:anon");
+export const billingLimiter   = createLimiter(60, 60, "billing");
+export const adminLimiter     = createLimiter(240, 60, "admin");
 
 export async function checkRateLimit(
   limiter: { limit: (id: string) => Promise<RateLimitResult> },

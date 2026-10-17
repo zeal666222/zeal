@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {createServerClientFromCookies} from "@zeal/database/server";
 import {withErrorHandler} from "@/lib/errors";
+import { normalizeMediaUrl } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export const GET = withErrorHandler(async (req: Request) => {
     .from("Post")
     .select(`
       id, content, mediaUrls, cheerCount, commentCount, shareCount, createdAt,
-      author:User!Post_authorId_fkey (id, username, name, avatar)
+      author:User!authorId (id, username, name, avatar)
     `)
     .eq("isFlagged", false)
     .eq("isArchived", false)
@@ -32,10 +33,12 @@ export const GET = withErrorHandler(async (req: Request) => {
     nextCursor = (last as any)?.createdAt;
   }
 
-  const posts = (data || []).map((p: Record<string, unknown>) => ({
+  const posts = (data || [])
+    .filter((p: { author?: unknown }) => p.author)
+    .map((p: Record<string, unknown>) => ({
     id: p.id,
     content: p.content,
-    imageUrl: Array.isArray(p.mediaUrls) && p.mediaUrls.length ? p.mediaUrls[0] : null,
+    imageUrl: Array.isArray(p.mediaUrls) && p.mediaUrls.length ? normalizeMediaUrl(String(p.mediaUrls[0])) : null,
     author: p.author,
     cheerCount: p.cheerCount,
     commentCount: p.commentCount,

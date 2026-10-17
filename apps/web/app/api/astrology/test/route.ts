@@ -49,6 +49,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
+    if (/fetch failed|failed to fetch|econnrefused|enotfound|networkerror/i.test(message)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Astro worker engine is offline (ASTRO_WORKER_URL unreachable). Use /api/kundali, which computes charts with the built-in local engine.",
+          code: "UPSTREAM_UNAVAILABLE",
+        },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { success: false, error: message },
       { status: 500 }

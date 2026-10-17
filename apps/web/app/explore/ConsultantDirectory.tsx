@@ -66,6 +66,7 @@ export function ConsultantDirectory({
   const [total, setTotal] = useState<number>(initialTotal ?? initialConsultants.length);
   const [reloadKey, setReloadKey] = useState(0);
   const [fetchError, setFetchError] = useState<string | null>(initialError ?? null);
+  const [moreError, setMoreError] = useState<string | null>(null);
   const [gateOpen, setGateOpen] = useState(false);
   const [gateInfo, setGateInfo] = useState<{ balance: number; required: number; consultantName: string; consultantId: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -84,13 +85,20 @@ export function ConsultantDirectory({
 
   const { startChat, IntakeModal } = useChatIntake({
     onLowBalance: (info) => { setGateInfo(info); setGateOpen(true); },
-    onOffline: ({ consultantName }) => showToast(`${consultantName} is currently offline.`),
+    onOffline: ({ consultantName }) => showToast(`${consultantName} is offline right now.`),
     onError: showToast,
   });
 
+  const chatBusyRef = useRef(false);
   const handleChat = useCallback(async (consultantId: string, consultantName?: string) => {
-    const name = consultantName ?? consultants.find((c) => c.id === consultantId)?.name ?? "Consultant";
-    await startChat(consultantId, name);
+    if (chatBusyRef.current) return; // prevent double-tap starting two sessions
+    chatBusyRef.current = true;
+    try {
+      const name = consultantName ?? consultants.find((c) => c.id === consultantId)?.name ?? "Consultant";
+      await startChat(consultantId, name);
+    } finally {
+      chatBusyRef.current = false;
+    }
   }, [startChat, consultants]);
 
   useEffect(() => {
@@ -141,13 +149,17 @@ export function ConsultantDirectory({
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, category, onlineOnly, reloadKey, fetchPage]);
 
+  const loadMoreRef = useRef(false);
   const loadMore = useCallback(async () => {
-    setLoadingMore(true); setFetchError(null);
+    if (loadMoreRef.current) return;
+    loadMoreRef.current = true;
+    setLoadingMore(true); setMoreError(null);
     try {
       await fetchPage(consultants.length, true);
     } catch (e) {
-      setFetchError(e instanceof Error ? e.message : "Failed to load more");
-    } finally { setLoadingMore(false); }
+      // Keep the loaded grid; surface the failure inline with a retry path.
+      setMoreError(e instanceof Error ? e.message : "Something went wrong while loading more");
+    } finally { setLoadingMore(false); loadMoreRef.current = false; }
   }, [fetchPage, consultants.length]);
 
   useChannel<BroadcastChange<{ consultantId?: string; is_online?: boolean; userId?: string }>>({
@@ -193,28 +205,22 @@ export function ConsultantDirectory({
       <div className="relative max-w-2xl mx-auto">
         <Search
           size={18}
-          className="absolute left-5 top-1/2 -translate-y-1/2
-                     text-muted-foreground pointer-events-none"
+          className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
         />
         <input
           type="search"
           value={query}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
           placeholder="Search by name, skill, or tradition…"
-          aria-label="Search consultants"
-          className="w-full pl-14 pr-14 py-4 glass-luxury rounded-2xl
-                     text-base text-foreground placeholder:text-muted-foreground
-                     outline-none focus:border-[var(--color-luxury-gold)]/50
-                     transition-colors"
+          aria-label="Search guides"
+          className="w-full pl-14 pr-14 py-4 glass-luxury rounded-2xl text-base text-foreground placeholder:text-muted-foreground outline-none focus:border-[var(--color-luxury-gold)]/50 transition-colors"
         />
         {query && (
           <button
             type="button"
             aria-label="Clear search"
             onClick={() => setQuery("")}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg
-                       text-muted-foreground hover:text-foreground
-                       hover:bg-surface-overlay transition-colors"
+            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-surface-overlay transition-colors"
           >
             <X size={15} />
           </button>
@@ -223,10 +229,8 @@ export function ConsultantDirectory({
 
       {/* ─── Filter rail (bubble pills) ──────────────────────────────────── */}
       <div className="relative -mx-4 md:mx-0">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10
-                        bg-gradient-to-l from-background to-transparent" />
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 pl-4 md:pl-0 pr-12
-                        custom-scrollbar hide-scrollbar">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10 bg-gradient-to-l from-background to-transparent" />
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 pl-4 md:pl-0 pr-12 custom-scrollbar hide-scrollbar">
           <Chip active={category === "all"} onClick={() => setCategory("all")}>
             All
           </Chip>
@@ -238,6 +242,8 @@ export function ConsultantDirectory({
           <button
             type="button"
             onClick={() => setOnlineOnly((v) => !v)}
+            aria-pressed={onlineOnly}
+            aria-label="Show only online guides"
             className={cn(
               "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap",
               "transition-all",
@@ -250,14 +256,13 @@ export function ConsultantDirectory({
               "w-1.5 h-1.5 rounded-full",
               onlineOnly ? "bg-emerald-400 animate-pulse" : "bg-slate-500",
             )} />
-            Online only
+            Online Only
           </button>
           {isFiltered && (
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex items-center gap-1 px-3.5 py-2 rounded-full text-xs font-bold
-                         text-muted-foreground hover:text-rose-400 whitespace-nowrap transition-colors"
+              className="inline-flex items-center gap-1 px-3.5 py-2 rounded-full text-xs font-bold text-muted-foreground hover:text-rose-400 whitespace-nowrap transition-colors"
             >
               <SlidersHorizontal size={11} /> Clear
             </button>
@@ -282,6 +287,7 @@ export function ConsultantDirectory({
                 key={key}
                 type="button"
                 onClick={() => setSort(key)}
+                aria-pressed={sort === key}
                 className={cn(
                   "px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all",
                   sort === key
@@ -299,6 +305,7 @@ export function ConsultantDirectory({
             type="button"
             onClick={() => setViewMode("grid")}
             aria-label="Grid view"
+            aria-pressed={viewMode === "grid"}
             className={cn(
               "p-1.5 rounded-lg transition-all",
               viewMode === "grid"
@@ -312,6 +319,7 @@ export function ConsultantDirectory({
             type="button"
             onClick={() => setViewMode("list")}
             aria-label="List view"
+            aria-pressed={viewMode === "list"}
             className={cn(
               "p-1.5 rounded-lg transition-all",
               viewMode === "list"
@@ -340,14 +348,14 @@ export function ConsultantDirectory({
           </div>
         )
       ) : fetchError ? (
-        <div className="text-center py-20 rounded-3xl border border-rose-500/20 bg-rose-500/[0.04]">
-          <p className="text-rose-400 text-sm mb-3">Failed to load: {fetchError}</p>
+        <div className="text-center py-20 rounded-3xl border border-rose-500/20 bg-rose-500/[0.04]" role="alert">
+          <p className="text-rose-400 text-sm mb-3">Unable to load the guides: {fetchError}</p>
           <button
             type="button"
             onClick={() => { setFetchError(null); setReloadKey((k) => k + 1); }}
-            className="text-[var(--color-primary)] hover:underline text-xs font-bold"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black transition-all hover:opacity-95 active:scale-[0.98]"
           >
-            Retry
+            Try Again
           </button>
         </div>
       ) : consultants.length === 0 ? (
@@ -357,19 +365,17 @@ export function ConsultantDirectory({
           className="text-center py-24 rounded-3xl border-2 border-dashed border-border"
         >
           <Search size={36} className="mx-auto mb-4 text-muted-foreground" />
-          <p className="text-foreground font-bold mb-1">No consultants match</p>
+          <p className="text-foreground font-bold mb-1">No guides matched</p>
           <p className="text-sm text-muted-foreground mb-5">
-            Try a different search term or clear your filters.
+            Try another name, skill, or tradition — or clear the filters.
           </p>
           {isFiltered && (
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl
-                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                         text-white text-xs font-black transition-all hover:scale-[1.02]"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Sparkles size={12} /> Clear filters
+              <Sparkles size={12} /> Clear Filters
             </button>
           )}
         </motion.div>
@@ -412,23 +418,33 @@ export function ConsultantDirectory({
           )}
 
           {hasMore && (
-            <div className="flex justify-center pt-4">
-              <button
+            <div className="flex flex-col items-center gap-2 pt-4">
+              <motion.button
                 type="button"
                 onClick={() => void loadMore()}
                 disabled={loadingMore}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl
-                           bg-surface-raised border border-border
-                           text-sm font-bold text-foreground
-                           hover:border-[var(--color-luxury-gold)]/40 transition-all
-                           disabled:opacity-50"
+                whileHover={{ scale: loadingMore ? 1 : 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-surface-raised border border-border text-sm font-bold text-foreground hover:border-[var(--color-luxury-gold)]/40 transition-colors disabled:opacity-60 disabled:cursor-wait"
               >
                 {loadingMore ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Load more
+                {loadingMore ? "Loading…" : "Load More"}
                 <span className="text-muted-foreground font-mono text-xs">
                   {consultants.length}/{total}
                 </span>
-              </button>
+              </motion.button>
+              {moreError && (
+                <p className="text-xs text-rose-400 text-center" role="alert">
+                  {moreError} —{" "}
+                  <button
+                    type="button"
+                    onClick={() => void loadMore()}
+                    className="font-bold underline underline-offset-2 hover:text-rose-300"
+                  >
+                    Try Again
+                  </button>
+                </p>
+              )}
             </div>
           )}
         </>
@@ -441,9 +457,7 @@ export function ConsultantDirectory({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-[calc(env(safe-area-inset-bottom)+96px)] left-1/2 -translate-x-1/2 z-[200]
-                       px-5 py-3 rounded-2xl glass-luxury
-                       text-sm font-bold text-foreground shadow-2xl"
+            className="fixed bottom-[calc(env(safe-area-inset-bottom)+96px)] left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl glass-luxury text-sm font-bold text-foreground shadow-2xl"
           >
             {toast}
           </motion.div>
@@ -469,6 +483,7 @@ function Chip({
     <motion.button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       whileTap={{ scale: 0.95 }}
       className={cn(
         "px-3.5 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all",
@@ -501,8 +516,7 @@ function ListCard({
 
   return (
     <div
-      className="group flex items-center gap-4 p-4 rounded-2xl
-                 glass-luxury glass-luxury-hover card-lift"
+      className="group flex items-center gap-4 p-4 rounded-2xl glass-luxury glass-luxury-hover card-lift"
     >
       {/* Avatar */}
       <Link href={href} className="shrink-0">
@@ -514,9 +528,7 @@ function ListCard({
           />
         ) : (
           <span
-            className="flex h-14 w-14 items-center justify-center rounded-full
-                       bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       font-black text-white text-lg"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] font-black text-white text-lg"
           >
             {initial}
           </span>
@@ -575,10 +587,12 @@ function ListCard({
           type="button"
           onClick={() => onChat(consultant.id)}
           disabled={!chatEnabled}
+          aria-label={chatEnabled ? `Chat with ${displayName}` : `${displayName} is offline right now`}
+          title={chatEnabled ? "Start Chat" : "Guide is offline right now"}
           className={cn(
             "px-3 py-2 rounded-xl text-xs font-black transition-all",
             chatEnabled
-              ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white active:scale-[0.98]"
+              ? "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white hover:opacity-95 active:scale-[0.98]"
               : "cursor-not-allowed bg-surface-raised text-muted-foreground",
           )}
         >
@@ -588,11 +602,10 @@ function ListCard({
           <button
             type="button"
             onClick={() => onBook(consultant.id)}
-            className="px-3 py-2 rounded-xl border border-border bg-surface-raised
-                       text-xs font-black text-foreground transition-all
-                       hover:border-[var(--color-luxury-gold)]/40"
+            aria-label={`Book a session with ${displayName}`}
+            className="px-3 py-2 rounded-xl border border-border bg-surface-raised text-xs font-black text-foreground transition-all hover:border-[var(--color-luxury-gold)]/40 hover:bg-surface-overlay active:scale-[0.98]"
           >
-            Book
+            Book Now
           </button>
         )}
       </div>

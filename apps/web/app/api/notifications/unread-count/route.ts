@@ -16,5 +16,9 @@ export const GET = withErrorHandler(async () => {
     .eq("userId", userId)
     .eq("read", false);
 
-  return NextResponse.json({ count: count ?? 0 });
+  return NextResponse.json({ count: count ?? 0 }, {
+    // Per-user badge — private cache only; short TTL + SWR keeps the nav
+    // badge snappy without leaking one user's count to another.
+    headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=60" },
+  });
 });

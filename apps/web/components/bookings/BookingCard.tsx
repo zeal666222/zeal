@@ -228,9 +228,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Pr
               <button
                 onClick={() => void submitRating()}
                 disabled={rating < 1 || busy}
-                className="w-full py-2 rounded-lg bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                           text-white text-xs font-black disabled:opacity-50
-                           flex items-center justify-center gap-1.5"
+                className="w-full py-2 rounded-lg bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                 Submit
@@ -243,11 +241,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Pr
             {needsPayment && (
               <Link
                 href={`/booking?consultantId=${booking.consultant.id}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                           bg-gradient-to-r from-amber-500 to-amber-600
-                           text-white text-xs font-black
-                           shadow-md shadow-amber-500/20
-                           transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-black shadow-md shadow-amber-500/20 transition-all active:scale-95"
               >
                 Complete payment
               </Link>
@@ -255,19 +249,14 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Pr
             {canJoin && (
               <Link
                 href={`/call/${booking.id}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                           bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                           text-white text-xs font-black
-                           transition-all active:scale-95"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black transition-all active:scale-95"
               >
                 <Video className="w-3 h-3" /> Join
               </Link>
             )}
             <Link
               href={`/chat?consultantId=${booking.consultant.id}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                         bg-surface-raised text-foreground text-xs font-bold
-                         transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-raised text-foreground text-xs font-bold transition-colors"
             >
               <MessageCircle className="w-3 h-3" /> Chat
             </Link>
@@ -275,9 +264,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Pr
               <button
                 onClick={() => setConfirmCancel(true)}
                 disabled={busy}
-                className="px-3 py-1.5 rounded-lg
-                           bg-rose-500/10 text-rose-400 text-xs font-bold
-                           disabled:opacity-50 transition-colors"
+                className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 text-xs font-bold disabled:opacity-50 transition-colors"
               >
                 Cancel
               </button>
@@ -285,9 +272,7 @@ export function BookingCard({ booking, role = "user", index = 0, onRefetch }: Pr
             {canRate && !showRating && (
               <button
                 onClick={() => setShowRating(true)}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg
-                           bg-amber-500/10 text-amber-400 text-xs font-bold
-                           transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-bold transition-colors"
               >
                 <Star className="w-3 h-3" /> Rate
               </button>
