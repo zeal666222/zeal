@@ -118,18 +118,20 @@ function createLimiter(tokens: number, windowSeconds: number, prefix: string) {
 
 // ─── Public limiters ────────────────────────────────────────────────────────
 // Tiered for 100+ concurrent users:
-//   - general: 120/min (up from 60)
-//   - auth: 10/min (up from 5)
-//   - ai: 30/min authenticated, 10/min anonymous (per-endpoint)
-//   - aiStrict: 5/min authenticated, 3/min anonymous
-//   - billing: 60/min (up from 30)
-//   - admin: 240/min (up from 120)
+//   - general: 120/min
+//   - auth: 10/min
+//   - ai: 60/min authenticated (generous for fast chatting)
+//   - aiAnon: 15/min anonymous
+//   - aiStrict: 20/min authenticated
+//   - aiStrictAnon: 5/min anonymous
+//   - billing: 60/min
+//   - admin: 240/min
 export const generalLimiter   = createLimiter(120, 60, "general");
 export const authLimiter      = createLimiter(10,  60, "auth");
-export const aiRateLimiter    = createLimiter(30, 60, "ai");
-export const aiAnonLimiter    = createLimiter(10, 60, "ai:anon");
-export const aiStrictLimiter  = createLimiter(5,  60, "ai-strict");
-export const aiStrictAnonLimiter = createLimiter(3, 60, "ai-strict:anon");
+export const aiRateLimiter    = createLimiter(60, 60, "ai");
+export const aiAnonLimiter    = createLimiter(15, 60, "ai:anon");
+export const aiStrictLimiter  = createLimiter(20,  60, "ai-strict");
+export const aiStrictAnonLimiter = createLimiter(5, 60, "ai-strict:anon");
 export const billingLimiter   = createLimiter(60, 60, "billing");
 export const adminLimiter     = createLimiter(240, 60, "admin");
 

@@ -243,21 +243,30 @@ export function getImageUrl(
   if (!key) return "";
   if (key.startsWith("http://") || key.startsWith("https://")) return key;
 
+  const normalizedKey = key.replace(/^\/+/, "");
+
+  // Bundled public assets (seeded consultant images, static SVGs, etc.)
+  // live in /public and should always resolve as local paths.
+  const BUNDLED_PREFIXES = ["consultants/", "images/", "icons/"];
+  if (BUNDLED_PREFIXES.some((p) => normalizedKey.startsWith(p))) {
+    return `/${normalizedKey}`;
+  }
+
   const r2Base = (process.env.R2_PUBLIC_URL ?? "").replace(/\/$/, "");
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
   const supabaseBucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET ?? "zeal-uploads";
 
   if (process.env.NEXT_PUBLIC_CF_IMAGE_RESIZE === "1" && r2Base) {
-    return `${r2Base}/cdn-cgi/image/${VARIANT_MAP[variant]}/${key}`;
+    return `${r2Base}/cdn-cgi/image/${VARIANT_MAP[variant]}/${normalizedKey}`;
   }
 
   const hash = process.env.NEXT_PUBLIC_CF_IMAGES_ACCOUNT_HASH;
   if (hash) {
-    return `https://imagedelivery.net/${hash}/${key}/${CF_NAMED_VARIANT[variant]}`;
+    return `https://imagedelivery.net/${hash}/${normalizedKey}/${CF_NAMED_VARIANT[variant]}`;
   }
 
-  if (r2Base) return `${r2Base}/${key}`;
-  if (supabaseUrl) return `${supabaseUrl}/storage/v1/object/public/${supabaseBucket}/${key}`;
+  if (r2Base) return `${r2Base}/${normalizedKey}`;
+  if (supabaseUrl) return `${supabaseUrl}/storage/v1/object/public/${supabaseBucket}/${normalizedKey}`;
 
-  return key;
+  return `/${normalizedKey}`;
 }

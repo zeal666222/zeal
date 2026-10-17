@@ -144,12 +144,12 @@ export async function POST(
       );
     }
 
-    // ─── Per-AI rate limit (10 msg/min per user per AI) ──────────────────
+    // ─── Per-AI rate limit (30 msg/min per user per AI) ──────────────────
     const adminForRl = createAdminClient();
     const { data: rl2 } = await adminForRl.rpc("check_ai_rate_limit", {
       p_user_id: user.id,
       p_ai_id: consultantId,
-      p_max_per_minute: 10,
+      p_max_per_minute: 30,
     });
     const rlResult = rl2 as { ok?: boolean; retryAfter?: number } | null;
     if (rlResult && rlResult.ok === false) {

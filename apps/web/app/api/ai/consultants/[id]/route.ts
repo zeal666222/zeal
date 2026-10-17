@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import {createAdminClient} from "@zeal/database/server";
+import { createAdminClient } from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,14 +15,41 @@ export async function GET(
   try {
     const admin = createAdminClient();
     const isUuid = UUID_RE.test(id);
-    const { data, error } = await admin
-      .from("AIConsultant")
-      .select("*")
-      .eq(isUuid ? "id" : "username", id)
-      .eq("isActive", true)
-      .maybeSingle();
 
-    if (error || !data) {
+    let data = null;
+
+    if (isUuid) {
+      const res = await admin.from("AIConsultant").select("*").eq("id", id).maybeSingle();
+      data = res.data;
+    } else {
+      // Try exact username match first
+      const exact = await admin.from("AIConsultant").select("*").eq("username", id).maybeSingle();
+      data = exact.data;
+
+      // Fallback: case-insensitive ILIKE match
+      if (!data) {
+        const fuzzy = await admin
+          .from("AIConsultant")
+          .select("*")
+          .ilike("username", id)
+          .maybeSingle();
+        data = fuzzy.data;
+      }
+
+      // Fallback: match by slugified name (replace spaces/special chars with hyphens)
+      if (!data) {
+        const slug = id.replace(/-/g, "_").toLowerCase();
+        const bySlug = await admin
+          .from("AIConsultant")
+          .select("*")
+          .ilike("username", `%${slug}%`)
+          .limit(1)
+          .maybeSingle();
+        data = bySlug.data;
+      }
+    }
+
+    if (!data) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
