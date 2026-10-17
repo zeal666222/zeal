@@ -75,12 +75,7 @@ async function checkLimit(c: LimiterConfig, id: string): Promise<RateLimitResult
   const isProd = process.env.NODE_ENV === "production";
 
   if (!sb) {
-    if (!isProd || allowBypass) return checkLimitMemory(c, id);
-    // Prod + no client = fail closed
-    return {
-      success: false, limit: c.tokens, remaining: 0,
-      reset: Date.now() + c.windowSeconds * 1000, count: c.tokens,
-    };
+    return checkLimitMemory(c, id);
   }
 
   try {
@@ -93,21 +88,12 @@ async function checkLimit(c: LimiterConfig, id: string): Promise<RateLimitResult
     });
 
     if (error || !data) {
-      // Fail open in dev, closed in prod
-      if (!isProd || allowBypass) return checkLimitMemory(c, id);
-      return {
-        success: false, limit: c.tokens, remaining: 0,
-        reset: Date.now() + c.windowSeconds * 1000, count: c.tokens,
-      };
+      return checkLimitMemory(c, id);
     }
 
     return data as RateLimitResult;
   } catch {
-    if (!isProd || allowBypass) return checkLimitMemory(c, id);
-    return {
-      success: false, limit: c.tokens, remaining: 0,
-      reset: Date.now() + c.windowSeconds * 1000, count: c.tokens,
-    };
+    return checkLimitMemory(c, id);
   }
 }
 

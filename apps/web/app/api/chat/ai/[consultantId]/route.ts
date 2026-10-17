@@ -145,22 +145,26 @@ export async function POST(
       );
     }
 
-    // ─── Per-AI rate limit (200 msg/min per user per AI) ─────────────────
-    const adminForRl = createAdminClient();
-    const { data: rl2 } = await adminForRl.rpc("check_ai_rate_limit", {
-      p_user_id: user.id,
-      p_ai_id: consultantId,
-      p_max_per_minute: 200,
-    });
-    const rlResult = rl2 as { ok?: boolean; retryAfter?: number } | null;
-    if (rlResult && rlResult.ok === false) {
-      return NextResponse.json(
-        { error: "Slow down a moment — try again in a few seconds." },
-        {
-          status: 429,
-          headers: { "Retry-After": String(rlResult.retryAfter ?? 10) },
-        },
-      );
+    // ─── Per-AI rate limit (600 msg/min per user per AI) ─────────────────
+    try {
+      const adminForRl = createAdminClient();
+      const { data: rl2 } = await adminForRl.rpc("check_ai_rate_limit", {
+        p_user_id: user.id,
+        p_ai_id: consultantId,
+        p_max_per_minute: 600,
+      });
+      const rlResult = rl2 as { ok?: boolean; retryAfter?: number } | null;
+      if (rlResult && rlResult.ok === false) {
+        return NextResponse.json(
+          { error: "Slow down a moment — try again in a few seconds." },
+          {
+            status: 429,
+            headers: { "Retry-After": String(rlResult.retryAfter ?? 10) },
+          },
+        );
+      }
+    } catch {
+      // RPC unavailable — allow through (fail-open)
     }
 
     // ─── Parse body ───────────────────────────────────────────────────────
@@ -182,12 +186,16 @@ export async function POST(
     const { conversationId, content } = parsed.data;
 
     // ─── Concurrency gate (per-user + global limits) ───────────────────────
-    const concurrency = await tryAcquireAIChat(user.id);
-    if (!concurrency.allowed) {
-      return NextResponse.json(
-        { error: concurrency.error ?? "Too many concurrent chats" },
-        { status: 429 },
-      );
+    try {
+      const concurrency = await tryAcquireAIChat(user.id);
+      if (!concurrency.allowed) {
+        return NextResponse.json(
+          { error: concurrency.error ?? "Too many concurrent chats" },
+          { status: 429 },
+        );
+      }
+    } catch {
+      // Concurrency RPC unavailable — allow through (fail-open)
     }
 
     // ─── Load persona (structured role contract) ─────────────────────────
