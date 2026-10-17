@@ -115,7 +115,24 @@ export async function loadPersona(
       .eq("isActive", true)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error) {
+      console.error("[persona-loader] DB error loading consultant:", consultantId, error.message, error.details);
+    }
+
+    if (!data) {
+      // Fallback: check if consultant exists but is inactive
+      const { data: inactive } = await admin
+        .from("AIConsultant")
+        .select("id, isActive")
+        .eq("id", consultantId)
+        .maybeSingle();
+      if (inactive) {
+        console.warn(`[persona-loader] consultant ${consultantId} exists but isActive=${inactive.isActive}`);
+      } else {
+        console.warn(`[persona-loader] consultant ${consultantId} not found in AIConsultant table`);
+      }
+      return null;
+    }
 
     const row = data as unknown as AIConsultantRow;
 
