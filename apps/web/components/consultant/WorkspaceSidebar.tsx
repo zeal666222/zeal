@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter} from "next/navigation";
 import {useEffect, useState} from "react";
 import { Calendar, Check, Clock, Copy, DollarSign, ExternalLink, LayoutDashboard, LogOut, Menu, Palette, Settings, Users, X, Eye } from "lucide-react";
@@ -50,8 +51,8 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
     <div className="flex flex-col h-full bg-background">
       <div className="flex items-center gap-3 p-5 border-b border-border">
         <div className="relative shrink-0">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-semibold overflow-hidden">
-            {user.avatar ? <img src={getImageUrl(user.avatar, "avatar-sm")} alt="" className="w-full h-full object-cover" /> : initial}
+          <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-semibold overflow-hidden">
+            {user.avatar ? <Image src={getImageUrl(user.avatar, "avatar-sm")} alt="" fill sizes="48px" className="object-cover" /> : initial}
           </div>
           <svg className="absolute -inset-0.5 w-11 h-11 -rotate-90" viewBox="0 0 44 44" aria-hidden>
             <circle cx="22" cy="22" r="20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />

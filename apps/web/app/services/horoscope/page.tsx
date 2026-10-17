@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import Image from "next/image";
 import { fetchAIJson } from "@/lib/ai/json-fetch";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -1335,9 +1336,9 @@ function ConsultPhase({
                 className="flex items-center gap-4 p-4 rounded-2xl bg-surface/80 backdrop-blur-xl border border-border/60 hover:border-amber-500/30 transition-all group"
               >
                 <div className="relative shrink-0">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-400 text-sm font-bold overflow-hidden">
+                  <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-amber-400 text-sm font-bold overflow-hidden">
                     {c.avatar ? (
-                      <img src={c.avatar} alt="" className="w-full h-full object-cover" />
+                      <Image src={c.avatar} alt="" fill sizes="64px" className="object-cover" />
                     ) : (
                       c.name.charAt(0).toUpperCase()
                     )}

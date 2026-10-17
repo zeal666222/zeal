@@ -5,6 +5,7 @@ import {useState, useEffect} from "react";
 import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 import {initiateSessionAction} from "@/actions/signaling";
 import {useRouter, usePathname} from "next/navigation";
+import Image from "next/image";
 import { ImageIcon, MessageSquare, Phone, Shield, Sparkles, Star } from "lucide-react";
 
 type PublicProfile = { id: string; full_name: string; avatar_url: string | null; cover_url: string | null; is_ai: boolean; is_online: boolean; };
@@ -55,7 +56,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
   return (
     <div className="flex flex-col relative w-full">
       <div className="relative w-full h-48 md:h-80 bg-surface">
-        {profile.cover_url ? <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" /> : <div className={`w-full h-full ${fallbackCover} flex items-center justify-center opacity-80`} />}
+        {profile.cover_url ? <Image src={profile.cover_url} alt="Cover" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" /> : <div className={`w-full h-full ${fallbackCover} flex items-center justify-center opacity-80`} />}
         <div className="absolute bottom-0 w-full h-24 bg-gradient-to-t from-slate-950 to-transparent" />
       </div>
 
@@ -63,7 +64,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-3">
             <div className="relative inline-block">
-              {profile.avatar_url ? <img src={profile.avatar_url} alt={profile.full_name} className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background object-cover bg-surface" /> : <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background flex items-center justify-center text-4xl font-black shadow-2xl ${fallbackAvatar}`}>{profile.full_name.charAt(0)}</div>}
+              {profile.avatar_url ? <Image src={profile.avatar_url} alt={profile.full_name} fill sizes="160px" className="rounded-full border-4 border-background object-cover bg-surface" /> : <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background flex items-center justify-center text-4xl font-black shadow-2xl ${fallbackAvatar}`}>{profile.full_name.charAt(0)}</div>}
               <div className={`absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-background transition-colors duration-500 ${profile.is_online ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.8)]' : 'bg-slate-500'}`} />
             </div>
             <div>
@@ -96,7 +97,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
               <div className="grid grid-cols-3 gap-1 md:gap-4">
                 {posts.map((post) => (
                   <div key={post.id} className="aspect-square bg-surface border border-border rounded-lg md:rounded-2xl overflow-hidden relative group cursor-pointer hover:border-white/20 transition-all">
-                    {post.image_url ? <img src={post.image_url} alt="Post" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center p-4 text-center bg-gradient-to-br from-surface to-background"><p className="text-xs md:text-sm text-muted-foreground line-clamp-4">{post.content}</p></div>}
+                    {post.image_url ? <Image src={post.image_url} alt="Post" fill sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" /> : <div className="w-full h-full flex items-center justify-center p-4 text-center bg-gradient-to-br from-surface to-background"><p className="text-xs md:text-sm text-muted-foreground line-clamp-4">{post.content}</p></div>}
                   </div>
                 ))}
               </div>

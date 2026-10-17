@@ -5,6 +5,7 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { Flame, Sparkles, Star } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
@@ -76,8 +77,8 @@ export function CategoryHubClient({ categoryId, categoryName, initialHumans, ini
                 className="p-5 rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/40 transition-colors"
               >
                 <div className="flex items-start gap-3">
-                  <div className="w-14 h-14 rounded-full overflow-hidden bg-[var(--color-surface-raised)] shrink-0 ring-2 ring-[var(--color-primary)]/30">
-                    {c.avatar && <img src={c.avatar} alt="" className="w-full h-full object-cover" />}
+                  <div className="relative w-14 h-14 rounded-full overflow-hidden bg-[var(--color-surface-raised)] shrink-0 ring-2 ring-[var(--color-primary)]/30">
+                    {c.avatar && <Image src={c.avatar} alt="" fill sizes="64px" className="object-cover" />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-[var(--color-foreground)] text-sm truncate">{c.name}</p>
@@ -123,9 +124,9 @@ export function CategoryHubClient({ categoryId, categoryName, initialHumans, ini
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative shrink-0">
-                        <div className="w-14 h-14 rounded-full overflow-hidden bg-[var(--color-surface-raised)]">
+                        <div className="relative w-14 h-14 rounded-full overflow-hidden bg-[var(--color-surface-raised)]">
                           {c.user?.avatar ? (
-                            <img src={c.user.avatar} alt="" className="w-full h-full object-cover" />
+                            <Image src={c.user.avatar} alt="" fill sizes="64px" className="object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-lg font-black text-[var(--color-primary)]">
                               {name.charAt(0).toUpperCase()}

@@ -5,6 +5,7 @@
 
 import {createAdminClient} from "@zeal/database/server";
 import Link from "next/link";
+import Image from "next/image";
 import {notFound} from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import {CATEGORY_ID_TO_NAME} from "@/lib/services/slug";
@@ -213,9 +214,9 @@ function AIConsultantCard({ consultant }: { consultant: AIConsultantRow }) {
     >
       <div className="flex items-start gap-3 mb-3">
         <div className="relative flex-shrink-0">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-bold text-lg overflow-hidden ring-2 ring-[var(--color-primary)]/30">
+          <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-bold text-lg overflow-hidden ring-2 ring-[var(--color-primary)]/30">
             {consultant.avatar ? (
-              <img src={consultant.avatar} alt={consultant.name} className="w-full h-full object-cover" />
+              <Image src={consultant.avatar} alt={consultant.name} fill sizes="64px" className="object-cover" />
             ) : (
               consultant.name.charAt(0).toUpperCase()
             )}

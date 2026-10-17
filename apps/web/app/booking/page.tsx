@@ -10,6 +10,7 @@ import { Suspense, useCallback, useEffect, useMemo, useReducer, useState } from 
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle, ArrowLeft, ArrowRight, Calendar, CheckCircle2,
@@ -287,9 +288,9 @@ function BookingContent() {
 
         {consultant && (
           <div className="mb-5 p-4 rounded-2xl bg-surface border border-border flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-[var(--color-primary)]/20 overflow-hidden flex items-center justify-center shrink-0">
+            <div className="relative w-12 h-12 rounded-full bg-[var(--color-primary)]/20 overflow-hidden flex items-center justify-center shrink-0">
               {consultant.avatar
-                ? <img src={consultant.avatar} alt="" className="w-full h-full object-cover" />
+                ? <Image src={consultant.avatar} alt="" fill sizes="64px" className="object-cover" />
                 : <span className="text-[var(--color-primary)] font-black">
                     {consultant.name.charAt(0).toUpperCase()}
                   </span>}

@@ -4,6 +4,7 @@
 
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createAdminClient, getUserId } from "@zeal/database/server";
 import { AlertTriangle, Check, Flame, Heart, MapPin, Link as LinkIcon, Sparkles } from "lucide-react";
 import { PostGrid } from "@/components/profile/PostGrid";
@@ -127,8 +128,7 @@ export default async function PublicProfilePage({
             />
             <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full ring-4 ring-background overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-4xl">
               {profile.avatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={getImageUrl(profile.avatar, "avatar-md")} alt="" className="w-full h-full object-cover" />
+                <Image src={getImageUrl(profile.avatar, "avatar-md")} alt="" fill sizes="128px" className="object-cover" />
               ) : (
                 initial
               )}

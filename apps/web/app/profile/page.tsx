@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
 import {
   AlertTriangle, ArrowLeft, Check, Copy, Edit3, Link as LinkIcon, Loader2, LogOut,
@@ -246,7 +247,7 @@ export default function ProfilePage() {
               />
               <div className="relative w-28 h-28 md:w-36 md:h-36 rounded-full ring-4 ring-background overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-4xl">
                 {profile.avatar ? (
-                  <img src={getImageUrl(profile.avatar, "avatar-md")} alt="" className="w-full h-full object-cover" />
+                  <Image src={getImageUrl(profile.avatar, "avatar-md")} alt="" fill sizes="128px" className="object-cover" />
                 ) : (
                   initial
                 )}

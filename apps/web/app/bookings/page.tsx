@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { ArrowRight, Calendar, Clock, Home, Loader2, Video } from "lucide-react";
 
@@ -71,9 +72,9 @@ export default function BookingsPage() {
                 transition={{ delay: i * 0.05 }}
                 className="bg-surface backdrop-blur-xl border border-border rounded-3xl p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center overflow-hidden">
+                  <div className="relative w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center overflow-hidden">
                     {b.consultant?.user?.avatar ? (
-                      <img src={b.consultant.user.avatar} alt="" className="w-full h-full object-cover" />
+                      <Image src={b.consultant.user.avatar} alt="" fill sizes="64px" className="object-cover" />
                     ) : (
                       <span className="text-purple-400 font-bold">
                         {(b.consultant?.user?.name || "?").charAt(0).toUpperCase()}

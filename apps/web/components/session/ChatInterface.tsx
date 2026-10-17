@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, ArrowLeft, Coins, Loader2, MessageCircle, Paperclip, Send, ShieldCheck, Sparkles, X } from "lucide-react";
+import Image from "next/image";
 import { useChat, type BillingInfo, type ChatMessage } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
 import { BillingPanel } from "./BillingPanel";
@@ -307,7 +308,7 @@ export function ChatInterface({
           </button>
           <div className="relative w-10 h-10 rounded-full bg-surface-sunken flex items-center justify-center font-black text-foreground overflow-hidden shrink-0">
             {partnerAvatar ? (
-              <img src={partnerAvatar} alt={partnerName} className="w-full h-full object-cover" />
+              <Image src={partnerAvatar} alt={partnerName} fill sizes="48px" className="object-cover" />
             ) : (
               partnerName.charAt(0).toUpperCase()
             )}

@@ -9,6 +9,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Loader2, Search, Sparkles, Star } from "lucide-react";
 import { getImageUrl } from "@/lib/storage/r2";
@@ -164,9 +165,9 @@ export function AIChatDiscovery() {
                       href={`/consultant/${c.id}`}
                       className="flex items-center gap-2 p-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl hover:border-[var(--color-primary)]/40 transition-colors"
                     >
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-[var(--color-surface-raised)] shrink-0">
+                      <div className="relative w-10 h-10 rounded-full overflow-hidden bg-[var(--color-surface-raised)] shrink-0">
                         {c.user.avatar ? (
-                          <img src={getImageUrl(c.user.avatar, "avatar-sm")} alt="" className="w-full h-full object-cover" />
+                          <Image src={getImageUrl(c.user.avatar, "avatar-sm")} alt="" fill sizes="48px" className="object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[var(--color-primary)]">
                             {(c.user.name ?? "?").charAt(0).toUpperCase()}

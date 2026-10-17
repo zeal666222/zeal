@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import Image from "next/image";
 import { fetchAIJson } from "@/lib/ai/json-fetch";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -1422,9 +1423,9 @@ function ReadingPhase({
                     className="flex items-center gap-3 p-3 rounded-xl border border-border/40 hover:border-purple-500/30 bg-surface-raised/30 hover:bg-surface-raised/60 transition-all group"
                   >
                     <div className="relative shrink-0">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                      <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
                         {c.avatar ? (
-                          <img src={c.avatar} alt="" className="w-full h-full object-cover" />
+                          <Image src={c.avatar} alt="" fill sizes="48px" className="object-cover" />
                         ) : (
                           c.name.charAt(0).toUpperCase()
                         )}

@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Heart, Loader2, MessageCircle, Share2,
@@ -132,10 +133,10 @@ export default function PostDetailPage() {
         <header className="flex items-center gap-3 mb-4">
           <Link
             href={author?.id ? `/profile?userId=${author.id}` : "#"}
-            className="w-12 h-12 rounded-full overflow-hidden bg-surface-raised flex items-center justify-center font-black text-foreground"
+            className="relative w-12 h-12 rounded-full overflow-hidden bg-surface-raised flex items-center justify-center font-black text-foreground"
           >
             {author?.avatar ? (
-              <img src={author.avatar} alt="" className="w-full h-full object-cover" />
+              <Image src={author.avatar} alt="" fill sizes="64px" className="object-cover" />
             ) : (
               initial
             )}

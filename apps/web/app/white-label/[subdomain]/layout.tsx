@@ -4,6 +4,7 @@
 import {notFound} from "next/navigation";
 import {createAdminClient} from "@zeal/database/server";
 import Link from "next/link";
+import Image from "next/image";
 import type {CSSProperties} from "react";
 
 interface Theme {
@@ -80,7 +81,9 @@ export default async function WhiteLabelLayout({children, params}: Props) {
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href={`/white-label/${subdomain}`} className="flex items-center gap-2">
             {theme.logoUrl ? (
-              <img src={theme.logoUrl} alt="Logo" className="w-8 h-8 rounded-full object-cover" />
+              <span className="relative w-8 h-8 rounded-full overflow-hidden shrink-0">
+                <Image src={theme.logoUrl} alt="Logo" fill sizes="48px" className="object-cover" />
+              </span>
             ) : (
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white"
