@@ -121,8 +121,7 @@ My primary focus is: ${focus}. Give me a deep, insightful interpretation that co
     const headers = new Headers(stream.headers);
     for (const [k, v] of Object.entries(rl.headers ?? {})) headers.set(k, v);
     return new Response(stream.body, { status: stream.status, headers });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Dream interpretation is momentarily paused.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Dream interpretation is momentarily paused — please try again in a moment." }, { status: 500 });
   }
 }

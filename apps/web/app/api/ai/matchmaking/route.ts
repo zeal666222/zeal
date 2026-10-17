@@ -28,8 +28,7 @@ export async function POST(req: Request) {
     const headers = new Headers(stream.headers);
     for (const [k, v] of Object.entries(rl.headers ?? {})) headers.set(k, v);
     return new Response(stream.body, {status: stream.status, headers});
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Chat is taking a brief pause.";
-    return NextResponse.json({error: message}, {status: 500});
+  } catch {
+    return NextResponse.json({ error: "Compatibility analysis is taking a brief pause — please try again shortly." }, { status: 500 });
   }
 }

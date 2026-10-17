@@ -165,8 +165,7 @@ Give me a reading that feels like I'm sitting across from a master palmist who h
     const headers = new Headers(stream.headers);
     for (const [k, v] of Object.entries(rl.headers ?? {})) headers.set(k, v);
     return new Response(stream.body, { status: stream.status, headers });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Palmistry reading is taking a brief pause.";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: "Palmistry reading is taking a brief pause — please try again shortly." }, { status: 500 });
   }
 }
