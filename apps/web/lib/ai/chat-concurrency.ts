@@ -1,15 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// AI Chat Concurrency — Enhanced gate with per-user + global limits
+// AI Chat Concurrency — In-memory per-user + global limits
 // ═══════════════════════════════════════════════════════════════════════════════
-// Extends the existing ConcurrencyGate (per-provider semaphore) with:
-//   - Per-user limit: max 5 concurrent AI chats per user
-//   - Global limit: max 100 concurrent AI chats platform-wide
-//
-// Uses Postgres AIChatSession table (migration 1205) for cross-instance
-// tracking. Falls back to in-memory tracking if DB is unreachable.
+// Tracks concurrent AI chats per user and platform-wide.
+// Uses in-memory tracking (per-instance) since Vercel serverless is stateless.
+// Limits are generous (50 per user, 2000 global) — these are anti-abuse guards.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { createAdminClient } from "@zeal/database/server";
 import { logger } from "@/lib/logger";
 import { ConcurrencyGate, getGate } from "@/lib/ai/engine/concurrency-gate";
 
@@ -18,9 +14,7 @@ import { ConcurrencyGate, getGate } from "@/lib/ai/engine/concurrency-gate";
 const DEFAULT_PER_USER_MAX = parseInt(process.env.AI_CHAT_PER_USER_MAX ?? "50", 10);
 const DEFAULT_GLOBAL_MAX = parseInt(process.env.AI_CHAT_GLOBAL_MAX ?? "2000", 10);
 
-// ─── In-memory fallback tracker ───────────────────────────────────────────────
-// Used when Postgres is unreachable. Less accurate (per-instance only) but
-// prevents total failure.
+// ─── In-memory tracker ───────────────────────────────────────────────────────
 
 const memoryTracker = new Map<string, Set<string>>(); // userId → Set<sessionId>
 let globalActiveCount = 0;
@@ -64,10 +58,7 @@ export interface AIChatAcquireResult {
 
 /**
  * Try to start an AI chat session for a user.
- * Checks both per-user and global limits.
- *
- * @param userId - The user starting the chat
- * @param options - Override defaults for max concurrent chats
+ * Checks both per-user and global limits using in-memory tracking.
  */
 export async function tryAcquireAIChat(
   userId: string,
@@ -76,113 +67,50 @@ export async function tryAcquireAIChat(
   const perUserMax = options?.perUserMax ?? DEFAULT_PER_USER_MAX;
   const globalMax = options?.globalMax ?? DEFAULT_GLOBAL_MAX;
 
-  try {
-    const admin = createAdminClient();
-
-    // Check per-user limit
-    const { data: userData, error: userErr } = await admin.rpc("try_start_ai_chat", {
-      p_user_id: userId,
-      p_max_concurrent: perUserMax,
-    });
-
-    if (userErr) {
-      throw new Error(userErr.message);
-    }
-
-    const userResult = userData as { allowed?: boolean; current?: number; max?: number } | null;
-
-    if (userResult?.allowed === false) {
-      return {
-        allowed: false,
-        currentPerUser: userResult.current,
-        maxPerUser: perUserMax,
-        maxGlobal: globalMax,
-        error: `Too many concurrent chats. Max ${perUserMax} per user.`,
-      };
-    }
-
-    // Check global limit
-    const { data: statsData } = await admin.rpc("get_ai_chat_stats");
-    const stats = statsData as { totalActive?: number } | null;
-    const globalActive = stats?.totalActive ?? 0;
-
-    if (globalActive >= globalMax) {
-      // Roll back the per-user increment
-      await admin.rpc("end_ai_chat_session", { p_user_id: userId });
-
-      return {
-        allowed: false,
-        currentGlobal: globalActive,
-        maxPerUser: perUserMax,
-        maxGlobal: globalMax,
-        error: "Platform is at capacity. Please try again in a moment.",
-      };
-    }
-
-    logger.debug("ai", "chat_acquired", `AI chat started for user ${userId}`, {
-      userId,
-      currentPerUser: userResult?.current,
-      currentGlobal: globalActive,
-    });
-
+  const check = memoryCheck(userId, perUserMax);
+  if (!check.allowed) {
     return {
-      allowed: true,
-      currentPerUser: userResult?.current,
-      currentGlobal: globalActive,
+      allowed: false,
+      currentPerUser: check.current,
       maxPerUser: perUserMax,
       maxGlobal: globalMax,
+      error: `Too many concurrent chats. Max ${perUserMax} per user.`,
     };
-  } catch (err) {
-    // DB unreachable — fall back to in-memory tracking
-    logger.warn("ai", "chat_acquire_fallback", "DB unreachable, using in-memory tracker", {
-      error: err instanceof Error ? err.message : String(err),
-    });
+  }
 
-    const check = memoryCheck(userId, perUserMax);
-    if (!check.allowed) {
-      return {
-        allowed: false,
-        currentPerUser: check.current,
-        maxPerUser: perUserMax,
-        maxGlobal: globalMax,
-        error: `Too many concurrent chats (fallback). Max ${perUserMax} per user.`,
-      };
-    }
-
-    if (globalActiveCount >= globalMax) {
-      return {
-        allowed: false,
-        currentGlobal: globalActiveCount,
-        maxPerUser: perUserMax,
-        maxGlobal: globalMax,
-        error: "Platform at capacity (fallback). Please try again.",
-      };
-    }
-
-    const sessionId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-    memoryTrack(userId, sessionId);
-
+  if (globalActiveCount >= globalMax) {
     return {
-      allowed: true,
-      currentPerUser: check.current + 1,
+      allowed: false,
       currentGlobal: globalActiveCount,
       maxPerUser: perUserMax,
       maxGlobal: globalMax,
+      error: "Platform at capacity. Please try again.",
     };
   }
+
+  const sessionId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  const tracked = memoryTrack(userId, sessionId);
+
+  logger.debug("ai", "chat_acquired", `AI chat started for user ${userId}`, {
+    userId,
+    currentPerUser: tracked.current,
+    currentGlobal: globalActiveCount,
+  });
+
+  return {
+    allowed: true,
+    currentPerUser: tracked.current,
+    currentGlobal: globalActiveCount,
+    maxPerUser: perUserMax,
+    maxGlobal: globalMax,
+  };
 }
 
 /**
  * Release an AI chat session when the conversation ends.
  */
 export async function releaseAIChat(userId: string): Promise<void> {
-  try {
-    const admin = createAdminClient();
-    await admin.rpc("end_ai_chat_session", { p_user_id: userId });
-  } catch {
-    // Fall back to memory
-    memoryUntrack(userId, "");
-  }
+  memoryUntrack(userId, "");
 }
 
 /**
@@ -193,32 +121,22 @@ export async function getAIChatStats(): Promise<{
   topUsers: Array<{ userId: string; count: number }>;
   providerGates: Record<string, { active: number; queued: number; max: number }>;
 }> {
-  try {
-    const admin = createAdminClient();
-    const { data } = await admin.rpc("get_ai_chat_stats");
-    const stats = data as { totalActive?: number; topUsers?: Array<{ userId: string; count: number }> } | null;
+  const topUsers = Array.from(memoryTracker.entries())
+    .map(([userId, sessions]) => ({ userId, count: sessions.size }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10);
 
-    // Also include provider gate stats
-    const { allGateStats } = await import("@/lib/ai/engine/concurrency-gate");
-    const providerGates = allGateStats();
+  const { allGateStats } = await import("@/lib/ai/engine/concurrency-gate");
+  const providerGates = allGateStats();
 
-    return {
-      totalActive: stats?.totalActive ?? 0,
-      topUsers: stats?.topUsers ?? [],
-      providerGates,
-    };
-  } catch {
-    return {
-      totalActive: globalActiveCount,
-      topUsers: [],
-      providerGates: {},
-    };
-  }
+  return {
+    totalActive: globalActiveCount,
+    topUsers,
+    providerGates,
+  };
 }
 
 // ─── Provider gate singleton ──────────────────────────────────────────────────
-// The existing ConcurrencyGate handles per-provider limits. This is a
-// convenience accessor for the AI-specific gate.
 
 export function getAIGate(maxConcurrent?: number): ConcurrencyGate {
   return getGate("groqPro", maxConcurrent ?? DEFAULT_GLOBAL_MAX);
