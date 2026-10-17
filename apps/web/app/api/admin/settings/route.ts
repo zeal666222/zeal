@@ -1,14 +1,10 @@
-// apps/web/app/api/admin/settings/route.ts
 import { NextResponse } from "next/server";
-import {requireAdminAPI, logAdminAction} from "@/lib/auth/api-guard";
+import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
-// Simple in-DB settings via DebugLog-style key-value (or Redis fallback)
-// For now, use a static approach — settings stored in AdminAuditLog metadata
-// TODO: add a `PlatformSettings` table in future migration
-
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const guard = await requireAdminAPI("SUPER_ADMIN");
   if (!guard.ok) return guard.response;
 
@@ -17,26 +13,21 @@ export async function GET() {
     minimumWithdrawal: 100,
     maintenanceMode: false,
   });
-}
+});
 
-export async function PUT(req: Request) {
+export const PUT = withErrorHandler(async (req: Request) => {
   const guard = await requireAdminAPI("SUPER_ADMIN");
   if (!guard.ok) return guard.response;
   const { admin, userId: adminId } = guard;
 
   let body: Record<string, unknown>;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  try { body = await req.json(); } catch {
+    throw new AppError("Invalid JSON", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   await logAdminAction(admin, {
-    adminId,
-    action: "SETTINGS_UPDATE",
-    targetType: "platform",
-    metadata: body,
+    adminId, action: "SETTINGS_UPDATE", targetType: "platform", metadata: body,
   });
 
   return NextResponse.json({ success: true, applied: body });
-}
+});

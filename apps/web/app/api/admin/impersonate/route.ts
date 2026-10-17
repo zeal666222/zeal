@@ -1,16 +1,7 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// POST /api/admin/impersonate — Start a 15-min impersonation session
-// ═══════════════════════════════════════════════════════════════════════════════
-// Super admin only. Every impersonated action is logged with BOTH the actor
-// (original admin) and the effective user (target). Time-boxed at 15 minutes.
-//
-// Supports three target types:
-//   - "user"      — impersonate a regular user
-//   - "consultant" — impersonate a human consultant
-//   - "ai"        — impersonate an AI consultant persona ("Talk as AI")
-// ═══════════════════════════════════════════════════════════════════════════════
 import { NextResponse } from "next/server";
 import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import { safeQueryOne } from "@/lib/infra/guards";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -21,111 +12,66 @@ const BodySchema = z.object({
   targetType: z.enum(["user", "consultant", "ai"]).default("user"),
 });
 
-export async function POST(req: Request) {
+export const POST = withErrorHandler(async (req: Request) => {
   const guard = await requireAdminAPI("SUPER_ADMIN");
   if (!guard.ok) return guard.response;
   const { admin, userId: adminId } = guard;
 
   let body: unknown;
   try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    throw new AppError("Invalid JSON", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "targetUserId/targetId (uuid) and targetType required" },
-      { status: 400 },
-    );
+    throw new AppError("targetUserId/targetId (uuid) and targetType required", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   const { targetType } = parsed.data;
   const targetId = parsed.data.targetUserId ?? parsed.data.targetId;
-
-  if (!targetId) {
-    return NextResponse.json(
-      { error: "targetUserId or targetId is required" },
-      { status: 400 },
-    );
-  }
-
+  if (!targetId) throw new AppError("targetUserId or targetId is required", 400, ErrorCode.VALIDATION_INPUT);
   if (targetId === adminId && targetType !== "ai") {
-    return NextResponse.json({ error: "Cannot impersonate yourself" }, { status: 400 });
+    throw new AppError("Cannot impersonate yourself", 400, ErrorCode.AUTH_FORBIDDEN);
   }
 
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-  // ─── AI Consultant impersonation ──────────────────────────────────────────
   if (targetType === "ai") {
-    const { data: consultant } = await admin
-      .from("Consultant")
-      .select("id, userId, bio, specialties")
-      .eq("id", targetId)
-      .maybeSingle();
+    const consultant = await safeQueryOne<{ id: string; userId: string; bio: string | null; specialties: string[] | null }>(
+      admin.from("Consultant").select("id, userId, bio, specialties").eq("id", targetId).maybeSingle(),
+      "impersonate.ai-consultant",
+    );
+    if (!consultant) throw new AppError("AI consultant not found", 404, ErrorCode.NOT_FOUND);
 
-    if (!consultant) {
-      return NextResponse.json({ error: "AI consultant not found" }, { status: 404 });
-    }
-
-    // Fetch the user row linked to this consultant for name/email
-    const { data: aiUser } = await admin
-      .from("User")
-      .select("id, email, name, username")
-      .eq("id", consultant.userId as string)
-      .maybeSingle();
+    const aiUser = await safeQueryOne<{ id: string; email: string; name: string | null; username: string | null }>(
+      admin.from("User").select("id, email, name, username").eq("id", consultant.userId).maybeSingle(),
+      "impersonate.ai-user",
+    );
 
     await logAdminAction(admin, {
-      adminId,
-      action: "IMPERSONATE_AI_START",
-      targetType: "ai_consultant",
-      targetId,
-      metadata: {
-        startedAt: new Date().toISOString(),
-        expiresAt,
-        consultantName: aiUser?.name ?? "AI Consultant",
-      },
+      adminId, action: "IMPERSONATE_AI_START", targetType: "ai_consultant", targetId,
+      metadata: { startedAt: new Date().toISOString(), expiresAt, consultantName: aiUser?.name ?? "AI Consultant" },
     });
 
     return NextResponse.json({
-      success: true,
-      targetType: "ai",
-      targetId,
-      targetUserId: consultant.userId,
-      targetName: aiUser?.name ?? "AI Consultant",
-      targetEmail: aiUser?.email ?? null,
-      expiresAt,
+      success: true, targetType: "ai", targetId, targetUserId: consultant.userId,
+      targetName: aiUser?.name ?? "AI Consultant", targetEmail: aiUser?.email ?? null, expiresAt,
     });
   }
 
-  // ─── User / Consultant impersonation ──────────────────────────────────────
-  const { data: target } = await admin
-    .from("User")
-    .select("id, email, name, username, role")
-    .eq("id", targetId)
-    .maybeSingle();
-
-  if (!target) {
-    return NextResponse.json({ error: "Target user not found" }, { status: 404 });
-  }
-
-  const auditAction = targetType === "consultant"
-    ? "IMPERSONATE_CONSULTANT_START"
-    : "IMPERSONATE_START";
+  const target = await safeQueryOne<{ id: string; email: string; name: string | null; username: string | null; role: string }>(
+    admin.from("User").select("id, email, name, username, role").eq("id", targetId).maybeSingle(),
+    "impersonate.user",
+  );
+  if (!target) throw new AppError("Target user not found", 404, ErrorCode.NOT_FOUND);
 
   await logAdminAction(admin, {
-    adminId,
-    action: auditAction,
-    targetType,
-    targetId,
-    metadata: { startedAt: new Date().toISOString(), expiresAt, targetEmail: target.email },
+    adminId, action: targetType === "consultant" ? "IMPERSONATE_CONSULTANT_START" : "IMPERSONATE_START",
+    targetType, targetId, metadata: { startedAt: new Date().toISOString(), expiresAt, targetEmail: target.email },
   });
 
   return NextResponse.json({
-    success: true,
-    targetType,
-    targetUserId: targetId,
-    targetEmail: target.email,
-    targetName: target.name ?? target.username,
-    expiresAt,
+    success: true, targetType, targetUserId: targetId, targetEmail: target.email,
+    targetName: target.name ?? target.username, expiresAt,
   });
-}
+});

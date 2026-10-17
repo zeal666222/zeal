@@ -1,7 +1,7 @@
-// ZEAL_FIX_PHASE2_DRAFT
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
 import { z } from "zod";
+import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import { safeQuery, safeQueryOne, withAuth } from "@/lib/infra/guards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,51 +11,51 @@ const PutSchema = z.object({
   payload: z.record(z.string(), z.unknown()).default({}),
 });
 
-export async function GET() {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const GET = withErrorHandler(async () => {
+  const { user, supabase } = await withAuth();
 
-  const { data } = await supabase
-    .from("ConsultantDraft")
-    .select("step, payload, updatedAt")
-    .eq("userId", user.id)
-    .maybeSingle();
+  const draft = await safeQueryOne<{ step: number; payload: Record<string, unknown>; updatedAt: string | null }>(
+    supabase.from("ConsultantDraft")
+      .select("step, payload, updatedAt")
+      .eq("userId", user.id)
+      .maybeSingle(),
+    "draft.read",
+  );
 
-  return NextResponse.json(data ?? { step: 1, payload: {}, updatedAt: null });
-}
+  return NextResponse.json(draft ?? { step: 1, payload: {}, updatedAt: null });
+});
 
-export async function PUT(req: Request) {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const PUT = withErrorHandler(async (req: Request) => {
+  const { user, supabase } = await withAuth();
 
   let raw: unknown;
   try { raw = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    throw new AppError("Invalid JSON", 400, ErrorCode.VALIDATION_INPUT);
   }
+
   const parsed = PutSchema.safeParse(raw);
-  if (!parsed.success) return NextResponse.json({ error: "Invalid" }, { status: 422 });
+  if (!parsed.success) {
+    throw new AppError("Invalid draft data", 422, ErrorCode.VALIDATION_INPUT);
+  }
 
-  const { error } = await supabase.from("ConsultantDraft").upsert(
-    {
-      userId: user.id,
-      step: parsed.data.step,
-      payload: parsed.data.payload as never,
-      updatedAt: new Date().toISOString(),
-    },
-    { onConflict: "userId" },
+  await safeQuery(
+    supabase.from("ConsultantDraft").upsert(
+      { userId: user.id, step: parsed.data.step, payload: parsed.data.payload as never, updatedAt: new Date().toISOString() },
+      { onConflict: "userId" },
+    ),
+    "draft.upsert",
   );
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ success: true });
-}
+});
 
-export async function DELETE() {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const DELETE = withErrorHandler(async () => {
+  const { user, supabase } = await withAuth();
 
-  await supabase.from("ConsultantDraft").delete().eq("userId", user.id);
+  await safeQuery(
+    supabase.from("ConsultantDraft").delete().eq("userId", user.id),
+    "draft.delete",
+  );
+
   return NextResponse.json({ success: true });
-}
+});

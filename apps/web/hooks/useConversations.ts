@@ -37,10 +37,15 @@ export function useConversations(
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/chat/conversations", { cache: "no-store" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn("[useConversations] Refresh failed:", res.status);
+        return;
+      }
       const data = await res.json();
       if (Array.isArray(data.items)) setConversations(data.items);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.warn("[useConversations] Refresh error:", err instanceof Error ? err.message : err);
+    }
   }, []);
 
   useChannel<BroadcastChange<MessageRow>>({

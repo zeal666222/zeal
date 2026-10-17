@@ -100,6 +100,11 @@ export function useWallet(userId: string | null) {
         fetch("/api/wallet/balance", { cache: "no-store" }),
         fetch(`/api/wallet/transactions?limit=${LEDGER_PAGE_SIZE}`, { cache: "no-store" }),
       ]);
+      if (!b.ok && !t.ok) {
+        setError(`Wallet fetch failed (${b.status})`);
+      } else {
+        setError(null);
+      }
       if (b.ok) {
         const j = (await b.json()) as { wallet?: Partial<WalletState> };
         if (j.wallet) {
@@ -116,7 +121,6 @@ export function useWallet(userId: string | null) {
         const j = (await t.json()) as { transactions?: LedgerEntry[] };
         if (Array.isArray(j.transactions)) setTransactions(j.transactions);
       }
-      setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Wallet fetch failed");
     } finally {

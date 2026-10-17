@@ -22,7 +22,13 @@ export function useAuthGuard() {
         router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
         return;
       }
-      void action();
+      const result = action();
+      if (result instanceof Promise) {
+        result.catch((err) => {
+          console.error("[useAuthGuard] Action failed:", err);
+          toast({ title: "Something went wrong", description: "Please try again.", variant: "destructive" });
+        });
+      }
     },
     [isAuthenticated, router, pathname],
   );

@@ -1,45 +1,36 @@
-// ZEAL_FIX_CLIENTS_V3
-// Consultant clients list — bearer + cookie aware.
 import { NextResponse } from "next/server";
 import { requireUserAPI } from "@/lib/auth/api-guard";
+import { withErrorHandler } from "@/lib/errors";
+import { safeQuery, safeQueryOne } from "@/lib/infra/guards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 interface BookingRow { userId: string | null; scheduledAt: string }
-interface UserRow {
-  id: string;
-  name: string | null;
-  username: string | null;
-  email: string | null;
-}
+interface UserRow { id: string; name: string | null; username: string | null; email: string | null }
 
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const guard = await requireUserAPI();
   if (!guard.ok) return guard.response;
   const { userId, admin } = guard;
 
-  const { data: consultantRaw } = await admin
-    .from("Consultant")
-    .select("id")
-    .eq("userId", userId)
-    .maybeSingle();
-
-  const consultant = consultantRaw as { id: string } | null;
+  const consultant = await safeQueryOne<{ id: string }>(
+    admin.from("Consultant").select("id").eq("userId", userId).maybeSingle(),
+    "clients.consultant",
+  );
   if (!consultant) return NextResponse.json({ clients: [] });
 
-  const { data: bookingsRaw } = await admin
-    .from("Booking")
-    .select("userId, scheduledAt")
-    .eq("consultantId", consultant.id)
-    .not("userId", "is", null)
-    .order("scheduledAt", { ascending: false });
+  const bookings = await safeQuery<BookingRow[]>(
+    admin.from("Booking")
+      .select("userId, scheduledAt")
+      .eq("consultantId", consultant.id)
+      .not("userId", "is", null)
+      .order("scheduledAt", { ascending: false }),
+    "clients.bookings",
+  );
 
-  const bookings = (bookingsRaw ?? []) as BookingRow[];
-
-  // Aggregate per client
   const stats = new Map<string, { sessions: number; lastSessionAt: string }>();
-  for (const b of bookings) {
+  for (const b of (bookings ?? [])) {
     if (!b.userId) continue;
     const existing = stats.get(b.userId);
     if (existing) {
@@ -53,23 +44,18 @@ export async function GET() {
   const ids = Array.from(stats.keys());
   if (ids.length === 0) return NextResponse.json({ clients: [] });
 
-  const { data: usersRaw } = await admin
-    .from("User")
-    .select("id, name, username, email")
-    .in("id", ids);
+  const users = await safeQuery<UserRow[]>(
+    admin.from("User").select("id, name, username, email").in("id", ids),
+    "clients.users",
+  );
 
-  const users = (usersRaw ?? []) as UserRow[];
-
-  const clients = users.map((u) => {
+  const clients = (users ?? []).map((u) => {
     const s = stats.get(u.id);
     return {
-      id: u.id,
-      name: u.name || u.username || null,
-      email: u.email,
-      lastSessionAt: s?.lastSessionAt ?? null,
-      sessions: s?.sessions ?? 0,
+      id: u.id, name: u.name || u.username || null, email: u.email,
+      lastSessionAt: s?.lastSessionAt ?? null, sessions: s?.sessions ?? 0,
     };
   });
 
   return NextResponse.json({ clients });
-}
+});

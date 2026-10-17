@@ -1,12 +1,12 @@
-// apps/web/app/api/admin/platform-fee/route.ts
 import { NextResponse } from "next/server";
-import {requireAdminAPI, logAdminAction} from "@/lib/auth/api-guard";
+import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
 const DEFAULT_FEE = 10;
 
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const guard = await requireAdminAPI("SUPER_ADMIN");
   if (!guard.ok) return guard.response;
 
@@ -21,38 +21,33 @@ export async function GET() {
   } catch { /* Redis optional */ }
 
   return NextResponse.json({ feePercent });
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withErrorHandler(async (req: Request) => {
   const guard = await requireAdminAPI("SUPER_ADMIN");
   if (!guard.ok) return guard.response;
   const { admin, userId: adminId } = guard;
 
   let body: { feePercent?: number };
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  try { body = await req.json(); } catch {
+    throw new AppError("Invalid JSON", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   const fee = Number(body.feePercent);
   if (!Number.isFinite(fee) || fee < 0 || fee > 50) {
-    return NextResponse.json({ error: "Fee must be 0–50" }, { status: 400 });
+    throw new AppError("Fee must be 0–50", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   try {
     const { redis } = await import("@/lib/cache");
     await redis.set("platform_fee_percent", String(fee));
   } catch {
-    return NextResponse.json({ error: "Cache unavailable" }, { status: 503 });
+    throw new AppError("Cache unavailable", 503, ErrorCode.INTERNAL_SERVER);
   }
 
   await logAdminAction(admin, {
-    adminId,
-    action: "PLATFORM_FEE_UPDATE",
-    targetType: "platform",
-    metadata: { feePercent: fee },
+    adminId, action: "PLATFORM_FEE_UPDATE", targetType: "platform", metadata: { feePercent: fee },
   });
 
   return NextResponse.json({ feePercent: fee });
-}
+});

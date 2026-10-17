@@ -1,6 +1,7 @@
 // apps/web/app/api/admin/stats/route.ts
 import { NextResponse } from "next/server";
 import { requireAdminAPI } from "@/lib/auth/api-guard";
+import { withErrorHandler } from "@/lib/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ interface TreasuryRow {
   walletCount?: number;
 }
 
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const guard = await requireAdminAPI("SUPPORT");
   if (!guard.ok) return guard.response;
   const { admin } = guard;
@@ -40,6 +41,14 @@ export async function GET() {
     admin.from("RazorpayPayment").select("amount").eq("status", "captured").gte("createdAt", last24h),
   ]);
 
+  // Check for critical DB errors
+  const errors = [usersRes, consultantsRes, bookingsRes, treasuryRes]
+    .map((r, i) => r.error ? `Query ${i}: ${r.error.message}` : null)
+    .filter(Boolean);
+  if (errors.length > 0) {
+    console.error("[admin/stats] DB errors:", errors);
+  }
+
   const sum = (rows: Array<{ amount?: number }> | null | undefined): number =>
     (rows ?? []).reduce((acc, r) => acc + Math.abs(Number(r.amount ?? 0)), 0);
 
@@ -64,4 +73,4 @@ export async function GET() {
     },
     razorpay24hRevenue: rzp24hRevenue,
   });
-}
+});

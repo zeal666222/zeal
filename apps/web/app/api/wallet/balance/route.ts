@@ -1,6 +1,7 @@
 // apps/web/app/api/wallet/balance/route.ts
 import { NextResponse } from "next/server";
-import {createServerClientFromCookies} from "@zeal/database/server";
+import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import { safeQuery, withAuth } from "@/lib/infra/guards";
 
 export const dynamic = "force-dynamic";
 
@@ -13,21 +14,19 @@ interface WalletRow {
   blocked: number;
 }
 
-export async function GET() {
-  const supabase = await createServerClientFromCookies();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export const GET = withErrorHandler(async () => {
+  const { user, supabase } = await withAuth();
 
-  const { data } = await supabase
-    .from("Wallet")
-    .select("id, balance, escrow, pendingIn, pendingOut, blocked")
-    .eq("userId", user.id)
-    .maybeSingle();
+  const wallet = await safeQuery<WalletRow | null>(
+    supabase
+      .from("Wallet")
+      .select("id, balance, escrow, pendingIn, pendingOut, blocked")
+      .eq("userId", user.id)
+      .maybeSingle(),
+    "wallet.balance",
+  );
 
-  const wallet = data as WalletRow | null;
   return NextResponse.json({
     wallet: wallet ?? { balance: 0, escrow: 0, pendingIn: 0, pendingOut: 0, blocked: 0 },
   });
-}
+});

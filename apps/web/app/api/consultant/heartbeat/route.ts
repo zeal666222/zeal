@@ -1,37 +1,35 @@
-// ZEAL_FIX_HEARTBEAT_V3
-// Presence ping — bearer + cookie aware.
 import { NextResponse } from "next/server";
 import { requireUserAPI } from "@/lib/auth/api-guard";
+import { withErrorHandler } from "@/lib/errors";
+import { safeQuery, safeQueryOne } from "@/lib/infra/guards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function POST() {
+export const POST = withErrorHandler(async () => {
   const guard = await requireUserAPI();
   if (!guard.ok) return guard.response;
   const { userId, admin } = guard;
 
-  const { error } = await admin
-    .from("User")
-    .update({ lastSeenAt: new Date().toISOString(), is_online: true })
-    .eq("id", userId);
+  await safeQuery(
+    admin.from("User")
+      .update({ lastSeenAt: new Date().toISOString(), is_online: true })
+      .eq("id", userId),
+    "heartbeat.update",
+  );
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
   return NextResponse.json({ ok: true, at: new Date().toISOString() });
-}
+});
 
-export async function GET() {
+export const GET = withErrorHandler(async () => {
   const guard = await requireUserAPI();
   if (!guard.ok) return guard.response;
   const { userId, admin } = guard;
 
-  const { data } = await admin
-    .from("User")
-    .select("lastSeenAt, is_online")
-    .eq("id", userId)
-    .maybeSingle();
+  const row = await safeQueryOne<{ lastSeenAt: string | null; is_online: boolean }>(
+    admin.from("User").select("lastSeenAt, is_online").eq("id", userId).maybeSingle(),
+    "heartbeat.read",
+  );
 
-  return NextResponse.json({ ok: true, ...(data ?? {}) });
-}
+  return NextResponse.json({ ok: true, ...(row ?? {}) });
+});

@@ -1,12 +1,7 @@
-// ═══════════════════════════════════════════════════════════════════════════════
-// POST /api/admin/chat-as-ai — Send a message AS an AI consultant
-// ═══════════════════════════════════════════════════════════════════════════════
-// When a super admin is impersonating an AI consultant, this endpoint lets them
-// send messages directly as the AI — bypassing AI generation entirely.
-// The message is inserted with the AI consultant's shadow userId as senderId.
-// ═══════════════════════════════════════════════════════════════════════════════
 import { NextResponse } from "next/server";
 import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
+import { safeQuery, safeQueryOne } from "@/lib/infra/guards";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -17,86 +12,49 @@ const BodySchema = z.object({
   content: z.string().min(1).max(4000),
 });
 
-export async function POST(req: Request) {
+export const POST = withErrorHandler(async (req: Request) => {
   const guard = await requireAdminAPI("SUPER_ADMIN");
   if (!guard.ok) return guard.response;
   const { admin, userId: adminId } = guard;
 
   let body: unknown;
   try { body = await req.json(); } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    throw new AppError("Invalid JSON", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid request" },
-      { status: 400 },
-    );
+    throw new AppError(parsed.error.issues[0]?.message ?? "Invalid request", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   const { conversationId, consultantId, content } = parsed.data;
 
-  // Verify the AI consultant exists and get their shadow userId
-  const { data: aiConsultant } = await admin
-    .from("AIConsultant")
-    .select("id, name, userId")
-    .eq("id", consultantId)
-    .maybeSingle();
+  const aiConsultant = await safeQueryOne<{ id: string; name: string; userId: string | null }>(
+    admin.from("AIConsultant").select("id, name, userId").eq("id", consultantId).maybeSingle(),
+    "chat-as-ai.lookup",
+  );
+  if (!aiConsultant) throw new AppError("AI consultant not found", 404, ErrorCode.NOT_FOUND);
 
-  if (!aiConsultant) {
-    return NextResponse.json({ error: "AI consultant not found" }, { status: 404 });
-  }
-
-  // Verify admin is a participant in this conversation (or the AI is)
-  const { data: participant } = await admin
-    .from("ConversationParticipant")
-    .select("userId")
-    .eq("conversationId", conversationId)
-    .eq("userId", aiConsultant.userId as string)
-    .maybeSingle();
-
+  const participant = await safeQueryOne<{ userId: string }>(
+    admin.from("ConversationParticipant").select("userId")
+      .eq("conversationId", conversationId).eq("userId", aiConsultant.userId as string).maybeSingle(),
+    "chat-as-ai.participant",
+  );
   if (!participant) {
-    return NextResponse.json(
-      { error: "AI consultant is not a participant in this conversation" },
-      { status: 403 },
-    );
+    throw new AppError("AI consultant is not a participant in this conversation", 403, ErrorCode.AUTH_FORBIDDEN);
   }
 
-  // Insert the message as the AI consultant's shadow user
-  const { data: message, error } = await admin
-    .from("Message")
-    .insert({
-      conversationId,
-      senderId: aiConsultant.userId as string,
-      content,
-      type: "text",
-    })
-    .select("id, conversationId, senderId, content, type, createdAt")
-    .single();
+  const message = await safeQuery(
+    admin.from("Message").insert({
+      conversationId, senderId: aiConsultant.userId as string, content, type: "text",
+    }).select("id, conversationId, senderId, content, type, createdAt").single(),
+    "chat-as-ai.insert",
+  );
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  // Audit log
   await logAdminAction(admin, {
-    adminId,
-    action: "CHAT_AS_AI",
-    targetType: "ai_consultant",
-    targetId: consultantId,
-    metadata: {
-      conversationId,
-      contentLength: content.length,
-      aiName: aiConsultant.name,
-    },
+    adminId, action: "CHAT_AS_AI", targetType: "ai_consultant", targetId: consultantId,
+    metadata: { conversationId, contentLength: content.length, aiName: aiConsultant.name },
   });
 
-  return NextResponse.json({
-    message,
-    aiConsultant: {
-      id: aiConsultant.id,
-      name: aiConsultant.name,
-    },
-  });
-}
+  return NextResponse.json({ message, aiConsultant: { id: aiConsultant.id, name: aiConsultant.name } });
+});
