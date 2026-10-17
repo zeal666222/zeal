@@ -15,8 +15,8 @@ import { ConcurrencyGate, getGate } from "@/lib/ai/engine/concurrency-gate";
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-const DEFAULT_PER_USER_MAX = parseInt(process.env.AI_CHAT_PER_USER_MAX ?? "5", 10);
-const DEFAULT_GLOBAL_MAX = parseInt(process.env.AI_CHAT_GLOBAL_MAX ?? "100", 10);
+const DEFAULT_PER_USER_MAX = parseInt(process.env.AI_CHAT_PER_USER_MAX ?? "50", 10);
+const DEFAULT_GLOBAL_MAX = parseInt(process.env.AI_CHAT_GLOBAL_MAX ?? "2000", 10);
 
 // ─── In-memory fallback tracker ───────────────────────────────────────────────
 // Used when Postgres is unreachable. Less accurate (per-instance only) but

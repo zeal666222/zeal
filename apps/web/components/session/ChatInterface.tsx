@@ -103,6 +103,10 @@ export function ChatInterface({
   const { messages, isLoading, isSending, send, sendToAI } = useChat({
     conversationId,
     currentUserId,
+    partnerId,
+    partnerName,
+    partnerAvatar,
+    isAI,
   });
   const { typingUsers, setTyping } = useTyping(conversationId, currentUserId);
 

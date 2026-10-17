@@ -117,12 +117,13 @@ function createLimiter(tokens: number, windowSeconds: number, prefix: string) {
 }
 
 // ─── Public limiters ────────────────────────────────────────────────────────
-export const generalLimiter   = createLimiter(60, 60, "general");
-export const authLimiter      = createLimiter(5,  60, "auth");
-export const aiRateLimiter    = createLimiter(10, 60, "ai");
-export const aiStrictLimiter  = createLimiter(3,  60, "ai-strict");
-export const billingLimiter   = createLimiter(30, 60, "billing");
-export const adminLimiter     = createLimiter(120, 60, "admin");
+// Scaled for 1000+ concurrent users.
+export const generalLimiter   = createLimiter(300, 60, "general");
+export const authLimiter      = createLimiter(20,  60, "auth");
+export const aiRateLimiter    = createLimiter(200, 60, "ai");
+export const aiStrictLimiter  = createLimiter(100, 60, "ai-strict");
+export const billingLimiter   = createLimiter(120, 60, "billing");
+export const adminLimiter     = createLimiter(600, 60, "admin");
 
 export async function checkRateLimit(
   limiter: { limit: (id: string) => Promise<RateLimitResult> },

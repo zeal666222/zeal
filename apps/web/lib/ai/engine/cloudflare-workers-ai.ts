@@ -33,7 +33,7 @@
  * Set CF_AI_MODEL=@cf/meta/llama-3.2-11b-vision-instruct (free tier) to let
  * the engine pass uploaded images to Workers AI as real vision input.
  */
-export const CF_AI_MODEL = process.env.CF_AI_MODEL || "@cf/meta/llama-3.2-11b-vision-instruct";
+export const CF_AI_MODEL = process.env.CF_AI_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 
 /** Cloudflare account id, or undefined when unset (treat empty string as unset). */
 export function cfAccountId(): string | undefined {

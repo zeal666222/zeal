@@ -52,6 +52,11 @@ interface UseChatOptions {
   pageSize?: number;
   /** Background poll interval in ms. 0 disables polling. */
   pollMs?: number;
+  /** Partner metadata for IndexedDB offline cache. */
+  partnerId?: string;
+  partnerName?: string;
+  partnerAvatar?: string | null;
+  isAI?: boolean;
 }
 
 export function useChat({
@@ -59,6 +64,10 @@ export function useChat({
   currentUserId,
   pageSize = 50,
   pollMs = 15_000,
+  partnerId = "",
+  partnerName = "",
+  partnerAvatar = null,
+  isAI = false,
 }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(!!conversationId);
@@ -108,7 +117,7 @@ export function useChat({
             await cacheConversation(
               conversationId,
               list as never,
-              { partnerId: "", partnerName: "", partnerAvatar: null, isAI: false },
+              { partnerId, partnerName, partnerAvatar, isAI },
             );
           } catch { /* cache failure is non-fatal */ }
         })();

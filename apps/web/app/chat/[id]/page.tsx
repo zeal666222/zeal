@@ -37,6 +37,20 @@ export default async function ChatRoomPage({ params }: { params: Promise<{ id: s
   let rate = 0;
   let sessionId: string | null = null;
 
+  // ─── Query for active billing session ──────────────────────────────────────
+  const { data: activeSession } = await admin
+    .from("CallSession")
+    .select("id")
+    .eq("conversationId", conversationId)
+    .eq("userId", user.id)
+    .in("status", ["CONNECTED", "ACTIVE"])
+    .order("startTime", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (activeSession) {
+    sessionId = (activeSession as { id: string }).id;
+  }
+
   if (aiConsultantId) {
     const { data: aiRow } = await admin
       .from("AIConsultant")

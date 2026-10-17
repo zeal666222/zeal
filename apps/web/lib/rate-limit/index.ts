@@ -117,23 +117,16 @@ function createLimiter(tokens: number, windowSeconds: number, prefix: string) {
 }
 
 // ─── Public limiters ────────────────────────────────────────────────────────
-// Tiered for 100+ concurrent users:
-//   - general: 120/min
-//   - auth: 10/min
-//   - ai: 60/min authenticated (generous for fast chatting)
-//   - aiAnon: 15/min anonymous
-//   - aiStrict: 20/min authenticated
-//   - aiStrictAnon: 5/min anonymous
-//   - billing: 60/min
-//   - admin: 240/min
-export const generalLimiter   = createLimiter(120, 60, "general");
-export const authLimiter      = createLimiter(10,  60, "auth");
-export const aiRateLimiter    = createLimiter(60, 60, "ai");
-export const aiAnonLimiter    = createLimiter(15, 60, "ai:anon");
-export const aiStrictLimiter  = createLimiter(20,  60, "ai-strict");
-export const aiStrictAnonLimiter = createLimiter(5, 60, "ai-strict:anon");
-export const billingLimiter   = createLimiter(60, 60, "billing");
-export const adminLimiter     = createLimiter(240, 60, "admin");
+// Scaled for 1000+ concurrent users. Postgres-backed in prod (horizontal-safe).
+// These are anti-abuse ceilings, not usage targets — real traffic is well below.
+export const generalLimiter      = createLimiter(600, 60, "general");
+export const authLimiter         = createLimiter(30,  60, "auth");
+export const aiRateLimiter       = createLimiter(600, 60, "ai");
+export const aiAnonLimiter       = createLimiter(120, 60, "ai:anon");
+export const aiStrictLimiter     = createLimiter(200, 60, "ai-strict");
+export const aiStrictAnonLimiter = createLimiter(60,  60, "ai-strict:anon");
+export const billingLimiter      = createLimiter(200, 60, "billing");
+export const adminLimiter        = createLimiter(600, 60, "admin");
 
 export async function checkRateLimit(
   limiter: { limit: (id: string) => Promise<RateLimitResult> },

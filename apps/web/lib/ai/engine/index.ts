@@ -52,43 +52,36 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.3-70b-versatile",
-    maxConcurrent: 8, rpm: 28, tpm: 10_000, weight: 100,
+    maxConcurrent: 50, rpm: 30, tpm: 14_000, weight: 100,
   },
   groqFast: {
     name: "groqFast", label: "Groq 8B",
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.1-8b-instant",
-    maxConcurrent: 10, rpm: 30, tpm: 6_000, weight: 80,
+    maxConcurrent: 60, rpm: 30, tpm: 6_000, weight: 80,
   },
   agnes: {
     name: "agnes", label: "Agnes 2.5 Flash",
     url: "https://apihub.agnes-ai.com/v1/chat/completions",
     key: () => process.env.AGNES_API_KEY,
     model: "agnes-2.5-flash",
-    maxConcurrent: 8, rpm: 20, tpm: 32_000, weight: 70,
+    maxConcurrent: 15, rpm: 30, tpm: 32_000, weight: 70,
   },
   zhipu: {
     name: "zhipu", label: "Zhipu GLM",
     url: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
     key: () => process.env.ZHIPU_API_KEY,
     model: ZHIPU_MODEL,
-    maxConcurrent: 6, rpm: 30, tpm: 15_000, weight: 40,
-    // Set ZHIPU_MODEL=glm-4v-flash (their free vision model, same auth + shape)
-    // to let uploaded photos reach the model instead of being flattened to text.
+    maxConcurrent: 10, rpm: 30, tpm: 15_000, weight: 40,
     supportsVision: ZHIPU_MODEL.includes("4v"),
   },
   cloudflareAi: {
-    name: "cloudflareAi", label: "Cloudflare Workers AI",
-    // OpenAI-compatible endpoint → fits the existing engine interface exactly
-    // (same { model, messages, temperature, max_tokens } body, same
-    // { choices[0].message.content } response parsed by callAIJson).
-    // URL is built from CF_ACCOUNT_ID at module load; fails safe when unset
-    // because `key()` returns null → engine silently skips the provider.
+    name: "cloudflareAi", label: "CF Llama 3.3 70B",
     url: workersAiChatUrl(),
     key: workersAiKey,
     model: CF_AI_MODEL,
-    maxConcurrent: 8, rpm: 20, tpm: 15_000, weight: 35,
+    maxConcurrent: 40, rpm: 30, tpm: 20_000, weight: 90,
     supportsVision: CF_AI_MODEL.includes("vision"),
   },
   ovh: {
@@ -96,7 +89,7 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions",
     key: () => null,
     model: "qwen3-32b",
-    maxConcurrent: 8, rpm: 15, tpm: 20_000, weight: 30,
+    maxConcurrent: 12, rpm: 20, tpm: 20_000, weight: 30,
     keyless: true,
   },
   kilo: {
@@ -104,7 +97,7 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: "https://api.kilo.ai/api/gateway",
     key: () => null,
     model: "kilo-auto/free",
-    maxConcurrent: 8, rpm: 20, tpm: 20_000, weight: 25,
+    maxConcurrent: 12, rpm: 20, tpm: 20_000, weight: 25,
     keyless: true,
   },
   llm7: {
@@ -112,7 +105,7 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: "https://api.llm7.io/v1/chat/completions",
     key: () => null,
     model: "gpt-oss",
-    maxConcurrent: 8, rpm: 25, tpm: 20_000, weight: 22,
+    maxConcurrent: 12, rpm: 25, tpm: 20_000, weight: 22,
     keyless: true,
   },
   duckduckgo: {
@@ -120,7 +113,7 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: "https://duckduckgo.com/duckchat/v1/chat",
     key: () => null,
     model: "gpt-4o-mini",
-    maxConcurrent: 6, rpm: 15, tpm: 15_000, weight: 18,
+    maxConcurrent: 10, rpm: 15, tpm: 15_000, weight: 18,
     keyless: true,
     extraHeaders: () => ({
       "x-vqd-accept": "1",
@@ -132,31 +125,26 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: "https://api.freegpt4.cc/v1/chat/completions",
     key: () => null,
     model: "gpt-4",
-    maxConcurrent: 6, rpm: 15, tpm: 15_000, weight: 15,
+    maxConcurrent: 10, rpm: 15, tpm: 15_000, weight: 15,
     keyless: true,
   },
-  // Pollinations — OpenAI-compatible keyless endpoint, currently the most
-  // reliable free fallback. `text.pollinations.ai/openai` accepts the standard
-  // {model, messages, ...} body and returns {choices[0].message.content}.
-  // Pinned ahead of the dead keyless providers so the engine actually has a
-  // working last-resort lane when paid keys (GROQ/etc.) are absent/invalid.
   pollinations: {
     name: "pollinations", label: "Pollinations Free",
     url: "https://text.pollinations.ai/openai",
     key: () => null,
     model: "openai-fast",
-    maxConcurrent: 8, rpm: 30, tpm: 20_000, weight: 55,
+    maxConcurrent: 40, rpm: 120, tpm: 60_000, weight: 55,
     keyless: true,
   },
 };
 
 const FALLBACK_CHAIN: ProviderName[] = [
-  "groqPro", "agnes", "groqFast", "zhipu", "cloudflareAi",
+  "groqPro", "cloudflareAi", "agnes", "groqFast", "zhipu",
   "pollinations", "ovh", "kilo", "llm7", "duckduckgo", "freegpt",
 ];
-// __ZEAL_ENGINE_BUDGET_V3__
-const PROVIDER_WALL_MS = 10_000;
-const TOTAL_WALL_MS = 22_000;
+// __ZEAL_ENGINE_BUDGET_V4__ — scaled for 1000+ concurrent users
+const PROVIDER_WALL_MS = 20_000;
+const TOTAL_WALL_MS = 45_000;
 
 // ─── Human-facing error ───────────────────────────────────────────────────────
 export class AIUnavailableError extends Error {
@@ -250,9 +238,9 @@ async function callProviderOnce(
   };
   if (opts.stream) body.stream = true;
 
-  // 30s hard timeout per attempt
+  // 40s hard timeout per attempt
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30_000);
+  const timer = setTimeout(() => ctrl.abort(), 40_000);
 
   // Honour the caller's abort signal
   if (opts.signal) {
@@ -287,7 +275,7 @@ export async function callAI(
 ): Promise<CallAIResult> {
   const emit = opts.onEvent ?? (() => {});
   const requestId = opts.requestId ?? `req-${Date.now().toString(36)}`;
-  const maxRetries = opts.maxRetriesPerProvider ?? 2;
+  const maxRetries = opts.maxRetriesPerProvider ?? 3;
 
   // ─── Dedup: collapse identical requests within 5s ───────────────────────
   // Streaming responses are single-consumer; sharing one Response.body between

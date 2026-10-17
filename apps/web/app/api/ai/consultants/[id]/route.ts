@@ -21,32 +21,51 @@ export async function GET(
     if (isUuid) {
       const res = await admin.from("AIConsultant").select("*").eq("id", id).maybeSingle();
       data = res.data;
-    } else {
-      // Try exact username match first
+    }
+
+    if (!data) {
+      // Try exact id match (slug-style IDs like "ai-astro-ananya")
+      const byId = await admin.from("AIConsultant").select("*").eq("id", id).maybeSingle();
+      data = byId.data;
+    }
+
+    if (!data) {
+      // Try exact username match
       const exact = await admin.from("AIConsultant").select("*").eq("username", id).maybeSingle();
       data = exact.data;
+    }
 
-      // Fallback: case-insensitive ILIKE match
-      if (!data) {
-        const fuzzy = await admin
-          .from("AIConsultant")
-          .select("*")
-          .ilike("username", id)
-          .maybeSingle();
-        data = fuzzy.data;
-      }
+    if (!data) {
+      // Case-insensitive ILIKE on username
+      const fuzzy = await admin
+        .from("AIConsultant")
+        .select("*")
+        .ilike("username", id)
+        .maybeSingle();
+      data = fuzzy.data;
+    }
 
-      // Fallback: match by slugified name (replace spaces/special chars with hyphens)
-      if (!data) {
-        const slug = id.replace(/-/g, "_").toLowerCase();
-        const bySlug = await admin
-          .from("AIConsultant")
-          .select("*")
-          .ilike("username", `%${slug}%`)
-          .limit(1)
-          .maybeSingle();
-        data = bySlug.data;
-      }
+    if (!data) {
+      // Slugified partial match on username
+      const slug = id.replace(/-/g, "_").toLowerCase();
+      const bySlug = await admin
+        .from("AIConsultant")
+        .select("*")
+        .ilike("username", `%${slug}%`)
+        .limit(1)
+        .maybeSingle();
+      data = bySlug.data;
+    }
+
+    if (!data) {
+      // Partial match on id (slug-style)
+      const byIdPartial = await admin
+        .from("AIConsultant")
+        .select("*")
+        .ilike("id", `%${id.toLowerCase()}%`)
+        .limit(1)
+        .maybeSingle();
+      data = byIdPartial.data;
     }
 
     if (!data) {

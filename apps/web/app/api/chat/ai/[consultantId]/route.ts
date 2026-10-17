@@ -13,6 +13,7 @@ import { checkRateLimit, aiRateLimiter } from "@/lib/rate-limit";
 import { detectBirthData } from "@/lib/astrology/birth-data-detector";
 import { interpretChart, type AstrologyAIResult } from "@/lib/ai/astrology-ai";
 import { withAdvisoryLock } from "@/lib/billing/concurrency";
+import { tryAcquireAIChat, releaseAIChat } from "@/lib/ai/chat-concurrency";
 import { z } from "zod";
 
 // Vercel maxDuration
@@ -144,12 +145,12 @@ export async function POST(
       );
     }
 
-    // ─── Per-AI rate limit (30 msg/min per user per AI) ──────────────────
+    // ─── Per-AI rate limit (200 msg/min per user per AI) ─────────────────
     const adminForRl = createAdminClient();
     const { data: rl2 } = await adminForRl.rpc("check_ai_rate_limit", {
       p_user_id: user.id,
       p_ai_id: consultantId,
-      p_max_per_minute: 30,
+      p_max_per_minute: 200,
     });
     const rlResult = rl2 as { ok?: boolean; retryAfter?: number } | null;
     if (rlResult && rlResult.ok === false) {
@@ -180,9 +181,19 @@ export async function POST(
 
     const { conversationId, content } = parsed.data;
 
+    // ─── Concurrency gate (per-user + global limits) ───────────────────────
+    const concurrency = await tryAcquireAIChat(user.id);
+    if (!concurrency.allowed) {
+      return NextResponse.json(
+        { error: concurrency.error ?? "Too many concurrent chats" },
+        { status: 429 },
+      );
+    }
+
     // ─── Load persona (structured role contract) ─────────────────────────
     const persona = await loadPersona(consultantId, user.id);
     if (!persona) {
+      await releaseAIChat(user.id);
       return NextResponse.json(
         { error: "AI consultant not found or inactive" },
         { status: 404 },
@@ -337,7 +348,30 @@ export async function POST(
       initialEvents,
     });
 
-    return new Response(stream, {
+    // ─── Wrap stream to release concurrency on close ──────────────────────
+    const reader = stream.getReader();
+    const wrappedStream = new ReadableStream({
+      async pull(controller) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            await releaseAIChat(user.id);
+            controller.close();
+          } else {
+            controller.enqueue(value);
+          }
+        } catch (err) {
+          await releaseAIChat(user.id);
+          controller.error(err);
+        }
+      },
+      async cancel() {
+        await releaseAIChat(user.id);
+        await reader.cancel();
+      },
+    });
+
+    return new Response(wrappedStream, {
       headers: {
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
