@@ -1,9 +1,28 @@
 // ZEAL_PHASE1_V1
+import type { Metadata } from "next";
 import { createAdminClient } from "@zeal/database/server";
+import { normalizeMediaUrl } from "@/lib/storage";
 import { HomeClient } from "./HomeClient";
+import { SEO } from "@/lib/seo/metadata";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: SEO.home.title,
+  description: SEO.home.description,
+  keywords: SEO.home.keywords,
+  openGraph: {
+    title: SEO.home.title,
+    description: SEO.home.description,
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "Zeal" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SEO.home.title,
+    description: SEO.home.description,
+    images: ["/og-image.png"],
+  },
+};
 
 async function fetchHomeData() {
   const admin = createAdminClient();
@@ -50,7 +69,13 @@ async function fetchHomeData() {
 
   const aiConsultants = aiRes.data ?? [];
   const experts = expertsRes.data ?? [];
-  const posts = postsRes.data ?? [];
+  const posts = (postsRes.data ?? [])
+    .filter((p: { author?: unknown }) => Boolean(p.author))
+    .map((p: { mediaUrls?: string[] | null }) =>
+      Array.isArray(p.mediaUrls)
+        ? { ...p, mediaUrls: p.mediaUrls.map((m) => normalizeMediaUrl(String(m))) }
+        : p,
+    );
 
   return {
     aiConsultants,

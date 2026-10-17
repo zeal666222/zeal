@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useId, useMemo } from "react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { Flame, MessageCircle, Radio, Sparkles, Star, Zap } from "lucide-react";
@@ -119,17 +120,13 @@ export function LuxuryConsultantCard({
       {/* Ambient hover gradient */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-3xl opacity-0
-                   transition-opacity duration-500 group-hover:opacity-100
-                   bg-gradient-to-br from-[var(--color-luxury-gold)]/[0.10]
-                   via-transparent to-[var(--color-primary)]/[0.14]"
+        className="pointer-events-none absolute inset-0 rounded-3xl opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-gradient-to-br from-[var(--color-luxury-gold)]/[0.10] via-transparent to-[var(--color-primary)]/[0.14]"
       />
 
       {/* Bubble blob */}
       <motion.span
         aria-hidden
-        className="pointer-events-none absolute -bottom-16 -left-16 w-40 h-40 rounded-full
-                   bg-[var(--color-primary)]/[0.12] blur-[50px]"
+        className="pointer-events-none absolute -bottom-16 -left-16 w-40 h-40 rounded-full bg-[var(--color-primary)]/[0.12] blur-[50px]"
         animate={{ scale: [1, 1.2, 1], x: [0, 6, 0] }}
         transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -148,9 +145,7 @@ export function LuxuryConsultantCard({
       </span>
 
       {consultant.isAI && (
-        <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full
-                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                         px-2 py-0.5 text-[9px] font-black tracking-wider text-white">
+        <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] px-2 py-0.5 text-[9px] font-black tracking-wider text-white">
           <Zap size={10} aria-hidden /> AI
         </span>
       )}
@@ -160,19 +155,16 @@ export function LuxuryConsultantCard({
         <Link href={href} className="relative inline-block" aria-label={`View ${displayName}'s profile`}>
           <span
             aria-hidden
-            className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/25
-                       blur-xl transition-all group-hover:bg-[var(--color-luxury-gold)]/40"
+            className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/25 blur-xl transition-all group-hover:bg-[var(--color-luxury-gold)]/40"
           />
-          <span className="relative block rounded-full p-[2px]
-                           bg-gradient-to-br from-[var(--color-luxury-gold)]
-                           via-transparent to-[var(--color-primary)]">
+          <span className="relative block rounded-full p-[2px] bg-gradient-to-br from-[var(--color-luxury-gold)] via-transparent to-[var(--color-primary)]">
             <span className="block rounded-full bg-[var(--color-surface)] p-[2px]">
               {consultant.avatar ? (
-                <img
+                <Image
                   src={getImageUrl(consultant.avatar, "avatar-sm")}
                   alt=""
-                  loading={priority ? "eager" : "lazy"}
-                  decoding="async"
+                  width={isCompact ? 56 : 80}
+                  height={isCompact ? 56 : 80}
                   className={cn(
                     "rounded-full object-cover",
                     isCompact ? "h-14 w-14" : "h-20 w-20",
@@ -195,8 +187,7 @@ export function LuxuryConsultantCard({
         <Link href={href} className="mt-3 max-w-full">
           <h3
             id={headingId}
-            className="truncate text-base font-bold text-foreground
-                       transition-colors group-hover:text-[var(--color-luxury-gold)]"
+            className="truncate text-base font-bold text-foreground transition-colors group-hover:text-[var(--color-luxury-gold)]"
           >
             {displayName}
           </h3>
@@ -230,8 +221,7 @@ export function LuxuryConsultantCard({
             {consultant.specialties.slice(0, 2).map((s) => (
               <span
                 key={s}
-                className="rounded-full border border-border bg-surface-raised
-                           px-2 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground"
+                className="rounded-full border border-border bg-surface-raised px-2 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground"
               >
                 {s}
               </span>
@@ -259,9 +249,9 @@ export function LuxuryConsultantCard({
             )}
           >
             {consultant.isAI ? (
-              <><Zap size={12} aria-hidden /> Chat</>
+              <><Zap size={12} aria-hidden /> Start Chat</>
             ) : consultant.isOnline ? (
-              <><MessageCircle size={12} aria-hidden /> Chat now</>
+              <><MessageCircle size={12} aria-hidden /> Start Chat</>
             ) : (
               <><Radio size={12} aria-hidden /> Offline</>
             )}
@@ -271,12 +261,9 @@ export function LuxuryConsultantCard({
               type="button"
               onClick={handleBook}
               aria-label={`Book a session with ${displayName}`}
-              className="rounded-xl border border-border bg-surface-raised
-                         px-3 py-2.5 text-xs font-black text-foreground
-                         transition-all hover:border-[var(--color-luxury-gold)]/40
-                         hover:bg-surface-overlay"
+              className="rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-xs font-black text-foreground transition-all hover:border-[var(--color-luxury-gold)]/40 hover:bg-surface-overlay active:scale-[0.98]"
             >
-              Book
+              Book Now
             </button>
           )}
         </div>

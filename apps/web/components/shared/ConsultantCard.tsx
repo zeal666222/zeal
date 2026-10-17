@@ -122,10 +122,7 @@ const ConsultantCard = memo(function ConsultantCard({
       {/* Holographic gradient border on hover */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0
-                   group-hover:opacity-100 transition-opacity duration-500
-                   bg-gradient-to-br from-[var(--color-luxury-gold)]/10
-                   via-transparent to-[var(--color-primary)]/15"
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[var(--color-luxury-gold)]/10 via-transparent to-[var(--color-primary)]/15"
       />
 
       {/* Online / offline indicator */}
@@ -141,10 +138,7 @@ const ConsultantCard = memo(function ConsultantCard({
 
       {/* AI badge */}
       {isAI && (
-        <span className="absolute top-3 left-3 z-10 px-1.5 py-0.5 rounded-full
-                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                         text-white text-[8px] font-black tracking-wider
-                         flex items-center gap-0.5">
+        <span className="absolute top-3 left-3 z-10 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-[8px] font-black tracking-wider flex items-center gap-0.5">
           <Sparkles className="w-2.5 h-2.5" /> AI
         </span>
       )}
@@ -160,23 +154,22 @@ const ConsultantCard = memo(function ConsultantCard({
             aria-hidden
             className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/20 blur-md"
           />
-          <img
-            src={
-              _avatar
-                ? getImageUrl(_avatar, "avatar-sm")
-                : "https://ui-avatars.com/api/?name=U&background=9D7DC5&color=fff"
-            }
-            alt={consultant.name}
-            className="relative w-full h-full rounded-full object-cover"
-            loading={priority ? "eager" : "lazy"}
-          />
+          {_avatar ? (
+            <img
+              src={getImageUrl(_avatar, "avatar-sm")}
+              alt={consultant.name}
+              className="relative w-full h-full rounded-full object-cover"
+              loading={priority ? "eager" : "lazy"}
+            />
+          ) : (
+            <div className="relative w-full h-full rounded-full bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-xl">
+              {(consultant.name || "U").charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
 
         {consultant.isVerified && !isAI && (
-          <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full
-                           bg-[var(--color-luxury-gold)] text-slate-950 text-[10px]
-                           font-black flex items-center justify-center
-                           border-2 border-slate-950">
+          <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[var(--color-luxury-gold)] text-slate-950 text-[10px] font-black flex items-center justify-center border-2 border-slate-950">
             ✓
           </span>
         )}

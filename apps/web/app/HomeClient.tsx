@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { getImageUrl } from "@/lib/storage/r2";
 import { useRouter } from "next/navigation";
 import {
@@ -53,7 +54,7 @@ import {
 
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { EmptyState } from "@zeal/ui";
-import { fadeUp, staggerContainer, ScrollReveal } from "@zeal/ui/motion";
+import { ScrollReveal } from "@zeal/ui/motion";
 
 import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
 import { FreeServicesGrid } from "@/components/shared/FreeServicesGrid";
@@ -237,10 +238,7 @@ function ScrollProgress() {
     <motion.div
       aria-hidden
       style={{ scaleX }}
-      className="fixed top-0 left-0 right-0 h-[2px] origin-left
-                 bg-gradient-to-r from-[var(--color-luxury-gold)]
-                 via-[var(--color-primary)]
-                 to-[var(--color-luxury-gold)] z-[100]"
+      className="fixed top-0 left-0 right-0 h-[2px] origin-left bg-gradient-to-r from-[var(--color-luxury-gold)] via-[var(--color-primary)] to-[var(--color-luxury-gold)] z-[100]"
     />
   );
 }
@@ -270,11 +268,7 @@ function CursorGlow() {
     <motion.div
       aria-hidden
       style={{ x: sx, y: sy }}
-      className="pointer-events-none fixed top-0 left-0
-                 -translate-x-1/2 -translate-y-1/2
-                 w-[420px] h-[420px] rounded-full
-                 bg-[var(--color-luxury-gold)]/[0.06]
-                 blur-[100px] z-0 hidden lg:block"
+      className="pointer-events-none fixed top-0 left-0 -translate-x-1/2 -translate-y-1/2 w-[420px] h-[420px] rounded-full bg-[var(--color-luxury-gold)]/[0.06] blur-[100px] z-0 hidden lg:block"
     />
   );
 }
@@ -308,9 +302,7 @@ function SectionHeader({
       {action && (
         <Link
           href={action.href}
-          className="group inline-flex items-center gap-1.5 text-sm font-bold
-                     text-muted-foreground hover:text-[var(--color-luxury-gold)]
-                     transition-colors whitespace-nowrap"
+          className="group inline-flex items-center gap-1.5 text-sm font-bold text-muted-foreground hover:text-[var(--color-luxury-gold)] transition-colors whitespace-nowrap"
         >
           {action.label}
           <ArrowRight
@@ -331,10 +323,8 @@ function LiveTicker({ items }: { items: string[] }) {
   const doubled = useMemo(() => [...items, ...items], [items]);
   return (
     <div className="relative overflow-hidden border-y border-border/60 bg-surface/50">
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10
-                      bg-gradient-to-r from-background to-transparent" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10
-                      bg-gradient-to-l from-background to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10 bg-gradient-to-r from-background to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10 bg-gradient-to-l from-background to-transparent" />
       <motion.div
         className="flex gap-10 py-3 whitespace-nowrap will-change-transform"
         animate={{ x: ["0%", "-50%"] }}
@@ -375,30 +365,20 @@ function AICard({
       viewport={{ once: true, margin: "-50px" }}
       transition={{ duration: 0.5, delay: Math.min(index * 0.06, 0.3) }}
       whileHover={{ y: -4 }}
-      className="group relative overflow-hidden rounded-3xl glass-luxury
-                 p-6 transition-all duration-500"
+      className="group relative overflow-hidden rounded-3xl glass-luxury p-6 transition-all duration-500"
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-3xl opacity-0
-                   group-hover:opacity-100 transition-opacity duration-500
-                   bg-gradient-to-br from-[var(--color-luxury-gold)]/[0.08]
-                   via-transparent to-[var(--color-primary)]/[0.10]"
+        className="pointer-events-none absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[var(--color-luxury-gold)]/[0.08] via-transparent to-[var(--color-primary)]/[0.10]"
       />
 
       <span
         aria-hidden
-        className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-emerald-500
-                   ring-2 ring-background animate-pulse z-10"
+        className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-background animate-pulse z-10"
       />
 
       {consultant.isFeatured && (
-        <span className="absolute top-4 left-4 z-10 inline-flex items-center gap-1
-                         px-2 py-0.5 rounded-full
-                         bg-[var(--color-luxury-gold)]/15
-                         border border-[var(--color-luxury-gold)]/30
-                         text-[9px] font-black uppercase tracking-widest
-                         text-[var(--color-luxury-gold)]">
+        <span className="absolute top-4 left-4 z-10 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-luxury-gold)]/15 border border-[var(--color-luxury-gold)]/30 text-[9px] font-black uppercase tracking-widest text-[var(--color-luxury-gold)]">
           Featured
         </span>
       )}
@@ -410,12 +390,13 @@ function AICard({
               aria-hidden
               className="absolute inset-0 rounded-full bg-[var(--color-luxury-gold)]/25 blur-md"
             />
-            <div className="relative w-16 h-16 rounded-full overflow-hidden
-                            ring-2 ring-[var(--color-luxury-gold)]/30">
+            <div className="relative w-16 h-16 rounded-full overflow-hidden ring-2 ring-[var(--color-luxury-gold)]/30">
               {consultant.avatar ? (
-                <img
+                <Image
                   src={getImageUrl(consultant.avatar, "avatar-sm")}
                   alt={consultant.name}
+                  width={64}
+                  height={64}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -424,16 +405,13 @@ function AICard({
                 </div>
               )}
             </div>
-            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full
-                             bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                             text-white text-[8px] font-black flex items-center gap-0.5">
+            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-[8px] font-black flex items-center gap-0.5">
               <Sparkles className="w-2.5 h-2.5" /> AI
             </span>
           </div>
 
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-foreground text-base truncate
-                           group-hover:text-[var(--color-luxury-gold)] transition-colors">
+            <h3 className="font-bold text-foreground text-base truncate group-hover:text-[var(--color-luxury-gold)] transition-colors">
               {consultant.name}
             </h3>
             <p className="text-xs text-muted-foreground capitalize truncate mt-0.5">
@@ -459,22 +437,15 @@ function AICard({
           <button
             type="button"
             onClick={() => onChat(consultant.id)}
-            className="flex-1 py-2.5 rounded-xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-xs font-black
-                       hover:opacity-95 active:scale-[0.98] transition-all
-                       flex items-center justify-center gap-1.5"
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
           >
-            <Zap size={12} /> Start chat
+            <Zap size={12} /> Start Chat
           </button>
           <Link
             href={`/ai-astrologers/${consultant.id}`}
-            className="px-4 py-2.5 rounded-xl bg-surface-raised border border-border
-                       text-muted-foreground hover:text-foreground
-                       text-xs font-bold transition-colors
-                       flex items-center justify-center"
+            className="px-4 py-2.5 rounded-xl bg-surface-raised border border-border text-muted-foreground hover:text-foreground text-xs font-bold transition-colors flex items-center justify-center"
           >
-            Profile
+            View Profile
           </Link>
         </div>
       </div>
@@ -505,15 +476,9 @@ function Spotlight({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center
-                 rounded-[2.5rem] border border-[var(--color-luxury-glass-border)]
-                 bg-gradient-to-br from-[var(--color-surface)]
-                 via-[var(--color-surface)] to-[var(--color-surface-sunken)]
-                 noise-overlay overflow-hidden relative p-8 md:p-12"
+      className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center rounded-[2.5rem] border border-[var(--color-luxury-glass-border)] bg-gradient-to-br from-[var(--color-surface)] via-[var(--color-surface)] to-[var(--color-surface-sunken)] noise-overlay overflow-hidden relative p-8 md:p-12"
     >
-      <div className="absolute -top-40 -right-40 w-[500px] h-[500px]
-                      bg-[var(--color-luxury-gold)]/[0.08] blur-[160px]
-                      rounded-full pointer-events-none" />
+      <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-[var(--color-luxury-gold)]/[0.08] blur-[160px] rounded-full pointer-events-none" />
 
       <div className="lg:col-span-5 relative">
         <motion.div
@@ -522,30 +487,24 @@ function Spotlight({
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="relative aspect-square max-w-sm mx-auto"
         >
-          <div className="absolute inset-0 rounded-[2rem]
-                          bg-gradient-to-br from-[var(--color-luxury-gold)]/30
-                          via-transparent to-[var(--color-primary)]/20
-                          blur-2xl" />
-          <div className="relative w-full h-full rounded-[2rem] overflow-hidden
-                          bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]">
+          <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-br from-[var(--color-luxury-gold)]/30 via-transparent to-[var(--color-primary)]/20 blur-2xl" />
+          <div className="relative w-full h-full rounded-[2rem] overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]">
             {expert.user?.avatar ? (
-              <img
+              <Image
                 src={getImageUrl(expert.user.avatar, "avatar-md")}
                 alt={name}
+                width={384}
+                height={384}
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center
-                              text-white font-black text-8xl">
+              <div className="w-full h-full flex items-center justify-center text-white font-black text-8xl">
                 {initial}
               </div>
             )}
           </div>
           {expert.user?.is_online && (
-            <div className="absolute bottom-4 right-4 flex items-center gap-2
-                            px-3 py-1.5 rounded-full
-                            bg-black/60 backdrop-blur-md
-                            border border-emerald-500/30">
+            <div className="absolute bottom-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-emerald-500/30">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">
                 Live
@@ -598,21 +557,15 @@ function Spotlight({
           <button
             type="button"
             onClick={() => onChat(expert.id)}
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl
-                       bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                       text-white text-sm font-black
-                       shadow-xl shadow-[var(--color-primary-hover)]/25
-                       hover:opacity-95 active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-sm font-black shadow-xl shadow-[var(--color-primary-hover)]/25 hover:opacity-95 active:scale-[0.98] transition-all"
           >
             <MessageCircle size={15} /> Chat with {name.split(" ")[0]}
           </button>
           <Link
             href={`/consultant/${expert.id}`}
-            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl
-                       glass-luxury glass-luxury-hover
-                       text-foreground text-sm font-black transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl glass-luxury glass-luxury-hover text-foreground text-sm font-black transition-all"
           >
-            Full profile <ArrowUpRight size={14} />
+            View Full Profile <ArrowUpRight size={14} />
           </Link>
         </div>
       </div>
@@ -649,10 +602,8 @@ function SpotStat({
 function CategoryRail() {
   return (
     <div className="relative -mx-4 md:mx-0">
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-32 z-10
-                      bg-gradient-to-l from-background to-transparent" />
-      <div className="flex gap-3 overflow-x-auto pb-3 pl-4 md:pl-0 pr-12
-                      custom-scrollbar hide-scrollbar">
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-32 z-10 bg-gradient-to-l from-background to-transparent" />
+      <div className="flex gap-3 overflow-x-auto pb-3 pl-4 md:pl-0 pr-12 custom-scrollbar hide-scrollbar">
         {FEATURED_CATEGORIES.map(({ id, label, Icon }, i) => (
           <motion.div
             key={id}
@@ -663,17 +614,9 @@ function CategoryRail() {
           >
             <Link
               href={`/services/${id}`}
-              className="group flex-shrink-0 w-36 h-36 rounded-3xl
-                         glass-luxury glass-luxury-hover
-                         flex flex-col items-center justify-center gap-3
-                         transition-all"
+              className="group flex-shrink-0 w-36 h-36 rounded-3xl glass-luxury glass-luxury-hover flex flex-col items-center justify-center gap-3 transition-all"
             >
-              <div className="w-12 h-12 rounded-2xl
-                              bg-gradient-to-br from-[var(--color-luxury-gold)]/20
-                              to-[var(--color-primary)]/10
-                              flex items-center justify-center
-                              text-[var(--color-luxury-gold)]
-                              group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--color-luxury-gold)]/20 to-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-luxury-gold)] group-hover:scale-110 transition-transform">
                 <Icon size={20} />
               </div>
               <span className="text-xs font-black uppercase tracking-widest text-foreground">
@@ -706,18 +649,17 @@ function PostCard({ post }: { post: Post }) {
       className="glass-luxury glass-luxury-hover rounded-2xl p-5"
     >
       <header className="flex items-center gap-3 mb-3">
-        <div className="w-11 h-11 rounded-full overflow-hidden
-                        bg-surface-sunken shrink-0
-                        ring-1 ring-[var(--color-luxury-gold)]/20">
+        <div className="w-11 h-11 rounded-full overflow-hidden bg-surface-sunken shrink-0 ring-1 ring-[var(--color-luxury-gold)]/20">
           {post.author?.avatar ? (
-            <img
+            <Image
               src={getImageUrl(post.author.avatar, "avatar-sm")}
               alt=""
+              width={44}
+              height={44}
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center
-                            text-sm font-black text-foreground">
+            <div className="w-full h-full flex items-center justify-center text-sm font-black text-foreground">
               {initial}
             </div>
           )}
@@ -736,17 +678,18 @@ function PostCard({ post }: { post: Post }) {
 
       {hasImage && (
         <div className="mt-3 rounded-xl overflow-hidden border border-border max-h-96">
-          <img
+          <Image
             src={getImageUrl(post.mediaUrls![0], "grid")}
             alt={post.content?.slice(0, 80) || "Post image"}
-            loading="lazy"
+            width={600}
+            height={400}
+            sizes="(max-width: 768px) 100vw, 600px"
             className="w-full h-full object-cover"
           />
         </div>
       )}
 
-      <footer className="flex items-center gap-5 mt-4 pt-3 border-t border-border
-                         text-xs text-muted-foreground">
+      <footer className="flex items-center gap-5 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
         <Link
           href={`/post/${post.id}`}
           className="flex items-center gap-1 hover:text-rose-400 transition-colors"
@@ -774,20 +717,20 @@ function HowItWorks() {
   const steps = [
     {
       n: "01",
-      title: "Discover",
-      body: "Browse 12+ traditions and 24/7 AI consultants. Filter by category, price, or presence.",
+      title: "Get Your Free Reading",
+      body: "Instant AI-powered tarot, horoscope, kundali & numerology readings — no signup required. Available 24/7.",
       Icon: Compass,
     },
     {
       n: "02",
-      title: "Connect",
-      body: "Chat, book, or call. Every rupee is escrow-held until the session completes.",
+      title: "Connect with Experts",
+      body: "Chat or call verified astrologers, therapists & healers. Every payment is escrow-protected until your session completes.",
       Icon: MessageCircle,
     },
     {
       n: "03",
-      title: "Transform",
-      body: "Receive guidance that meets you where you are. Rate and revisit your favourite guides.",
+      title: "Guidance That Works",
+      body: "Receive accurate, personalized guidance based on your birth chart, tarot spread & spiritual tradition. Rate and revisit your favourite consultants.",
       Icon: Sparkles,
     },
   ];
@@ -804,16 +747,10 @@ function HowItWorks() {
           className="relative rounded-3xl glass-luxury p-7"
         >
           <div className="flex items-start justify-between mb-5">
-            <div className="w-12 h-12 rounded-2xl
-                            bg-gradient-to-br from-[var(--color-luxury-gold)]/20
-                            to-[var(--color-primary)]/10
-                            flex items-center justify-center
-                            text-[var(--color-luxury-gold)]">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[var(--color-luxury-gold)]/20 to-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-luxury-gold)]">
               <Icon size={20} />
             </div>
-            <span className="text-4xl font-black font-mono
-                             text-[var(--color-luxury-gold)]/25
-                             leading-none select-none">
+            <span className="text-4xl font-black font-mono text-[var(--color-luxury-gold)]/25 leading-none select-none">
               {n}
             </span>
           </div>
@@ -909,8 +846,10 @@ function TestimonialsCarousel() {
         {TESTIMONIALS.map((_, i) => (
           <button
             key={i}
+            type="button"
             onClick={() => setActiveIdx(i)}
-            aria-label={`Show testimonial ${i + 1}`}
+            aria-label={`View testimonial ${i + 1}`}
+            aria-pressed={i === activeIdx}
             className={`h-1.5 rounded-full transition-all ${
               i === activeIdx
                 ? "w-8 bg-[var(--color-luxury-gold)]"
@@ -1002,7 +941,7 @@ function PremiumFooter() {
               <span className="text-lg font-black text-foreground">Zeal</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xs mb-4">
-              Every tradition. One sanctuary. Multi-faith astrology, therapy, and wellness — escrow-protected.
+              Free astrology, tarot & spiritual consultations. Verified astrologers, AI readers & therapists — all in one place.
             </p>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
@@ -1074,23 +1013,33 @@ export function HomeClient({
   const [gateInfo, setGateInfo] = useState<LowBalanceInfo | null>(null);
   const [query, setQuery] = useState("");
   const [spotlightIdx, setSpotlightIdx] = useState(0);
+  // Once the user hand-picks a spotlight, stop auto-rotation (preserve their choice).
+  const [spotlightPaused, setSpotlightPaused] = useState(false);
 
   const showToast = useCallback((msg: string) => {
     pushToast({ title: msg });
   }, []);
 
+  // In-flight guard: rapid double-clicks on a Chat CTA must not start two sessions.
+  const chatBusyRef = useRef(false);
   const handleChat = useCallback(
     async (consultantId: string) => {
-      await startChatFlow(consultantId, {
-        router,
-        onLowBalance: (info) => {
-          setGateInfo(info);
-          setGateOpen(true);
-        },
-        onOffline: ({ consultantName }) =>
-          showToast(`${consultantName} is currently offline.`),
-        onError: showToast,
-      });
+      if (chatBusyRef.current) return;
+      chatBusyRef.current = true;
+      try {
+        await startChatFlow(consultantId, {
+          router,
+          onLowBalance: (info) => {
+            setGateInfo(info);
+            setGateOpen(true);
+          },
+          onOffline: ({ consultantName }) =>
+            showToast(`${consultantName} is offline right now.`),
+          onError: showToast,
+        });
+      } finally {
+        chatBusyRef.current = false;
+      }
     },
     [router, showToast],
   );
@@ -1155,8 +1104,9 @@ export function HomeClient({
             : [record, ...prev].slice(0, 50),
         );
       } else if (type === "UPDATE" && record) {
+        // Partial records (e.g. cheer/comment count pings) must merge, not replace.
         setPosts((prev) =>
-          prev.map((x) => (x.id === record.id ? record : x)),
+          prev.map((x) => (x.id === record.id ? { ...x, ...record } : x)),
         );
       } else if (type === "DELETE" && old_record?.id) {
         setPosts((prev) => prev.filter((x) => x.id !== old_record.id));
@@ -1178,13 +1128,13 @@ export function HomeClient({
   );
 
   useEffect(() => {
-    if (topExperts.length < 2) return;
+    if (topExperts.length < 2 || spotlightPaused) return;
     const t = setInterval(
       () => setSpotlightIdx((i) => (i + 1) % topExperts.length),
       8000,
     );
     return () => clearInterval(t);
-  }, [topExperts.length]);
+  }, [topExperts.length, spotlightPaused]);
 
   const spotlight = topExperts[spotlightIdx] ?? topExperts[0];
 
@@ -1216,72 +1166,67 @@ export function HomeClient({
       {/* HERO */}
       <section
         aria-labelledby="hero-heading"
-        className="relative overflow-hidden noise-overlay
-                   border-b border-[var(--color-luxury-glass-border)]"
+        className="relative overflow-hidden noise-overlay border-b border-[var(--color-luxury-glass-border)]"
       >
-        <div className="absolute -top-40 -right-40 w-[600px] h-[600px]
-                        rounded-full bg-[var(--color-luxury-gold)]/[0.08]
-                        blur-[180px] pointer-events-none" />
-        <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px]
-                        rounded-full bg-[var(--color-primary)]/[0.12]
-                        blur-[180px] pointer-events-none" />
+        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-[var(--color-luxury-gold)]/[0.08] blur-[180px] pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] rounded-full bg-[var(--color-primary)]/[0.12] blur-[180px] pointer-events-none" />
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 lg:px-16
-                        py-16 md:py-24 lg:py-32">
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="show"
-            className="max-w-4xl"
-          >
-            <motion.div
-              variants={fadeUp}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full
-                         bg-[var(--color-luxury-gold)]/[0.08]
-                         border border-[var(--color-luxury-gold)]/[0.20]
-                         text-[var(--color-luxury-gold)]
-                         text-[10px] font-black uppercase tracking-[0.25em]"
+        <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-10 lg:px-16 py-16 md:py-24 lg:py-32">
+          <div className="max-w-4xl">
+            <div
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--color-luxury-gold)]/[0.08] border border-[var(--color-luxury-gold)]/[0.20] text-[var(--color-luxury-gold)] text-[10px] font-black uppercase tracking-[0.25em] animate-fade-in-up"
             >
               <Sparkles size={12} />
               Multi-faith · Realtime · 24/7
-            </motion.div>
+            </div>
 
-            <motion.h1
+            <h1
               id="hero-heading"
-              variants={fadeUp}
-              className="mt-6 text-5xl sm:text-6xl md:text-7xl lg:text-8xl
-                         font-black tracking-[-0.03em] leading-[0.95]
-                         text-foreground"
+              className="mt-6 text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-[-0.03em] leading-[0.95] text-foreground animate-fade-in-up-d1"
             >
-              Every tradition.
+              Free Astrology,
               <br />
               <span className="text-luxury-gradient">
-                One sanctuary.
+                Tarot & Spiritual
               </span>
-            </motion.h1>
+              <br />
+              Consultations.
+            </h1>
 
-            <motion.p
-              variants={fadeUp}
-              className="mt-8 text-base md:text-lg text-muted-foreground
-                         max-w-2xl leading-relaxed"
+            <div className="mt-6 h-8 overflow-hidden animate-fade-in-up-d2">
+              <div className="animate-[spin-text_12s_ease-in-out_infinite]">
+                <p className="h-8 flex items-center text-base md:text-lg text-muted-foreground font-medium">
+                  Kundali · Numerology · Palmistry · Dream Analysis
+                </p>
+                <p className="h-8 flex items-center text-base md:text-lg text-muted-foreground font-medium">
+                  Therapy · Reiki · Meditation · Life Coaching
+                </p>
+                <p className="h-8 flex items-center text-base md:text-lg text-muted-foreground font-medium">
+                  Vastu · Yoga · Sound Healing · Relationship Advice
+                </p>
+                <p className="h-8 flex items-center text-base md:text-lg text-muted-foreground font-medium">
+                  Kundali · Numerology · Palmistry · Dream Analysis
+                </p>
+              </div>
+            </div>
+
+            <p
+              className="mt-6 text-base md:text-lg text-muted-foreground max-w-2xl leading-relaxed animate-fade-in-up-d3"
             >
-              Vedic astrology, Islamic counseling, Buddhist meditation,
-              Christian therapy, Tarot, energy healing, and modern wellness —
-              on one calm, escrow-protected platform.
-            </motion.p>
+              37+ spiritual services in one platform — from Vedic astrology and
+              tarot readings to therapy, healing, and wellness consultations.
+              Free AI-powered readings available instantly, or connect with
+              verified experts for personal guidance.
+            </p>
 
-            <motion.form
-              variants={fadeUp}
+            <form
               onSubmit={handleSearch}
-              className="mt-10 max-w-2xl"
+              className="mt-10 max-w-2xl animate-fade-in-up-d3"
             >
               <div className="relative group">
                 <Search
                   size={18}
-                  className="absolute left-5 top-1/2 -translate-y-1/2
-                             text-muted-foreground
-                             group-focus-within:text-[var(--color-luxury-gold)]
-                             transition-colors"
+                  className="absolute left-5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-[var(--color-luxury-gold)] transition-colors"
                 />
                 <input
                   type="text"
@@ -1290,62 +1235,41 @@ export function HomeClient({
                     setQuery(e.target.value)
                   }
                   aria-label="Search for guides"
-                  placeholder="Ask Zeal — describe what you're looking for…"
-                  className="w-full pl-14 pr-36 py-5 rounded-2xl
-                             glass-luxury
-                             text-base text-foreground
-                             placeholder:text-muted-foreground
-                             focus:outline-none
-                             focus:border-[var(--color-luxury-gold)]/50
-                             transition-colors"
+                  placeholder="Search tarot, kundali, horoscope, numerology…"
+                  className="w-full pl-14 pr-36 py-5 rounded-2xl glass-luxury text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[var(--color-luxury-gold)]/50 transition-colors"
                 />
                 <button
                   type="submit"
-                  className="absolute right-2 top-1/2 -translate-y-1/2
-                             px-5 py-3 rounded-xl
-                             bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                             text-white text-xs font-black
-                             hover:opacity-95 active:scale-95 transition-all
-                             flex items-center gap-1.5"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-3 rounded-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white text-xs font-black hover:opacity-95 active:scale-95 transition-all flex items-center gap-1.5"
                 >
-                  Find a guide <ArrowRight size={12} />
+                  Find a Guide <ArrowRight size={12} />
                 </button>
               </div>
-            </motion.form>
+            </form>
 
-            <motion.div
-              variants={fadeUp}
-              className="mt-8 flex flex-wrap items-center gap-3"
+            <div
+              className="mt-8 flex flex-wrap items-center gap-3 animate-fade-in-up-d4"
             >
               <Link
                 href="/explore"
-                className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl
-                           bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                           text-white font-black text-sm
-                           shadow-xl shadow-[var(--color-primary-hover)]/25
-                           hover:scale-[1.02] active:scale-[0.98] transition-transform"
+                className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-sm shadow-xl shadow-[var(--color-primary-hover)]/25 hover:scale-[1.02] active:scale-[0.98] transition-transform"
               >
-                Browse guides <ArrowRight size={15} />
+                Browse Guides <ArrowRight size={15} />
               </Link>
               <Link
                 href="/services"
-                className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl
-                           glass-luxury glass-luxury-hover
-                           text-foreground font-bold text-sm"
+                className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl glass-luxury glass-luxury-hover text-foreground font-bold text-sm"
               >
                 <Sparkles size={15} /> Ask Zeal AI
               </Link>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="mt-16 md:mt-24 grid grid-cols-2 md:grid-cols-4 gap-px
-                       rounded-2xl overflow-hidden
-                       border border-[var(--color-luxury-glass-border)]
-                       bg-[var(--color-luxury-glass-border)]"
+            className="mt-16 md:mt-24 grid grid-cols-2 md:grid-cols-4 gap-px rounded-2xl overflow-hidden border border-[var(--color-luxury-glass-border)] bg-[var(--color-luxury-glass-border)]"
           >
             {[
               {
@@ -1383,8 +1307,7 @@ export function HomeClient({
                     {label}
                   </span>
                 </div>
-                <div className="text-3xl md:text-4xl font-black font-mono
-                                text-foreground tabular-nums">
+                <div className="text-3xl md:text-4xl font-black font-mono text-foreground tabular-nums">
                   <Counter to={value} suffix={suffix} />
                 </div>
               </div>
@@ -1414,10 +1337,13 @@ export function HomeClient({
           eyebrow="Instant answers · Always on"
           title="AI Consultants"
           icon={<Sparkles size={12} />}
-          action={{ href: "/ai-astrologers", label: "View all" }}
+          action={{ href: "/ai-astrologers", label: "View All AI Guides" }}
         />
         {aiList.length === 0 ? (
-          <EmptyState title="No AI consultants yet" description="Check back soon." />
+          <EmptyState
+            title="No AI consultants available right now"
+            description="Check back in a moment — we're launching soon."
+          />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {aiList.slice(0, 6).map((ai, i) => (
@@ -1434,9 +1360,7 @@ export function HomeClient({
           className="max-w-7xl mx-auto px-6 md:px-10 lg:px-16 pb-20 cv-auto"
         >
           <div className="mb-8">
-            <p className="text-[10px] uppercase tracking-[0.25em]
-                          text-[var(--color-luxury-gold)] font-bold mb-2
-                          flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-luxury-gold)] font-bold mb-2 flex items-center gap-2">
               <TrendingUp size={12} />
               Top of the week
             </p>
@@ -1462,8 +1386,10 @@ export function HomeClient({
               {topExperts.map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => setSpotlightIdx(i)}
-                  aria-label={`Show spotlight ${i + 1}`}
+                  type="button"
+                  onClick={() => { setSpotlightIdx(i); setSpotlightPaused(true); }}
+                  aria-label={`View spotlight guide ${i + 1}`}
+                  aria-pressed={i === spotlightIdx}
                   className={`h-1.5 rounded-full transition-all ${
                     i === spotlightIdx
                       ? "w-8 bg-[var(--color-luxury-gold)]"
@@ -1492,7 +1418,7 @@ export function HomeClient({
         <SectionHeader
           eyebrow="Explore by tradition"
           title="Every path, one platform"
-          action={{ href: "/services", label: "All categories" }}
+          action={{ href: "/services", label: "All Categories" }}
         />
         <CategoryRail />
       </section>
@@ -1506,23 +1432,33 @@ export function HomeClient({
           eyebrow="Real humans · Verified · Realtime presence"
           title="Verified Experts"
           icon={<Radio size={12} className="text-emerald-400" />}
-          action={{ href: "/explore", label: "Directory" }}
+          action={{ href: "/explore", label: "Full Directory" }}
         />
         {experts.length === 0 ? (
           <EmptyState
-            title="No experts yet"
-            description="Please try again shortly."
+            title="No guides found yet"
+            description="Please try again in a little while."
           />
         ) : (
           <motion.div
-            variants={staggerContainer}
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: "-50px" }}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
           >
-            {experts.slice(0, 8).map((ex) => (
-              <motion.div key={ex.id} variants={fadeUp}>
+            {experts.slice(0, 8).map((ex, i) => (
+              <motion.div
+                key={ex.id}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{
+                  type: "spring",
+                  stiffness: 200,
+                  damping: 24,
+                  delay: i * 0.04,
+                }}
+              >
                 <LuxuryConsultantCard
                   consultant={toProfile(ex)}
                   onChat={handleChat}
@@ -1565,14 +1501,10 @@ export function HomeClient({
       >
         <div className="flex items-center justify-between mb-8">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.25em]
-                          text-[var(--color-luxury-gold)] font-bold mb-2
-                          flex items-center gap-2">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-[var(--color-luxury-gold)] font-bold mb-2 flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full
-                                 rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2
-                                 bg-emerald-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
               </span>
               Live · Realtime
             </p>
@@ -1585,8 +1517,7 @@ export function HomeClient({
           </div>
           <Link
             href="/create"
-            className="text-xs font-black uppercase tracking-widest
-                       text-[var(--color-luxury-gold)] hover:underline"
+            className="text-xs font-black uppercase tracking-widest text-[var(--color-luxury-gold)] hover:underline"
           >
             + Post
           </Link>
@@ -1595,7 +1526,7 @@ export function HomeClient({
         {posts.length === 0 ? (
           <EmptyState
             title="No posts yet"
-            description="Be the first to share."
+            description="Share the first post — the cosmos is waiting for you."
           />
         ) : (
           <div className="space-y-4">
@@ -1609,59 +1540,41 @@ export function HomeClient({
       {/* FINAL CTA */}
       <section
         aria-labelledby="cta-heading"
-        className="relative overflow-hidden mx-6 md:mx-10 lg:mx-auto
-                   max-w-7xl mb-24 rounded-[2.5rem]
-                   noise-overlay border border-[var(--color-luxury-glass-border)]"
+        className="relative overflow-hidden mx-6 md:mx-10 lg:mx-auto max-w-7xl mb-24 rounded-[2.5rem] noise-overlay border border-[var(--color-luxury-glass-border)]"
       >
-        <div className="absolute inset-0 bg-gradient-to-br
-                        from-[var(--color-background)]
-                        via-[var(--color-surface)]
-                        to-[var(--color-background)]" />
-        <div className="absolute -top-40 -right-40 w-[500px] h-[500px]
-                        rounded-full bg-[var(--color-luxury-gold)]/[0.10]
-                        blur-[160px] pointer-events-none" />
-        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px]
-                        rounded-full bg-[var(--color-primary)]/[0.15]
-                        blur-[160px] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-background)] via-[var(--color-surface)] to-[var(--color-background)]" />
+        <div className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full bg-[var(--color-luxury-gold)]/[0.10] blur-[160px] pointer-events-none" />
+        <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-[var(--color-primary)]/[0.15] blur-[160px] pointer-events-none" />
 
         <div className="relative z-10 py-20 md:py-28 px-8 md:px-16 text-center">
-          <p className="text-[10px] uppercase tracking-[0.3em]
-                        text-[var(--color-luxury-gold)] font-black mb-6">
+          <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--color-luxury-gold)] font-black mb-6">
             Your journey begins
           </p>
           <h2
             id="cta-heading"
-            className="text-4xl md:text-6xl lg:text-7xl font-black
-                       tracking-[-0.03em] leading-[1] text-foreground
-                       max-w-3xl mx-auto"
+            className="text-4xl md:text-6xl lg:text-7xl font-black tracking-[-0.03em] leading-[1] text-foreground max-w-3xl mx-auto"
           >
-            Find your{" "}
-            <span className="text-luxury-gradient">guide today.</span>
+            Your free{" "}
+            <span className="text-luxury-gradient">astrology reading</span>
+            {" "}awaits.
           </h2>
-          <p className="mt-8 text-base md:text-lg text-muted-foreground
-                        max-w-xl mx-auto leading-relaxed">
-            Twelve traditions. Hundreds of guides. Every session,
-            escrow-protected.
+          <p className="mt-8 text-base md:text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
+            Free tarot, horoscope, kundali & numerology — or connect with verified
+            astrologers, therapists & healers for personal guidance.
           </p>
 
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/explore"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl
-                         bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)]
-                         text-white font-black text-sm
-                         shadow-xl shadow-[var(--color-primary-hover)]/25
-                         hover:scale-[1.03] active:scale-[0.98] transition-transform"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-sm shadow-xl shadow-[var(--color-primary-hover)]/25 hover:scale-[1.03] active:scale-[0.98] transition-transform"
             >
-              Explore guides <ArrowRight size={15} />
+              Find Astrologers & Healers <ArrowRight size={15} />
             </Link>
             <Link
               href="/services"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl
-                         glass-luxury glass-luxury-hover
-                         text-foreground font-bold text-sm"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-2xl glass-luxury glass-luxury-hover text-foreground font-bold text-sm"
             >
-              <Sparkles size={15} /> Ask Zeal AI
+              <Sparkles size={15} /> Try Free Services
             </Link>
           </div>
         </div>
