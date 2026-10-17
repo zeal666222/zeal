@@ -236,6 +236,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
 
       const reader = aiRes.body!.getReader();
       let buffer = "";
+      let streamDied = false;
 
       try {
         // eslint-disable-next-line no-constant-condition
@@ -269,6 +270,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
           }
         }
       } catch (e) {
+        streamDied = true;
         console.error("[ai-chat-handler] stream error:", e);
         const f = fillers.next("fallback");
         if (f) write({ filler: f, reason: "fallback" });
@@ -315,7 +317,7 @@ export async function handleAIChat(params: AIChatParams): Promise<AIChatResult> 
         }
       }
 
-      write({ done: true, provider, attempts, message: persisted, fullText: finalText || undefined });
+      write({ done: true, provider, attempts, message: persisted, fullText: finalText || undefined, truncated: streamDied || undefined });
       controller.close();
     },
   });

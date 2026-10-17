@@ -396,8 +396,7 @@ export async function POST(
         500;
       return NextResponse.json({ error: err.message, code: err.code }, { status });
     }
-    const message = err instanceof Error ? err.message : "AI chat failed";
-    console.error("[api/chat/ai]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[api/chat/ai]", err instanceof Error ? err.message : "AI chat failed");
+    return NextResponse.json({ error: "AI chat is momentarily unavailable — please try again." }, { status: 500 });
   }
 }

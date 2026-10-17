@@ -270,6 +270,7 @@ export function useChat({
       setError(null);
 
       const MAX_RETRIES = 2;
+      const abortCtrl = new AbortController();
 
       try {
         let lastEventId = "";
@@ -283,6 +284,7 @@ export function useChat({
             method: "POST",
             headers,
             body: JSON.stringify({ conversationId, content: trimmed }),
+            signal: abortCtrl.signal,
           });
           if (!res.ok || !res.body) {
             const body = await res.json().catch(() => ({})) as {
@@ -305,6 +307,8 @@ export function useChat({
           let buffer = "";
           let acc = "";
           let finalMessage: ChatMessage | null = null;
+          let gotDoneEvent = false;
+          let wasTruncated = false;
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -325,12 +329,10 @@ export function useChat({
                   done?: boolean;
                   message?: ChatMessage | null;
                   fullText?: string;
+                  truncated?: boolean;
                 };
                 if (parsed.userMessageId) {
-                  // The server has persisted our message — retrying the POST
-                  // now would store a duplicate, so mark progress.
                   progressed = true;
-                  // Replace the optimistic bubble's temp id with the real one.
                   seenIds.current.add(parsed.userMessageId);
                   setMessages((prev) => prev.map((m) =>
                     m.id === tempId ? { ...m, id: parsed.userMessageId!, _optimistic: false } : m,
@@ -340,29 +342,34 @@ export function useChat({
                 if (parsed.filler && !acc) onFiller?.(parsed.filler);
                 if (parsed.delta) { progressed = true; acc += parsed.delta; onDelta(acc); }
                 if (parsed.done) {
+                  gotDoneEvent = true;
+                  wasTruncated = !!parsed.truncated;
                   if (parsed.message) finalMessage = parsed.message;
                 }
               } catch { /* malformed chunk — skip */ }
             }
           }
 
-          // Guarantee the assistant reply appears without a refresh.
+          if (wasTruncated && acc) {
+            onDelta(acc + "\n\n_(Response was cut short — tap send again to continue)_");
+          }
+
           if (finalMessage?.id) {
             mergeIncoming(finalMessage);
           } else if (acc) {
-            // Streamed text but no persisted row returned — refetch shortly.
             setTimeout(() => setReloadKey((k) => k + 1), 500);
+          } else if (!gotDoneEvent && !progressed) {
+            onDelta("Connection dropped before the response started. Please try again.");
           }
         };
 
         for (let attempt_num = 0; attempt_num <= MAX_RETRIES; attempt_num++) {
           try {
             await attempt();
-            break; // success — exit retry loop
+            break;
           } catch (err) {
+            if ((err as { name?: string }).name === "AbortError") break;
             const status = (err as { httpStatus?: number }).httpStatus;
-            // Once the server persisted the message or streamed text, a retry
-            // would create a duplicate user message — never retry then.
             const retryable =
               !progressed &&
               (status === undefined || status === 408 || status === 429 || status >= 500);
@@ -371,15 +378,19 @@ export function useChat({
               continue;
             }
             if (progressed) {
-              // Partial stream died — keep what arrived and resync from DB.
               setTimeout(() => setReloadKey((k) => k + 1), 500);
               break;
             }
-            // Not retryable or retries exhausted — show error to user
-            onDelta("I'm having trouble connecting right now. Please try again in a moment.");
+            const msg = status === 401 ? "Please sign in to continue."
+              : status === 402 ? "Insufficient balance for this session."
+              : status === 429 ? "Too many messages — wait a moment and try again."
+              : status && status >= 500 ? "AI service is busy — please try again in a few seconds."
+              : "I'm having trouble connecting right now. Please try again in a moment.";
+            onDelta(msg);
           }
         }
       } catch (err) {
+        if ((err as { name?: string }).name === "AbortError") return;
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setError(err instanceof Error ? err.message : "AI chat failed");
       } finally {
