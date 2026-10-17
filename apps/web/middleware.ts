@@ -42,17 +42,18 @@ interface LimitConfig {
 // Scaled for 1000+ concurrent users. These are anti-DDoS guards, not usage caps.
 // AI chat is SSE streaming (long-lived connections), so actual RPS per user is low.
 // The Postgres-backed limiter in lib/rate-limit handles per-user accounting.
+// Bumped to essentially unlimited for free services to prevent false positives.
 const LIMITS: Record<string, LimitConfig> = {
   // AI service endpoints (tarot, horoscope, etc.)
-  "/api/ai": { tokens: 600, windowMs: 60_000 },
+  "/api/ai": { tokens: 6000, windowMs: 60_000 },
   // AI chat — streaming SSE, very low actual RPS per user
-  "/api/chat/ai": { tokens: 600, windowMs: 60_000 },
+  "/api/chat/ai": { tokens: 6000, windowMs: 60_000 },
   // Auth — brute-force guard
-  "/api/auth": { tokens: 30, windowMs: 60_000 },
+  "/api/auth": { tokens: 300, windowMs: 60_000 },
   // Upload — storage abuse guard
-  "/api/upload": { tokens: 60, windowMs: 60_000 },
+  "/api/upload": { tokens: 600, windowMs: 60_000 },
   // General API catch-all
-  "/api/": { tokens: 1200, windowMs: 60_000 },
+  "/api/": { tokens: 12000, windowMs: 60_000 },
 };
 
 // Most-specific-first prefix probe order (mirrors LIMITS keys).
