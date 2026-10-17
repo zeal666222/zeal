@@ -80,12 +80,16 @@ export async function POST(req: Request) {
         const amountRupees = payment.amount / 100;
 
         if (purpose === "wallet_topup") {
-          await admin.rpc("credit_funds_safe", {
+          const { error: creditErr } = await admin.rpc("credit_funds_safe", {
             p_user_id: userId,
             p_amount: amountRupees,
             p_description: `Razorpay top-up ${payment.id}`,
             p_reference_id: payment.id,
           });
+          if (creditErr) {
+            console.error("[wallet/webhook] credit_funds_safe failed:", creditErr.message);
+            return NextResponse.json({ error: "Payment captured but wallet credit failed — support notified" }, { status: 500 });
+          }
           void publishWalletBalance(userId);
           await admin
             .from("RazorpayPayment")
@@ -96,10 +100,13 @@ export async function POST(req: Request) {
             } as never)
             .eq("orderId", payment.order_id ?? "");
         } else if (purpose === "booking_payment" && referenceId) {
-          await admin.rpc("confirm_booking_payment", {
+          const { error: confirmErr } = await admin.rpc("confirm_booking_payment", {
             p_booking_id: referenceId,
             p_razorpay_payment_id: payment.id,
           });
+          if (confirmErr) {
+            console.error("[wallet/webhook] confirm_booking_payment failed:", confirmErr.message);
+          }
           await admin
             .from("RazorpayPayment")
             .update({

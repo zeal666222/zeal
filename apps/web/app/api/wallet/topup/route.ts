@@ -56,12 +56,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    await admin.rpc("credit_funds_safe", {
+    const { error: creditErr } = await admin.rpc("credit_funds_safe", {
       p_user_id: user.id,
       p_amount: row.amount / 100,
       p_description: `Wallet top-up ${parsed.data.razorpay_payment_id}`,
       p_reference_id: parsed.data.razorpay_payment_id,
     });
+    if (creditErr) {
+      console.error("[wallet/topup] credit_funds_safe failed:", creditErr.message);
+      return NextResponse.json({ error: "Payment verified but wallet credit failed — contact support" }, { status: 500 });
+    }
     void publishWalletBalance(user.id);
     await admin
       .from("RazorpayPayment")

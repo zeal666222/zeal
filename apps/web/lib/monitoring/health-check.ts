@@ -39,13 +39,8 @@ async function checkDatabase(): Promise<HealthCheck> {
   const start = Date.now();
   try {
     const admin = createAdminClient();
-    const { data, error } = await admin.rpc("health_check_db").single();
-
-    if (error) {
-      // RPC doesn't exist yet — try a simple query instead
-      const { error: qErr } = await admin.from("User").select("id").limit(1);
-      if (qErr) throw new Error(qErr.message);
-    }
+    const { error } = await admin.from("User").select("id").limit(1);
+    if (error) throw new Error(error.message);
 
     return {
       name: "database",

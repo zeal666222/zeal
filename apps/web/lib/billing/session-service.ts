@@ -166,12 +166,15 @@ export async function startSession(params: {
     .single();
 
   if (sessionErr || !session) {
-    await admin.rpc("credit_funds_safe", {
+    const { error: rollbackErr } = await admin.rpc("credit_funds_safe", {
       p_user_id: userId,
       p_amount: initialCharge,
       p_description: "Session hold rollback",
       p_reference_id: `${referenceId}:rollback`,
     });
+    if (rollbackErr) {
+      console.error("[session-service] rollback credit failed:", rollbackErr.message);
+    }
     void publishWalletBalance(userId);
     return { success: false, error: "Could not start session.", code: "INTERNAL" };
   }

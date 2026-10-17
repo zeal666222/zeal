@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminAPI } from "@/lib/auth/api-guard";
 import { withErrorHandler } from "@/lib/errors";
 import { createAdminClient } from "@zeal/database/server";
+import { getPoolManager } from "@/lib/db/pool";
 
 export const dynamic = "force-dynamic";
 
@@ -12,25 +13,24 @@ export const GET = withErrorHandler(async () => {
 
   const [
     activeUsersRes, activeSessionsRes, walletBalanceRes,
-    recentErrorsRes, billingAnomaliesRes, dbPoolRes,
+    recentErrorsRes, billingAnomaliesRes,
     aiConsultantsRes, todayBookingsRes,
   ] = await Promise.allSettled([
     admin.from("User").select("id", { count: "exact", head: true }).eq("is_online", true),
-    admin.rpc("live_sessions_count").single(),
+    admin.from("CallSession").select("id", { count: "exact", head: true }).in("status", ["CONNECTED", "ACTIVE"]),
     admin.from("Wallet").select("balance, escrow, pendingIn, pendingOut, blocked"),
     admin.from("AdminAuditLog").select("id, action_name, metadata, created_at")
       .eq("success", false)
       .gte("created_at", new Date(Date.now() - 86400000).toISOString())
       .order("created_at", { ascending: false }).limit(10),
     admin.from("Wallet").select("userId, balance").lt("balance", 0).limit(20),
-    admin.rpc("get_db_pool_stats").single(),
     admin.from("AIConsultant").select("id, name, isActive", { count: "exact", head: false }),
     admin.from("Booking").select("id", { count: "exact", head: true })
       .gte("createdAt", new Date(new Date().setHours(0, 0, 0, 0)).toISOString()),
   ]);
 
   const activeUsers = activeUsersRes.status === "fulfilled" ? (activeUsersRes.value.count ?? 0) : 0;
-  const activeSessions = activeSessionsRes.status === "fulfilled" ? ((activeSessionsRes.value.data as number) ?? 0) : 0;
+  const activeSessions = activeSessionsRes.status === "fulfilled" ? (activeSessionsRes.value.count ?? 0) : 0;
 
   let treasury = { totalBalance: 0, totalEscrow: 0, totalPendingIn: 0, totalPendingOut: 0, totalBlocked: 0, walletCount: 0 };
   if (walletBalanceRes.status === "fulfilled" && walletBalanceRes.value.data) {
@@ -47,7 +47,7 @@ export const GET = withErrorHandler(async () => {
 
   const recentErrors = recentErrorsRes.status === "fulfilled" ? (recentErrorsRes.value.data ?? []) : [];
   const negativeBalances = billingAnomaliesRes.status === "fulfilled" ? (billingAnomaliesRes.value.data ?? []) : [];
-  const dbPool = dbPoolRes.status === "fulfilled" ? (dbPoolRes.value.data as Record<string, unknown> ?? {}) : {};
+  const dbPool = getPoolManager().getStats();
 
   const aiConsultants = aiConsultantsRes.status === "fulfilled"
     ? {
