@@ -315,18 +315,49 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
 
         const assistantId = crypto.randomUUID();
         const now = new Date().toISOString();
-        await env.DB.prepare(
-          `INSERT INTO message (id, conversation_id, sender_id, content, type, created_at) VALUES (?, ?, ?, ?, 'text', ?)`
-        ).bind(assistantId, conversationId, persona.userId, safeText, now).run();
+        try {
+          await env.DB.prepare(
+            `INSERT INTO message (id, conversation_id, sender_id, content, type, created_at) VALUES (?, ?, ?, ?, 'text', ?)`
+          ).bind(assistantId, conversationId, persona.userId, safeText, now).run();
+        } catch (e) {
+          console.error("[chat-handler] D1 insert failed:", e instanceof Error ? e.message : e);
+        }
 
-        void insertRow(env, "Message", {
+        // Persist the assistant reply into Supabase so a page refresh shows the
+        // full conversation. Message.senderId has an FK to public."User" — on
+        // deployments where AI consultants don't have shadow auth.users rows
+        // (the 0000_consolidated migration seeds them, but the cleanup has not
+        // always been applied), the insert fails with a 23503 FK violation.
+        // Retry once with senderId=null: the column is nullable and the UI
+        // treats any message whose senderId differs from the human user's id
+        // as the AI's reply, so a null sender renders on the correct side.
+        const supaInsert = await insertRow(env, "Message", {
+          id: assistantId,
           conversationId,
           senderId: persona.userId,
           content: safeText,
           type: "text",
+          createdAt: now,
         });
-
-        persisted = { id: assistantId, senderId: persona.userId, content: safeText, createdAt: now };
+        if (supaInsert.error) {
+          console.warn("[chat-handler] Supabase Message insert failed (persona sender):", supaInsert.error.message);
+          const retry = await insertRow(env, "Message", {
+            id: assistantId,
+            conversationId,
+            senderId: null,
+            content: safeText,
+            type: "text",
+            metadata: { ai_consultant_id: persona.id, ai_consultant_name: persona.name },
+            createdAt: now,
+          });
+          if (retry.error) {
+            console.error("[chat-handler] Supabase Message retry insert failed:", retry.error.message);
+          } else {
+            persisted = { id: assistantId, senderId: persona.userId, content: safeText, createdAt: now };
+          }
+        } else {
+          persisted = { id: assistantId, senderId: persona.userId, content: safeText, createdAt: now };
+        }
       }
 
       const suggestionLocale = pickSuggestionLocale(trimmed);
