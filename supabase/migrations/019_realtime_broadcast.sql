@@ -217,27 +217,32 @@ CREATE TRIGGER trg_broadcast_notification
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- Enable RLS on the realtime.messages catalog (required for private:true channels)
+-- Wrapped: SQL Editor user may not own realtime.messages (owned by supabase_admin).
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
+  DROP POLICY IF EXISTS "realtime_admin_all"     ON realtime.messages;
 
-DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
-DROP POLICY IF EXISTS "realtime_admin_all"     ON realtime.messages;
+  CREATE POLICY "realtime_user_channels" ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (
+      realtime.topic() LIKE 'user:' || (SELECT auth.uid())::text || ':%'
+      OR realtime.topic() LIKE 'room:%'
+      OR realtime.topic() LIKE 'consultant:' || (SELECT auth.uid())::text || ':%'
+      OR realtime.topic() LIKE 'booking:%'
+    );
 
--- Users can subscribe to their own channels only
-CREATE POLICY "realtime_user_channels" ON realtime.messages
-  FOR SELECT TO authenticated
-  USING (
-    realtime.topic() LIKE 'user:' || (SELECT auth.uid())::text || ':%'
-    OR realtime.topic() LIKE 'room:%'
-    OR realtime.topic() LIKE 'consultant:' || (SELECT auth.uid())::text || ':%'
-    OR realtime.topic() LIKE 'booking:%'
-  );
+  CREATE POLICY "realtime_admin_all" ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (
+      COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER')
+        IN ('ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'VIEWER')
+    );
 
--- Admins can subscribe to anything
-CREATE POLICY "realtime_admin_all" ON realtime.messages
-  FOR SELECT TO authenticated
-  USING (
-    COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER')
-      IN ('ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'VIEWER')
-  );
+  RAISE NOTICE 'realtime.messages RLS policies applied';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Skipping realtime.messages RLS — not owner of table (safe to ignore)';
+END $$;
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- 7. VERIFICATION

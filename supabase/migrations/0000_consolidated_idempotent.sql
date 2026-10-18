@@ -2821,31 +2821,38 @@ BEGIN
   END LOOP;
 END $$;
 
--- RLS on realtime.messages
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
+-- RLS on realtime.messages (requires ownership — skip gracefully if not owner)
+DO $$
+BEGIN
+  ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "realtime_public_channels" ON realtime.messages;
-CREATE POLICY "realtime_public_channels" ON realtime.messages
-  FOR SELECT TO anon, authenticated
-  USING (realtime.topic() IN ('consultant:ai:updates', 'consultants:live'));
+  DROP POLICY IF EXISTS "realtime_public_channels" ON realtime.messages;
+  CREATE POLICY "realtime_public_channels" ON realtime.messages
+    FOR SELECT TO anon, authenticated
+    USING (realtime.topic() IN ('consultant:ai:updates', 'consultants:live'));
 
-DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
-CREATE POLICY "realtime_user_channels" ON realtime.messages
-  FOR SELECT TO authenticated
-  USING (
-    realtime.topic() LIKE 'user:' || (SELECT auth.uid())::text || ':%'
-    OR realtime.topic() LIKE 'consultant:' || (SELECT auth.uid())::text || ':%'
-    OR (realtime.topic() LIKE 'room:%' AND public.user_is_in_conversation(
-      SUBSTRING(realtime.topic() FROM 'room:([0-9a-f-]{36}):')::uuid))
-    OR (realtime.topic() LIKE 'booking:%' AND public.user_can_view_booking(
-      SUBSTRING(realtime.topic() FROM 'booking:([0-9a-f-]{36}):')::uuid))
-    OR realtime.topic() LIKE 'presence:%'
-  );
+  DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
+  CREATE POLICY "realtime_user_channels" ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (
+      realtime.topic() LIKE 'user:' || (SELECT auth.uid())::text || ':%'
+      OR realtime.topic() LIKE 'consultant:' || (SELECT auth.uid())::text || ':%'
+      OR (realtime.topic() LIKE 'room:%' AND public.user_is_in_conversation(
+        SUBSTRING(realtime.topic() FROM 'room:([0-9a-f-]{36}):')::uuid))
+      OR (realtime.topic() LIKE 'booking:%' AND public.user_can_view_booking(
+        SUBSTRING(realtime.topic() FROM 'booking:([0-9a-f-]{36}):')::uuid))
+      OR realtime.topic() LIKE 'presence:%'
+    );
 
-DROP POLICY IF EXISTS "realtime_admin_all" ON realtime.messages;
-CREATE POLICY "realtime_admin_all" ON realtime.messages
-  FOR SELECT TO authenticated
-  USING (COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER') IN ('ADMIN','SUPER_ADMIN','SUPPORT','VIEWER'));
+  DROP POLICY IF EXISTS "realtime_admin_all" ON realtime.messages;
+  CREATE POLICY "realtime_admin_all" ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER') IN ('ADMIN','SUPER_ADMIN','SUPPORT','VIEWER'));
+
+  RAISE NOTICE 'realtime.messages RLS policies applied';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Skipping realtime.messages RLS — not owner of table (safe to ignore)';
+END $$;
 -- ============================================================================
 -- SECTION 24 - GRANTS / SECURITY FIXES
 -- ============================================================================

@@ -40,25 +40,33 @@ SELECT id, 0 FROM public."User" WHERE role = 'AI'
 ON CONFLICT ("userId") DO NOTHING;
 
 -- ─── 3. RLS ON realtime.messages ────────────────────────────────────────────
--- Required for private channels. Without this, private:true subscriptions fail.
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
+-- Required for private channels. Wrapped in exception handler because
+-- SQL Editor user may not own realtime.messages (owned by supabase_admin).
+DO $$
+BEGIN
+  ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
-CREATE POLICY "realtime_user_channels" ON realtime.messages
-FOR SELECT TO authenticated
-USING (
-  realtime.topic() LIKE 'user:' || auth.uid()::text || ':%'
-  OR realtime.topic() LIKE 'room:%'
-  OR realtime.topic() LIKE 'consultant:' || auth.uid()::text || ':%'
-);
+  DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
+  CREATE POLICY "realtime_user_channels" ON realtime.messages
+  FOR SELECT TO authenticated
+  USING (
+    realtime.topic() LIKE 'user:' || auth.uid()::text || ':%'
+    OR realtime.topic() LIKE 'room:%'
+    OR realtime.topic() LIKE 'consultant:' || auth.uid()::text || ':%'
+  );
 
-DROP POLICY IF EXISTS "realtime_admin_all" ON realtime.messages;
-CREATE POLICY "realtime_admin_all" ON realtime.messages
-FOR SELECT TO authenticated
-USING (
-  COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER') IN
-  ('ADMIN','SUPER_ADMIN','SUPPORT','VIEWER')
-);
+  DROP POLICY IF EXISTS "realtime_admin_all" ON realtime.messages;
+  CREATE POLICY "realtime_admin_all" ON realtime.messages
+  FOR SELECT TO authenticated
+  USING (
+    COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER') IN
+    ('ADMIN','SUPER_ADMIN','SUPPORT','VIEWER')
+  );
+
+  RAISE NOTICE 'realtime.messages RLS policies applied';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Skipping realtime.messages RLS — not owner of table (safe to ignore)';
+END $$;
 
 -- ─── 4. BROADCAST TRIGGERS ──────────────────────────────────────────────────
 

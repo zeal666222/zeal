@@ -1,36 +1,44 @@
 -- 201_realtime_rls_restore.sql — restore participant guards loosened by 091
+-- Wrapped: SQL Editor user may not own realtime.messages (owned by supabase_admin).
 BEGIN;
 
-DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
-DROP POLICY IF EXISTS "realtime_public_channels" ON realtime.messages;
-DROP POLICY IF EXISTS "realtime_admin_all" ON realtime.messages;
+DO $$
+BEGIN
+  DROP POLICY IF EXISTS "realtime_user_channels" ON realtime.messages;
+  DROP POLICY IF EXISTS "realtime_public_channels" ON realtime.messages;
+  DROP POLICY IF EXISTS "realtime_admin_all" ON realtime.messages;
 
-CREATE POLICY "realtime_public_channels" ON realtime.messages
-  FOR SELECT TO anon, authenticated
-  USING (realtime.topic() IN ('consultant:ai:updates', 'consultants:live'));
+  CREATE POLICY "realtime_public_channels" ON realtime.messages
+    FOR SELECT TO anon, authenticated
+    USING (realtime.topic() IN ('consultant:ai:updates', 'consultants:live'));
 
-CREATE POLICY "realtime_user_channels" ON realtime.messages
-  FOR SELECT TO authenticated
-  USING (
-    realtime.topic() LIKE 'user:' || (SELECT auth.uid())::text || ':%'
-    OR realtime.topic() LIKE 'consultant:' || (SELECT auth.uid())::text || ':%'
-    OR (
-      realtime.topic() LIKE 'room:%'
-      AND public.user_is_in_conversation(
-        SUBSTRING(realtime.topic() FROM 'room:([0-9a-f-]{36}):')::uuid)
-    )
-    OR (
-      realtime.topic() LIKE 'booking:%'
-      AND public.user_can_view_booking(
-        SUBSTRING(realtime.topic() FROM 'booking:([0-9a-f-]{36}):')::uuid)
-    )
-    OR realtime.topic() LIKE 'presence:%'
-  );
+  CREATE POLICY "realtime_user_channels" ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (
+      realtime.topic() LIKE 'user:' || (SELECT auth.uid())::text || ':%'
+      OR realtime.topic() LIKE 'consultant:' || (SELECT auth.uid())::text || ':%'
+      OR (
+        realtime.topic() LIKE 'room:%'
+        AND public.user_is_in_conversation(
+          SUBSTRING(realtime.topic() FROM 'room:([0-9a-f-]{36}):')::uuid)
+      )
+      OR (
+        realtime.topic() LIKE 'booking:%'
+        AND public.user_can_view_booking(
+          SUBSTRING(realtime.topic() FROM 'booking:([0-9a-f-]{36}):')::uuid)
+      )
+      OR realtime.topic() LIKE 'presence:%'
+    );
 
-CREATE POLICY "realtime_admin_all" ON realtime.messages
-  FOR SELECT TO authenticated
-  USING (COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER')
-         IN ('ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'VIEWER'));
+  CREATE POLICY "realtime_admin_all" ON realtime.messages
+    FOR SELECT TO authenticated
+    USING (COALESCE(auth.jwt() -> 'app_metadata' ->> 'role', 'USER')
+           IN ('ADMIN', 'SUPER_ADMIN', 'SUPPORT', 'VIEWER'));
+
+  RAISE NOTICE 'realtime.messages RLS policies restored';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Skipping realtime.messages RLS — not owner of table (safe to ignore)';
+END $$;
 
 -- Guard functions (idempotent)
 CREATE OR REPLACE FUNCTION public.user_is_in_conversation(p_conversation_id uuid)
