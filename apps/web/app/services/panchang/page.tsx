@@ -17,7 +17,7 @@ import {
   Loader2, MapPin, Moon, RefreshCw, ScrollText, Share2, Sparkles, Star, Sun,
   Sunrise, Sunset, Users,
 } from "lucide-react";
-import { LocationAutocomplete, type PlaceSuggestionData } from "@zeal/ui";
+import { LocationAutocomplete, BrandSpinner, type PlaceSuggestionData } from "@zeal/ui";
 import ConsultantCTA from "@/components/shared/ConsultantCTA";
 import {
   KARANA_GUIDANCE, NAKSHATRA_GUIDANCE, TITHI_GUIDANCE, VARA_GUIDANCE,
@@ -357,7 +357,7 @@ export default function PanchangPage() {
         {/* ── Loading ── */}
         {loading && !panchang && (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Loader2 size={26} className="animate-spin text-[var(--color-primary)]" />
+            <BrandSpinner size={26} className="text-[var(--color-primary)]" />
             <p className="text-sm text-muted-foreground animate-pulse">Computing your Panchang — tithi, nakshatra, Rahu Kaal…</p>
           </div>
         )}

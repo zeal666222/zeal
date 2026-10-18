@@ -20,6 +20,11 @@ export class CircuitBreaker {
   private cooldownMs = BASE_COOLDOWN_MS;
   private lastFailureAt: number | null = null;
   private lastSuccessAt: number | null = null;
+  // Half-open probe guard: exactly one in-flight probe per breaker.
+  private probeInFlight = false;
+  private probeStartedAt = 0;
+  // Industry-standard: probe hanging for >30s is considered failed.
+  private readonly probeTimeoutMs = 30_000;
 
   private readonly threshold: number;
   private readonly provider: ProviderName;
@@ -41,11 +46,26 @@ export class CircuitBreaker {
     if (this.state === "open") {
       if (Date.now() >= this.openUntil) {
         this.state = "half-open";
-        return true;
+        this.probeInFlight = false;
+        this.probeStartedAt = 0;
+      } else {
+        return false;
       }
-      return false;
     }
-    // half-open — allow exactly one request
+    // half-open — allow exactly one in-flight probe
+    if (this.state === "half-open") {
+      if (this.probeInFlight) {
+        // Stale probe (crashed request never resolved) — reclaim.
+        if (Date.now() - this.probeStartedAt > this.probeTimeoutMs) {
+          this.probeInFlight = false;
+        } else {
+          return false;
+        }
+      }
+      this.probeInFlight = true;
+      this.probeStartedAt = Date.now();
+      return true;
+    }
     return true;
   }
 
@@ -53,6 +73,7 @@ export class CircuitBreaker {
     this.consecutiveFailures = 0;
     this.successCount++;
     this.lastSuccessAt = Date.now();
+    this.probeInFlight = false;
     if (this.state !== "closed") {
       this.state = "closed";
       this.cooldownMs = BASE_COOLDOWN_MS; // reset backoff on full recovery
@@ -65,6 +86,7 @@ export class CircuitBreaker {
     this.consecutiveFailures++;
     this.failureCount++;
     this.lastFailureAt = Date.now();
+    this.probeInFlight = false;
 
     if (this.state === "half-open") {
       // Probe failed — re-open with doubled cooldown
@@ -82,9 +104,10 @@ export class CircuitBreaker {
     this.openUntil = Date.now() + this.cooldownMs;
     this.cooldownMs = Math.min(this.cooldownMs * 2, MAX_COOLDOWN_MS);
     this.consecutiveFailures = 0;
+    this.probeInFlight = false;
   }
 
-  health(): ProviderHealth {
+  health(): ProviderHealth & { probeInFlight: boolean; cooldownMs: number } {
     const avg =
       this.latencies.length > 0
         ? Math.round(this.latencies.reduce((a, b) => a + b, 0) / this.latencies.length)
@@ -98,6 +121,8 @@ export class CircuitBreaker {
       avgLatencyMs: avg,
       successCount: this.successCount,
       failureCount: this.failureCount,
+      probeInFlight: this.probeInFlight,
+      cooldownMs: this.cooldownMs,
     };
   }
 
@@ -107,6 +132,8 @@ export class CircuitBreaker {
     this.consecutiveFailures = 0;
     this.openUntil = 0;
     this.cooldownMs = BASE_COOLDOWN_MS;
+    this.probeInFlight = false;
+    this.probeStartedAt = 0;
   }
 }
 

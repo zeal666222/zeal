@@ -49,7 +49,14 @@ export async function setCached<T>(
   }
 }
 
-/** Convenience: wrap any async producer with cache */
+/** Convenience: wrap any async producer with cache + single-flight.
+ *
+ *  Industry pattern for AI upstreams: when 1000 concurrent requests hit the
+ *  same cache miss, only ONE producer call runs; the rest await the same
+ *  promise. Prevents thundering-herd against rate-limited providers.
+ */
+const inflight = new Map<string, Promise<unknown>>();
+
 export async function withCache<T>(
   opts: CacheOptions,
   payload: unknown,
@@ -58,7 +65,23 @@ export async function withCache<T>(
   const hit = await getCached<T>(opts.namespace, payload);
   if (hit !== null) return { value: hit, cached: true };
 
-  const value = await producer();
-  await setCached(opts.namespace, payload, value, opts.ttl);
+  const key = cacheKey(opts.namespace, payload);
+  const existing = inflight.get(key) as Promise<T> | undefined;
+  if (existing) {
+    const value = await existing;
+    return { value, cached: true };
+  }
+
+  const run = (async () => {
+    try {
+      const value = await producer();
+      await setCached(opts.namespace, payload, value, opts.ttl);
+      return value;
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, run);
+  const value = await run;
   return { value, cached: false };
 }

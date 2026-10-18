@@ -5,6 +5,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { BrandSpinner } from "@zeal/ui";
 import {
   Upload, Loader2, RotateCcw, Sparkles, Camera, Hand, Eye,
   ChevronRight, ArrowRight, MessageCircle, Users, Clock,
@@ -628,7 +629,7 @@ function ReadingPhase({
         <div className="flex items-center gap-2 mb-3">
           <Hand size={16} className="text-amber-400" />
           <h3 className="font-black text-sm text-foreground">AI Master Palmist</h3>
-          {loadingAI && <Loader2 size={12} className="animate-spin text-purple-400 ml-auto" />}
+          {loadingAI && <BrandSpinner size={12} className="text-purple-400 ml-auto" />}
         </div>
         {aiSynthesis ? (
           <div className="text-sm text-foreground/85 leading-relaxed whitespace-pre-wrap">
@@ -637,7 +638,7 @@ function ReadingPhase({
           </div>
         ) : loadingAI ? (
           <div className="flex items-center gap-3 text-muted-foreground text-sm" role="status">
-            <Loader2 size={16} className="animate-spin" aria-hidden />
+            <BrandSpinner size={16} aria-hidden />
             Crafting your reading from the ancient wisdom of palmistry…
           </div>
         ) : null}
@@ -663,7 +664,7 @@ function ReadingPhase({
 
         {loadingConsultants ? (
           <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
-            <Loader2 size={12} className="animate-spin" aria-hidden /> Looking for available palmists…
+            <BrandSpinner size={12} aria-hidden /> Looking for available palmists…
           </div>
         ) : consultants.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -21,7 +21,7 @@ import {
   Share2, ShieldCheck, Sparkles, Square, Star, User, UserRound, Users, Wand2,
   X, XCircle,
 } from "lucide-react";
-import { cn, LocationAutocomplete, type PlaceSuggestionData } from "@zeal/ui";
+import { cn, LocationAutocomplete, BrandSpinner, type PlaceSuggestionData } from "@zeal/ui";
 import { ReadingMarkdown, sanitizeReading } from "@/components/astrology/ReadingMarkdown";
 import type { KundaliResult, PlanetInHouse } from "@/lib/kundali/engine";
 
@@ -1193,7 +1193,7 @@ function InputPhase({
           >
             {submitting ? (
               <>
-                <Loader2 size={18} className="animate-spin" /> Computing…
+                <BrandSpinner size={18} /> Computing…
               </>
             ) : (
               <>
@@ -1372,7 +1372,7 @@ function ComputingPhase() {
         </AnimatePresence>
 
         <div className="flex items-center justify-center gap-1.5">
-          <Loader2 size={12} className="animate-spin text-amber-400" />
+          <BrandSpinner size={12} className="text-amber-400" />
           <span className="text-[10px] text-muted-foreground">
             The astronomical engine is working live — the full chart appears as soon as the result arrives
           </span>

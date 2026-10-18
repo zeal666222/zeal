@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { fetchAIJson } from "@/lib/ai/json-fetch";
+import { BrandSpinner } from "@zeal/ui";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import {
@@ -1129,7 +1130,7 @@ function ReadingPhase({
 
                 {loadingConsultants ? (
                   <div className="flex items-center justify-center py-6">
-                    <Loader2 size={20} className="text-amber-400 animate-spin" />
+                    <BrandSpinner size={20} className="text-amber-400" />
                   </div>
                 ) : consultants.length > 0 ? (
                   <div className="grid grid-cols-2 gap-3">

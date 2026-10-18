@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {createAdminClient} from "@zeal/database/server";
+import { snapshotAi } from "@/lib/monitoring/ai-metrics";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 interface C { name: string; status: "ok"|"degraded"|"down"; latencyMs?: number; error?: string }
@@ -50,5 +51,6 @@ export async function GET() {
     uptime: Math.floor(process.uptime()),
     responseTimeMs: Date.now() - t0,
     checks,
+    ai: snapshotAi(),
   }, { status: criticalDown ? 503 : 200, headers: { "Cache-Control": "no-store, max-age=0" } });
 }

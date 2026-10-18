@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { fetchAIJson } from "@/lib/ai/json-fetch";
+import { BrandSpinner } from "@zeal/ui";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Layers, Loader2, RotateCcw, Sparkles, Star, Eye, Moon, Sun,
@@ -1217,7 +1218,7 @@ function ReadingPhase({
               </h2>
               {loading && !parsedReading && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider text-indigo-300" role="status">
-                  <Loader2 size={10} className="animate-spin" /> AI deep-dive
+                  <BrandSpinner size={10} /> AI deep-dive
                 </span>
               )}
             </div>
@@ -1396,7 +1397,7 @@ function ReadingPhase({
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Users size={14} className="text-purple-400" /> Online Tarot Experts
               </h3>
-              {loadingConsultants && <Loader2 size={12} className="animate-spin text-muted-foreground" aria-hidden />}
+              {loadingConsultants && <BrandSpinner size={12} className="text-muted-foreground" aria-hidden />}
             </div>
 
             {consultants.length === 0 && !loadingConsultants ? (

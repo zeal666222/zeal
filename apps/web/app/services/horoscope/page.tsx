@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import Image from "next/image";
 import { fetchAIJson } from "@/lib/ai/json-fetch";
+import { BrandSpinner } from "@zeal/ui";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sun, Moon, Star, Sparkles, RotateCcw, Loader2, ChevronRight,
@@ -1307,7 +1308,7 @@ function ConsultPhase({
 
       {loadingConsultants ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={24} className="text-amber-400 animate-spin" />
+          <BrandSpinner size={24} className="text-amber-400" />
         </div>
       ) : consultants.length === 0 ? (
         <div className="text-center py-12">

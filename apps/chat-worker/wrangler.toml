@@ -5,12 +5,17 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "production"
-ASTRO_WORKER_URL = "https://zeal-astro.zeal666app.workers.dev"
+ASTRO_WORKER_URL = "https://zeal-astro.zeal666-app.workers.dev"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "zeal-chat-db"
 database_id = "5cd68855-a38b-47ea-b426-adf5b5807a0c"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "zeal"
+preview_bucket_name = "zeal"
 
 [observability]
 enabled = true

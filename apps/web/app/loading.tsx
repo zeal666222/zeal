@@ -1,14 +1,5 @@
-import * as React from "react";
+import { BrandLoader } from "@zeal/ui";
 
 export default function Loading() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      <div className="flex items-center gap-2">
-        <span className="w-2.5 h-2.5 bg-[var(--color-primary)] rounded-full animate-bounce" />
-        <span className="w-2.5 h-2.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:0.2s]" />
-        <span className="w-2.5 h-2.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:0.4s]" />
-      </div>
-      <p className="mt-4 text-sm text-[var(--color-subtle-foreground)] dark:text-gray-400">Loading...</p>
-    </div>
-  );
+  return <BrandLoader variant="cards" count={6} label="Summoning the readings…" />;
 }

@@ -1,4 +1,5 @@
 import type { Env } from "./env";
+import { PersonaEngine } from "./persona-engine";
 
 export interface ConsultantRow {
   id: string;
@@ -33,6 +34,8 @@ export interface PersonaContext {
   safetyLevel: "RELAXED" | "STANDARD" | "STRICT";
   bannedPatterns: string[];
   fewShots: Array<{ role: "assistant" | "user"; content: string }>;
+  location: string | null;
+  country: string | null;
 }
 
 function parseJsonArray(raw: string | null): string[] {
@@ -69,43 +72,53 @@ export async function loadPersona(
     return null;
   }
 
-  const systemPrompt = row.system_prompt ?? buildDefaultSystemPrompt(row);
+  const specialties = parseJsonArray(row.specialties);
+  const languages = parseJsonArray(row.languages);
+  const bannedPatterns = parseJsonArray(row.banned_patterns);
+
+  // Build the rich role contract via PersonaEngine (adds ~2000 chars of
+  // expertise anchors, prohibitions, reasoning protocol, psychology patterns,
+  // few-shots, language directives). Falls back to raw DB prompt only if
+  // PersonaEngine throws for an unknown reason.
+  let contract: ReturnType<typeof PersonaEngine.build>;
+  try {
+    contract = PersonaEngine.build({
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      bio: row.bio ?? "",
+      specialties,
+      languages,
+      persona: row.persona,
+      systemPrompt: row.system_prompt,
+      location: row.location,
+      country: row.country,
+    });
+  } catch (e) {
+    console.error("[persona-loader] PersonaEngine.build failed:", e);
+    contract = {
+      systemPrompt: row.system_prompt ?? `You are ${row.name}, a ${row.category.toLowerCase()} consultant.`,
+      prohibitions: [],
+      fewShots: [],
+    };
+  }
 
   return {
     id: row.id,
     userId: row.id,
     name: row.name,
     category: row.category,
-    systemPrompt,
+    systemPrompt: contract.systemPrompt,
     persona: row.persona,
     bio: row.bio ?? "",
-    specialties: parseJsonArray(row.specialties),
-    languages: parseJsonArray(row.languages),
+    specialties,
+    languages,
     isPaid: row.is_paid === 1,
     perMinuteRate: row.per_minute_rate ?? 0,
     safetyLevel: (row.safety_level ?? "STANDARD") as PersonaContext["safetyLevel"],
-    bannedPatterns: parseJsonArray(row.banned_patterns),
-    fewShots: [],
+    bannedPatterns,
+    fewShots: contract.fewShots,
+    location: row.location,
+    country: row.country,
   };
-}
-
-function buildDefaultSystemPrompt(row: ConsultantRow): string {
-  const name = row.name;
-  const category = row.category;
-  const bio = row.bio ?? `a ${category.toLowerCase()} consultant`;
-  const specialties = parseJsonArray(row.specialties);
-  const specStr = specialties.length > 0 ? specialties.join(", ") : category.toLowerCase();
-
-  return `You are ${name}, a ${bio}. You specialize in ${specStr}.
-
-Speak in a warm, conversational Hinglish style (mix of Hindi and English). Be empathetic, insightful, and practical.
-
-Guidelines:
-- Never claim to predict the future with certainty
-- Always frame guidance as possibilities, not guarantees
-- Respect the seeker's free will and autonomy
-- Draw from traditional wisdom and modern psychology
-- Keep responses concise (2-4 paragraphs) unless depth is requested
-- Use the seeker's name if known
-- Never discuss topics outside your expertise`;
 }

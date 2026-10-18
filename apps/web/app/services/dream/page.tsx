@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { BrandSpinner } from "@zeal/ui";
 import {
   Moon, Star, Sparkles, Loader2, RotateCcw, ArrowRight,
   ChevronRight, MessageCircle, Users, Clock, CheckCircle2,
@@ -856,7 +857,7 @@ function ReadingPhase({
         <div className="flex items-center gap-2 mb-4">
           <Sparkles size={16} className="text-indigo-400" />
           <h3 className="font-bold text-sm text-foreground">AI Master Interpretation</h3>
-          {loadingAI && <Loader2 size={14} className="text-indigo-400 animate-spin ml-auto" />}
+          {loadingAI && <BrandSpinner size={14} className="text-indigo-400 ml-auto" />}
         </div>
         {aiSynthesis ? (
           <div className="prose prose-sm prose-invert max-w-none">
@@ -892,7 +893,7 @@ function ReadingPhase({
         </div>
         {loadingConsultants ? (
           <div className="flex items-center justify-center py-6">
-            <Loader2 size={20} className="text-indigo-400 animate-spin" aria-hidden />
+            <BrandSpinner size={20} className="text-indigo-400" aria-hidden />
           </div>
         ) : consultants.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">

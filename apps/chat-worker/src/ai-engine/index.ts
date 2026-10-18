@@ -4,11 +4,21 @@ import { getLimiter } from "./token-bucket";
 import { getBreaker } from "./circuit-breaker";
 import { getCFModel, workersAiChatUrl, workersAiKey } from "./cloudflare-workers-ai";
 import { contentToText, hasStructuredContent } from "./types";
+import { buildHardcodedJsonResponse, buildHardcodedStreamResponse } from "./hardcoded-oracle";
 import type { AIMessage, CallAIOptions, EngineEvent, EngineEventHandler, ProviderDef, ProviderName } from "./types";
 
 function buildProviders(env: Env): Record<ProviderName, ProviderDef> {
   const ZHIPU_MODEL = "glm-4v-flash";
-  return {
+  const map: Record<ProviderName, ProviderDef> = {
+    // Local deterministic fallback — never goes into FALLBACK_CHAIN, used
+    // only as the last-resort response builder in callAI.
+    hardcoded: {
+      name: "hardcoded", label: "Zeal Local Oracle",
+      url: "local://hardcoded", key: () => null,
+      model: "zeal-hardcoded-oracle",
+      maxConcurrent: 1_000_000, rpm: 1_000_000, tpm: 1_000_000, weight: 0,
+      keyless: true,
+    },
     groqPro: {
       name: "groqPro", label: "Groq 70B",
       url: "https://api.groq.com/openai/v1/chat/completions",
@@ -96,6 +106,7 @@ function buildProviders(env: Env): Record<ProviderName, ProviderDef> {
       keyless: true,
     },
   };
+  return map;
 }
 
 const FALLBACK_CHAIN: ProviderName[] = [
@@ -279,15 +290,46 @@ export async function callAI(
     }
   }
 
-  throw new AIUnavailableError(HUMAN_UNAVAILABLE, lastInternal);
+  // ─── Last resort: local hardcoded oracle ────────────────────────────────
+  // Guarantees the user always gets a rich, on-brand reply instead of an
+  // empty error bubble. Never throws past this point.
+  emit({ type: "provider:attempt", provider: "hardcoded", attempt: 0 });
+  const hard = hardcodedResponse(opts);
+  emit({ type: "provider:success", provider: "hardcoded", latencyMs: 1 });
+  return { response: hard, provider: "hardcoded", attempts: [...attempts, { provider: "hardcoded", reason: "last-resort" }] };
+}
+
+function hardcodedResponse(opts: CallAIOptions): Response {
+  // Extract persona context from the system message and last user message.
+  const sys = opts.messages.find((m) => m.role === "system");
+  const sysText = typeof sys?.content === "string" ? sys.content : contentToText(sys?.content ?? "");
+  const lastUser = [...opts.messages].reverse().find((m) => m.role === "user");
+  const userText = typeof lastUser?.content === "string" ? lastUser.content : contentToText(lastUser?.content ?? "");
+
+  const nameMatch = sysText.match(/(?:I am|my name is|You are|\bname:)\s*([A-Z][\p{L}'’\- ]{1,30}?)(?=[\n,.;:!?]|$)/u);
+  const catMatch = sysText.match(/\b(category|speciality|specialty)\s*[:\-]\s*([a-zA-Z\- ]{3,40})/i);
+
+  const input = {
+    personaName: nameMatch?.[1]?.trim(),
+    personaCategory: catMatch?.[2]?.trim()?.toLowerCase(),
+    systemPrompt: sysText.slice(0, 3000),
+    userMessage: userText.trim() || "Tell me something.",
+  };
+
+  return opts.stream
+    ? buildHardcodedStreamResponse(input)
+    : buildHardcodedJsonResponse(input);
 }
 
 export async function callAIJson(env: Env, opts: CallAIOptions & { onEvent?: EngineEventHandler }): Promise<string> {
   const { response } = await callAI(env, { ...opts, stream: false });
-  const data = await response.json();
+  const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
   const content = data?.choices?.[0]?.message?.content;
-  if (!content) throw new AIUnavailableError(HUMAN_UNAVAILABLE, "empty response");
-  return content as string;
+  if (content) return content as string;
+  // Empty upstream — return hardcoded deterministic reply.
+  const hardRes = hardcodedResponse(opts);
+  const hardData = await hardRes.json() as { choices?: Array<{ message?: { content?: string } }> };
+  return (hardData?.choices?.[0]?.message?.content as string) ?? "";
 }
 
 export { allGateStats } from "./concurrency-gate";

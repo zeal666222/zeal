@@ -869,3 +869,504 @@ body {
   .zb-horizon { transition: none !important; }
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   BrandLoader — branded loading surfaces
+   Every loading.tsx, submit button, and pending chat bubble routes through this.
+   Uses ZealMark as the hero and shape-aware skeletons underneath.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.brand-loader {
+  --bl-fg: color-mix(in oklab, var(--color-primary) 55%, transparent);
+  --bl-track: color-mix(in oklab, var(--color-surface-raised) 80%, transparent);
+  --bl-radius: 14px;
+  --bl-skel-h: 12px;
+}
+.brand-loader--stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 48px 20px;
+  width: 100%;
+}
+.brand-loader--dense {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.brand-loader--inline {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.brand-loader--page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  padding: 72px 20px 96px;
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
+}
+.brand-loader__mark {
+  display: inline-grid;
+  place-items: center;
+  filter: drop-shadow(0 6px 22px color-mix(in oklab, var(--zeal-g3) 22%, transparent));
+  animation: brand-loader-breathe 2.6s var(--zb-e-resolve) infinite;
+}
+.brand-loader__label {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-primary) 65%, var(--color-surface-raised));
+  opacity: 0.75;
+  text-align: center;
+  animation: brand-loader-fade 1.6s var(--zb-e-resolve) 0.15s both;
+}
+.brand-loader__grid {
+  width: 100%;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.brand-loader__bubbles {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.brand-loader__profile {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  gap: 22px;
+  align-items: flex-start;
+}
+.brand-loader__profile-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.brand-skel {
+  position: relative;
+  background: var(--bl-track);
+  border-radius: var(--bl-radius);
+  overflow: hidden;
+  isolation: isolate;
+}
+.brand-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, var(--bl-fg) 25%, transparent) 45%,
+    color-mix(in oklab, var(--zeal-gold) 35%, transparent) 50%,
+    color-mix(in oklab, var(--bl-fg) 25%, transparent) 55%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: brand-skel-sweep 1.7s var(--zb-e-drift) infinite;
+  z-index: 1;
+  mix-blend-mode: plus-lighter;
+}
+.brand-skel--card {
+  height: 210px;
+  border-radius: 20px;
+}
+.brand-skel--bubble {
+  height: 68px;
+  border-radius: 20px;
+  width: 65%;
+}
+.brand-skel--bubble-left { align-self: flex-start; border-bottom-left-radius: 8px; }
+.brand-skel--bubble-right {
+  align-self: flex-end;
+  border-bottom-right-radius: 8px;
+  width: 55%;
+}
+.brand-skel--bubble-right + .brand-skel--bubble-right { width: 45%; }
+.brand-skel--avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.brand-skel--line { height: 12px; border-radius: 6px; }
+
+.brand-pending-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  opacity: 0.75;
+  animation: brand-loader-breathe 1.4s var(--zb-e-resolve) infinite;
+}
+
+.brand-streaming {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.brand-streaming__dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.brand-streaming__dots > span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--zeal-g3);
+  opacity: 0.35;
+  animation: brand-streaming-tap 1.2s var(--zb-e-resolve) infinite;
+}
+.brand-streaming__dots > span:nth-child(2) { animation-delay: 160ms; background: var(--zeal-g2); }
+.brand-streaming__dots > span:nth-child(3) { animation-delay: 320ms; background: var(--zeal-gold); }
+
+@keyframes brand-loader-breathe {
+  0%, 100% { transform: translateY(0); opacity: 0.95; }
+  50%      { transform: translateY(-3px); opacity: 1; }
+}
+@keyframes brand-loader-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 0.75; transform: translateY(0); }
+}
+@keyframes brand-skel-sweep {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(100%); }
+}
+@keyframes brand-streaming-tap {
+  0%, 100% { transform: translateY(0); opacity: 0.35; }
+  40%      { transform: translateY(-4px); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-loader__mark,
+  .brand-pending-dot,
+  .brand-streaming__dots > span {
+    animation: none !important;
+  }
+  .brand-skel::after { animation: none !important; opacity: 0.35; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   GlobalLoader — cinematic route-transition splash
+   ─────────────────────────────────────────────────────────────────────────────
+   Full-viewport celestial veil. Reuses --zeal-g1/g2/g3/gold/core and the brand
+   easing tokens (var(--zb-e-*)). Motion is CSS-only so it survives Suspense
+   boundaries and does not depend on framer copies.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.gl-root {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 1;
+  animation: gl-in 380ms var(--zb-e-resolve) both;
+  contain: strict;
+  isolation: isolate;
+}
+.gl-root--exiting {
+  animation: gl-out 260ms var(--zb-e-resolve) both;
+}
+
+.gl-veil {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 720px at 50% 40%,
+      color-mix(in oklab, var(--zeal-g1) 22%, transparent), transparent 62%),
+    radial-gradient(920px 640px at 24% 76%,
+      color-mix(in oklab, var(--zeal-g3) 20%, transparent), transparent 66%),
+    radial-gradient(780px 520px at 78% 22%,
+      color-mix(in oklab, var(--zeal-gold) 14%, transparent), transparent 66%),
+    linear-gradient(180deg,
+      color-mix(in oklab, var(--color-background) 92%, black 8%),
+      color-mix(in oklab, var(--color-background) 98%, transparent));
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+
+.gl-aurora {
+  position: absolute;
+  inset: -12%;
+  background: conic-gradient(from 120deg at 50% 50%,
+    transparent 0%,
+    color-mix(in oklab, var(--zeal-g2) 40%, transparent) 18%,
+    transparent 34%,
+    color-mix(in oklab, var(--zeal-gold) 32%, transparent) 52%,
+    transparent 68%,
+    color-mix(in oklab, var(--zeal-g3) 38%, transparent) 84%,
+    transparent 100%);
+  filter: blur(90px);
+  opacity: 0.55;
+  animation: gl-aurora-spin 26s linear infinite;
+  will-change: transform;
+}
+
+.gl-blob {
+  position: absolute;
+  width: 38vmax;
+  height: 38vmax;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.55;
+  will-change: transform;
+  mix-blend-mode: screen;
+}
+.gl-blob--a {
+  background: var(--zeal-g1);
+  top: -14%;
+  left: -8%;
+  animation: gl-drift-a 20s ease-in-out infinite alternate;
+}
+.gl-blob--b {
+  background: var(--zeal-g3);
+  bottom: -16%;
+  right: -10%;
+  animation: gl-drift-b 24s ease-in-out infinite alternate-reverse;
+}
+.gl-blob--c {
+  background: var(--zeal-gold);
+  top: 42%;
+  left: 52%;
+  width: 22vmax;
+  height: 22vmax;
+  opacity: 0.32;
+  animation: gl-drift-c 28s ease-in-out infinite alternate;
+}
+
+.gl-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.4px 1.4px at 12% 22%, white 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 15%, white 50%, transparent 51%),
+    radial-gradient(1.6px 1.6px at 45% 78%, white 50%, transparent 51%),
+    radial-gradient(0.9px 0.9px at 88% 62%, white 50%, transparent 51%),
+    radial-gradient(1.1px 1.1px at 25% 55%, white 50%, transparent 51%),
+    radial-gradient(0.8px 0.8px at 62% 30%, white 50%, transparent 51%),
+    radial-gradient(1.3px 1.3px at 8% 82%, white 50%, transparent 51%),
+    radial-gradient(0.9px 0.9px at 92% 8%, white 50%, transparent 51%);
+  opacity: 0.5;
+  animation: gl-twinkle 3.4s ease-in-out infinite;
+}
+
+.gl-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--zeal-g2) 12%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--zeal-g2) 12%, transparent) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 72%);
+  opacity: 0.35;
+}
+
+.gl-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  animation: gl-rise 720ms var(--zb-e-resolve) both;
+}
+
+.gl-halo {
+  position: absolute;
+  inset: -60%;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 50% 50%,
+      color-mix(in oklab, var(--zeal-g2) 42%, transparent),
+      color-mix(in oklab, var(--zeal-g3) 20%, transparent) 45%,
+      transparent 70%);
+  filter: blur(30px);
+  z-index: -1;
+  animation: gl-halo-breathe 3.2s var(--zb-e-resolve) infinite;
+}
+
+.gl-lockup {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--zeal-core);
+}
+
+.gl-tagline {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: clamp(0.78rem, 0.6rem + 0.5vw, 0.92rem);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--zeal-core) 70%, transparent);
+  animation: gl-tagline-cycle 1500ms var(--zb-e-resolve) both;
+  text-shadow: 0 0 22px color-mix(in oklab, var(--zeal-g1) 32%, transparent);
+}
+
+/* Bottom rail: horizon + sweeping light + orbiting grahas */
+.gl-rail {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: clamp(24px, 4vh, 48px);
+  height: 1px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+}
+.gl-rail__track {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent,
+    color-mix(in oklab, var(--zeal-g2) 40%, transparent) 18%,
+    color-mix(in oklab, var(--zeal-gold) 60%, transparent) 50%,
+    color-mix(in oklab, var(--zeal-g2) 40%, transparent) 82%,
+    transparent);
+  opacity: 0.55;
+}
+.gl-rail__sweep {
+  position: absolute;
+  top: -1px;
+  left: -20%;
+  width: 22%;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent,
+    var(--zeal-g1) 20%,
+    var(--zeal-g2) 45%,
+    var(--zeal-core) 50%,
+    var(--zeal-g2) 55%,
+    var(--zeal-g3) 80%,
+    transparent);
+  filter: blur(0.4px);
+  box-shadow: 0 0 22px color-mix(in oklab, var(--zeal-g2) 55%, transparent);
+  animation: gl-rail-sweep 2.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+.gl-rail__orbit {
+  position: relative;
+  width: min(52vw, 520px);
+  height: 24px;
+  display: block;
+}
+.gl-rail__planet {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  animation: gl-orbit calc(var(--gl-orb-dur, 6s)) cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+.gl-rail__planet--sun {
+  background: var(--zeal-gold);
+  box-shadow: 0 0 14px var(--zeal-gold);
+  --gl-orb-dur: 5.2s;
+  width: 8px;
+  height: 8px;
+}
+.gl-rail__planet--moon {
+  background: var(--zeal-g2);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--zeal-g2) 80%, transparent);
+  --gl-orb-dur: 7.4s;
+  width: 5px;
+  height: 5px;
+  animation-delay: -2.2s;
+}
+.gl-rail__planet--venus {
+  background: var(--zeal-g1);
+  box-shadow: 0 0 10px color-mix(in oklab, var(--zeal-g1) 80%, transparent);
+  --gl-orb-dur: 9.1s;
+  width: 4px;
+  height: 4px;
+  animation-delay: -5s;
+}
+
+@keyframes gl-in {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to   { opacity: 1; }
+}
+@keyframes gl-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.985); }
+}
+@keyframes gl-rise {
+  from { opacity: 0; transform: translateY(28px) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes gl-halo-breathe {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.9;  transform: scale(1.08); }
+}
+@keyframes gl-tagline-cycle {
+  0%   { opacity: 0; transform: translateY(6px); letter-spacing: 0.28em; }
+  35%  { opacity: 1; transform: none; letter-spacing: 0.32em; }
+  100% { opacity: 1; transform: none; letter-spacing: 0.32em; }
+}
+@keyframes gl-aurora-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes gl-drift-a {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(6vmax, 4vmax, 0) scale(1.18); }
+}
+@keyframes gl-drift-b {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-5vmax, -6vmax, 0) scale(1.12); }
+}
+@keyframes gl-drift-c {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-8vmax, 5vmax, 0) scale(0.85); }
+}
+@keyframes gl-twinkle {
+  0%, 100% { opacity: 0.42; }
+  50%      { opacity: 0.85; }
+}
+@keyframes gl-rail-sweep {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(560%); }
+}
+@keyframes gl-orbit {
+  0%   { transform: translate(-50%, -50%) translateX(-48%) scale(0.7); opacity: 0; }
+  10%  { opacity: 1; }
+  50%  { transform: translate(-50%, -50%) translateX(48%) scale(1); opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translate(-50%, -50%) translateX(-48%) scale(0.7); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gl-aurora,
+  .gl-blob,
+  .gl-stars,
+  .gl-halo,
+  .gl-rail__sweep,
+  .gl-rail__planet,
+  .gl-tagline,
+  .gl-root,
+  .gl-root--exiting,
+  .gl-stage {
+    animation: none !important;
+  }
+  .gl-veil { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .gl-aurora, .gl-blob { opacity: 0.28; }
+}
+

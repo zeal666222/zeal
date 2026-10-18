@@ -5,6 +5,7 @@ import "@zeal/ui/tokens.css";
 import { ThemeProvider } from "@zeal/ui/theme";
 import { MotionProvider, SmoothScroll } from "@zeal/ui/motion";
 import { GlobalCallListener } from "@/components/global/GlobalCallListener";
+import { GlobalLoader } from "@/components/global/GlobalLoader";
 import { AppLayout, type Profile } from "@/components/navigation/AppLayout";
 import { SupabaseAuthProvider } from "@/components/providers/SupabaseAuthProvider";
 import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
@@ -13,7 +14,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { ThemeScript } from "@zeal/ui/theme-script";
 import { Toaster } from "@/components/ui/toaster";
-import { OrganizationSchema, WebSiteSchema } from "@/components/seo/StructuredData";
+import { OrganizationSchema, WebSiteSchema, SoftwareApplicationSchema } from "@/components/seo/StructuredData";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -145,9 +146,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeScript />
         <OrganizationSchema />
         <WebSiteSchema />
+        <SoftwareApplicationSchema />
       </head>
       <body className="antialiased">
         <a href="#main-content" className="skip-link">Skip to main content</a>
+        <GlobalLoader />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

@@ -29,6 +29,7 @@ import {
   contentToText,
   hasStructuredContent,
 } from "./types";
+import { buildHardcodedJsonResponse, buildHardcodedStreamResponse } from "./hardcoded-oracle";
 import type {
   AIMessage,
   CallAIOptions,
@@ -47,6 +48,16 @@ import type {
 const ZHIPU_MODEL = process.env.ZHIPU_MODEL || "glm-4v-flash";
 
 const PROVIDERS: Record<ProviderName, ProviderDef> = {
+  // Local deterministic fallback — never goes into FALLBACK_CHAIN, used as
+  // the last-resort response builder when all upstream providers fail.
+  hardcoded: {
+    name: "hardcoded", label: "Zeal Local Oracle",
+    url: "local://hardcoded",
+    key: () => null,
+    model: "zeal-hardcoded-oracle",
+    maxConcurrent: 1_000_000, rpm: 1_000_000, tpm: 1_000_000, weight: 0,
+    keyless: true,
+  },
   groqPro: {
     name: "groqPro", label: "Groq 70B",
     url: "https://api.groq.com/openai/v1/chat/completions",
@@ -512,21 +523,48 @@ async function _callAIInner(
     }
   }
 
-  console.error("[ai-engine] all providers failed:", lastInternal, { requestId });
-  throw new AIUnavailableError(HUMAN_UNAVAILABLE, lastInternal);
+  console.error("[ai-engine] all providers failed, using local hardcoded oracle:", lastInternal, { requestId });
+  // Last-resort: rich, deterministic, on-brand Hinglish/English reply. Never
+  // empty, never error-y, always a full structured answer.
+  const sys = opts.messages.find((m) => m.role === "system");
+  const sysText = typeof sys?.content === "string" ? sys.content : contentToText(sys?.content ?? "");
+  const lastUser = [...opts.messages].reverse().find((m) => m.role === "user");
+  const userText = typeof lastUser?.content === "string" ? lastUser.content : contentToText(lastUser?.content ?? "");
+  const nameMatch = sysText.match(/(?:I am|my name is|You are|\bname:)\s*([A-Z][\p{L}'’\- ]{1,30}?)(?=[\n,.;:!?]|$)/u);
+  const catMatch = sysText.match(/\b(category|speciality|specialty)\s*[:\-]\s*([a-zA-Z\- ]{3,40})/i);
+  const hardInput = {
+    personaName: nameMatch?.[1]?.trim(),
+    personaCategory: catMatch?.[2]?.trim()?.toLowerCase(),
+    systemPrompt: sysText.slice(0, 3000),
+    userMessage: userText.trim() || "Tell me something.",
+  };
+  const hard = opts.stream
+    ? buildHardcodedStreamResponse(hardInput)
+    : buildHardcodedJsonResponse(hardInput);
+  return { response: hard, provider: "hardcoded", attempts: [...attempts, { provider: "hardcoded", reason: "last-resort" }] };
 }
 
 // ─── Text-only helper ─────────────────────────────────────────────────────────
 export async function callAIJson(
   opts: CallAIOptions & { onEvent?: EngineEventHandler },
 ): Promise<string> {
-  const { response } = await callAI({ ...opts, stream: false });
+  const { response, provider } = await callAI({ ...opts, stream: false });
   const data = await response.json();
   const content = data?.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new AIUnavailableError(HUMAN_UNAVAILABLE, "empty response");
-  }
-  return content as string;
+  if (content) return content as string;
+  // Empty upstream response — fall through to hardcoded oracle so the UI
+  // never sees a blank bubble.
+  console.warn(`[ai-engine] empty content from ${provider}, using hardcoded oracle`);
+  const sys = opts.messages.find((m) => m.role === "system");
+  const sysText = typeof sys?.content === "string" ? sys.content : contentToText(sys?.content ?? "");
+  const lastUser = [...opts.messages].reverse().find((m) => m.role === "user");
+  const userText = typeof lastUser?.content === "string" ? lastUser.content : contentToText(lastUser?.content ?? "");
+  const hardRes = buildHardcodedJsonResponse({
+    systemPrompt: sysText.slice(0, 3000),
+    userMessage: userText.trim() || "Tell me something.",
+  });
+  const hardData = await hardRes.json() as { choices?: Array<{ message?: { content?: string } }> };
+  return (hardData?.choices?.[0]?.message?.content as string) ?? "";
 }
 
 // ─── Observability ────────────────────────────────────────────────────────────

@@ -141,6 +141,54 @@ const FEATURED_CATEGORIES = [
   { id: "palmistry",      label: "Palmistry",  Icon: Hand     },
 ] as const;
 
+// All 37 services — rendered as real, crawlable <Link>s in the hero marquee so
+// every category earns an above-the-fold internal link on the homepage.
+const ALL_SERVICES: Array<{ id: string; label: string }> = [
+  { id: "astrology", label: "Astrology" },
+  { id: "kundali", label: "Kundali" },
+  { id: "horoscope", label: "Horoscope" },
+  { id: "panchang", label: "Panchang" },
+  { id: "milan", label: "Guna Milan" },
+  { id: "tarot", label: "Tarot" },
+  { id: "numerology", label: "Numerology" },
+  { id: "palmistry", label: "Palmistry" },
+  { id: "face-reading", label: "Face Reading" },
+  { id: "dream", label: "Dream Interpretation" },
+  { id: "psychic", label: "Psychic Reading" },
+  { id: "clairvoyance", label: "Clairvoyance" },
+  { id: "oracle", label: "Oracle" },
+  { id: "cartomancy", label: "Cartomancy" },
+  { id: "angels", label: "Angel Cards" },
+  { id: "aura", label: "Aura Reading" },
+  { id: "past-life", label: "Past Life" },
+  { id: "shadow-work", label: "Shadow Work" },
+  { id: "therapy", label: "Therapy" },
+  { id: "psychiatry", label: "Psychiatry" },
+  { id: "hypnotherapy", label: "Hypnotherapy" },
+  { id: "life-coaching", label: "Life Coaching" },
+  { id: "business-coaching", label: "Business Coaching" },
+  { id: "health-coaching", label: "Health Coaching" },
+  { id: "relationship-coaching", label: "Relationship Coaching" },
+  { id: "spiritual-coaching", label: "Spiritual Coaching" },
+  { id: "professional-advice", label: "Career Advice" },
+  { id: "energy-healing", label: "Reiki Healing" },
+  { id: "sound-healing", label: "Sound Healing" },
+  { id: "tantra", label: "Tantra" },
+  { id: "feng-shui", label: "Feng Shui" },
+  { id: "vastu", label: "Vastu Shastra" },
+  { id: "aromatherapy", label: "Aromatherapy" },
+  { id: "naturopathy", label: "Naturopathy" },
+  { id: "acupuncture", label: "Acupuncture" },
+  { id: "chiropractic", label: "Chiropractic" },
+  { id: "massage", label: "Massage Therapy" },
+  { id: "yoga", label: "Yoga" },
+  { id: "meditation", label: "Meditation" },
+  { id: "wellness", label: "Wellness" },
+  { id: "functional-medicine", label: "Functional Medicine" },
+  { id: "pet-psychic", label: "Pet Psychic" },
+  { id: "spiritual-commerce", label: "Spiritual Store" },
+];
+
 const TICKER_EVENTS = [
   "guide came online",
   "session started",
@@ -316,8 +364,36 @@ function SectionHeader({
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SECTION — live ticker
+// SECTION — services marquee (SEO-critical: every service gets a crawlable
+// homepage link) + a compact live-activity ribbon below it.
 // ═══════════════════════════════════════════════════════════════════════════════
+
+function ServicesMarquee() {
+  const doubled = useMemo(() => [...ALL_SERVICES, ...ALL_SERVICES], []);
+  return (
+    <div
+      className="relative overflow-hidden border-y border-[color-mix(in_srgb,var(--zeal-gold)_25%,transparent)] bg-[color-mix(in_srgb,var(--zeal-g1)_8%,transparent)]"
+      aria-label="All Zeal services"
+    >
+      <div className="pointer-events-none absolute inset-y-0 left-0 w-24 z-10 bg-gradient-to-r from-background to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-24 z-10 bg-gradient-to-l from-background to-transparent" />
+      <div className="services-marquee__track">
+        {doubled.map((s, i) => (
+          <Link
+            key={`${s.id}-${i}`}
+            href={`/services/${s.id}`}
+            tabIndex={i < ALL_SERVICES.length ? 0 : -1}
+            aria-hidden={i >= ALL_SERVICES.length}
+            className="services-chip"
+          >
+            <span className="services-chip__dot" aria-hidden />
+            {s.label}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function LiveTicker({ items }: { items: string[] }) {
   const doubled = useMemo(() => [...items, ...items], [items]);
@@ -328,7 +404,7 @@ function LiveTicker({ items }: { items: string[] }) {
       <motion.div
         className="flex gap-10 py-3 whitespace-nowrap will-change-transform"
         animate={{ x: ["0%", "-50%"] }}
-        transition={{ duration: 48, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 32, repeat: Infinity, ease: "linear" }}
       >
         {doubled.map((item, i) => (
           <div
@@ -1325,6 +1401,8 @@ export function HomeClient({
           </motion.div>
         </div>
       </section>
+
+      <ServicesMarquee />
 
       <LiveTicker items={tickerItems} />
 

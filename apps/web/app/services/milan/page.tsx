@@ -21,7 +21,7 @@ import {
   Heart, Loader2, MapPin, Moon, Printer, RotateCcw, ScrollText, Share2, ShieldCheck,
   Sparkles, Star, Users, XCircle,
 } from "lucide-react";
-import { LocationAutocomplete, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@zeal/ui";
+import { LocationAutocomplete, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn, BrandSpinner } from "@zeal/ui";
 import ConsultantCTA from "@/components/shared/ConsultantCTA";
 import type { KundaliResult, PlanetInHouse } from "@/lib/kundali/engine";
 import type { KootScore, MangalStatus, MilanMatch, MilanPersonInput } from "@/lib/milan/types";
@@ -639,7 +639,7 @@ function InputPhase({
           >
             {submitting ? (
               <>
-                <Loader2 size={18} className="animate-spin" /> Computing Milan…
+                <BrandSpinner size={18} /> Computing Milan…
               </>
             ) : (
               <>
@@ -828,7 +828,7 @@ function ComputingPhase() {
           </motion.p>
         </AnimatePresence>
         <div className="flex items-center justify-center gap-1.5">
-          <Loader2 size={12} className="animate-spin text-amber-400" />
+          <BrandSpinner size={12} className="text-amber-400" />
           <span className="text-[10px] text-muted-foreground">The engine is computing live — the full breakdown appears as soon as the result arrives</span>
         </div>
       </div>
