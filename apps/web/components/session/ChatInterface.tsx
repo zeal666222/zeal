@@ -6,9 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ArrowLeft, Coins, Home, Loader2, MessageCircle, Paperclip, Send, ShieldCheck, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Coins, Heart, Home, Loader2, MessageCircle, Moon, Paperclip, Send, ShieldCheck, Sparkles, Briefcase, Clock, BarChart3, X } from "lucide-react";
 import Image from "next/image";
-import { useChat, type BillingInfo, type ChatMessage } from "@/hooks/useChat";
+import { useChat, type BillingInfo, type ChatMessage, type StageEvent, type Suggestion } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
 import { BillingPanel } from "./BillingPanel";
 import { WalletGateDialog, type WalletGateInfo } from "@/components/billing/WalletGateDialog";
@@ -82,6 +82,19 @@ const AI_QUICK_REPLIES = [
   "Analyze my Dasha period",
 ];
 
+function SuggestionIcon({ name }: { name?: Suggestion["icon"] }) {
+  const cls = "w-3 h-3 shrink-0 opacity-80";
+  switch (name) {
+    case "heart": return <Heart className={cls} />;
+    case "briefcase": return <Briefcase className={cls} />;
+    case "moon": return <Moon className={cls} />;
+    case "clock": return <Clock className={cls} />;
+    case "chart": return <BarChart3 className={cls} />;
+    case "sparkle":
+    default: return <Sparkles className={cls} />;
+  }
+}
+
 export function ChatInterface({
   conversationId,
   currentUserId,
@@ -114,6 +127,9 @@ export function ChatInterface({
   const [input, setInput] = useState("");
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [fillerText, setFillerText] = useState<string | null>(null);
+  const [streamingStage, setStreamingStage] = useState<StageEvent | null>(null);
+  const [completedStages, setCompletedStages] = useState<StageEvent[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -180,13 +196,26 @@ export function ChatInterface({
       if (isAI) {
         setStreamingText("");
         setFillerText(null);
+        setStreamingStage(null);
+        setCompletedStages([]);
+        setSuggestions([]);
         await sendToAI(partnerId, messageText, {
           onDelta: (acc) => { setStreamingText(acc); setFillerText(null); },
           onFiller: (f) => setFillerText(f),
           onBilling: handleBilling,
+          onStage: (stage) => {
+            setStreamingStage(stage);
+            setCompletedStages((prev) => {
+              if (prev.some((p) => p.index === stage.index)) return prev;
+              return [...prev, stage];
+            });
+          },
+          onStageDone: () => setStreamingStage(null),
+          onSuggestions: (s) => setSuggestions(s),
         });
         setStreamingText(null);
         setFillerText(null);
+        setStreamingStage(null);
       } else {
         const result = await send(messageText);
         if (result?.billing) handleBilling(result.billing);
@@ -444,7 +473,28 @@ export function ChatInterface({
 
         {showStreaming && (
           <div className="flex flex-col items-start">
-            <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken text-foreground border border-border text-sm leading-relaxed">
+            {streamingStage && !streamingText && (
+              <div className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)]/8 border border-[var(--color-primary)]/20 flex items-center gap-2 text-[11px] font-semibold text-[var(--color-primary)]">
+                <span className="relative flex w-1.5 h-1.5">
+                  <span className="absolute inset-0 rounded-full bg-[var(--color-primary)] animate-ping opacity-70" />
+                  <span className="relative rounded-full w-1.5 h-1.5 bg-[var(--color-primary)]" />
+                </span>
+                <span className="truncate">{streamingStage.label}</span>
+                <span className="text-[var(--color-primary)]/60 tabular-nums shrink-0">
+                  {streamingStage.index + 1}/{streamingStage.total}
+                </span>
+              </div>
+            )}
+            {completedStages.length > 0 && !streamingText && !streamingStage && (
+              <div className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 flex items-center gap-2 text-[11px] font-semibold text-emerald-400">
+                <Sparkles size={11} className="shrink-0" />
+                <span>Composing your reading…</span>
+              </div>
+            )}
+            <div className={cn(
+              "max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken text-foreground border border-border text-sm leading-relaxed",
+              streamingStage && !streamingText && "opacity-60",
+            )}>
               {streamDisplay ? (
                 <>
                   {!streamingText && fillerText && (
@@ -452,10 +502,40 @@ export function ChatInterface({
                   )}
                   {streamingText}
                 </>
-              ) : (
+              ) : !streamingStage ? (
                 <StreamingIndicator />
+              ) : (
+                <span className="italic text-muted-foreground">Thinking…</span>
               )}
               <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--color-primary)] animate-pulse align-middle" />
+            </div>
+          </div>
+        )}
+
+        {isAI && !showStreaming && suggestions.length > 0 && messages.length > 0 && (
+          <div className="flex flex-col items-start gap-2 pt-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+              Ask next
+            </span>
+            <div className="flex flex-wrap gap-2 max-w-[85%]">
+              {suggestions.map((s, i) => (
+                <button
+                  key={`${s.label}-${i}`}
+                  type="button"
+                  onClick={() => void deliver(s.prompt, "")}
+                  disabled={isSending || inFlightRef.current}
+                  className={cn(
+                    "group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold",
+                    "bg-surface border border-border text-foreground",
+                    "hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 hover:text-[var(--color-primary)]",
+                    "active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-wait",
+                  )}
+                  title={s.prompt}
+                >
+                  <SuggestionIcon name={s.icon} />
+                  <span>{s.label}</span>
+                </button>
+              ))}
             </div>
           </div>
         )}

@@ -1,6 +1,13 @@
 import type { Env } from "./env";
 import type { PersonaContext } from "./persona-loader";
 import { rpc, insertRow } from "./supabase-client";
+import { FillerEngine, type FillerLocale } from "./support/fillers";
+import { buildStageSequence, pickStageLocale } from "./support/stages";
+import { buildSuggestions, pickSuggestionLocale, type Suggestion } from "./support/suggestions";
+import { PersonaEngine } from "./persona-engine";
+import { detectUploadedFiles, readTextualAttachment, buildFileAnalysisDirective } from "./support/file-analysis";
+import { detectBirthData } from "./support/birth-data-detector";
+import { record as recordAiMetric } from "./ai-metrics";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -43,16 +50,10 @@ export interface ChatHandlerResult {
 const MAX_MESSAGE_LENGTH = 4000;
 const DEFAULT_CONTEXT_LIMIT = 20;
 
-const FILLERS_HI_EN = [
-  "Hmm, let me think about this...",
-  "Interesting question — let me look at this...",
-  "Let me consider the planetary positions...",
-  "That's a meaningful question...",
-  "Let me reflect on this for a moment...",
-];
-
-function randomFiller(): string {
-  return FILLERS_HI_EN[Math.floor(Math.random() * FILLERS_HI_EN.length)];
+function pickFillerLocale(text: string): FillerLocale {
+  if (/[\u0900-\u097F]/.test(text)) return "hi";
+  // Simple Hinglish heuristic — good enough for filler selection.
+  return "hi-en";
 }
 
 export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandlerResult> {
@@ -79,7 +80,6 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
   ).bind(conversationId, userId).first();
 
   if (!participant) {
-    // Lazy shadow: validate via Supabase, then create shadow
     const { data: supaParticipant } = await rpcQuery(env, "ConversationParticipant", {
       conversationId: `eq.${conversationId}`,
       userId: `eq.${userId}`,
@@ -88,30 +88,25 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
     if (!supaParticipant || (supaParticipant as unknown[]).length === 0) {
       throw new Error("Not a participant in this conversation");
     }
-    // Create shadow
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO conversation (id) VALUES (?)`
-    ).bind(conversationId).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO conversation (id) VALUES (?)`).bind(conversationId).run();
     await env.DB.prepare(
       `INSERT OR IGNORE INTO conversation_participant (conversation_id, user_id) VALUES (?, ?)`
     ).bind(conversationId, userId).run();
   }
 
-  // Fetch prior context from D1
+  // Prior context from D1
   const prior = await env.DB.prepare(
     `SELECT sender_id, content, created_at FROM message
      WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?`
   ).bind(conversationId, contextLimit).all<{ sender_id: string; content: string; created_at: string }>();
-
   const priorMessages = (prior.results ?? []).slice().reverse();
 
-  // Persist user message to D1
+  // Persist user message
   const userMsgId = crypto.randomUUID();
   await env.DB.prepare(
     `INSERT INTO message (id, conversation_id, sender_id, content, type) VALUES (?, ?, ?, ?, 'text')`
   ).bind(userMsgId, conversationId, userId, trimmed).run();
 
-  // Async dual-write to Supabase (fire-and-forget)
   void insertRow(env, "Message", {
     conversationId,
     senderId: userId,
@@ -119,20 +114,54 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
     type: "text",
   });
 
-  // Build message array
+  // ─── Build the rich system prompt with contextual directives ───────────
+  // PersonaEngine already produced persona.systemPrompt as the base contract.
+  // We now layer: (1) uploaded-file directive, (2) detected birth data,
+  // (3) seeker context, then re-build the message array so the TURN LANGUAGE
+  // directive from PersonaEngine.buildMessages lands just before the user turn.
+
+  const enrichedPromptParts: string[] = [persona.systemPrompt];
+
+  const detectedFiles = detectUploadedFiles(trimmed);
+  if (detectedFiles.length > 0) {
+    const analyzed = await Promise.all(
+      detectedFiles.map(async (f) =>
+        f.kind === "image" ? f : { ...f, extractedText: await readTextualAttachment(f) },
+      ),
+    );
+    const directive = buildFileAnalysisDirective(analyzed);
+    if (directive) enrichedPromptParts.push(directive);
+  }
+
+  const birth = detectBirthData(trimmed);
+  if (birth && birth.confidence !== "low") {
+    enrichedPromptParts.push(
+      `\n\n[DETECTED BIRTH DATA — high-confidence parse from this turn]\n` +
+      `Date: ${birth.birthDate}\nTime: ${birth.birthTime}\nPlace: ${birth.placeName} (${birth.birthPlace.lat.toFixed(3)}, ${birth.birthPlace.lng.toFixed(3)})\n` +
+      `Treat this as verified intake data. Ground your reading in this chart, ask only for details you still need (e.g. dominant hand for palmistry, specific question focus). Do NOT re-ask for date/time/place.`,
+    );
+  }
+
+  const finalSystemPrompt = enrichedPromptParts.join("");
+
   const history = priorMessages.map((m) => ({
     role: (m.sender_id === persona.userId ? "assistant" : "user") as "assistant" | "user",
     content: m.content,
   }));
 
-  const messages: AIMessage[] = [
-    { role: "system", content: persona.systemPrompt, cache_control: { type: "ephemeral" } },
-    ...(persona.fewShots ?? []).slice(-4),
-    ...history.slice(-12),
-    { role: "user", content: trimmed },
-  ];
+  // Use PersonaEngine.buildMessages for consistent structure:
+  //   system (contract) → few-shots → history → TURN LANGUAGE directive → user
+  const messages = PersonaEngine.buildMessages(
+    {
+      systemPrompt: finalSystemPrompt,
+      prohibitions: [],
+      fewShots: persona.fewShots ?? [],
+    },
+    history,
+    trimmed,
+  ) as AIMessage[];
 
-  // Fire AI call
+  const t0 = Date.now();
   const { response: aiRes, provider, attempts } = await callAI({
     messages,
     stream: true,
@@ -146,6 +175,9 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   let accumulated = "";
+  let firstTokenAt = 0;
+  let tokenCount = 0;
+  const fillers = new FillerEngine(pickFillerLocale(trimmed), 2_500);
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -157,12 +189,31 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
 
       write({ userMessageId: userMsgId });
       for (const evt of initialEvents) write(evt);
-      write({ filler: randomFiller(), reason: "first-token" });
+
+      // Semantic stage sequence — persona-aware "thinking out loud" labels.
+      // We advance through them until the first token arrives; the client
+      // renders them as a shimmer stepper instead of three bouncing dots.
+      const stageLocale = pickStageLocale(trimmed);
+      const stages = buildStageSequence(persona.category, stageLocale);
+      let stageIdx = 0;
+      const advanceStage = () => {
+        if (stageIdx >= stages.length) return;
+        write({ stage: stages[stageIdx] });
+        stageIdx++;
+      };
+      advanceStage();
+      const stageTimer = setInterval(() => {
+        if (firstTokenAt > 0) return; // stop once the model is talking
+        advanceStage();
+      }, 1200);
+
+      write({ filler: fillers.nextForce("first-token"), reason: "first-token" });
 
       let lastTokenAt = Date.now();
       const watchdog = setInterval(() => {
         if (Date.now() - lastTokenAt > 5_000) {
-          write({ filler: randomFiller(), reason: "slow" });
+          const f = fillers.next("slow");
+          if (f) write({ filler: f, reason: "slow" });
         }
       }, 2_000);
 
@@ -186,6 +237,13 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
               const parsed = JSON.parse(payload) as { choices?: Array<{ delta?: { content?: string } }> };
               const delta = parsed.choices?.[0]?.delta?.content;
               if (delta) {
+                if (firstTokenAt === 0) {
+                  firstTokenAt = Date.now();
+                  // Advance to the "reading answer" stage as soon as tokens
+                  // start flowing so the client can retire the stepper.
+                  write({ stageDone: true });
+                }
+                tokenCount += 1;
                 lastTokenAt = Date.now();
                 accumulated += delta;
                 write({ delta });
@@ -196,13 +254,51 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
       } catch (e) {
         streamDied = true;
         console.error("[chat-handler] stream error:", e);
-        write({ filler: randomFiller(), reason: "fallback" });
+        const f = fillers.next("fallback");
+        if (f) write({ filler: f, reason: "fallback" });
       } finally {
         clearInterval(watchdog);
+        clearInterval(stageTimer);
+        const t1 = Date.now();
+        const ttft = firstTokenAt ? firstTokenAt - t0 : t1 - t0;
+        const tpot = tokenCount > 1 ? (t1 - (firstTokenAt || t1)) / (tokenCount - 1) : 0;
+        recordAiMetric({
+          consultant: persona.id,
+          provider,
+          ttftMs: ttft,
+          totalMs: t1 - t0,
+          tokens: tokenCount,
+          ok: !streamDied,
+        });
+        console.log(JSON.stringify({
+          ev: "ai_call",
+          consultant: persona.id,
+          provider,
+          attempts: attempts.length,
+          ttft_ms: ttft,
+          tpot_ms: Math.round(tpot),
+          total_ms: t1 - t0,
+          tokens: tokenCount,
+          ok: !streamDied,
+        }));
       }
 
-      // Persist assistant message
-      const finalText = accumulated.trim();
+      const finalTextRaw = accumulated.trim();
+      // Never-empty guarantee: if the upstream stream died mid-flight or every
+      // provider failed, fall back to the local hardcoded oracle so the user
+      // sees a real, structured, on-brand reply instead of a blank bubble.
+      let finalText = finalTextRaw;
+      if (!finalText) {
+        const { generateHardcoded } = await import("./ai-engine/hardcoded-oracle");
+        finalText = generateHardcoded({
+          personaName: persona.name,
+          personaCategory: persona.category,
+          systemPrompt: persona.systemPrompt.slice(0, 400),
+          userMessage: trimmed || "Tell me something.",
+        });
+        // Stream it as a single delta so UI picks it up like normal text.
+        write({ delta: finalText });
+      }
       let persisted: { id: string; senderId: string; content: string; createdAt: string } | null = null;
 
       if (finalText) {
@@ -233,6 +329,11 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         persisted = { id: assistantId, senderId: persona.userId, content: safeText, createdAt: now };
       }
 
+      const suggestionLocale = pickSuggestionLocale(trimmed);
+      const suggestions: Suggestion[] = finalText
+        ? buildSuggestions(persona.category, finalText, suggestionLocale)
+        : [];
+
       write({
         done: true,
         provider,
@@ -240,6 +341,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         message: persisted,
         fullText: finalText || undefined,
         truncated: streamDied || undefined,
+        suggestions: suggestions.length ? suggestions : undefined,
       });
       controller.close();
     },

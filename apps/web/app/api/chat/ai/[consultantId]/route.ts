@@ -36,37 +36,63 @@ function projectRefFromUrl(): string {
   }
 }
 
-// Supabase stores the session under `sb-<ref>-access-token`. When the value
-// is >~3 KB @supabase/ssr splits it into `<base>.0`, `<base>.1`, ... and
-// encodes each chunk as `<byteLength>|<payload>~`. Reassemble by concatenating
-// in ascending index order and stripping the length prefix / trailing tilde.
+function safeJsonOr(text: string, fallback: unknown): unknown {
+  try { return JSON.parse(text); } catch { return fallback; }
+}
+
+// Supabase's @supabase/ssr storage layout has shifted over time; support both:
+//   * `sb-<ref>-access-token`       — legacy single-JSON-string session blob
+//   * `sb-<ref>-auth-token`         — current whole-session JSON, often chunked
+//                                     as `<base>.0`, `<base>.1`, ... encoded as
+//                                     `<byteLength>|<payload>~`
+// We reassemble the chunks in ascending index order, strip the length prefix
+// and trailing tilde, and either JSON.parse for `{ access_token }` or accept a
+// raw JWT if the value already looks like one.
 async function readAccessTokenFromCookieJar(): Promise<string | null> {
   const ref = projectRefFromUrl();
   if (!ref) return null;
-  const base = `sb-${ref}-access-token`;
   const jar = Object.fromEntries((await cookies()).getAll().map((c) => [c.name, c.value]));
 
-  if (jar[base]) return jar[base];
-
-  const chunkNames = Object.keys(jar)
-    .filter((k) => k.startsWith(`${base}.`))
-    .map((k) => {
-      const idx = Number(k.slice(base.length + 1));
-      return { name: k, idx };
-    })
-    .filter((c) => Number.isFinite(c.idx))
-    .sort((a, b) => a.idx - b.idx);
-
-  if (!chunkNames.length) return null;
-  let out = "";
-  for (const { name } of chunkNames) {
-    const raw = jar[name] ?? "";
-    const sep = raw.indexOf("|");
-    if (sep < 0) return null;
-    const payload = raw.slice(sep + 1);
-    out += payload.endsWith("~") ? payload.slice(0, -1) : payload;
+  const candidateBases = [`sb-${ref}-auth-token`, `sb-${ref}-access-token`];
+  for (const base of candidateBases) {
+    const direct = jar[base];
+    if (direct) {
+      const tok = extractTokenFromValue(direct);
+      if (tok) return tok;
+    }
+    const chunkNames = Object.keys(jar)
+      .filter((k) => k.startsWith(`${base}.`))
+      .map((k) => ({ name: k, idx: Number(k.slice(base.length + 1)) }))
+      .filter((c) => Number.isFinite(c.idx))
+      .sort((a, b) => a.idx - b.idx);
+    if (!chunkNames.length) continue;
+    let out = "";
+    let ok = true;
+    for (const { name } of chunkNames) {
+      const raw = jar[name] ?? "";
+      const sep = raw.indexOf("|");
+      if (sep < 0) { ok = false; break; }
+      const payload = raw.slice(sep + 1);
+      out += payload.endsWith("~") ? payload.slice(0, -1) : payload;
+    }
+    if (!ok || out.length < 20) continue;
+    const tok = extractTokenFromValue(out);
+    if (tok) return tok;
   }
-  return out.length > 20 ? out : null;
+  return null;
+}
+
+function extractTokenFromValue(value: string): string | null {
+  // Raw JWT?
+  if (value.split(".").length === 3 && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)) {
+    return value;
+  }
+  try {
+    const obj = JSON.parse(value) as { access_token?: string };
+    return obj.access_token ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(
@@ -141,9 +167,20 @@ export async function POST(
 
     if (!workerRes.ok) {
       const errText = await workerRes.text().catch(() => "");
-      console.error("[chat-proxy] worker error:", workerRes.status, errText.slice(0, 200));
+      console.error("[chat-proxy] worker error:", workerRes.status, errText.slice(0, 200), {
+        consultantId,
+        userId: user.id,
+        hasToken: Boolean(accessToken),
+        tokenPrefix: accessToken ? `${accessToken.slice(0, 12)}…` : null,
+      });
+      // Surface worker diagnostics verbatim for 401/403 so the client (and
+      // Vercel logs) can tell apart "no bearer" vs "signature mismatch" vs
+      // "consultant not found" — a generic message here hides the true cause.
+      const isAuthError = workerRes.status === 401 || workerRes.status === 403;
       return NextResponse.json(
-        { error: "AI chat is momentarily unavailable — please try again." },
+        isAuthError && errText
+          ? safeJsonOr(errText, { error: errText.slice(0, 200), workerStatus: workerRes.status })
+          : { error: "AI chat is momentarily unavailable — please try again.", workerStatus: workerRes.status },
         { status: workerRes.status },
       );
     }

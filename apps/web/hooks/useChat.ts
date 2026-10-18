@@ -37,6 +37,21 @@ export interface BillingInfo {
   available?: number;
 }
 
+/** Persona-aware "thinking out loud" phase emitted before the first token. */
+export interface StageEvent {
+  index: number;
+  key: string;
+  label: string;
+  total: number;
+}
+
+/** Persona-tuned follow-up chip surfaced on the AI's `done` event. */
+export interface Suggestion {
+  label: string;
+  prompt: string;
+  icon?: "sparkle" | "chart" | "heart" | "briefcase" | "moon" | "clock";
+}
+
 interface MessageRow {
   id?: string;
   conversationId?: string;
@@ -243,13 +258,27 @@ export function useChat({
     onDelta: (acc: string) => void;
     onFiller?: (filler: string) => void;
     onBilling?: (billing: BillingInfo) => void;
+    onStage?: (stage: StageEvent) => void;
+    onStageDone?: () => void;
+    onSuggestions?: (suggestions: Suggestion[]) => void;
   }
+
+  // Typewriter pacing: burst provider chunks (Groq/CF AI can drop a whole
+  // paragraph in one frame) are buffered and released at a steady cadence so
+  // the bubble "types" instead of jumping. Reveal speed adapts to queue depth
+  // so a long tail never lags more than ~1.2s behind the raw stream.
+  const TYPED_INTERVAL_MS = 28;
+  const TYPED_MIN_CHARS_PER_TICK = 2;
+  const TYPED_QUEUE_TARGET_MS = 900;
 
   const sendToAI = useCallback(
     async (consultantId: string, content: string, handlers: SendToAIHandlers | ((acc: string) => void), retryCount = 0) => {
       const onDelta = typeof handlers === "function" ? handlers : handlers.onDelta;
       const onFiller = typeof handlers === "function" ? undefined : handlers.onFiller;
       const onBilling = typeof handlers === "function" ? undefined : handlers.onBilling;
+      const onStage = typeof handlers === "function" ? undefined : handlers.onStage;
+      const onStageDone = typeof handlers === "function" ? undefined : handlers.onStageDone;
+      const onSuggestions = typeof handlers === "function" ? undefined : handlers.onSuggestions;
 
       const trimmed = content.trim();
       if (!trimmed || !conversationId || !consultantId) return;
@@ -271,6 +300,33 @@ export function useChat({
 
       const MAX_RETRIES = 2;
       const abortCtrl = new AbortController();
+
+      // ─── Typewriter pacing ─────────────────────────────────────────────
+      // Providers emit chunky bursts (Groq can drop a whole sentence in one
+      // frame). We buffer deltas and reveal them at a fixed cadence so the
+      // bubble "types" instead of teleporting. Adaptive drain keeps lag under
+      // ~1.2s even on long outputs. Everything is flushed synchronously before
+      // `sendToAI` resolves so callers never see a half-typed tail.
+      const queue: string[] = [];
+      let revealed = "";
+      let revealTimer: ReturnType<typeof setInterval> | null = null;
+      const startReveal = () => {
+        if (revealTimer) return;
+        revealTimer = setInterval(() => {
+          if (queue.length === 0) return;
+          const drain = queue.length > 8 ? Math.ceil(queue.length / 4) : 1;
+          for (let i = 0; i < drain && queue.length; i++) revealed += queue.shift();
+          onDelta(revealed);
+        }, 24);
+      };
+      const flushReveal = () => {
+        if (revealTimer) { clearInterval(revealTimer); revealTimer = null; }
+        if (queue.length) {
+          for (const c of queue) revealed += c;
+          queue.length = 0;
+          onDelta(revealed);
+        }
+      };
 
       try {
         let lastEventId = "";
@@ -326,10 +382,13 @@ export function useChat({
                   filler?: string;
                   userMessageId?: string;
                   billing?: BillingInfo;
+                  stage?: StageEvent;
+                  stageDone?: boolean;
                   done?: boolean;
                   message?: ChatMessage | null;
                   fullText?: string;
                   truncated?: boolean;
+                  suggestions?: Suggestion[];
                 };
                 if (parsed.userMessageId) {
                   progressed = true;
@@ -340,18 +399,29 @@ export function useChat({
                 }
                 if (parsed.billing && onBilling) onBilling(parsed.billing);
                 if (parsed.filler && !acc) onFiller?.(parsed.filler);
-                if (parsed.delta) { progressed = true; acc += parsed.delta; onDelta(acc); }
+                if (parsed.stage && onStage) onStage(parsed.stage);
+                if (parsed.stageDone && onStageDone) onStageDone();
+                if (parsed.delta) {
+                  progressed = true;
+                  acc += parsed.delta;
+                  queue.push(parsed.delta);
+                  startReveal();
+                }
                 if (parsed.done) {
                   gotDoneEvent = true;
                   wasTruncated = !!parsed.truncated;
                   if (parsed.message) finalMessage = parsed.message;
+                  if (onSuggestions && Array.isArray(parsed.suggestions) && parsed.suggestions.length) {
+                    onSuggestions(parsed.suggestions);
+                  }
                 }
               } catch { /* malformed chunk — skip */ }
             }
           }
+          flushReveal();
 
           if (wasTruncated && acc) {
-            onDelta(acc + "\n\n_(Response was cut short — tap send again to continue)_");
+            onDelta(revealed + "\n\n_(Response was cut short — tap send again to continue)_");
           }
 
           if (finalMessage?.id) {
@@ -386,6 +456,7 @@ export function useChat({
               : status === 429 ? "Too many messages — wait a moment and try again."
               : status && status >= 500 ? "AI service is busy — please try again in a few seconds."
               : "I'm having trouble connecting right now. Please try again in a moment.";
+            flushReveal();
             onDelta(msg);
           }
         }
@@ -394,6 +465,7 @@ export function useChat({
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setError(err instanceof Error ? err.message : "AI chat failed");
       } finally {
+        if (revealTimer) { clearInterval(revealTimer); revealTimer = null; }
         setIsSending(false);
       }
     },
