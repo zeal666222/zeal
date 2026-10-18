@@ -73,6 +73,14 @@ export {
   type ZealMarkTone,
   type ZealLockupProps,
 } from "./brand/zeal-mark";
+export {
+  BrandLoader,
+  PendingDot,
+  StreamingIndicator,
+  BrandSpinner,
+  type BrandLoaderProps,
+  type BrandLoaderVariant,
+} from "./brand/brand-loader";
 
 // ─── Dashboard primitives ─────────────────────────────────────────────────
 export { KpiCard } from "./kpi-card";

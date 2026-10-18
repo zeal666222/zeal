@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
+import { recordAi } from "@/lib/monitoring/ai-metrics";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -19,7 +20,7 @@ export async function POST(
 ) {
   const { consultantId } = await params;
 
-  const supabase = createServerClientFromCookies();
+  const supabase = await createServerClientFromCookies();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
   if (authErr || !user) {
@@ -61,7 +62,7 @@ export async function POST(
       );
     }
 
-    return new Response(workerRes.body, {
+    return new Response(tapAiStream(workerRes.body, consultantId), {
       status: 200,
       headers: {
         "Content-Type": "text/event-stream; charset=utf-8",
@@ -72,9 +73,68 @@ export async function POST(
     });
   } catch (err) {
     console.error("[chat-proxy] fetch failed:", err instanceof Error ? err.message : err);
+    recordAi({
+      consultantId,
+      provider: "worker",
+      ttftMs: 0,
+      totalMs: 0,
+      tokens: 0,
+      retries: 0,
+      ok: false,
+      err: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json(
       { error: "AI chat is momentarily unavailable — please try again." },
       { status: 502 },
     );
   }
+}
+
+function tapAiStream(body: ReadableStream<Uint8Array> | null, consultantId: string): ReadableStream<Uint8Array> | null {
+  if (!body) return body;
+  const t0 = Date.now();
+  let firstAt = 0;
+  let tokens = 0;
+  let providerHint = "worker";
+  const decoder = new TextDecoder();
+  const reader = body.getReader();
+  return new ReadableStream<Uint8Array>({
+    async pull(ctrl) {
+      const { done, value } = await reader.read();
+      if (done) {
+        const totalMs = Date.now() - t0;
+        recordAi({
+          consultantId,
+          provider: providerHint,
+          ttftMs: firstAt || totalMs,
+          totalMs,
+          tokens,
+          retries: 0,
+          ok: true,
+        });
+        try { ctrl.close(); } catch { /* closed */ }
+        return;
+      }
+      ctrl.enqueue(value);
+      const chunk = decoder.decode(value, { stream: true });
+      if (firstAt === 0 && chunk.includes("delta")) firstAt = Date.now() - t0;
+      tokens += (chunk.match(/"delta"/g) ?? []).length;
+      const pm = chunk.match(/"provider":"([a-z0-9-]+)"/i);
+      if (pm && pm[1]) providerHint = pm[1];
+    },
+    cancel(reason) {
+      try { reader.cancel(reason); } catch { /* ignore */ }
+      const totalMs = Date.now() - t0;
+      recordAi({
+        consultantId,
+        provider: providerHint,
+        ttftMs: firstAt || totalMs,
+        totalMs,
+        tokens,
+        retries: 0,
+        ok: false,
+        err: "cancelled",
+      });
+    },
+  });
 }
