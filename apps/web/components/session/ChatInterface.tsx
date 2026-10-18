@@ -3,15 +3,16 @@
 // Chat interface — human + AI conversations with optional billed session
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ArrowLeft, Coins, Loader2, MessageCircle, Paperclip, Send, ShieldCheck, Sparkles, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Coins, Home, Loader2, MessageCircle, Paperclip, Send, ShieldCheck, Sparkles, X } from "lucide-react";
 import Image from "next/image";
 import { useChat, type BillingInfo, type ChatMessage } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
 import { BillingPanel } from "./BillingPanel";
 import { WalletGateDialog, type WalletGateInfo } from "@/components/billing/WalletGateDialog";
-import { cn } from "@zeal/ui";
+import { cn, BrandLoader, PendingDot, StreamingIndicator } from "@zeal/ui";
 
 interface Props {
   conversationId: string;
@@ -302,6 +303,14 @@ export function ChatInterface({
       {/* Header */}
       <div className="flex-none h-16 bg-surface backdrop-blur-2xl border-b border-border px-3 md:px-4 flex items-center justify-between z-20">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          <Link
+            href="/"
+            aria-label="Home"
+            title="Home"
+            className="shrink-0 p-2 rounded-lg hover:bg-surface-raised active:scale-95 text-foreground"
+          >
+            <Home size={18} />
+          </Link>
           <button
             type="button"
             onClick={() => router.push("/chat")}
@@ -390,9 +399,7 @@ export function ChatInterface({
         </div>
 
         {isLoading && messages.length === 0 ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-[var(--color-primary)]" />
-          </div>
+          <BrandLoader variant="chat-bubble" label="Opening the reading room…" />
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
             <div className="w-12 h-12 rounded-full bg-surface-sunken border border-border flex items-center justify-center">
@@ -416,16 +423,18 @@ export function ChatInterface({
                   className={cn("flex flex-col", isMe ? "items-end" : "items-start")}
                 >
                   <div className={cn(
-                    "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words",
+                    "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words relative",
                     isMe
                       ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/15"
                       : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
-                    msg._optimistic && "opacity-70"
+                    msg._optimistic && "opacity-85 saturate-75"
                   )}>
                     <MessageContent content={msg.content} />
                   </div>
-                  <span className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
+                  <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 px-1 font-medium">
+                    {isMe && msg._optimistic && <PendingDot />}
                     {formatTime(msg.createdAt)}
+                    {isMe && msg._optimistic && <span className="opacity-70">sending…</span>}
                   </span>
                 </motion.div>
               );
@@ -444,11 +453,7 @@ export function ChatInterface({
                   {streamingText}
                 </>
               ) : (
-                <span className="inline-flex gap-1 items-center py-1">
-                  <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce" />
-                  <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:300ms]" />
-                </span>
+                <StreamingIndicator />
               )}
               <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--color-primary)] animate-pulse align-middle" />
             </div>
@@ -624,7 +629,7 @@ export function ChatInterface({
                   : "bg-surface-sunken text-muted-foreground cursor-not-allowed"
               )}
             >
-              {isSending || uploading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
+              {isSending || uploading ? <BrandLoader variant="inline" /> : <Send size={18} className="ml-0.5" />}
             </button>
           </div>
         </form>

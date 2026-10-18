@@ -8,7 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { LogOut, Settings, Sparkles, UserCircle, Wallet } from "lucide-react";
+import { Home, LogOut, Settings, Sparkles, UserCircle, Wallet } from "lucide-react";
 import {
   ZealLockup,
   ThemeToggle,
@@ -92,6 +92,14 @@ export function TopNavBar({ userId, initialBalance }: Props) {
       <div className="mx-auto max-w-7xl h-full px-3 sm:px-6 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 shrink-0">
           <ThemeToggle />
+          <Link
+            href="/"
+            aria-label="Home"
+            title="Home"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-surface-raised border border-border text-foreground hover:border-[var(--color-primary)]/50 hover:text-[var(--color-primary)] active:scale-95 transition-all"
+          >
+            <Home size={15} />
+          </Link>
         </div>
 
         <Link
@@ -109,9 +117,7 @@ export function TopNavBar({ userId, initialBalance }: Props) {
         <div className="flex items-center gap-2 shrink-0">
           {userId ? (
             <>
-              <div className="hidden sm:block">
-                <WalletChip userId={userId} initialBalance={initialBalance} />
-              </div>
+              <WalletChip userId={userId} initialBalance={initialBalance} compact />
 
               <NotificationBell />
 

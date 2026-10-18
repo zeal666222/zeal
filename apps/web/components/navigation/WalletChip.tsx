@@ -14,12 +14,13 @@ interface Props {
   userId: string | null;
   initialBalance: number;
   className?: string;
+  compact?: boolean;
 }
 
 interface WalletRow { balance?: number }
 interface PaymentRow { id?: string; status?: string; amount?: number }
 
-export function WalletChip({ userId, initialBalance, className }: Props) {
+export function WalletChip({ userId, initialBalance, className, compact = false }: Props) {
   const [balance, setBalance] = useState(initialBalance);
   const [delta, setDelta] = useState<number | null>(null);
   const [flash, setFlash] = useState<"up" | "down" | null>(null);
@@ -81,8 +82,10 @@ export function WalletChip({ userId, initialBalance, className }: Props) {
     <Link
       href="/wallet"
       className={cn(
-        "relative inline-flex items-center gap-1.5 pl-3 pr-3.5 h-9 rounded-full",
-        "text-foreground font-black text-sm tabular-nums",
+        "relative inline-flex items-center gap-1.5 h-9 rounded-full",
+        compact ? "pl-2.5 pr-2.5 sm:pl-3 sm:pr-3.5" : "pl-3 pr-3.5",
+        "text-foreground font-black tabular-nums",
+        compact ? "text-xs sm:text-sm" : "text-sm",
         "bg-surface-raised border transition-all duration-300",
         "hover:scale-[1.03] active:scale-[0.97]",
         flash === "up" && "border-emerald-500/40 shadow-[0_0_20px_-4px_rgb(16_185_129/0.5)]",
