@@ -23,15 +23,33 @@ export async function POST(
   const supabase = await createServerClientFromCookies();
   const { data: { user }, error: authErr } = await supabase.auth.getUser();
 
-  if (authErr || !user) {
+  // A soft refresh warning (AuthRetryableFetchError, transient network blip)
+  // still yields a populated `user` — only bail when we truly have no identity.
+  if (!user) {
+    console.warn("[chat-proxy] no user", {
+      consultantId,
+      authErr: authErr?.message ?? null,
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const accessToken = session?.access_token;
+  let accessToken: string | undefined;
+  try {
+    const { data } = await supabase.auth.getSession();
+    accessToken = data.session?.access_token;
+  } catch (e) {
+    console.warn("[chat-proxy] getSession threw:", e instanceof Error ? e.message : e);
+  }
 
   if (!accessToken) {
-    return NextResponse.json({ error: "No session" }, { status: 401 });
+    console.warn("[chat-proxy] session missing after getUser — cookie jar likely stale", {
+      consultantId,
+      userId: user.id,
+    });
+    return NextResponse.json(
+      { error: "Session expired — please refresh the page." },
+      { status: 401 },
+    );
   }
 
   let body: string;
