@@ -467,7 +467,6 @@ export function useChat({
               try { await fetch("/api/users/me/profile", { cache: "no-store" }); } catch { /* ignore */ }
               await new Promise((r) => setTimeout(r, 400));
               progressed = false;
-              acc = "";
               revealed = "";
               queue.length = 0;
               continue;
