@@ -3,9 +3,22 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // The AI chat logic now runs on the Cloudflare Worker (zeal-chat).
 // This route proxies the SSE stream back to the client.
+//
+// Auth contract:
+//   Signed-in users are gated by startChatFlow() before ever reaching the
+//   chat page, and every other surface (Wallet, Profile, etc.) already
+//   trusts Supabase cookies. So a 401 from this proxy is almost always a
+//   false negative caused by @supabase/ssr's SessionStore refusing to
+//   hydrate on Vercel's route-handler cookie adapter. We therefore:
+//     1. ask the SSR client for a session (fast path);
+//     2. if that returns null, decode the raw `sb-*-access-token` cookie
+//        jar (handles @supabase/ssr's chunked cookie format);
+//     3. only 401 when both fail AND getUser() has no identity to fall
+//        back on — i.e. when the user genuinely is not signed in.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { recordAi } from "@/lib/monitoring/ai-metrics";
 
@@ -13,6 +26,48 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const WORKER_URL = process.env.CHAT_WORKER_URL ?? "https://zeal-chat.zeal666-app.workers.dev";
+
+function projectRefFromUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  try {
+    return new URL(url).hostname.split(".")[0] ?? "";
+  } catch {
+    return "";
+  }
+}
+
+// Supabase stores the session under `sb-<ref>-access-token`. When the value
+// is >~3 KB @supabase/ssr splits it into `<base>.0`, `<base>.1`, ... and
+// encodes each chunk as `<byteLength>|<payload>~`. Reassemble by concatenating
+// in ascending index order and stripping the length prefix / trailing tilde.
+async function readAccessTokenFromCookieJar(): Promise<string | null> {
+  const ref = projectRefFromUrl();
+  if (!ref) return null;
+  const base = `sb-${ref}-access-token`;
+  const jar = Object.fromEntries((await cookies()).getAll().map((c) => [c.name, c.value]));
+
+  if (jar[base]) return jar[base];
+
+  const chunkNames = Object.keys(jar)
+    .filter((k) => k.startsWith(`${base}.`))
+    .map((k) => {
+      const idx = Number(k.slice(base.length + 1));
+      return { name: k, idx };
+    })
+    .filter((c) => Number.isFinite(c.idx))
+    .sort((a, b) => a.idx - b.idx);
+
+  if (!chunkNames.length) return null;
+  let out = "";
+  for (const { name } of chunkNames) {
+    const raw = jar[name] ?? "";
+    const sep = raw.indexOf("|");
+    if (sep < 0) return null;
+    const payload = raw.slice(sep + 1);
+    out += payload.endsWith("~") ? payload.slice(0, -1) : payload;
+  }
+  return out.length > 20 ? out : null;
+}
 
 export async function POST(
   req: Request,
@@ -33,7 +88,7 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let accessToken: string | undefined;
+  let accessToken: string | null | undefined;
   try {
     const { data } = await supabase.auth.getSession();
     accessToken = data.session?.access_token;
@@ -42,13 +97,26 @@ export async function POST(
   }
 
   if (!accessToken) {
-    console.warn("[chat-proxy] session missing after getUser — cookie jar likely stale", {
+    accessToken = await readAccessTokenFromCookieJar();
+    if (accessToken) {
+      console.info("[chat-proxy] recovered token from cookie jar", {
+        consultantId,
+        userId: user.id,
+      });
+    }
+  }
+
+  if (!accessToken) {
+    // Identity is valid but we have nothing to hand the worker. The chat
+    // surface has already gated this user; treat this as a transient
+    // infrastructure issue rather than a "please sign in" dead-end.
+    console.error("[chat-proxy] signed-in user without access token", {
       consultantId,
       userId: user.id,
     });
     return NextResponse.json(
-      { error: "Session expired — please refresh the page." },
-      { status: 401 },
+      { error: "Session is warming up — please try again in a moment." },
+      { status: 503 },
     );
   }
 
