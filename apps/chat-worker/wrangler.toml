@@ -1,0 +1,21 @@
+name = "zeal-chat"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+ASTRO_WORKER_URL = "https://zeal-astro.zeal666app.workers.dev"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zeal-chat-db"
+database_id = "5cd68855-a38b-47ea-b426-adf5b5807a0c"
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[dev]
+port = 8788
+local_protocol = "http"

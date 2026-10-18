@@ -1,0 +1,20 @@
+{
+  "name": "@zeal/chat-worker",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 execute zeal-chat-db --file=migrations/001_schema.sql",
+    "db:seed": "wrangler d1 execute zeal-chat-db --file=seed/ai-consultants.sql",
+    "db:setup": "npm run db:migrate && npm run db:seed"
+  },
+  "dependencies": {
+    "jose": "^6.0.11"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250401.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.149.0"
+  }
+}
