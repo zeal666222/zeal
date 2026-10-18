@@ -451,13 +451,27 @@ export function useChat({
               setTimeout(() => setReloadKey((k) => k + 1), 500);
               break;
             }
-            const msg = status === 401 ? "Please sign in to continue."
+            const msg = status === 401
+              ? "Reconnecting — your session is refreshing."
               : status === 402 ? "Insufficient balance for this session."
               : status === 429 ? "Too many messages — wait a moment and try again."
               : status && status >= 500 ? "AI service is busy — please try again in a few seconds."
               : "I'm having trouble connecting right now. Please try again in a moment.";
             flushReveal();
             onDelta(msg);
+            // A 401 from the proxy is almost always a transient @supabase/ssr
+            // cookie hydration issue on Vercel's route handlers, not a real
+            // logout — the user just sent a message, they *are* signed in.
+            // Nudge the client to refresh, then retry once silently.
+            if (status === 401 && attempt_num < MAX_RETRIES) {
+              try { await fetch("/api/users/me/profile", { cache: "no-store" }); } catch { /* ignore */ }
+              await new Promise((r) => setTimeout(r, 400));
+              progressed = false;
+              acc = "";
+              revealed = "";
+              queue.length = 0;
+              continue;
+            }
           }
         }
       } catch (err) {

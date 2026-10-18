@@ -40,55 +40,79 @@ function safeJsonOr(text: string, fallback: unknown): unknown {
   try { return JSON.parse(text); } catch { return fallback; }
 }
 
-// Supabase's @supabase/ssr storage layout has shifted over time; support both:
-//   * `sb-<ref>-access-token`       — legacy single-JSON-string session blob
-//   * `sb-<ref>-auth-token`         — current whole-session JSON, often chunked
-//                                     as `<base>.0`, `<base>.1`, ... encoded as
-//                                     `<byteLength>|<payload>~`
-// We reassemble the chunks in ascending index order, strip the length prefix
-// and trailing tilde, and either JSON.parse for `{ access_token }` or accept a
-// raw JWT if the value already looks like one.
+// Supabase's @supabase/ssr cookie layout has moved twice:
+//   * `sb-<ref>-access-token`         legacy: raw session JSON, sometimes
+//                                     base64-encoded, sometimes JWT-only.
+//   * `sb-<ref>-auth-token`           current: whole session JSON split into
+//                                     `.0`, `.1`, ... chunks. The FIRST chunk
+//                                     is prefixed `base64-` and the rest are
+//                                     raw base64 continuation. A previous
+//                                     variant used `<byteLength>|<payload>~`
+//                                     length-prefixed framing instead.
+// We try each decoding strategy in order and accept the first that yields a
+// usable access_token (or, if the value itself is a bare JWT, that).
 async function readAccessTokenFromCookieJar(): Promise<string | null> {
   const ref = projectRefFromUrl();
   if (!ref) return null;
   const jar = Object.fromEntries((await cookies()).getAll().map((c) => [c.name, c.value]));
 
-  const candidateBases = [`sb-${ref}-auth-token`, `sb-${ref}-access-token`];
-  for (const base of candidateBases) {
-    const direct = jar[base];
-    if (direct) {
-      const tok = extractTokenFromValue(direct);
-      if (tok) return tok;
-    }
+  const bases = [`sb-${ref}-auth-token`, `sb-${ref}-access-token`];
+  for (const base of bases) {
+    const candidates: string[] = [];
+    if (jar[base]) candidates.push(jar[base]);
+
     const chunkNames = Object.keys(jar)
       .filter((k) => k.startsWith(`${base}.`))
       .map((k) => ({ name: k, idx: Number(k.slice(base.length + 1)) }))
       .filter((c) => Number.isFinite(c.idx))
       .sort((a, b) => a.idx - b.idx);
-    if (!chunkNames.length) continue;
-    let out = "";
-    let ok = true;
-    for (const { name } of chunkNames) {
-      const raw = jar[name] ?? "";
-      const sep = raw.indexOf("|");
-      if (sep < 0) { ok = false; break; }
-      const payload = raw.slice(sep + 1);
-      out += payload.endsWith("~") ? payload.slice(0, -1) : payload;
+
+    if (chunkNames.length) {
+      // base64- prefix style (current @supabase/ssr)
+      let b64Joined = "";
+      let ok1 = true;
+      for (const { name, idx } of chunkNames) {
+        let raw = jar[name] ?? "";
+        if (idx === 0 && raw.startsWith("base64-")) raw = raw.slice(7);
+        else if (idx !== 0 && raw.startsWith("base64-")) { ok1 = false; break; }
+        b64Joined += raw;
+      }
+      if (ok1 && b64Joined) candidates.push("base64-" + b64Joined);
+
+      // length-prefixed framing (older @supabase/ssr)
+      let lpJoined = "";
+      let ok2 = true;
+      for (const { name } of chunkNames) {
+        const raw = jar[name] ?? "";
+        const sep = raw.indexOf("|");
+        if (sep < 0) { ok2 = false; break; }
+        const payload = raw.slice(sep + 1);
+        lpJoined += payload.endsWith("~") ? payload.slice(0, -1) : payload;
+      }
+      if (ok2 && lpJoined) candidates.push(lpJoined);
     }
-    if (!ok || out.length < 20) continue;
-    const tok = extractTokenFromValue(out);
-    if (tok) return tok;
+
+    for (const c of candidates) {
+      const tok = extractTokenFromValue(c);
+      if (tok) return tok;
+    }
   }
   return null;
 }
 
 function extractTokenFromValue(value: string): string | null {
-  // Raw JWT?
-  if (value.split(".").length === 3 && /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)) {
-    return value;
+  // Bare JWT?
+  if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(value)) return value;
+
+  let text = value;
+  if (text.startsWith("base64-")) {
+    let b64 = text.slice(7).replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    try { text = atob(b64); } catch { return null; }
   }
+  if (/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(text)) return text;
   try {
-    const obj = JSON.parse(value) as { access_token?: string };
+    const obj = JSON.parse(text) as { access_token?: string };
     return obj.access_token ?? null;
   } catch {
     return null;
