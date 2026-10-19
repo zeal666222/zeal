@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, ArrowRight, Check, Loader2, Sparkles, Calendar, Clock, MapPin } from "lucide-react";
 import { createClient } from "@zeal/database";
+import { LocationAutocomplete, type PlaceSuggestionData } from "@zeal/ui";
 
 const INTERESTS = [
   "Astrology", "Tarot", "Numerology", "Palmistry", "Therapy",
@@ -25,6 +26,7 @@ export default function OnboardingPage() {
   const [tob, setTob] = useState("");
   const [tobUnknown, setTobUnknown] = useState(false);
   const [pob, setPob] = useState("");
+  const [pobCoords, setPobCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [goal, setGoal] = useState("");
 
@@ -71,6 +73,8 @@ export default function OnboardingPage() {
           dateOfBirth: dob,
           timeOfBirth: tobUnknown ? null : (tob || null),
           placeOfBirth: pob.trim() || null,
+          latitude: pobCoords?.lat ?? null,
+          longitude: pobCoords?.lng ?? null,
         }),
       }).catch(() => {});
 
@@ -184,10 +188,14 @@ export default function OnboardingPage() {
                     <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground mb-1.5">
                       <MapPin size={12} /> Place of Birth <span className="text-muted-foreground/50">(optional)</span>
                     </label>
-                    <input type="text" value={pob}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPob(e.target.value)}
+                    <LocationAutocomplete
+                      id="onboarding-pob"
+                      value={pob}
+                      onChange={(v) => { setPob(v); if (!v.trim()) setPobCoords(null); }}
+                      onSelect={(p: PlaceSuggestionData) => setPobCoords({ lat: p.lat, lng: p.lng })}
                       placeholder="City, Country"
-                      className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground outline-none focus:border-purple-500" />
+                      recentStorageKey="zeal:recent-birth-places"
+                    />
                   </div>
                 </div>
               </>

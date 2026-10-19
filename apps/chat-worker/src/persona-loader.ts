@@ -48,9 +48,47 @@ function parseJsonArray(raw: string | null): string[] {
   }
 }
 
+/** Kundali-grounded seeker context forwarded by the web proxy on every turn. */
+export interface AstroContext {
+  name?: string;
+  dob?: string;
+  tob?: string;
+  pob?: string;
+  concern?: string;
+  chartSummary?: string | null;
+}
+
+type MissingField = "name" | "dob" | "tob" | "pob" | "concern";
+
+function seekerContextFrom(astro?: AstroContext) {
+  if (!astro) return undefined;
+  const sc: NonNullable<Parameters<typeof PersonaEngine.build>[0]["seekerContext"]> = {};
+  if (astro.name) sc.name = astro.name;
+  if (astro.dob) sc.dob = astro.dob;
+  if (astro.tob) sc.tob = astro.tob;
+  if (astro.pob) sc.pob = astro.pob;
+  if (astro.concern) sc.concern = astro.concern;
+  if (astro.chartSummary) sc.chartSummary = astro.chartSummary;
+  return Object.keys(sc).length > 0 ? sc : undefined;
+}
+
+function missingFieldsFrom(astro?: AstroContext): MissingField[] {
+  if (!astro) return ["name", "dob", "tob", "pob", "concern"];
+  const missing: MissingField[] = [];
+  if (!astro.name) missing.push("name");
+  if (!astro.dob) missing.push("dob");
+  // Time-of-birth stays askable: intake allows "unknown", and an exact minute
+  // materially sharpens the Lagna — so the consultant may still probe for it.
+  if (!astro.tob) missing.push("tob");
+  if (!astro.pob) missing.push("pob");
+  if (!astro.concern) missing.push("concern");
+  return missing;
+}
+
 export async function loadPersona(
   env: Env,
   consultantId: string,
+  astro?: AstroContext,
 ): Promise<PersonaContext | null> {
   const row = await env.DB.prepare(
     `SELECT id, name, category, bio, specialties, languages, persona,
@@ -93,6 +131,8 @@ export async function loadPersona(
       systemPrompt: row.system_prompt,
       location: row.location,
       country: row.country,
+      seekerContext: seekerContextFrom(astro),
+      missingFields: missingFieldsFrom(astro),
     });
   } catch (e) {
     console.error("[persona-loader] PersonaEngine.build failed:", e);

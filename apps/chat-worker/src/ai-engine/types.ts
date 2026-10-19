@@ -33,7 +33,7 @@ export function contentToText(content: string | AIContentPart[]): string {
     .join("\n");
 }
 
-export type ProviderName = "hardcoded" | "agnes" | "groqPro" | "groqFast" | "zhipu" | "ovh" | "kilo" | "llm7" | "duckduckgo" | "freegpt" | "cloudflareAi" | "pollinations";
+export type ProviderName = "hardcoded" | "agnes" | "groqPro" | "groqFast" | "zhipu" | "ovh" | "kilo" | "llm7" | "duckduckgo" | "freegpt" | "cloudflareAi" | "cfBinding" | "pollinations";
 
 export interface ProviderDef {
   readonly name: ProviderName;
@@ -60,6 +60,11 @@ export interface ProviderDef {
    * never make the whole fallback chain fail.
    */
   readonly supportsVision?: boolean;
+  /**
+   * Override the default fetch-based call. Used for providers that use
+   * SDK bindings (e.g. env.AI.run) instead of REST.
+   */
+  readonly callFn?: (opts: CallAIOptions) => Promise<Response>;
 }
 
 export interface CallAIOptions {

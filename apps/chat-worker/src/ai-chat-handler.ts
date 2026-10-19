@@ -41,6 +41,9 @@ export interface ChatHandlerParams {
   maxTokens?: number;
   contextLimit?: number;
   initialEvents?: unknown[];
+  /** Proactive consultant opener — generate the first assistant message
+   *  from the seeker's kundali without persisting a synthetic user turn. */
+  opener?: boolean;
 }
 
 export interface ChatHandlerResult {
@@ -69,11 +72,13 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
     maxTokens = 1200,
     contextLimit = DEFAULT_CONTEXT_LIMIT,
     initialEvents = [],
+    opener = false,
   } = params;
 
-  const trimmed = content.trim();
+  const OPENING_TRIGGER = "Open the consultation with a warm, personal greeting.";
+  const trimmed = content.trim() || (opener ? OPENING_TRIGGER : "");
   if (!trimmed) throw new Error("Empty message");
-  if (trimmed.length > MAX_MESSAGE_LENGTH) throw new Error(`Message exceeds ${MAX_MESSAGE_LENGTH} characters`);
+  if (!opener && trimmed.length > MAX_MESSAGE_LENGTH) throw new Error(`Message exceeds ${MAX_MESSAGE_LENGTH} characters`);
 
   // Participant check via D1 (lazy shadow creation)
   const participant = await env.DB.prepare(
@@ -102,18 +107,21 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
   ).bind(conversationId, contextLimit).all<{ sender_id: string; content: string; created_at: string }>();
   const priorMessages = (prior.results ?? []).slice().reverse();
 
-  // Persist user message
+  // Persist user message (skipped for the proactive opener — there is no
+  // human turn to record, only the assistant's chart-grounded greeting).
   const userMsgId = crypto.randomUUID();
-  await env.DB.prepare(
-    `INSERT INTO message (id, conversation_id, sender_id, content, type) VALUES (?, ?, ?, ?, 'text')`
-  ).bind(userMsgId, conversationId, userId, trimmed).run();
+  if (!opener) {
+    await env.DB.prepare(
+      `INSERT INTO message (id, conversation_id, sender_id, content, type) VALUES (?, ?, ?, ?, 'text')`
+    ).bind(userMsgId, conversationId, userId, trimmed).run();
 
-  void insertRow(env, "Message", {
-    conversationId,
-    senderId: userId,
-    content: trimmed,
-    type: "text",
-  });
+    void insertRow(env, "Message", {
+      conversationId,
+      senderId: userId,
+      content: trimmed,
+      type: "text",
+    });
+  }
 
   // ─── Build the rich system prompt with contextual directives ───────────
   // PersonaEngine already produced persona.systemPrompt as the base contract.
@@ -123,33 +131,43 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
 
   const enrichedPromptParts: string[] = [persona.systemPrompt];
 
-  const detectedFiles = detectUploadedFiles(trimmed);
-  if (detectedFiles.length > 0) {
-    const analyzed = await Promise.all(
-      detectedFiles.map(async (f) =>
-        f.kind === "image" ? f : { ...f, extractedText: await readTextualAttachment(f) },
-      ),
-    );
-    const directive = buildFileAnalysisDirective(analyzed);
-    if (directive) enrichedPromptParts.push(directive);
-  }
-
-  const birth = detectBirthData(trimmed);
-  if (birth && birth.confidence !== "low") {
+  if (opener) {
     enrichedPromptParts.push(
-      `\n\n[DETECTED BIRTH DATA — high-confidence parse from this turn]\n` +
-      `Date: ${birth.birthDate}\nTime: ${birth.birthTime}\nPlace: ${birth.placeName} (${birth.birthPlace.lat.toFixed(3)}, ${birth.birthPlace.lng.toFixed(3)})\n` +
-      `Treat this as verified intake data. Ground your reading in this chart, ask only for details you still need (e.g. dominant hand for palmistry, specific question focus). Do NOT re-ask for date/time/place.`,
+      `\n\n[OPENING TURN] This is your very first message to the seeker; they have just completed intake. ` +
+      `Greet them warmly in their language (default Hinglish), address them by name if known, and show that you have genuinely read their chart: ` +
+      `reference 2-3 concrete specifics from the kundali above (Lagna, Moon rashi/nakshatra, the running Mahadasha/Antardasha, or a notable house placement) ` +
+      `as a short, intriguing observation tied to their stated concern. Do NOT recite the whole chart, do NOT ask again for details you already have, ` +
+      `and end with ONE inviting question that draws them into the conversation. Keep it under 120 words.`,
     );
-  }
+  } else {
+    const detectedFiles = detectUploadedFiles(trimmed);
+    if (detectedFiles.length > 0) {
+      const analyzed = await Promise.all(
+        detectedFiles.map(async (f) =>
+          f.kind === "image" ? f : { ...f, extractedText: await readTextualAttachment(f) },
+        ),
+      );
+      const directive = buildFileAnalysisDirective(analyzed);
+      if (directive) enrichedPromptParts.push(directive);
+    }
 
-  // Per-turn knowledge grounding from the 300-book training corpus.
-  // Retrieves astrology + psychology + communication excerpts matching the
-  // seeker's message; the model treats these as its own internal reasoning
-  // fuel. Legitimate topics like love/marriage yogas now have specific
-  // vocabulary in-context, so upstream safety filters stop firing.
-  const grounding = retrieveKnowledge(trimmed, persona.category, 6);
-  if (grounding) enrichedPromptParts.push(grounding);
+    const birth = detectBirthData(trimmed);
+    if (birth && birth.confidence !== "low") {
+      enrichedPromptParts.push(
+        `\n\n[DETECTED BIRTH DATA — high-confidence parse from this turn]\n` +
+        `Date: ${birth.birthDate}\nTime: ${birth.birthTime}\nPlace: ${birth.placeName} (${birth.birthPlace.lat.toFixed(3)}, ${birth.birthPlace.lng.toFixed(3)})\n` +
+        `Treat this as verified intake data. Ground your reading in this chart, ask only for details you still need (e.g. dominant hand for palmistry, specific question focus). Do NOT re-ask for date/time/place.`,
+      );
+    }
+
+    // Per-turn knowledge grounding from the 300-book training corpus.
+    // Retrieves astrology + psychology + communication excerpts matching the
+    // seeker's message; the model treats these as its own internal reasoning
+    // fuel. Legitimate topics like love/marriage yogas now have specific
+    // vocabulary in-context, so upstream safety filters stop firing.
+    const grounding = retrieveKnowledge(trimmed, persona.category, 6);
+    if (grounding) enrichedPromptParts.push(grounding);
+  }
 
   const finalSystemPrompt = enrichedPromptParts.join("");
 
@@ -196,7 +214,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         } catch { /* closed */ }
       };
 
-      write({ userMessageId: userMsgId });
+      if (!opener) write({ userMessageId: userMsgId });
       for (const evt of initialEvents) write(evt);
 
       // Semantic stage sequence — persona-aware "thinking out loud" labels.

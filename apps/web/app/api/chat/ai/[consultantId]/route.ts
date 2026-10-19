@@ -21,6 +21,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { recordAi } from "@/lib/monitoring/ai-metrics";
+import { buildAstroContext } from "@/lib/chat/astro-context";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -170,13 +171,30 @@ export async function POST(
     );
   }
 
-  let body: string;
+  let parsed: { conversationId?: string; content?: string; opener?: boolean };
   try {
-    body = await req.text();
-    JSON.parse(body);
+    parsed = JSON.parse(await req.text());
+    if (!parsed || typeof parsed !== "object") throw new Error("bad body");
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+
+  // Ground the consultant in the seeker's kundali on every turn. Computed
+  // server-side (the worker has no ephemeris); failure here is non-fatal —
+  // the chat degrades to a persona-only reply rather than breaking.
+  let astro: Record<string, unknown> = {};
+  try {
+    astro = (await buildAstroContext(user.id)) as Record<string, unknown>;
+  } catch (e) {
+    console.warn("[chat-proxy] astro context build failed:", e instanceof Error ? e.message : e);
+  }
+
+  const forwardBody = JSON.stringify({
+    conversationId: parsed.conversationId,
+    content: parsed.content,
+    opener: parsed.opener === true,
+    astro,
+  });
 
   const workerUrl = `${WORKER_URL}/api/chat/ai/${consultantId}`;
   try {
@@ -186,7 +204,7 @@ export async function POST(
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body,
+      body: forwardBody,
     });
 
     if (!workerRes.ok) {

@@ -141,6 +141,8 @@ export function ChatInterface({
   // Synchronous in-flight guard — state-based disabling is async, so rapid
   // double-clicks can slip past `isSending` before React re-renders.
   const inFlightRef = useRef(false);
+  // Fire the kundali-grounded opening message exactly once per conversation.
+  const openerFiredRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -188,34 +190,58 @@ export function ChatInterface({
     return results;
   };
 
+  /** Stream an AI turn (user message or kundali-grounded opener). */
+  const streamAI = async (content: string, isOpener: boolean) => {
+    setStreamingText("");
+    setFillerText(null);
+    setStreamingStage(null);
+    setCompletedStages([]);
+    setSuggestions([]);
+    await sendToAI(partnerId, content, {
+      onDelta: (acc) => { setStreamingText(acc); setFillerText(null); },
+      onFiller: (f) => setFillerText(f),
+      onBilling: handleBilling,
+      onStage: (stage) => {
+        setStreamingStage(stage);
+        setCompletedStages((prev) => {
+          if (prev.some((p) => p.index === stage.index)) return prev;
+          return [...prev, stage];
+        });
+      },
+      onStageDone: () => setStreamingStage(null),
+      onSuggestions: (s) => setSuggestions(s),
+    }, 0, isOpener);
+    setStreamingText(null);
+    setFillerText(null);
+    setStreamingStage(null);
+  };
+
+  // Auto-opener: when an AI conversation has no messages yet, let the
+  // consultant speak first with a reading grounded in the seeker's kundali.
+  useEffect(() => {
+    if (!isAI || isLoading || openerFiredRef.current) return;
+    if (messages.length > 0 || inFlightRef.current || isSending) return;
+    openerFiredRef.current = true;
+    inFlightRef.current = true;
+    void (async () => {
+      try {
+        await streamAI("", true);
+      } catch {
+        openerFiredRef.current = false;
+      } finally {
+        inFlightRef.current = false;
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAI, isLoading, messages.length]);
+
   /** Deliver an already-composed message (text may include uploaded-file markdown). */
   const deliver = async (messageText: string, restoreText: string) => {
     if (inFlightRef.current || isSending) return;
     inFlightRef.current = true;
     try {
       if (isAI) {
-        setStreamingText("");
-        setFillerText(null);
-        setStreamingStage(null);
-        setCompletedStages([]);
-        setSuggestions([]);
-        await sendToAI(partnerId, messageText, {
-          onDelta: (acc) => { setStreamingText(acc); setFillerText(null); },
-          onFiller: (f) => setFillerText(f),
-          onBilling: handleBilling,
-          onStage: (stage) => {
-            setStreamingStage(stage);
-            setCompletedStages((prev) => {
-              if (prev.some((p) => p.index === stage.index)) return prev;
-              return [...prev, stage];
-            });
-          },
-          onStageDone: () => setStreamingStage(null),
-          onSuggestions: (s) => setSuggestions(s),
-        });
-        setStreamingText(null);
-        setFillerText(null);
-        setStreamingStage(null);
+        await streamAI(messageText, false);
       } else {
         const result = await send(messageText);
         if (result?.billing) handleBilling(result.billing);

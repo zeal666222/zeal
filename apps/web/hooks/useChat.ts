@@ -272,7 +272,7 @@ export function useChat({
   const TYPED_QUEUE_TARGET_MS = 900;
 
   const sendToAI = useCallback(
-    async (consultantId: string, content: string, handlers: SendToAIHandlers | ((acc: string) => void), retryCount = 0) => {
+    async (consultantId: string, content: string, handlers: SendToAIHandlers | ((acc: string) => void), retryCount = 0, isOpener = false) => {
       const onDelta = typeof handlers === "function" ? handlers : handlers.onDelta;
       const onFiller = typeof handlers === "function" ? undefined : handlers.onFiller;
       const onBilling = typeof handlers === "function" ? undefined : handlers.onBilling;
@@ -281,20 +281,21 @@ export function useChat({
       const onSuggestions = typeof handlers === "function" ? undefined : handlers.onSuggestions;
 
       const trimmed = content.trim();
-      if (!trimmed || !conversationId || !consultantId) return;
+      if ((!trimmed && !isOpener) || !conversationId || !consultantId) return;
 
       const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const optimistic: ChatMessage = {
-        id: tempId,
-        conversationId,
-        senderId: currentUserId,
-        content: trimmed,
-        type: "text",
-        createdAt: new Date().toISOString(),
-        _optimistic: true,
-      };
-
-      setMessages((prev) => [...prev, optimistic]);
+      if (!isOpener) {
+        const optimistic: ChatMessage = {
+          id: tempId,
+          conversationId,
+          senderId: currentUserId,
+          content: trimmed,
+          type: "text",
+          createdAt: new Date().toISOString(),
+          _optimistic: true,
+        };
+        setMessages((prev) => [...prev, optimistic]);
+      }
       setIsSending(true);
       setError(null);
 
@@ -339,7 +340,7 @@ export function useChat({
           const res = await fetch(`/api/chat/ai/${consultantId}`, {
             method: "POST",
             headers,
-            body: JSON.stringify({ conversationId, content: trimmed }),
+            body: JSON.stringify({ conversationId, content: trimmed, opener: isOpener }),
             signal: abortCtrl.signal,
           });
           if (!res.ok || !res.body) {

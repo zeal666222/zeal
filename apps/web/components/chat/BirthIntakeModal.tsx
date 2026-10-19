@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  LocationAutocomplete,
+  type PlaceSuggestionData,
 } from "@zeal/ui";
 
 export interface IntakeData {
@@ -56,6 +58,11 @@ export function BirthIntakeModal({
   const [timeUnknown, setTimeUnknown] = useState(!existingProfile?.timeOfBirth);
   const [timeOfBirth, setTimeOfBirth] = useState(existingProfile?.timeOfBirth ?? "");
   const [placeOfBirth, setPlaceOfBirth] = useState(existingProfile?.placeOfBirth ?? "");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    existingProfile?.latitude != null && existingProfile?.longitude != null
+      ? { lat: existingProfile.latitude, lng: existingProfile.longitude }
+      : null,
+  );
   const [primaryConcern, setPrimaryConcern] = useState(existingProfile?.primaryConcern ?? "");
 
   const canSubmit = fullName.trim() && dateOfBirth && placeOfBirth.trim();
@@ -69,13 +76,13 @@ export function BirthIntakeModal({
       dateOfBirth,
       timeOfBirth: timeUnknown ? null : timeOfBirth || null,
       placeOfBirth: placeOfBirth.trim(),
-      latitude: null,
-      longitude: null,
+      latitude: coords?.lat ?? null,
+      longitude: coords?.lng ?? null,
       primaryConcern: primaryConcern.trim(),
     };
 
     onSubmit(data);
-  }, [canSubmit, fullName, dateOfBirth, timeUnknown, timeOfBirth, placeOfBirth, primaryConcern, onSubmit]);
+  }, [canSubmit, fullName, dateOfBirth, timeUnknown, timeOfBirth, placeOfBirth, coords, primaryConcern, onSubmit]);
 
   const handleTimeToggle = useCallback(() => {
     setTimeUnknown((prev) => {
@@ -165,12 +172,17 @@ export function BirthIntakeModal({
 
               {/* Place of Birth */}
               <Field label="Place of Birth" required>
-                <input
-                  type="text"
+                <LocationAutocomplete
+                  id="intake-pob"
                   value={placeOfBirth}
-                  onChange={(e) => setPlaceOfBirth(e.target.value)}
+                  onChange={(v) => {
+                    setPlaceOfBirth(v);
+                    if (!v.trim()) setCoords(null);
+                  }}
+                  onSelect={(p: PlaceSuggestionData) => setCoords({ lat: p.lat, lng: p.lng })}
                   placeholder="City, State, Country"
-                  className={inputClass}
+                  required
+                  recentStorageKey="zeal:recent-birth-places"
                 />
               </Field>
 

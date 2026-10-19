@@ -3,10 +3,11 @@
 import {useState, useCallback} from "react";
 import {motion, AnimatePresence} from "framer-motion";
 import {
-  ArrowRight, Calendar, Clock, Loader2, MapPin, Orbit, Sparkles,
+  ArrowRight, Calendar, Clock, Loader2, Orbit, Sparkles,
   RotateCcw, AlertCircle, Star, Shield, Zap,
 } from "lucide-react";
 import AstrologyReading, {type AstrologyInterpretation} from "@/components/astrology/AstrologyReading";
+import { LocationAutocomplete, type PlaceSuggestionData } from "@zeal/ui";
 
 type ChartType = "vedic" | "western" | "chinese";
 
@@ -68,6 +69,9 @@ export default function AstrologyTestPage() {
   const [birthDate, setBirthDate] = useState("1869-10-02");
   const [birthTime, setBirthTime] = useState("19:00");
   const [birthPlace, setBirthPlace] = useState("Porbandar, India");
+  const [birthCoords, setBirthCoords] = useState<{lat: number; lng: number; tz: string} | null>(
+    resolveCity("porbandar"),
+  );
   const [chartType, setChartType] = useState<ChartType>("vedic");
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
@@ -80,9 +84,9 @@ export default function AstrologyTestPage() {
     setError("");
     setResult(null);
 
-    const city = resolveCity(birthPlace);
+    const city = birthCoords ?? resolveCity(birthPlace);
     if (!city) {
-      setError(`Could not find coordinates for "${birthPlace}". Try: Mumbai, Delhi, Porbandar, London, New York, Tokyo, etc.`);
+      setError(`Could not find coordinates for "${birthPlace}". Type a city and pick from the suggestions.`);
       setLoading(false);
       return;
     }
@@ -109,13 +113,13 @@ export default function AstrologyTestPage() {
     } finally {
       setLoading(false);
     }
-  }, [birthDate, birthTime, birthPlace, chartType, question]);
+  }, [birthDate, birthTime, birthPlace, birthCoords, chartType, question]);
 
   const handleFollowUp = useCallback(async (q: string) => {
     if (!result) return;
     setFollowUpLoading(true);
     try {
-      const city = resolveCity(birthPlace);
+      const city = birthCoords ?? resolveCity(birthPlace);
       if (!city) return;
       const res = await fetch("/api/astrology/interpret", {
         method: "POST",
@@ -246,18 +250,16 @@ export default function AstrologyTestPage() {
                   {/* Place */}
                   <div>
                     <label className="block text-xs font-black uppercase tracking-wider text-muted-foreground mb-2">Place of Birth</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input
-                        type="text"
-                        value={birthPlace}
-                        onChange={(e) => setBirthPlace(e.target.value)}
-                        placeholder="City, Country"
-                        className="w-full pl-11 pr-4 py-3.5 bg-background/80 border border-border/60 rounded-2xl focus:border-[var(--color-primary)]/50 outline-none text-foreground text-sm transition-colors"
-                      />
-                    </div>
+                    <LocationAutocomplete
+                      id="astro-pob"
+                      value={birthPlace}
+                      onChange={(v) => { setBirthPlace(v); if (!v.trim()) setBirthCoords(null); }}
+                      onSelect={(p: PlaceSuggestionData) => setBirthCoords({ lat: p.lat, lng: p.lng, tz: p.timezone })}
+                      placeholder="City, Country"
+                      recentStorageKey="zeal:recent-birth-places"
+                    />
                     <p className="text-[10px] text-muted-foreground/50 mt-1 ml-1">
-                      Supported: Porbandar, Mumbai, Delhi, Kolkata, Chennai, Bangalore, London, New York, Tokyo, etc.
+                      Type any city — pick a suggestion to lock exact coordinates and timezone.
                     </p>
                   </div>
 

@@ -105,6 +105,15 @@ export class PersonaEngine {
         ? `\n\nSEEKER CONTEXT (weave naturally into your answer — don't dump it back):\n${contextLines.join("\n")}`
         : "";
 
+    // ─── Deterministic kundali block ─────────────────────────────────────
+    // Computed server-side from the seeker's exact birth coordinates. This is
+    // authoritative — the model must interpret it, never recompute or contradict
+    // it. Injecting the real chart is what turns a generic reading into one the
+    // seeker can verify against their own lifeline events.
+    const chartBlock = ctx.chartSummary
+      ? `\n\n${ctx.chartSummary}\n\nUse this chart as ground truth. Reference specific houses, signs, nakshatras and the running dasha when you speak. Do NOT recompute or alter these values, and do NOT ask again for birth details already captured here.`
+      : "";
+
     // ─── Progressive enrichment block ────────────────────────────────────
     const missing = input.missingFields ?? [];
     const enrichmentBlock = missing.length > 0
@@ -179,6 +188,7 @@ export class PersonaEngine {
       // Bio as flavour, not the whole prompt
       input.bio ? `BACKGROUND (for flavour, not to recite): ${input.bio}` : "",
       contextBlock,
+      chartBlock,
       enrichmentBlock,
     ]
       .filter(Boolean)

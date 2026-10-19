@@ -17,6 +17,18 @@ binding = "BUCKET"
 bucket_name = "zeal"
 preview_bucket_name = "zeal"
 
+[ai]
+binding = "AI"
+
+[durable_objects]
+bindings = [
+  { name = "CHAT_GATE", class_name = "ChatGate" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatGate"]
+
 [observability]
 enabled = true
 head_sampling_rate = 1

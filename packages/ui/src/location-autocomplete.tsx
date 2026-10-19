@@ -9,8 +9,9 @@
 // • All motion respects prefers-reduced-motion; no SSR/client divergence
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, m, useReducedMotion } from "framer-motion";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, Loader2, MapPin, Sparkles, X } from "lucide-react";
 import { cn } from "./utils";
 
@@ -88,6 +89,7 @@ export function LocationAutocomplete({
   const [picked, setPicked] = useState<PlaceSuggestionData | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const reqSeq = useRef(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -98,7 +100,8 @@ export function LocationAutocomplete({
 
   useEffect(() => {
     const onDocDown = (e: PointerEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!wrapRef.current?.contains(t) && !listRef.current?.contains(t)) setOpen(false);
     };
     document.addEventListener("pointerdown", onDocDown);
     return () => document.removeEventListener("pointerdown", onDocDown);
@@ -186,6 +189,40 @@ export function LocationAutocomplete({
   const showRecents = items.length === 0 && recents.length > 0;
   const rows = items.length ? items : showRecents ? recents : [];
 
+  // Portal + fixed positioning so the suggestion list is never clipped by an
+  // ancestor's overflow:hidden (cards, dialogs with scroll containers). Flips
+  // upward when there isn't room below the input.
+  const [listStyle, setListStyle] = useState<React.CSSProperties | null>(null);
+  useLayoutEffect(() => {
+    if (!open || rows.length === 0) return;
+    const el = inputRef.current;
+    if (!el) return;
+    const place = () => {
+      const r = el.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom;
+      const spaceAbove = r.top;
+      const wantH = Math.min(288, rows.length * 52 + 16);
+      const dropUp = spaceBelow < wantH + 12 && spaceAbove > spaceBelow;
+      setListStyle({
+        position: "fixed",
+        left: r.left,
+        width: r.width,
+        maxHeight: Math.min(288, (dropUp ? spaceAbove : spaceBelow) - 16),
+        zIndex: 100,
+        ...(dropUp
+          ? { bottom: window.innerHeight - r.top + 8 }
+          : { top: r.bottom + 8 }),
+      });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, rows.length]);
+
   return (
     <div ref={wrapRef} className={cn("relative", className)}>
       <div className="relative">
@@ -230,56 +267,62 @@ export function LocationAutocomplete({
       </div>
 
       {picked && (
-        <m.p
+        <motion.p
           initial={reduced ? false : { opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
           className="mt-1.5 flex items-center gap-1.5 text-[10px] font-medium text-emerald-400"
         >
           <Check size={11} />
           Coordinates locked — {picked.lat.toFixed(3)}, {picked.lng.toFixed(3)} · {picked.timezone}
-        </m.p>
+        </motion.p>
       )}
 
-      <AnimatePresence>
-        {open && rows.length > 0 && (
-          <m.ul
-            id={listId}
-            role="listbox"
-            aria-label={showRecents ? "Recent cities" : "Place suggestions"}
-            initial={reduced ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            className="absolute z-30 mt-2 w-full max-h-72 overflow-y-auto rounded-2xl border border-[var(--color-luxury-glass-border)] bg-[var(--color-surface)]/95 backdrop-blur-2xl shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55)] p-1.5"
-          >
-            {showRecents && (
-              <li className="px-3 pt-1.5 pb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-                <Sparkles size={10} className="text-[var(--color-luxury-gold)]" />
-                {navigator.onLine === false ? "Offline — remembered cities" : "Remembered cities"}
-              </li>
-            )}
-            {rows.map((p, i) => (
-              <li
-                key={`${p.label}-${p.lat}`}
-                id={`${listId}-opt-${i}`}
-                role="option"
-                aria-selected={i === activeIdx}
-                onMouseEnter={() => setActiveIdx(i)}
-                onClick={() => choose(p)}
-                className={cn(
-                  "flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer select-none transition-colors",
-                  i === activeIdx ? "bg-[var(--color-primary)]/12 text-foreground" : "text-muted-foreground hover:bg-muted/40",
-                )}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && rows.length > 0 && listStyle && (
+              <motion.ul
+                ref={listRef}
+                id={listId}
+                role="listbox"
+                aria-label={showRecents ? "Recent cities" : "Place suggestions"}
+                style={listStyle}
+                initial={reduced ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+                transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                className="overflow-y-auto rounded-2xl border border-[var(--color-luxury-glass-border)] bg-[var(--color-surface)]/95 backdrop-blur-2xl shadow-[0_16px_48px_-12px_rgba(0,0,0,0.55)] p-1.5"
               >
-                <MapPin size={13} className={cn("shrink-0", i === activeIdx ? "text-[var(--color-primary)]" : "opacity-60")} />
-                <span className="flex-1 min-w-0 text-sm truncate">{p.label}</span>
-                <span className="shrink-0 text-[10px] tabular-nums opacity-50">{p.timezone.split("/").pop()}</span>
-                {p.label === value && <Check size={13} className="shrink-0 text-emerald-400" />}
-              </li>
-            ))}
-          </m.ul>
+                {showRecents && (
+                  <li className="px-3 pt-1.5 pb-1 flex items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+                    <Sparkles size={10} className="text-[var(--color-luxury-gold)]" />
+                    {navigator.onLine === false ? "Offline — remembered cities" : "Remembered cities"}
+                  </li>
+                )}
+                {rows.map((p, i) => (
+                  <li
+                    key={`${p.label}-${p.lat}`}
+                    id={`${listId}-opt-${i}`}
+                    role="option"
+                    aria-selected={i === activeIdx}
+                    onMouseEnter={() => setActiveIdx(i)}
+                    onClick={() => choose(p)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer select-none transition-colors",
+                      i === activeIdx ? "bg-[var(--color-primary)]/12 text-foreground" : "text-muted-foreground hover:bg-muted/40",
+                    )}
+                  >
+                    <MapPin size={13} className={cn("shrink-0", i === activeIdx ? "text-[var(--color-primary)]" : "opacity-60")} />
+                    <span className="flex-1 min-w-0 text-sm truncate">{p.label}</span>
+                    <span className="shrink-0 text-[10px] tabular-nums opacity-50">{p.timezone.split("/").pop()}</span>
+                    {p.label === value && <Check size={13} className="shrink-0 text-emerald-400" />}
+                  </li>
+                ))}
+              </motion.ul>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }

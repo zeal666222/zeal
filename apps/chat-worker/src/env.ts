@@ -1,6 +1,8 @@
 export interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
+  AI: Ai;
+  CHAT_GATE: DurableObjectNamespace;
   ENVIRONMENT: string;
   ASTRO_WORKER_URL: string;
 

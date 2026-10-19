@@ -56,6 +56,34 @@ function buildProviders(env: Env): Record<ProviderName, ProviderDef> {
       maxConcurrent: 40, rpm: 30, tpm: 20_000, weight: 90,
       supportsVision: getCFModel(env).includes("vision"),
     },
+    cfBinding: {
+      name: "cfBinding", label: "CF Workers AI (binding)",
+      url: "binding://cf-ai",
+      key: () => null,
+      model: getCFModel(env),
+      maxConcurrent: 200, rpm: 1000, tpm: 100_000, weight: 95,
+      keyless: true,
+      supportsVision: getCFModel(env).includes("vision"),
+      callFn: env.AI ? async (opts) => {
+        const messages = opts.messages.map((m) => ({
+          role: m.role,
+          content: typeof m.content === "string" ? m.content : m.content.map((p) => p.type === "text" ? p.text : "").join(""),
+        }));
+        const result = await env.AI.run(getCFModel(env) as any, {
+          messages,
+          temperature: opts.temperature ?? 0.7,
+          max_tokens: opts.maxTokens ?? 1200,
+          stream: opts.stream ?? false,
+        });
+        if (opts.stream && result instanceof ReadableStream) {
+          return new Response(result, { headers: { "Content-Type": "text/event-stream" } });
+        }
+        const json = result as { response?: string };
+        return new Response(JSON.stringify({ choices: [{ message: { content: json.response ?? "" } }] }), {
+          headers: { "Content-Type": "application/json" },
+        });
+      } : undefined,
+    },
     ovh: {
       name: "ovh", label: "OVHcloud Qwen",
       url: "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions",
@@ -110,7 +138,7 @@ function buildProviders(env: Env): Record<ProviderName, ProviderDef> {
 }
 
 const FALLBACK_CHAIN: ProviderName[] = [
-  "groqPro", "cloudflareAi", "agnes", "groqFast", "zhipu",
+  "cfBinding", "groqPro", "cloudflareAi", "agnes", "groqFast", "zhipu",
   "pollinations", "ovh", "kilo", "llm7", "duckduckgo", "freegpt",
 ];
 
@@ -148,6 +176,21 @@ async function callProviderOnce(
   provider: ProviderDef,
   opts: CallAIOptions,
 ): Promise<Response> {
+  // Use custom callFn if provided (e.g. for env.AI binding)
+  if (provider.callFn) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 40_000);
+    if (opts.signal) {
+      if (opts.signal.aborted) { clearTimeout(timer); throw new Error("aborted"); }
+      opts.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+    }
+    try {
+      return await provider.callFn({ ...opts, signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (!provider.keyless) {
     const apiKey = provider.key();
@@ -160,7 +203,7 @@ async function callProviderOnce(
     provider.supportsVision || !hasStructuredContent(opts.messages)
       ? opts.messages
       : opts.messages.map((m) =>
-          typeof m.content === "string" ? m : { ...m, content: contentToText(m.content) },
+          typeof m.content === "string" ? m : { role: m.role, content: contentToText(m.content) } as AIMessage,
         );
 
   const body: Record<string, unknown> = {

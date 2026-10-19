@@ -1,15 +1,18 @@
 import type { Env } from "./env";
 import { validateJWT, extractBearer, authSnapshot } from "./auth";
-import { loadPersona } from "./persona-loader";
-import { tryAcquire, release } from "./chat-concurrency";
+import { loadPersona, type AstroContext } from "./persona-loader";
+import { tryAcquire, release, stats as gateStats } from "./chat-concurrency";
 import { startChatBilling } from "./billing";
 import { handleAIChat, type CallAIResult, type AIMessage } from "./ai-chat-handler";
 import { snapshot as snapshotAiMetrics } from "./ai-metrics";
 import { callAI } from "./ai-engine";
 import { uploadToR2, deleteFromR2, listR2 } from "./storage";
+import { ChatGate } from "./chat-gate";
+
+export { ChatGate };
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
@@ -55,7 +58,7 @@ export default {
     // AI Chat SSE endpoint
     const chatMatch = url.pathname.match(/^\/api\/chat\/ai\/([a-z0-9-]+)$/);
     if (chatMatch && req.method === "POST") {
-      return handleChatRequest(req, env, chatMatch[1], corsHeaders);
+      return handleChatRequest(req, env, ctx, chatMatch[1], corsHeaders);
     }
 
     return Response.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
@@ -65,6 +68,7 @@ export default {
 async function handleChatRequest(
   req: Request,
   env: Env,
+  ctx: ExecutionContext,
   consultantId: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
@@ -80,30 +84,35 @@ async function handleChatRequest(
   const userId = jwt.sub;
 
   // 2. Parse body
-  let body: { conversationId?: string; content?: string };
+  let body: { conversationId?: string; content?: string; opener?: boolean; astro?: AstroContext };
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders });
   }
 
-  const { conversationId, content } = body;
-  if (!conversationId || !content) {
-    return Response.json({ error: "conversationId and content required" }, { status: 400, headers: corsHeaders });
+  const { conversationId, content, opener, astro } = body;
+  if (!conversationId) {
+    return Response.json({ error: "conversationId required" }, { status: 400, headers: corsHeaders });
   }
-  if (content.length > 4000) {
+  // A normal turn needs user content; an opener turn is generated proactively.
+  if (!opener && !content) {
+    return Response.json({ error: "content required" }, { status: 400, headers: corsHeaders });
+  }
+  if (content && content.length > 4000) {
     return Response.json({ error: "Message too long (max 4000 chars)" }, { status: 400, headers: corsHeaders });
   }
 
   // 3. Concurrency
-  const acquire = tryAcquire(userId);
+  const acquire = await tryAcquire(env, userId);
   if (!acquire.allowed) {
     return Response.json({ error: acquire.error ?? "Too many concurrent chats" }, { status: 429, headers: corsHeaders });
   }
+  const leaseId = acquire.leaseId;
 
   try {
-    // 4. Load persona from D1
-    const persona = await loadPersona(env, consultantId);
+    // 4. Load persona from D1 (kundali-grounded where the seeker has a chart)
+    const persona = await loadPersona(env, consultantId, astro);
     if (!persona) {
       return Response.json({ error: "Consultant not found" }, { status: 404, headers: corsHeaders });
     }
@@ -136,9 +145,10 @@ async function handleChatRequest(
       conversationId,
       consultantId,
       userId,
-      content,
+      content: content ?? "",
       persona,
       callAI: callAIFn,
+      opener: opener === true,
     });
 
     return new Response(stream, {
@@ -157,10 +167,13 @@ async function handleChatRequest(
       { status: 500, headers: corsHeaders },
     );
   } finally {
-    // Release concurrency after stream completes
-    // Note: in Workers, the response is returned immediately and the stream
-    // continues in the background. We release after a reasonable timeout.
-    setTimeout(() => release(userId), 60_000);
+    // Release concurrency after stream completes. Use ctx.waitUntil so the
+    // worker runtime keeps the isolate alive long enough for the release to
+    // reach the Durable Object — the old detached setTimeout was cancelled
+    // when the isolate froze, leaking slots and producing false 429s.
+    if (leaseId) {
+      ctx.waitUntil(release(env, leaseId));
+    }
   }
 }
 
@@ -220,6 +233,7 @@ async function handleHealth(
       // next slot in FALLBACK_CHAIN; hardcoded stays as last-resort.
       groq: Boolean(env.GROQ_API_KEY),
       cloudflareAi: Boolean(env.CF_AI_TOKEN && env.CF_ACCOUNT_ID),
+      cfBinding: Boolean(env.AI),
       agnes: Boolean(env.AGNES_API_KEY),
       zhipu: Boolean(env.ZHIPU_API_KEY),
       keylessFallbacks: ["pollinations", "ovh", "kilo", "llm7", "duckduckgo", "freegpt"],
@@ -227,6 +241,7 @@ async function handleHealth(
     },
     auth: authSnapshot(),
     ai: snapshotAiMetrics(),
+    gate: await gateStats(env),
   };
   const status = allOk ? 200 : 503;
   healthCache = { at: Date.now(), body, status };
