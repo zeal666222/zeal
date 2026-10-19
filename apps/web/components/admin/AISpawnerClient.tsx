@@ -41,7 +41,7 @@ export function AISpawnerClient() {
             {result.msg}
           </div>
           {result.success && result.id && (
-            <Link href={`/consultant/${result.id}`} className="text-foreground underline text-xs ml-6">
+            <Link href={`/admin/consultant/${result.id}`} className="text-foreground underline text-xs ml-6">
               View Public Profile →
             </Link>
           )}

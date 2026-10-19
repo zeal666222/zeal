@@ -207,6 +207,32 @@ function tzOffsetMinutes(wallUtcMs: number, timeZone: string): number {
 }
 
 /**
+ * Accept "HH:MM", "H:MM AM/PM", "7pm", "hh:mm:ss" — return canonical HH:MM.
+ * Legacy rows stored "7:30 PM" verbatim; without this they either throw or,
+ * worse, get read as 07:30 (a PM birth treated as AM).
+ */
+export function normalizeBirthTime(raw: string): string {
+  const s = String(raw ?? "").trim().toLowerCase();
+  const m12 = /^(\d{1,2})(?::(\d{2}))?\s*(am|p\.m\.|pm|a\.m\.)$/.exec(s);
+  if (m12) {
+    let h = parseInt(m12[1]!, 10);
+    const min = m12[2] ?? "00";
+    const isPm = m12[3]!.startsWith("p");
+    if (h < 1 || h > 12 || parseInt(min, 10) > 59) throw new Error(`Invalid birth time: ${raw}`);
+    h = isPm ? (h === 12 ? 12 : h + 12) : (h === 12 ? 0 : h);
+    return `${String(h).padStart(2, "0")}:${min}`;
+  }
+  const m24 = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
+  if (m24) {
+    const h = parseInt(m24[1]!, 10);
+    const min = parseInt(m24[2]!, 10);
+    if (h > 23 || min > 59) throw new Error(`Invalid birth time: ${raw}`);
+    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+  }
+  throw new Error(`Invalid birth time: ${raw}. Use HH:MM (24h) or 7:30 PM.`);
+}
+
+/**
  * Parse birth date and time into a UTC Date object.
  *
  * Birth time is interpreted as LOCAL wall-clock time at the birth place. The
@@ -216,7 +242,7 @@ function tzOffsetMinutes(wallUtcMs: number, timeZone: string): number {
  */
 export function parseBirthDateTime(birthData: BirthData): Date {
   const [year, month, day] = birthData.birthDate.split("-").map(Number);
-  const [hours, minutes] = birthData.birthTime.split(":").map(Number);
+  const [hours, minutes] = normalizeBirthTime(birthData.birthTime).split(":").map(Number);
 
   if (!year || !month || !day || hours === undefined || minutes === undefined) {
     throw new Error("Invalid birth date or time format. Use YYYY-MM-DD and HH:MM");

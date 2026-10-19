@@ -61,6 +61,12 @@ function TarotInfo({ className, strokeWidth = 1.4 }: SvgProps) {
 
 function HoroscopeInfo({ className, strokeWidth = 1.2 }: SvgProps) {
   const signs = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
+  // Round the trig outputs to a fixed precision — bare Math.sin/cos produce
+  // values like 29.444863728670914 on the server and 29.44486372867091 on
+  // the client (float serialization diverges between React's server-renderer
+  // and the DOM attribute setter), which trips a hydration mismatch on every
+  // homepage load. .toFixed() gives both sides the identical string.
+  const n = (v: number) => Number(v.toFixed(3));
   return (
     <svg viewBox="0 0 220 140" className={className} fill="none" aria-hidden="true">
       <defs>
@@ -76,12 +82,12 @@ function HoroscopeInfo({ className, strokeWidth = 1.2 }: SvgProps) {
         {/* 12 spokes + glyphs */}
         {signs.map((s, i) => {
           const angle = (i / 12) * Math.PI * 2 - Math.PI / 2;
-          const x1 = Math.cos(angle) * 34;
-          const y1 = Math.sin(angle) * 34;
-          const x2 = Math.cos(angle) * 55;
-          const y2 = Math.sin(angle) * 55;
-          const tx = Math.cos(angle) * 45;
-          const ty = Math.sin(angle) * 45;
+          const x1 = n(Math.cos(angle) * 34);
+          const y1 = n(Math.sin(angle) * 34);
+          const x2 = n(Math.cos(angle) * 55);
+          const y2 = n(Math.sin(angle) * 55);
+          const tx = n(Math.cos(angle) * 45);
+          const ty = n(Math.sin(angle) * 45);
           return (
             <g key={i}>
               <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#c4b5fd" strokeOpacity="0.35" strokeWidth={strokeWidth} />

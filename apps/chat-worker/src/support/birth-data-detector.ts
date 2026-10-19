@@ -75,26 +75,30 @@ const DATE_PATTERNS: Array<{ regex: RegExp; extract: (m: RegExpMatchArray) => st
 
 // ─── Time patterns ────────────────────────────────────────────────────────────
 
-const TIME_PATTERNS: Array<{ regex: RegExp; extract: (m: RegExpMatchArray) => string }> = [
+const TIME_PATTERNS: Array<{ regex: RegExp; extract: (m: RegExpMatchArray) => string | null }> = [
+  // 12h WITH marker FIRST — otherwise "7:00 pm" is matched by the bare 24h
+  // pattern and silently becomes 07:00 (a PM birth read as AM).
+  {
+    regex: /\b(\d{1,2})(?::(\d{2}))?\s*(?:a\.?m\.?|p\.?m\.?)\b/i,
+    extract: (m) => {
+      const h12 = parseInt(m[1] ?? "0", 10);
+      const min = m[2] ?? "00";
+      if (h12 < 1 || h12 > 12) return null;
+      const isPm = /p/i.test(m[0]);
+      const h = isPm ? (h12 === 12 ? 12 : h12 + 12) : (h12 === 12 ? 0 : h12);
+      const mm = parseInt(min, 10);
+      if (mm < 0 || mm > 59) return null;
+      return `${String(h).padStart(2, "0")}:${min}`;
+    },
+  },
   // 24h: 19:00 or 19:00:00
   {
     regex: /\b(\d{1,2}):(\d{2})(?::\d{2})?\b/,
     extract: (m) => {
-      const h = (m[1] ?? "00").padStart(2, "0");
-      const min = m[2] ?? "00";
-      return `${h}:${min}`;
-    },
-  },
-  // 12h: 7:00 PM, 7pm, 7:00pm, 7:00 p.m.
-  {
-    regex: /\b(\d{1,2})(?::(\d{2}))?\s*(?:a\.?m\.?|p\.?m\.?)\b/i,
-    extract: (m) => {
-      let h = parseInt(m[1] ?? "12", 10);
-      const min = m[2] ?? "00";
-      const isPm = /p/i.test(m[0]);
-      if (isPm && h < 12) h += 12;
-      if (!isPm && h === 12) h = 0;
-      return `${String(h).padStart(2, "0")}:${min}`;
+      const h = parseInt(m[1] ?? "0", 10);
+      const min = parseInt(m[2] ?? "0", 10);
+      if (h > 23 || min > 59) return null;
+      return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
     },
   },
 ];
@@ -179,8 +183,10 @@ export function detectBirthData(message: string): DetectedBirthData | null {
   let birthTime: string | null = null;
   for (const pattern of TIME_PATTERNS) {
     const match = lower.match(pattern.regex);
-    if (match) {
-      birthTime = pattern.extract(match);
+    if (!match) continue;
+    const extracted = pattern.extract(match);
+    if (extracted) {
+      birthTime = extracted;
       break;
     }
   }

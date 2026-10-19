@@ -69,3 +69,6 @@ scripts/tmp/
 .wrangler/
 apps/web/pnpm-lock.yaml
 apps/web/yarn.lock
+
+# archived pre-merge admin app (678MB, kept locally for reference only)
+apps/admin.legacy/

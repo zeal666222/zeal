@@ -17,6 +17,7 @@ import { PostGrid } from "@/components/profile/PostGrid";
 import { signOutAction } from "@/actions/auth";
 import { cn } from "@zeal/ui";
 import { getImageUrl } from "@/lib/storage/r2";
+import { useAppStore } from "@/lib/store/appStore";
 
 interface SelfProfile {
   id: string;
@@ -101,6 +102,41 @@ export default function ProfilePage() {
       }
     })();
   }, [retryKey]);
+
+  // Live-sync the hero with anything the store knows (realtime broadcast from
+  // the trg_broadcast_user_avatar trigger, or the optimistic patch the edit
+  // page pushes on upload). The DB fetch above is the cold-start authority;
+  // these keys are the hot-path overlay.
+  const liveUser = useAppStore((s) => s.user);
+  useEffect(() => {
+    if (!profile || !liveUser || liveUser.id !== profile.id) return;
+    const next: SelfProfile = { ...profile };
+    let dirty = false;
+    if ((liveUser.avatar ?? null) !== profile.avatar) { next.avatar = liveUser.avatar ?? null; dirty = true; }
+    if ((liveUser.name ?? null) !== profile.name) { next.name = liveUser.name ?? null; dirty = true; }
+    if (typeof liveUser.username === "string" && liveUser.username !== profile.username) {
+      next.username = liveUser.username; dirty = true;
+    }
+    if ((liveUser.bio ?? null) !== profile.bio) { next.bio = liveUser.bio ?? null; dirty = true; }
+    if (typeof liveUser.sparks === "number" && liveUser.sparks !== profile.sparks) {
+      next.sparks = liveUser.sparks; dirty = true;
+    }
+    if (typeof liveUser.isVerified === "boolean" && liveUser.isVerified !== profile.isVerified) {
+      next.isVerified = liveUser.isVerified; dirty = true;
+    }
+    if (dirty) setProfile(next);
+  }, [liveUser, profile]);
+
+  // Re-fetch when the tab regains focus — cheap safety net if the realtime
+  // socket was down during a background upload.
+  useEffect(() => {
+    const onVis = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState === "visible") setRetryKey((k) => k + 1);
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
 
   const handleCopy = async () => {
     if (!profile?.username) return;

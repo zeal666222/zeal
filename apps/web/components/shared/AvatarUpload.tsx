@@ -9,10 +9,46 @@
 
 import { useCallback, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, Loader2, X } from "lucide-react";
+import { Camera, X } from "lucide-react";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const TARGET_PX = 512;
+
+// Centre-crop + downscale to a square WebP under 300 KB. Keeps every consumer
+// (header chip, comment thread, chat bubble) rendering one canonical asset
+// instead of four different aspect ratios. Rejects gracefully — the caller
+// falls back to the raw file if the browser can't encode WebP.
+async function normalizeAvatar(file: File): Promise<File> {
+  if (typeof createImageBitmap !== "function") return file;
+  const bmp = await createImageBitmap(file);
+  const side = Math.min(bmp.width, bmp.height);
+  const sx = Math.max(0, (bmp.width - side) / 2);
+  const sy = Math.max(0, (bmp.height - side) / 2);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = TARGET_PX;
+  canvas.height = TARGET_PX;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bmp.close?.();
+    return file;
+  }
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(bmp, sx, sy, side, side, 0, 0, TARGET_PX, TARGET_PX);
+  bmp.close?.();
+
+  const blob: Blob | null = await new Promise((resolve) =>
+    canvas.toBlob(resolve, "image/webp", 0.88),
+  );
+  if (!blob) return file;
+  // If WebP produced something bigger than the source (rare), keep the source.
+  if (blob.size >= file.size) return file;
+  return new File([blob], file.name.replace(/\.(jpe?g|png|webp)$/i, "") + ".webp", {
+    type: "image/webp",
+    lastModified: Date.now(),
+  });
+}
 
 interface Props {
   /** Current avatar URL (full URL or storage key) — used as initial preview. */
@@ -21,6 +57,9 @@ interface Props {
   inputName?: string;
   /** Size of the circular preview (Tailwind classes). */
   size?: "sm" | "md" | "lg";
+  /** Fired the moment the file lands in storage, before the parent form submits.
+   *  Lets callers optimistic-patch the store so the header chip swaps instantly. */
+  onUploaded?: (url: string) => void;
 }
 
 const SIZE_MAP = {
@@ -33,6 +72,7 @@ export function AvatarUpload({
   defaultValue,
   inputName = "avatar",
   size = "md",
+  onUploaded,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -40,6 +80,7 @@ export function AvatarUpload({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const dim = SIZE_MAP[size];
 
@@ -70,8 +111,14 @@ export function AvatarUpload({
       setProgress(0);
 
       try {
+        // Downscale to 512×512 square (center crop) before upload — faster
+        // transfer, uniform aspect across every header chip and card, less
+        // storage. Falls through to the raw file if canvas encoding fails
+        // (Safari edge cases with certain WebP variants).
+        const payload = await normalizeAvatar(file).catch(() => file);
+
         const form = new FormData();
-        form.append("file", file);
+        form.append("file", payload, payload.name || "avatar.jpg");
         form.append("folder", "avatars");
 
         // Simulate progress with XHR (fetch doesn't expose upload progress)
@@ -114,6 +161,10 @@ export function AvatarUpload({
 
         // Dispatch an input event so React controlled inputs stay in sync
         inputRef.current?.dispatchEvent(new Event("input", { bubbles: true }));
+
+        // Optimistic broadcast — the profile-edit page uses this to swap the
+        // header chip and profile-page hero before the server action returns.
+        onUploaded?.(uploadedUrl);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed");
         // Revert preview on failure
@@ -125,7 +176,7 @@ export function AvatarUpload({
         URL.revokeObjectURL(objectUrl);
       }
     },
-    [defaultValue],
+    [defaultValue, onUploaded],
   );
 
   const handleClear = useCallback(
@@ -162,11 +213,19 @@ export function AvatarUpload({
       <button
         type="button"
         onClick={handleClick}
+        onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f) void handleFile(f);
+        }}
         className={`relative ${dim.ring} rounded-full overflow-hidden
           bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)]
-          ring-2 ring-transparent hover:ring-[var(--color-primary)]/40
-          transition-all duration-200 active:scale-95 cursor-pointer
-          flex items-center justify-center`}
+          ring-2 transition-all duration-200 active:scale-95 cursor-pointer
+          flex items-center justify-center
+          ${dragOver ? "ring-[var(--color-primary)] scale-105 shadow-lg shadow-[var(--color-primary)]/30" : "ring-transparent hover:ring-[var(--color-primary)]/40"}`}
         aria-label="Change avatar"
       >
         {preview ? (
@@ -180,22 +239,40 @@ export function AvatarUpload({
           <Camera size={dim.icon} className="text-white/80" />
         )}
 
-        {/* Upload overlay */}
+        {/* Upload overlay — real progress ring, not just a spinner */}
         <AnimatePresence>
           {uploading && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center"
             >
-              <Loader2 size={dim.icon} className="animate-spin text-white mb-1" />
-              <span className={`${dim.overlay} font-black text-white/90`}>
-                {progress}%
-              </span>
+              <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full -rotate-90">
+                <circle cx="22" cy="22" r="20" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
+                <circle
+                  cx="22" cy="22" r="20" fill="none" stroke="white" strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 20}
+                  strokeDashoffset={2 * Math.PI * 20 * (1 - progress / 100)}
+                  style={{ transition: "stroke-dashoffset 200ms ease" }}
+                />
+              </svg>
+              <span className={`${dim.overlay} font-black text-white`}>{progress}%</span>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Drag hint (only when not uploading) */}
+        {!uploading && dragOver && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-[var(--color-primary)]/40 backdrop-blur-sm flex items-center justify-center text-white text-[10px] font-black tracking-widest"
+          >
+            RELEASE
+          </motion.div>
+        )}
 
         {/* Hover overlay (only when not uploading) */}
         {!uploading && (
@@ -230,6 +307,14 @@ export function AvatarUpload({
           </motion.p>
         )}
       </AnimatePresence>
+
+      {!uploading && !error && (
+        <p className="text-[10px] text-muted-foreground text-center max-w-[220px] leading-tight">
+          Click or drop · JPEG/PNG/WebP · up to 5 MB
+          <br />
+          <span className="opacity-70">Auto-cropped to a 512×512 square</span>
+        </p>
+      )}
     </div>
   );
 }

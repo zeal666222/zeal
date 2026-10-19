@@ -97,6 +97,9 @@ const nextConfig = {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     formats: ["image/avif", "image/webp"],
+    // FreeServicesGrid banners ship at quality 82 — must be allow-listed or Next
+    // emits `next-image-unconfigured-qualities` warnings on every page load.
+    qualities: [75, 82],
     minimumCacheTTL: 31536000,
     // Keep the default Next.js loader (Cloudflare Workers AI / Pages can proxy
     // /_next/image transparently). Long-lived cache directives for the

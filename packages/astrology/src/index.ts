@@ -61,6 +61,7 @@ export {
   computeTransit,
   getNakshatra,
   degreesToSignDeg,
+  normalizeBirthTime,
   NAKSHATRAS,
   DIVISIONAL_CHARTS,
 } from "./vedic/index";

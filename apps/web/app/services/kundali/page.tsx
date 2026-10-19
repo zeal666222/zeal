@@ -968,11 +968,21 @@ function InputPhase({
         const fullName = typeof p.fullName === "string" ? p.fullName.trim() : "";
         const dateOfBirth = typeof p.dateOfBirth === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.dateOfBirth) ? p.dateOfBirth : "";
         if (!fullName || !dateOfBirth) return;
-        const rawTob = typeof p.timeOfBirth === "string" ? p.timeOfBirth : "";
+        const rawTob = typeof p.timeOfBirth === "string" ? p.timeOfBirth.trim() : "";
+        // Legacy rows may hold "7:30 PM" — convert, never drop the meridiem.
+        let tob = /^\d{2}:\d{2}/.test(rawTob) ? rawTob.slice(0, 5) : "";
+        const m12 = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i.exec(rawTob);
+        if (!tob && m12) {
+          const h12 = Number(m12[1]);
+          if (h12 >= 1 && h12 <= 12) {
+            const h = /^pm$/i.test(m12[3] ?? "") ? (h12 === 12 ? 12 : h12 + 12) : (h12 === 12 ? 0 : h12);
+            tob = `${String(h).padStart(2, "0")}:${m12[2] ?? "00"}`;
+          }
+        }
         setSavedProfile({
           fullName,
           dateOfBirth,
-          timeOfBirth: /^\d{2}:\d{2}/.test(rawTob) ? rawTob.slice(0, 5) : "",
+          timeOfBirth: tob,
           placeOfBirth: typeof p.placeOfBirth === "string" ? p.placeOfBirth.trim() : "",
           primaryConcern: typeof p.primaryConcern === "string" ? p.primaryConcern.trim() : "",
         });

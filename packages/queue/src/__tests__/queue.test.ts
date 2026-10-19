@@ -10,24 +10,37 @@ import { JobQueueClient, JobQueueError } from "../client";
 
 // ─── Mock @zeal/database/server ──────────────────────────────────────────────
 const mockInsert = vi.fn();
-const mockSelect = vi.fn();
-const mockSingle = vi.fn();
-const mockEq = vi.fn();
+const mockInsertSelect = vi.fn();
+const mockInsertSingle = vi.fn().mockResolvedValue({
+  data: { id: "test-job-id" },
+  error: null,
+});
 const mockRpc = vi.fn();
 
-const mockFrom = vi.fn((table: string) => ({
-  insert: mockInsert.mockReturnValue({
-    select: mockSelect.mockReturnValue({
-      single: mockSingle.mockResolvedValue({
-        data: { id: "test-job-id" },
-        error: null,
-      }),
+// Count-query builder: chainable .eq() like the real PostgREST builder,
+// resolving queued {count,error} results when awaited.
+let statsQueue: Array<{ count: number | null; error: { message: string } | null }> = [];
+const eqCalls: Array<[string, unknown]> = [];
+function makeCountBuilder(): Record<string, unknown> {
+  const b: Record<string, unknown> = {
+    eq: vi.fn((col: string, val: unknown) => {
+      eqCalls.push([col, val]);
+      return b;
     }),
+    then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) => {
+      const r = statsQueue.shift() ?? { count: 0, error: null };
+      const p = Promise.resolve(r);
+      return onF ? p.then(onF, onR) : p;
+    },
+  };
+  return b;
+}
+
+const mockFrom = vi.fn(() => ({
+  insert: mockInsert.mockReturnValue({
+    select: mockInsertSelect.mockReturnValue({ single: mockInsertSingle }),
   }),
-  select: mockSelect.mockReturnValue({
-    eq: mockEq.mockResolvedValue({ count: 5, error: null }),
-    single: mockSingle.mockResolvedValue({ data: null, error: null }),
-  }),
+  select: vi.fn(() => makeCountBuilder()),
 }));
 
 vi.mock("@zeal/database/server", () => ({
@@ -42,6 +55,8 @@ describe("JobQueueClient", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    statsQueue = [];
+    eqCalls.length = 0;
     queue = new JobQueueClient();
   });
 
@@ -96,7 +111,7 @@ describe("JobQueueClient", () => {
     });
 
     it("throws JobQueueError on insert failure", async () => {
-      mockSingle.mockResolvedValueOnce({
+      mockInsertSingle.mockResolvedValueOnce({
         data: null,
         error: { message: "DB connection lost" },
       });
@@ -177,22 +192,26 @@ describe("JobQueueClient", () => {
 
   describe("stats", () => {
     it("returns queue statistics", async () => {
-      // Mock the count queries for each status
-      mockEq
-        .mockResolvedValueOnce({ count: 10, error: null }) // pending
-        .mockResolvedValueOnce({ count: 3, error: null })  // processing
-        .mockResolvedValueOnce({ count: 50, error: null }) // completed
-        .mockResolvedValueOnce({ count: 2, error: null });  // failed
+      // total query resolves first, then one per status
+      statsQueue = [
+        { count: 65, error: null }, // total
+        { count: 10, error: null }, // pending
+        { count: 3, error: null },  // processing
+        { count: 50, error: null }, // completed
+        { count: 2, error: null },  // failed
+      ];
 
       const stats = await queue.stats("send-email");
 
       expect(stats).toEqual({
-        total: 10,
+        total: 65,
         pending: 10,
         processing: 3,
         completed: 50,
         failed: 2,
       });
+      expect(eqCalls).toContainEqual(["type", "send-email"]);
+      expect(eqCalls).toContainEqual(["status", "pending"]);
     });
   });
 

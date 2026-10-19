@@ -238,7 +238,12 @@ export function getHouseForPlanet(
 
 /**
  * Compute the Ascendant (1st house cusp) from local sidereal time and latitude.
- * Uses the standard formula: tan(Asc) = -cos(RAMC) / (sin(obliquity) * tan(latitude) + cos(obliquity) * sin(RAMC))
+ *
+ * Meeus (Astronomical Algorithms, ch. 22):
+ *   tan(Asc) = -cos(RAMC) / (sin(eps) * tan(lat) + cos(eps) * sin(RAMC))
+ * The atan2 gives one of the two horizon/ecliptic intersections; the true
+ * Ascendant is the one whose RIGHT ASCENSION lies ~90° east of the MC, i.e.
+ * closest to RAMC + 90°. (The other intersection is the Descendant.)
  */
 export function computeAscendant(
   ramc: number, // Right Ascension of MC in degrees
@@ -252,17 +257,26 @@ export function computeAscendant(
   const y = -Math.cos(ramcRad);
   const x = Math.sin(oblRad) * Math.tan(latRad) + Math.cos(oblRad) * Math.sin(ramcRad);
 
-  let asc = Math.atan2(y, x) * 180 / Math.PI;
-  // Adjust to correct quadrant
-  asc = ((asc % 360) + 360) % 360;
-
-  // The ascendant should be in the eastern half (0-180 from the MC perspective)
-  // Adjust if needed
-  const mcDeg = ((ramc % 360) + 360) % 360;
-  if (asc < mcDeg - 90 || (asc > mcDeg + 90 && asc < mcDeg + 270)) {
-    asc = (asc + 180) % 360;
+  if (Math.abs(x) < 1e-12 && Math.abs(y) < 1e-12) {
+    // Degenerate (poles) — no well-defined ascendant.
+    return (((ramc + 90) % 360) + 360) % 360;
   }
 
+  const asc = (((Math.atan2(y, x) * 180 / Math.PI) % 360) + 360) % 360;
+
+  // Right ascension of an ecliptic longitude.
+  const raOf = (lonDeg: number): number => {
+    const l = lonDeg * Math.PI / 180;
+    return (((Math.atan2(Math.cos(oblRad) * Math.sin(l), Math.cos(l)) * 180 / Math.PI) % 360) + 360) % 360;
+  };
+  const dist = (a: number, b: number): number => {
+    const d = (((a - b) % 360) + 360) % 360;
+    return d > 180 ? 360 - d : d;
+  };
+
+  const target = (((ramc + 90) % 360) + 360) % 360;
+  const other = (asc + 180) % 360;
+  if (dist(raOf(other), target) < dist(raOf(asc), target)) return other;
   return asc;
 }
 

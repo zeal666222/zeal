@@ -16,6 +16,7 @@ import {
   computeNavamsaChart,
   computeVimshottariDasha,
   computePanchanga,
+  normalizeBirthTime,
 } from "@zeal/astrology";
 import type { BirthData, NatalChart, PlanetPosition } from "@zeal/astrology";
 import { resolvePlace, type ResolvedPlace } from "./geocoder";
@@ -147,7 +148,14 @@ export function validateBirthTime(raw: unknown): string {
     );
   }
   const m = TIME_RE.exec(tob);
-  if (!m) throw new KundaliInputError("Please enter birth time in HH:MM (24-hour) format.");
+  if (!m) {
+    // Accept 12-hour forms ("4:30 PM", "7pm") — canonicalize to HH:MM
+    try {
+      return normalizeBirthTime(tob);
+    } catch {
+      throw new KundaliInputError("Please enter birth time as HH:MM (24-hour) or like '4:30 PM'.");
+    }
+  }
   const hour = Number(m[1]);
   const minute = Number(m[2]);
   if (hour < 0 || hour > 23) throw new KundaliInputError("Birth time hours must be between 0 and 23.");
@@ -298,7 +306,8 @@ export function computeKundali(
     input: { name, birthDate, birthTime, place, resolvedPlace: resolved },
     chart: {
       ascendantSign: chart.ascendant.sign,
-      ascendantDegree: Math.round(chart.ascendant.degree * 1000) / 1000,
+      // Degrees WITHIN the sign (0-30) — absolute longitude reads like "341.2°" and confuses users.
+      ascendantDegree: Math.round(((chart.ascendant.degree % 30) + 30) % 30 * 1000) / 1000,
       ayanamsa: Math.round((chart.ayanamsa ?? 0) * 1000) / 1000,
       moonSign: moon?.sign ?? "—",
       moonNakshatra: moon?.nakshatra ?? "—",

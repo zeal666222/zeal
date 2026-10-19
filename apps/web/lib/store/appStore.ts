@@ -1,7 +1,6 @@
 import {create} from 'zustand';
 import {persist, devtools, createJSONStorage} from 'zustand/middleware';
 import {immer} from 'zustand/middleware/immer';
-
 export interface User {
   id: string;
   email: string;
@@ -182,3 +181,63 @@ export const useAppStoreShallow = <T>(selector: (state: AppState) => T) => {
 };
 
 // BATCH1_APPLIED
+
+// ─── Cross-tab profile sync ──────────────────────────────────────────────────
+// The Zustand persist middleware writes to localStorage, but other tabs do
+// not rehydrate automatically. A user updating their avatar in tab A expects
+// the header chip in tab B to reflect it in the same frame. We broadcast the
+// persisted slice over a BroadcastChannel and re-apply it in the receiving
+// tabs. Falls back to the `storage` event on browsers where the channel is
+// unavailable (Safari in a private window).
+const SYNC_CHANNEL = "zeal-store-sync";
+type SyncSlice = { user: User | null; wallet: Wallet | null };
+
+let __channel: BroadcastChannel | null = null;
+function getChannel(): BroadcastChannel | null {
+  if (typeof window === "undefined") return null;
+  if (__channel) return __channel;
+  if (typeof BroadcastChannel === "undefined") return null;
+  __channel = new BroadcastChannel(SYNC_CHANNEL);
+  __channel.onmessage = (ev: MessageEvent<SyncSlice>) => {
+    const { user, wallet } = ev.data || ({} as SyncSlice);
+    // Never overwrite a signed-out tab with a signed-in one, and vice versa.
+    const current = useAppStore.getState().user;
+    if (user && current && current.id !== user.id) return;
+    if (user) useAppStore.setState({ user });
+    if (wallet) useAppStore.setState({ wallet });
+  };
+  return __channel;
+}
+
+if (typeof window !== "undefined") {
+  getChannel();
+
+  useAppStore.subscribe((state, prev) => {
+    if (state.user === prev.user && state.wallet === prev.wallet) return;
+    const ch = getChannel();
+    if (ch) {
+      ch.postMessage({ user: state.user, wallet: state.wallet } satisfies SyncSlice);
+      return;
+    }
+    // Fallback: storage event fires in the OTHER tabs when we write localStorage.
+    try {
+      localStorage.setItem(
+        "zeal-storage:cross-tab",
+        JSON.stringify({ t: Date.now(), user: state.user, wallet: state.wallet }),
+      );
+    } catch { /* quota — non-fatal */ }
+  });
+
+  if (typeof BroadcastChannel === "undefined") {
+    window.addEventListener("storage", (ev) => {
+      if (ev.key !== "zeal-storage:cross-tab" || !ev.newValue) return;
+      try {
+        const { user, wallet } = JSON.parse(ev.newValue) as SyncSlice;
+        const current = useAppStore.getState().user;
+        if (user && current && current.id !== user.id) return;
+        if (user) useAppStore.setState({ user });
+        if (wallet) useAppStore.setState({ wallet });
+      } catch { /* malformed — ignore */ }
+    });
+  }
+}

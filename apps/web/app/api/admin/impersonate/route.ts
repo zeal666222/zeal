@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import { requireAdminAPI, logAdminAction, hasAPIScope, type GuardSuccess } from "@/lib/auth/api-guard";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { safeQueryOne } from "@/lib/infra/guards";
 import { z } from "zod";
@@ -15,6 +15,12 @@ const BodySchema = z.object({
 export const POST = withErrorHandler(async (req: Request) => {
   const guard = await requireAdminAPI("SUPER_ADMIN");
   if (!guard.ok) return guard.response;
+  // Impersonation is the highest-privilege action in the panel. An API key
+  // without the dedicated scope cannot open a session as another identity,
+  // even if it authenticates as a SUPER_ADMIN user record.
+  if (!hasAPIScope(guard as GuardSuccess, "impersonate:session")) {
+    throw new AppError("API key missing scope impersonate:session", 403, ErrorCode.AUTH_FORBIDDEN);
+  }
   const { admin, userId: adminId } = guard;
 
   let body: unknown;

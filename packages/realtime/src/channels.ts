@@ -7,7 +7,10 @@ export const channels = {
   userWalletLedger:  (uid: string) => `user:${uid}:wallet:ledger`,
   userNotifications: (uid: string) => `user:${uid}:notifications`,
   userStatus:        (uid: string) => `user:${uid}:status`,
-  userProfile:       (uid: string) => `user:profile:${uid}`,
+  // Topic MUST match RLS on realtime.messages: 'user:' || auth.uid() || ':%'.
+  // The previous shape `user:profile:<uid>` had the uid at the tail and was
+  // silently rejected by the policy, killing avatar realtime.
+  userProfile:       (uid: string) => `user:${uid}:profile`,
   userSparks:        (uid: string) => `user:${uid}:sparks`,
   userPayments:      (uid: string) => `user:${uid}:payments`,
   roomMessages:      (conversationId: string) => `room:${conversationId}:messages`,

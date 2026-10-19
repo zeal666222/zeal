@@ -134,6 +134,11 @@ async function verifyAPIKey(rawKey: string): Promise<APIKeyVerified | null> {
 }
 
 // ─── Audit helper ─────────────────────────────────────────────────────────────
+// Writes to AdminAuditLog using both the legacy columns (action/userId) and
+// the canonical columns from 021_phase1_audit_fix.sql (action_name/actor_id/
+// ip/user_agent/metadata). Failures throw — a silent console.warn used to let
+// privileged mutations go unaudited; callers should wrap in try/catch if
+// degraded audit is acceptable for their context.
 export async function logAdminAction(
   admin: ReturnType<typeof createAdminClient>,
   params: {
@@ -142,26 +147,39 @@ export async function logAdminAction(
     targetType: string;
     targetId?: string;
     metadata?: Record<string, unknown>;
+    ip?: string | null;
+    userAgent?: string | null;
+    success?: boolean;
+    actorEmail?: string | null;
+    actorRole?: string | null;
   },
 ): Promise<void> {
-  try {
-    await admin.from("AdminAuditLog").insert({
-      // Legacy columns (kept for back-compat readers)
-      action: "UPDATE",
-      userId: params.adminId,
-      targetType: params.targetType,
-      targetId: params.targetId ?? null,
-      // Canonical columns (read by the audit page)
-      action_name: params.action,
-      actor_id: params.adminId,
-      target_type: params.targetType,
-      target_id: params.targetId ?? null,
-      metadata: (params.metadata ?? {}) as never,
-      success: true,
-    } as never);
-  } catch (e) {
-    console.warn("[Audit] Failed to write log:", e);
-  }
+  // If the caller stuffed ip/ua into metadata, promote them to dedicated
+  // columns and strip from metadata to avoid duplication drift.
+  const meta = { ...(params.metadata ?? {}) } as Record<string, unknown>;
+  const ip = params.ip ?? (typeof meta.ip === "string" ? (meta.ip as string) : null);
+  const userAgent = params.userAgent ?? (typeof meta.ua === "string" ? (meta.ua as string) : null);
+  delete meta.ip;
+  delete meta.ua;
+
+  await admin.from("AdminAuditLog").insert({
+    // Legacy columns (kept for back-compat readers)
+    action: "UPDATE",
+    userId: params.adminId,
+    targetType: params.targetType,
+    targetId: params.targetId ?? null,
+    // Canonical columns (read by the audit page)
+    action_name: params.action,
+    actor_id: params.adminId,
+    actor_email: params.actorEmail ?? null,
+    actor_role: params.actorRole ?? null,
+    target_type: params.targetType,
+    target_id: params.targetId ?? null,
+    metadata: meta as never,
+    ip,
+    user_agent: userAgent,
+    success: params.success ?? true,
+  } as never);
 }
 
 // ─── Impersonation resolver ───────────────────────────────────────────────────

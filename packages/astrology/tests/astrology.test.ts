@@ -15,6 +15,8 @@ import {
   getAyanamsa,
   getNakshatra,
   degreesToSignDeg,
+  computeLST,
+  computeAscendant,
 } from "../src/index";
 import { getAstroTime } from "../src/utils/ephemeris";
 import type { BirthData } from "../src/types";
@@ -291,5 +293,66 @@ describe("computePanchanga", () => {
   it("should have Karana", () => {
     expect(panchanga.karana).toBeDefined();
     expect(panchanga.karana.name).toBeDefined();
+  });
+});
+
+// ============================================================================
+// Ascendant regression — the old quadrant rule flipped ASC and DSC for about
+// half of all birth times. Verified against the sunrise invariant computed
+// independently with astronomy-engine (SearchRiseSet).
+// ============================================================================
+describe("computeAscendant (Lagna)", () => {
+  it("equals the Sun's ecliptic longitude at sunrise (equinox, Delhi)", async () => {
+    const A = await import("astronomy-engine");
+    const riseUtc = new Date(Date.UTC(2024, 2, 20, 0, 54, 54)); // equinox sunrise Delhi
+    const obs = new A.Observer(28.6139, 77.209, 0);
+    const rise = A.SearchRiseSet(A.Body.Sun, obs, +1, new Date(Date.UTC(2024, 2, 19, 18, 0)), 1).date;
+    expect(Math.abs(rise.getTime() - riseUtc.getTime())).toBeLessThan(5 * 60_000);
+    const sunLon = ((A.Ecliptic(A.GeoVector(A.Body.Sun, A.MakeTime(rise), true)).elon % 360) + 360) % 360;
+    const lst = computeLST(rise, 77.209);
+    const asc = computeAscendant(lst, 28.6139);
+    let d = Math.abs(asc - sunLon);
+    if (d > 180) d = 360 - d;
+    expect(d).toBeLessThan(1.5); // sunrise ASC ~= Sun (refraction offsets by <1.5 deg)
+  });
+
+  it("is never the descendant: RA(ASC) stays ~90 deg east of RAMC", async () => {
+    const eps = 23.43929111 * Math.PI / 180;
+    const raOf = (lon: number) => {
+      const l = (lon * Math.PI) / 180;
+      return (((Math.atan2(Math.cos(eps) * Math.sin(l), Math.cos(l)) * 180) / Math.PI) % 360 + 360) % 360;
+    };
+    for (let lat = -60; lat <= 60; lat += 5) {
+      for (let h = 0; h < 24; h += 1) {
+        const date = new Date(Date.UTC(2024, 6, 15, h, 30));
+        const lst = computeLST(date, 72.8777);
+        const asc = computeAscendant(lst, lat);
+        let raErr = ((raOf(asc) - (lst + 90)) % 360 + 360) % 360;
+        if (raErr > 180) raErr = 360 - raErr;
+        expect(raErr).toBeLessThan(90); // east-of-MC half, always
+      }
+    }
+  });
+});
+
+describe("normalizeBirthTime (PM-as-AM regression)", () => {
+  it("converts 12-hour forms without losing the meridiem", async () => {
+    const { normalizeBirthTime } = await import("../src/index");
+    expect(normalizeBirthTime("7:30 PM")).toBe("19:30");
+    expect(normalizeBirthTime("7:30 pm")).toBe("19:30");
+    expect(normalizeBirthTime("12:15 am")).toBe("00:15");
+    expect(normalizeBirthTime("12:00 PM")).toBe("12:00");
+    expect(normalizeBirthTime("16:30")).toBe("16:30");
+    expect(normalizeBirthTime("4:05")).toBe("04:05");
+    expect(() => normalizeBirthTime("25:99")).toThrow();
+  });
+
+  it("chart for '19:30' equals chart for '7:30 PM'", async () => {
+    const { normalizeBirthTime: _n } = await import("../src/index");
+    const base = { birthDate: "1990-05-15", birthPlace: { lat: 19.076, lng: 72.8777 }, timezone: "Asia/Kolkata" } as const;
+    const a = computeRashiChart({ ...base, birthTime: "19:30" });
+    const b = computeRashiChart({ ...base, birthTime: "7:30 PM" });
+    expect(b.ascendant.degree).toBeCloseTo(a.ascendant.degree, 6);
+    expect(b.planets.map((p) => p.absoluteDegree)).toEqual(a.planets.map((p) => p.absoluteDegree));
   });
 });

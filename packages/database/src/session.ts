@@ -113,16 +113,31 @@ export async function requireRole(min: AppRole) {
   return s;
 }
 
-/** Portal check — is this user allowed into the admin console? */
-export async function requireAdminPortal() {
+/**
+ * Portal check — is this user allowed into the admin console?
+ * `opts.loginPath` overrides the anonymous/wrong-portal target so the
+ * merged apps/web /admin/* subtree can gate itself independently of the
+ * seeker-facing /login route.
+ */
+export async function requireAdminPortal(
+  opts: { loginPath?: string; passwordChangePath?: string } = {},
+) {
+  const login = opts.loginPath ?? "/login";
+  const pwChange = opts.passwordChangePath ?? "/change-temporary-password";
   const s = await getSession();
   if (!s.user) {
     const { redirect } = await import("next/navigation");
-    redirect("/login");
+    redirect(login);
   }
   if (!ADMIN_PORTAL_ROLES.has(s.role!)) {
     const { redirect } = await import("next/navigation");
-    redirect("/login?error=wrong_portal");
+    redirect(`${login}?error=wrong_portal`);
+  }
+  // Bootstrap-created SUPER_ADMINs land here with user_metadata.must_change_password.
+  // Until rotation succeeds, every portal entry is refused.
+  if ((s.user?.user_metadata as Record<string, unknown> | undefined)?.must_change_password === true) {
+    const { redirect } = await import("next/navigation");
+    redirect(pwChange);
   }
   return s as SessionResult & { user: User; role: AppRole };
 }
