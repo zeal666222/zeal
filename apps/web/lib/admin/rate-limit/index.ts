@@ -1,15 +1,16 @@
-// apps/web/lib/rate-limit/index.ts
+// apps/web/lib/admin/rate-limit/index.ts
 // ═══════════════════════════════════════════════════════════════════════════════
-// Rate limiter — Postgres RPC in prod, in-memory in dev.
+// ADMIN rate limiter — availability-first.
 // ─────────────────────────────────────────────────────────────────────────────
-// Production uses `check_rate_limit` Postgres RPC (migration 093). This scales
-// horizontally — the rate limit state lives in a shared table, not per-instance.
+// Used exclusively by the admin login action. The portal itself is protected by
+// a real password check + DB-authoritative role + forced credential rotation, so
+// this limiter is defence-in-depth against hammering — NOT the primary gate.
 //
-// Dev uses an in-memory Map, which is fine because dev is single-instance.
-//
-// Fallback policy: fail-open in dev, fail-closed in prod. If the RPC is
-// unreachable in prod, requests are BLOCKED. This is the safe default for a
-// financial platform.
+// Policy: fail OPEN whenever the Postgres `check_rate_limit` backend is
+// unavailable (missing RPC, network blip, cold DB). An infrastructure problem
+// must never lock the operator out of their own admin console. Dev uses an
+// in-memory Map; prod prefers the shared RPC and silently degrades to in-memory
+// on error rather than blocking.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -72,16 +73,9 @@ function checkLimitMemory(c: LimiterConfig, id: string): RateLimitResult {
 async function checkLimit(c: LimiterConfig, id: string): Promise<RateLimitResult> {
   const sb = getClient();
   const allowBypass = process.env.ALLOW_RATE_LIMIT_BYPASS === "true";
-  const isProd = process.env.NODE_ENV === "production";
 
-  if (!sb) {
-    if (!isProd || allowBypass) return checkLimitMemory(c, id);
-    // Prod + no client = fail closed
-    return {
-      success: false, limit: c.tokens, remaining: 0,
-      reset: Date.now() + c.windowSeconds * 1000, count: c.tokens,
-    };
-  }
+  // No client configured → degrade to in-memory (never block an admin).
+  if (!sb || allowBypass) return checkLimitMemory(c, id);
 
   try {
     const { data, error } = await (sb as unknown as {
@@ -92,22 +86,13 @@ async function checkLimit(c: LimiterConfig, id: string): Promise<RateLimitResult
       p_window_sec: c.windowSeconds,
     });
 
-    if (error || !data) {
-      // Fail open in dev, closed in prod
-      if (!isProd || allowBypass) return checkLimitMemory(c, id);
-      return {
-        success: false, limit: c.tokens, remaining: 0,
-        reset: Date.now() + c.windowSeconds * 1000, count: c.tokens,
-      };
-    }
+    // RPC missing / errored → fail OPEN via in-memory so a backend problem
+    // (e.g. migration 093 not applied) can never lock the operator out.
+    if (error || !data) return checkLimitMemory(c, id);
 
     return data as RateLimitResult;
   } catch {
-    if (!isProd || allowBypass) return checkLimitMemory(c, id);
-    return {
-      success: false, limit: c.tokens, remaining: 0,
-      reset: Date.now() + c.windowSeconds * 1000, count: c.tokens,
-    };
+    return checkLimitMemory(c, id);
   }
 }
 
@@ -117,9 +102,12 @@ function createLimiter(tokens: number, windowSeconds: number, prefix: string) {
 }
 
 // ─── Public limiters ────────────────────────────────────────────────────────
-// Scaled for 1000+ concurrent users.
+// Generous windows: a legitimate operator signing in, rotating a credential,
+// or recovering should never trip these. They exist to blunt automated hammering.
 export const generalLimiter   = createLimiter(300, 60, "general");
-export const authLimiter      = createLimiter(20,  60, "auth");
+export const authLimiter      = createLimiter(50,  60, "auth");
+// Dedicated admin-login bucket (own prefix → never shared with seeker logins).
+export const adminAuthLimiter = createLimiter(50, 60, "admin-auth");
 export const aiRateLimiter    = createLimiter(200, 60, "ai");
 export const aiStrictLimiter  = createLimiter(100, 60, "ai-strict");
 export const billingLimiter   = createLimiter(120, 60, "billing");

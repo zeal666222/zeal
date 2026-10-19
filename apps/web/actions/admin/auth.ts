@@ -3,7 +3,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { checkRateLimit, authLimiter } from "@/lib/admin/rate-limit";
+import { checkRateLimit, adminAuthLimiter } from "@/lib/admin/rate-limit";
 
 const ADMIN_PORTAL_ROLES = new Set([
   "CLIENT_ADMIN",
@@ -65,11 +65,12 @@ export async function adminLoginAction(
   }
 
   const ip = await getClientIp();
-  const rl = await checkRateLimit(authLimiter, `admin-login:${ip}:${email}`);
+  const rl = await checkRateLimit(adminAuthLimiter, `admin-auth:${ip}:${email}`);
   if (!rl.ok) {
+    const secs = rl.retryAfter && rl.retryAfter > 0 ? rl.retryAfter : 60;
     return {
       ok: false,
-      error: "Too many attempts. Please wait a minute.",
+      error: `Too many sign-in attempts. Try again in ${secs}s.`,
       code: "RATE_LIMITED",
     };
   }
