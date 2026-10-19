@@ -15,7 +15,7 @@ import { PostAuthTransition } from "@/components/admin/auth/PostAuthTransition";
 type Destination = "studio" | "console";
 
 const WEB_URL =
-  process.env.NEXT_PUBLIC_APP_URL || "https://zeal-web-red.vercel.app";
+  process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in";
 
 function Content() {
   const router = useRouter();

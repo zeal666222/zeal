@@ -112,7 +112,7 @@ export default function AdminContentPage() {
                   </p>
                 </div>
                 <a
-                  href={`https://zeal-web-red.vercel.app/post/${post.id}`}
+                  href={`/post/${post.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"

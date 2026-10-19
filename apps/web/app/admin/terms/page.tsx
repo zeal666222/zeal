@@ -9,7 +9,7 @@ export default function TermsPage() {
         The full Terms of Service live on the Zeal seeker portal.
       </p>
       <a
-        href="https://zeal-web-red.vercel.app/terms"
+        href="/terms"
         className="inline-block mt-6 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold"
       >
         Read the full document →

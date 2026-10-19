@@ -9,7 +9,7 @@ export default function PrivacyPage() {
         The full Privacy Policy lives on the Zeal seeker portal.
       </p>
       <a
-        href="https://zeal-web-red.vercel.app/privacy"
+        href="/privacy"
         className="inline-block mt-6 px-5 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold"
       >
         Read the full document →

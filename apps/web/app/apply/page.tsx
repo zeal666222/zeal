@@ -6,6 +6,5 @@ import {redirect} from "next/navigation";
 export const dynamic = "force-dynamic";
 
 export default function ApplyRedirect() {
-  const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
-  redirect(adminUrl ? `${adminUrl}/consultant/dashboard` : "/explore");
+  redirect("/consultant/dashboard");
 }

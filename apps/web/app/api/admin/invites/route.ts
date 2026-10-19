@@ -45,6 +45,6 @@ export const POST = withErrorHandler(async (req: Request) => {
     adminId, action: "INVITE_CREATE", targetType: "admin_invite", targetId: email, metadata: { role },
   });
 
-  const baseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || "http://localhost:3001";
-  return NextResponse.json({ success: true, inviteUrl: `${baseUrl}/accept-invite?token=${encodeURIComponent(token)}`, expiresAt, invitedBy: adminEmail });
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in";
+  return NextResponse.json({ success: true, inviteUrl: `${baseUrl.replace(/\/$/, "")}/admin/accept-invite?token=${encodeURIComponent(token)}`, expiresAt, invitedBy: adminEmail });
 });

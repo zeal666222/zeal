@@ -12,8 +12,8 @@ import { ThemeToggle } from "@zeal/ui";
 import { loginAction } from "@/actions/auth";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
-const ADMIN_URL =
-  process.env.NEXT_PUBLIC_ADMIN_URL || "https://zeal-admin-rose.vercel.app";
+const ADMIN_REGISTER_URL = "/admin/register";
+const CONSULTANT_STUDIO_URL = "/consultant/dashboard";
 
 function friendlyAuthError(raw: string | null | undefined): string {
   if (!raw) return "Something went wrong. Please try again.";
@@ -183,7 +183,7 @@ function LoginContent() {
                 You signed in as a consultant. Head to the studio to continue.
               </p>
               <a
-                href={ADMIN_URL}
+                href={CONSULTANT_STUDIO_URL}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold"
               >
                 Open Zeal Studio <ArrowRight size={11} />
@@ -304,7 +304,7 @@ function LoginContent() {
           <div className="mt-8 pt-6 border-t border-border text-center">
             <p className="text-[11px] text-muted-foreground">Want to offer guidance?</p>
             <a
-              href={`${ADMIN_URL}/register`}
+              href={ADMIN_REGISTER_URL}
               className="mt-3 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface border border-border hover:border-indigo-500/40 text-sm font-bold text-foreground transition-all"
             >
               <Briefcase size={14} className="text-indigo-400" />

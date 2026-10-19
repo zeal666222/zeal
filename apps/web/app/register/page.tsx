@@ -12,8 +12,7 @@ import { ThemeToggle } from "@zeal/ui";
 import { registerAction } from "@/actions/auth";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
-const ADMIN_URL =
-  process.env.NEXT_PUBLIC_ADMIN_URL || "https://zeal-admin-rose.vercel.app";
+const ADMIN_REGISTER_URL = "/admin/register";
 
 function friendlyRegisterError(raw: string | null | undefined): string {
   if (!raw) return "Something went wrong. Please try again.";
@@ -405,7 +404,7 @@ function RegisterContent() {
           <div className="mt-8 pt-6 border-t border-border text-center">
             <p className="text-[11px] text-muted-foreground">Want to offer guidance?</p>
             <a
-              href={`${ADMIN_URL}/register`}
+              href={ADMIN_REGISTER_URL}
               className="mt-3 inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-surface border border-border hover:border-indigo-500/40 text-sm font-bold text-foreground transition-all"
             >
               <Briefcase size={14} className="text-indigo-400" />

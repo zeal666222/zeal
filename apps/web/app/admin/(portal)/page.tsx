@@ -50,7 +50,7 @@ export default async function AdminLandingPage() {
 
         <div className="grid grid-cols-2 gap-3 mb-8">
           <a
-            href={process.env.NEXT_PUBLIC_APP_URL || "https://zeal-web-red.vercel.app"}
+            href="/"
             className="p-4 rounded-2xl bg-surface border border-border hover:border-purple-500/40 transition-all text-left"
           >
             <Sparkles size={16} className="text-purple-600 dark:text-purple-400 mb-3" />

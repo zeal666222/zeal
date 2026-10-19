@@ -14,7 +14,6 @@ interface Props { initialProfile: Profile; completeness: CompletenessReport; sub
 
 export function StudioClient({ initialProfile, completeness, subdomain, stats }: Props) {
   const router = useRouter();
-  const ADMIN_URL = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
   const [online, setOnline] = useState(initialProfile.is_online);
   const [toggling, setToggling] = useState(false);
   const [balance, setBalance] = useState(initialProfile.wallet_balance);
@@ -102,14 +101,14 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                   </span>
                   <span className={c.passed ? "text-muted-foreground line-through" : "text-foreground"}>{c.label}</span>
                   {!c.passed && (
-                    <a href={`${ADMIN_URL}${c.actionHref}`} className="ml-auto text-xs text-amber-400 hover:text-amber-300 font-bold">
+                    <a href={c.actionHref} className="ml-auto text-xs text-amber-400 hover:text-amber-300 font-bold">
                       Fix <ChevronRight size={11} className="inline" />
                     </a>
                   )}
                 </li>
               ))}
             </ul>
-            <a href={`${ADMIN_URL}/consultant/onboarding`} className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg">
+            <a href="/consultant/onboarding" className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-emerald-500 text-white rounded-xl text-sm font-bold shadow-lg">
               Complete profile <ChevronRight size={14} />
             </a>
           </div>

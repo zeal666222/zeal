@@ -8,7 +8,7 @@ export type RegisterResult =
   | { ok: true; needsConfirmation: true; warning?: string }
   | { ok: false; error: string };
 
-const ADMIN_URL = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in").replace(/\/$/, "");
 
 export async function registerConsultantAction(
   formData: FormData,
@@ -59,7 +59,7 @@ export async function registerConsultantAction(
         full_name: fullName,
         account_type: "consultant",
       },
-      emailRedirectTo: `${ADMIN_URL}/auth/callback`,
+      emailRedirectTo: `${APP_URL}/admin/auth/callback`,
     },
   });
 

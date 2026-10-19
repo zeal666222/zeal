@@ -28,10 +28,7 @@ export function RoleRedirectGuard() {
 
         const role = (user.app_metadata?.role as string | undefined) ?? "USER";
         if (role === "CLIENT_ADMIN") {
-          const adminUrl = (process.env.NEXT_PUBLIC_ADMIN_URL ?? "").replace(/\/$/, "");
-          if (adminUrl) {
-            window.location.href = `${adminUrl}/consultant/dashboard`;
-          }
+          window.location.href = "/consultant/dashboard";
         }
       } catch {
         /* silent */
