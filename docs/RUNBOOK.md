@@ -1,15 +1,17 @@
 # Zeal — Operations Runbook
 
 ## Deploy
-Both apps on Vercel:
-- Web (seekers): zeal-web-red.vercel.app → apps/web
-- Admin (consultants+admins): zeal-admin-rose.vercel.app → apps/admin
+Single Vercel app (apps/web, Root Directory `apps/web`):
+- Web (seekers): zealer.co.in → /*
+- Admin (consultants+admins): zealer.co.in → /admin/*
+- Consultant studio: zealer.co.in → /consultant/*
 
-Push to `main` auto-deploys both.
+Push to `main` auto-deploys. The old split deployments
+(zeal-web-red / zeal-admin-rose) are deprecated — delete them in Vercel.
+Old `NEXT_PUBLIC_ADMIN_URL` env var is unused; remove it from Vercel.
 
 ## Health
-curl -s https://zeal-web-red.vercel.app/api/health | jq
-curl -s https://zeal-admin-rose.vercel.app/api/health | jq
+curl -s https://zealer.co.in/api/health | jq
 
 Status: ok / degraded / down (503).
 
