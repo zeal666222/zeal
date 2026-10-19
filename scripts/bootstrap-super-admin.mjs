@@ -233,7 +233,9 @@ async function upsertPublicUserRow(userId, display, role) {
     "is_online": false,
     sparks: 0,
   };
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/"User"`, {
+  // PostgREST on this project exposes the table unquoted; "/rest/v1/\"User\"" 404s
+  // with PGRST205 and silently leaves the auth user without a role row.
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/User`, {
     method: "POST",
     headers: {
       apikey: SERVICE_KEY,
@@ -279,8 +281,11 @@ async function upsertPublicUserRow(userId, display, role) {
         bootstrapped_at: new Date().toISOString(),
       },
     }, "PUT");
-    await upsertPublicUserRow(existing.id, args.name || "Platform Owner", "SUPER_ADMIN");
-    await reportSuccess(existing.id, password, /* isReset */ true);
+    // Report BEFORE the role row is written: losing the one-time password locks
+    // the operator out of a live account, whereas a failed role write is
+    // repairable with a second run of this script.
+    reportSuccess(existing.id, password, /* isReset */ true);
+    await linkRoleRow(existing.id, args.name || "Platform Owner", "SUPER_ADMIN");
     return;
   }
 
@@ -299,12 +304,27 @@ async function upsertPublicUserRow(userId, display, role) {
   });
   const userId = created.id ?? created.user?.id;
   if (!userId) throw new Error("Supabase did not return a user id.");
-  await upsertPublicUserRow(userId, args.name || "Platform Owner", "SUPER_ADMIN");
-  await reportSuccess(userId, password, /* isReset */ false);
+  reportSuccess(userId, password, /* isReset */ false);
+  await linkRoleRow(userId, args.name || "Platform Owner", "SUPER_ADMIN");
 })().catch((e) => {
   console.error("[bootstrap] FAILED:", e.message);
   process.exit(9);
 });
+
+// The auth user already exists at this point, so an unlinked role row means the
+// portal will read role USER and reject sign-in. Never abort on it — print the
+// repair hint so the operator keeps the credential they were just shown.
+async function linkRoleRow(userId, display, role) {
+  try {
+    await upsertPublicUserRow(userId, display, role);
+    console.error(`[bootstrap] public.User linked: id=${userId} role=${role}`);
+  } catch (e) {
+    console.error(`[bootstrap] WARNING — password is set but the role row was NOT written: ${e.message}`);
+    console.error("            Sign-in will fall back to role USER until this is repaired.");
+    console.error("            Usual cause: another User row already holds this email (seed fixture).");
+    process.exitCode = 6;
+  }
+}
 
 // ─── One-time stdout report ──────────────────────────────────────────────────
 function reportSuccess(userId, pw, isReset) {
