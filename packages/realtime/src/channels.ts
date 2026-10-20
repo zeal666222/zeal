@@ -27,6 +27,7 @@ export const channels = {
   bookingSlots:      (consultantId: string) => `booking:${consultantId}:slots`,
   adminBookings:     () => `admin:bookings`,
   adminVerification: () => `admin:verification`,
+  adminPricing:      () => `admin:pricing`,
   adminBroadcasts:   () => `admin:broadcasts`,
   adminPayments:     () => `admin:payments`,
   adminSettings:     () => `admin:settings`,

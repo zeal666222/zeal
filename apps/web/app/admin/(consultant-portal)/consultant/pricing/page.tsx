@@ -1,6 +1,6 @@
 "use client";
 import { toast } from "@/components/ui/toaster";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Send, Tag } from "lucide-react";
 
@@ -9,11 +9,16 @@ interface Request {
   status: string;
   createdAt: string;
   reason: string;
+  rejectionReason?: string | null;
+  requestedRates?: Record<string, number>;
 }
+
+type RateKey = "perMinuteRate" | "chatRate" | "audioRate" | "videoRate";
+const FIELDS: RateKey[] = ["perMinuteRate", "chatRate", "audioRate", "videoRate"];
 
 export default function ConsultantPricingPage() {
   const qc = useQueryClient();
-  const [rates, setRates] = useState({
+  const [rates, setRates] = useState<Record<RateKey, number>>({
     perMinuteRate: 50,
     chatRate: 50,
     audioRate: 75,
@@ -21,7 +26,7 @@ export default function ConsultantPricingPage() {
   });
   const [reason, setReason] = useState("");
 
-  const { data } = useQuery<{ requests: Request[] }>({
+  const { data } = useQuery<{ requests: Request[]; currentRates: Record<string, number> | null }>({
     queryKey: ["consultant", "pricing-requests"],
     queryFn: async () => {
       const res = await fetch("/api/consultant-portal/pricing-request", { cache: "no-store" });
@@ -29,6 +34,20 @@ export default function ConsultantPricingPage() {
       return res.json();
     },
   });
+
+  // Open the form on the live rates once they arrive, so "50" is never a guess.
+  useEffect(() => {
+    const live = data?.currentRates;
+    if (!live) return;
+    setRates((prev) => {
+      const next = { ...prev };
+      for (const f of FIELDS) if (typeof live[f] === "number") next[f] = live[f];
+      return next;
+    });
+  }, [data?.currentRates]);
+
+  const requests = data?.requests ?? [];
+  const pending = requests.find((r) => r.status === "PENDING") ?? null;
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -58,7 +77,13 @@ export default function ConsultantPricingPage() {
       </h1>
 
       <div className="p-5 rounded-2xl border border-border bg-surface space-y-4">
-        {(["perMinuteRate", "chatRate", "audioRate", "videoRate"] as const).map((field) => (
+        {pending && (
+          <p className="text-xs p-3 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400">
+            A request filed on {new Date(pending.createdAt).toLocaleDateString()} is with the review team.
+            Only one rate change can be live at a time — you can file again once it is decided.
+          </p>
+        )}
+        {FIELDS.map((field) => (
           <div key={field}>
             <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1.5">
               {field.replace(/([A-Z])/g, " $1").trim()} (₹)
@@ -86,7 +111,7 @@ export default function ConsultantPricingPage() {
         </div>
 
         <button
-          disabled={reason.length < 30 || submit.isPending}
+          disabled={!!pending || reason.length < 30 || submit.isPending}
           onClick={() => submit.mutate()}
           className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white font-black text-sm disabled:opacity-50 flex items-center justify-center gap-2">
           {submit.isPending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
@@ -110,6 +135,11 @@ export default function ConsultantPricingPage() {
                 <span className="text-muted-foreground">{new Date(r.createdAt).toLocaleDateString()}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1 italic">&ldquo;{r.reason}&rdquo;</p>
+              {r.status === "REJECTED" && r.rejectionReason && (
+                <p className="text-xs mt-2 p-2 rounded-lg bg-rose-500/10 text-rose-700 dark:text-rose-400">
+                  Reviewer: {r.rejectionReason}
+                </p>
+              )}
             </div>
           ))
         )}

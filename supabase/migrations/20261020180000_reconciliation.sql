@@ -81,7 +81,8 @@ AS $fn$
     -- refunded in place (process_withdrawal), so that row is a record of a
     -- request, not a money movement: it must not count against the net.
     WHEN p_type IN ('WITHDRAWAL_REJECTED') THEN 'neutral'
-    -- reconcile_wallet's own correction rows carry their sign.
+    -- reconcile_wallet converges the balance to the ledger, so it never writes
+    -- one of these; the class stays for rows an older build may have left.
     WHEN p_type IN ('ADJUSTMENT','CORRECTION') THEN 'signed'
     WHEN p_type IN ('PAYMENT','WITHDRAWAL_REQUEST','WITHDRAWAL','PAYOUT','FEE','DEBIT','CHARGE','TRANSFER_OUT','PENALTY')
       THEN 'debit'
@@ -136,6 +137,7 @@ DECLARE
   v_drift   double precision;
   v_bad     integer;
   v_after   double precision;
+  v_id      uuid;
 BEGIN
   SELECT * INTO v_wallet FROM public."Wallet" WHERE id = p_wallet_id FOR UPDATE;
   IF NOT FOUND THEN
@@ -166,15 +168,23 @@ BEGIN
       'drift', round(v_drift::numeric, 2));
   END IF;
 
-  v_after := v_net - v_drift;
+  -- The ledger is the money truth, so the balance converges to it. Writing an
+  -- ADJUSTMENT row here would be a SECOND movement on top of the one being
+  -- corrected: a wallet holding 5 with no rows has net 0, so an adjustment of
+  -- -5 plus a balance of -5 would erase the user's money and then call the
+  -- invariant restored. The correction is recorded in BillingDiscrepancy, which
+  -- no net computation reads.
+  v_after := v_net;
+  v_id := gen_random_uuid();
 
-  INSERT INTO public."Transaction" (id, "walletId", type, amount, balance, description, "referenceId")
-    VALUES (gen_random_uuid(), p_wallet_id, 'ADJUSTMENT', -v_drift, v_after,
-      CASE WHEN p_actor_id IS NULL
-           THEN 'Reconciliation adjustment'
-           ELSE 'Reconciliation adjustment by ' || p_actor_id::text end,
-      'reconcile:' || p_wallet_id::text || ':' || gen_random_uuid()::text)
-  ON CONFLICT ("referenceId") DO NOTHING;
+  INSERT INTO public."BillingDiscrepancy"
+        (id, type, "walletId", expected, actual, difference, status, "autoCorrected", notes, "createdAt", "resolvedAt")
+    VALUES (v_id, 'ledger_drift', p_wallet_id,
+      round(v_net::numeric, 2), round(v_wallet.balance::numeric, 2),
+      round(v_drift::numeric, 2), 'resolved', true,
+      'Converged balance to its ledger net'
+        || CASE WHEN p_actor_id IS NULL THEN '' ELSE ' by ' || p_actor_id::text END,
+      now(), now());
 
   UPDATE public."Wallet"
      SET balance = v_after, "updatedAt" = now()
@@ -183,7 +193,8 @@ BEGIN
   RETURN jsonb_build_object('success', true,
     'drift', round(v_drift::numeric, 2),
     'newBalance', round(v_after::numeric, 2),
-    'corrected', true);
+    'corrected', true,
+    'discrepancyId', v_id);
 END;
 $fn$;
 
@@ -328,7 +339,9 @@ BEGIN
             SELECT t."walletId", SUM(abs(t.amount)) AS held
               FROM public."Transaction" t
              WHERE t.type = 'WITHDRAWAL_REQUEST'
-               AND COALESCE((t.metadata ->> 'pending')::boolean, true)
+               -- ->> yields text; casting it to boolean would abort the whole
+               -- report on any row whose tag was hand-written as "yes"/"no".
+               AND COALESCE(t.metadata ->> 'pending', 'true') <> 'false'
              GROUP BY t."walletId") p ON p."walletId" = w.id
          WHERE ABS(w."pendingOut" - COALESCE(p.held, 0)) > 0.01
       ),
@@ -481,7 +494,7 @@ BEGIN
     FROM public."Transaction" t
    WHERE t."walletId" = p_wallet_id
      AND t.type = 'WITHDRAWAL_REQUEST'
-     AND COALESCE((t.metadata ->> 'pending')::boolean, true);
+     AND COALESCE(t.metadata ->> 'pending', 'true') <> 'false';
 
   IF ABS(v_wallet."pendingOut" - v_expected) < 0.01 THEN
     RETURN jsonb_build_object('success', true, 'changed', false,

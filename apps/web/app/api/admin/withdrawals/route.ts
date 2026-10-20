@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireAdminAPI, logAdminAction, hasAPIScope } from "@/lib/auth/api-guard";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
-import { safeQuery, safeRpc } from "@/lib/infra/guards";
+import { safeQuery, safeQueryOne, rpcWithLiveSignatures, isMissingFunctionError } from "@/lib/infra/guards";
+import { createAdminClient, createServerClientFromCookies } from "@zeal/database/server";
+import { serverPublish } from "@/lib/realtime/server";
 import { sendAdminBus } from "@/lib/realtime/admin-bus";
 
 export const dynamic = "force-dynamic";
@@ -76,14 +78,65 @@ export const POST = withErrorHandler(async (req: Request) => {
   if (!transactionId || !["APPROVE", "REJECT"].includes(action || "")) {
     throw new AppError("Invalid transactionId or action", 400, ErrorCode.VALIDATION_INPUT);
   }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transactionId)) {
+    throw new AppError("Invalid transactionId or action", 400, ErrorCode.VALIDATION_INPUT);
+  }
 
-  const rpcData = await safeRpc<{ success?: boolean; error?: string }>(
-    admin.rpc("process_withdrawal", { p_txn_id: transactionId, p_action: action, p_actor_id: adminId }),
-    "admin.withdrawals.process",
+  // The live database answers process_withdrawal(p_txn_id text, p_approved
+  // boolean), and that function authorises through auth_is_admin(), which reads
+  // auth.uid() — always NULL on the service-role client, so it answers
+  // 'forbidden' to every admin call (proven against prod). The wider shape is
+  // still tried first because that is what 20261020150000_withdrawals_fix.sql
+  // installs, and it carries the actor + reason into the ledger; the fallback
+  // runs on the admin's own session, where auth.uid() resolves and the check
+  // passes. Money is moved correctly either way: request_withdrawal already
+  // debited balance into pendingOut, and approval only relabels the ledger row.
+  const { data, error, via } = await rpcWithLiveSignatures<{ success?: boolean; error?: string }>(
+    "process_withdrawal",
+    [
+      () => admin.rpc("process_withdrawal", {
+        p_txn_id: transactionId, p_action: action, p_actor_id: adminId,
+      }),
+      async () => {
+        const session = await createServerClientFromCookies();
+        return session.rpc("process_withdrawal", {
+          p_txn_id: transactionId, p_approved: action === "APPROVE",
+        });
+      },
+    ],
   );
 
-  if (rpcData?.success === false) {
-    throw new AppError(rpcData.error || "RPC failed", 500, ErrorCode.INTERNAL_DATABASE);
+  if (isMissingFunctionError(error)) {
+    throw new AppError(
+      "Withdrawal processing needs 20261020150000_withdrawals_fix.sql applied",
+      501, ErrorCode.INTERNAL_DATABASE,
+    );
+  }
+  if (error) throw new AppError(error.message, 500, ErrorCode.INTERNAL_DATABASE);
+
+  const outcome = data as { success?: boolean; error?: string } | null;
+  if (outcome?.success === false) {
+    if (outcome.error === "forbidden") {
+      throw new AppError(
+        "The database refused this payout decision: the live process_withdrawal checks the caller's own role, so sign in again as an admin — or apply 20261020150000_withdrawals_fix.sql to record the acting admin explicitly.",
+        403, ErrorCode.AUTH_FORBIDDEN,
+      );
+    }
+    throw new AppError(outcome.error || "RPC failed", 500, ErrorCode.INTERNAL_DATABASE);
+  }
+
+  // Only the live signature needs this, and only on approval: it relabels the
+  // ledger row without releasing the hold, so pendingOut would keep counting
+  // money that has already left the platform. (Its reject path does refund and
+  // decrement in one go, so there is nothing to repair there.)
+  if (via === 1 && action === "APPROVE") {
+    const hold = await releasePendingOutHold(admin, transactionId, adminId);
+    if (hold?.changed) {
+      void serverPublish("admin:reconciliation", "reconciliation:updated", {
+        type: "UPDATE",
+        record: { walletId: hold.walletId, changed: true, pendingOut: hold.after },
+      });
+    }
   }
 
   await logAdminAction(admin, {
@@ -100,3 +153,81 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   return NextResponse.json({ success: true, action });
 });
+
+interface HoldRow { id: string; amount: number; metadata: Record<string, unknown> | null }
+
+const round2 = (n: number) => Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
+
+// pendingOut is a derived number: the sum of every payout request still waiting
+// for a decision. The deployed process_withdrawal knows nothing about that, so
+// after it stamps an approval we recompute the hold from the ledger and record
+// the repair, otherwise the consultant's "processing" balance never drains.
+async function releasePendingOutHold(
+  admin: ReturnType<typeof createAdminClient>,
+  transactionId: string,
+  actorId: string,
+) {
+  const txn = await safeQueryOne<{ walletId: string }>(
+    admin.from("Transaction").select("walletId").eq("id", transactionId).maybeSingle(),
+    "admin.withdrawals.hold.lookup",
+  );
+  if (!txn?.walletId) return null;
+
+  const holds = await safeQuery<HoldRow[]>(
+    admin
+      .from("Transaction")
+      .select("id, amount, metadata")
+      .eq("walletId", txn.walletId)
+      .eq("type", "WITHDRAWAL_REQUEST")
+      .limit(1000),
+    "admin.withdrawals.hold.scan",
+  );
+
+  const outstanding = (holds ?? []).reduce((sum, hold) => (
+    (hold.metadata ?? {}).pending === false ? sum : sum + Math.abs(hold.amount)
+  ), 0);
+
+  const wallet = await safeQueryOne<{ id: string; pendingOut: number }>(
+    admin.from("Wallet").select("id, pendingOut").eq("id", txn.walletId).maybeSingle(),
+    "admin.withdrawals.hold.wallet",
+  );
+  if (!wallet) return null;
+
+  const before = round2(wallet.pendingOut);
+  const after = round2(outstanding);
+  if (Math.abs(before - after) < 0.01) return { walletId: wallet.id, changed: false, before, after };
+
+  // Compare-and-set: a payout decided concurrently moves pendingOut itself, and
+  // its own write must win over this stale snapshot.
+  const fixed = await safeQuery<{ id: string }[]>(
+    admin
+      .from("Wallet")
+      .update({ pendingOut: after, updatedAt: new Date().toISOString() })
+      .eq("id", wallet.id)
+      .eq("pendingOut", wallet.pendingOut)
+      .select("id"),
+    "admin.withdrawals.hold.repair",
+  );
+  if ((fixed ?? []).length === 0) return { walletId: wallet.id, changed: false, before, after };
+
+  const audit = await admin.from("BillingDiscrepancy").insert({
+    id: crypto.randomUUID(),
+    type: "pendingout_drift",
+    walletId: wallet.id,
+    expected: before,
+    actual: after,
+    difference: round2(before - after),
+    status: "resolved",
+    autoCorrected: true,
+    notes: `Recomputed pendingOut after payout ${transactionId.slice(0, 8)} was approved by ${actorId}; the deployed process_withdrawal does not release the hold`,
+    createdAt: new Date().toISOString(),
+    resolvedAt: new Date().toISOString(),
+  } as never);
+  if (audit.error) {
+    // The payout and the repair are already committed — a missing audit row is
+    // surfaced to the operator, never dressed up as a failed approval.
+    console.warn("[admin.withdrawals] pendingOut audit row failed:", audit.error.message);
+  }
+
+  return { walletId: wallet.id, changed: true, before, after };
+}

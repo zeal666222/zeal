@@ -16,25 +16,13 @@ import { NextResponse } from "next/server";
 import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { serverPublish } from "@/lib/realtime/server";
+import { isMissingFunctionError } from "@/lib/infra/guards";
 import { sendAdminBus } from "@/lib/realtime/admin-bus";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
 const MIGRATION = "20261020180000_reconciliation.sql";
-
-interface RpcError {
-  message: string;
-  code?: string;
-}
-
-/** Postgres has no such function: the migration has not been applied. */
-function isMissingFunction(error: RpcError | null): boolean {
-  if (!error) return false;
-  return error.code === "PGRST202"
-    || error.code === "42883"
-    || /function .* does not exist/i.test(error.message);
-}
 
 export interface ReconciliationItem {
   [key: string]: unknown;
@@ -88,7 +76,7 @@ export const GET = withErrorHandler(async (req: Request) => {
     p_limit: limit,
   });
 
-  if (error && isMissingFunction(error)) {
+  if (error && isMissingFunctionError(error)) {
     const { data: legacy, error: legacyErr } = await admin.rpc("check_billing_reconciliation");
     if (legacyErr || !legacy) {
       throw new AppError(
@@ -159,7 +147,7 @@ export const POST = withErrorHandler(async (req: Request) => {
     p_wallet_id: parsed.data.walletId,
     p_actor_id: adminId,
   });
-  if (error && isMissingFunction(error)) {
+  if (error && isMissingFunctionError(error)) {
     throw new AppError(
       `Repair needs ${MIGRATION} applied first`,
       501,

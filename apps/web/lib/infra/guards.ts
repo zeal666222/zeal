@@ -60,6 +60,53 @@ export async function safeRpc<T>(
   return data as T;
 }
 
+// ─── Missing-function detection ─────────────────────────────────────────────
+// PostgREST resolves .rpc() by NAMED arguments, so a call whose parameter set
+// does not match a live function is not a runtime error — it is a 404 from the
+// gateway: PGRST202 "could not find the function". That is the signature of a
+// migration the operator has not applied, and it needs a different response
+// from a real database failure: try the shape the live schema actually offers.
+export function isMissingFunctionError(
+  error: { message?: string; code?: string } | null,
+): boolean {
+  if (!error) return false;
+  return (
+    error.code === "PGRST202" ||
+    error.code === "42883" ||
+    /could not find the function|function .* does not exist/i.test(error.message ?? "")
+  );
+}
+
+export interface RpcResult<T> {
+  data: T | null;
+  error: { message: string; code?: string } | null;
+}
+
+// ─── rpcWithLiveSignatures ────────────────────────────────────────────────────
+// Runs the listed calls in order and stops at the first one the gateway could
+// actually resolve. The first attempt is always the intended (post-migration)
+// shape, so applying the migration silently promotes the flow to it; a later
+// attempt is the shape live prod answers today. A business error
+// ({success:false}) is a real answer and is returned, not retried — retrying
+// against a looser signature would run different logic and report it as one.
+// `via` is the attempt that served the call, so the caller can disclose what it
+// lost (a narrower function cannot store a UPI id, for instance).
+export async function rpcWithLiveSignatures<T>(
+  fn: string,
+  attempts: Array<() => PromiseLike<RpcResult<T>>>,
+): Promise<RpcResult<T> & { via: number }> {
+  let last: RpcResult<T> & { via: number } = { data: null, error: null, via: -1 };
+  for (const [i, call] of attempts.entries()) {
+    const { data, error } = await call();
+    last = { data, error, via: i };
+    if (!isMissingFunctionError(error)) {
+      if (i > 0) console.warn(`[RPC:${fn}] live signature #${i + 1} served this call — its migration is not applied yet`);
+      return last;
+    }
+  }
+  return last;
+}
+
 // ─── withAuth ───────────────────────────────────────────────────────────────
 // Extracts authenticated user from Supabase cookies. Throws AuthenticationError
 // if not logged in. Returns { user, supabase } for use in route handlers.

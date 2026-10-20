@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Check, Loader2, Tag, X } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 interface RateMap { [k: string]: number }
 
@@ -42,11 +43,12 @@ export default function PricingRequestsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requestId: id, action, reason }),
       });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error((e as { error?: string }).error || "Failed");
-      }
-      return res.json();
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body?.error || `Decision failed (${res.status})`);
+      // The RPC answers 200 with {success:false} when it refuses; that is not a
+      // success and must not toast like one.
+      if (body?.success === false) throw new Error(body.error || "Decision refused by the database");
+      return body;
     },
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["admin", "pricing-requests"] });
@@ -63,6 +65,18 @@ export default function PricingRequestsPage() {
     onError: (err: Error) => {
       toast({ title: "Could not record the decision", description: err.message, variant: "destructive" });
     },
+  });
+
+  const refresh = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: ["admin", "pricing-requests"] });
+  }, [qc]);
+
+  // Every filing, approval and rejection is broadcast on admin:pricing by the
+  // RPC itself, so the queue moves without anyone reloading the page.
+  useChannel<BroadcastChange>({
+    channel: channels.adminPricing(),
+    event: "*",
+    onMessage: refresh,
   });
 
   const requests = data?.requests ?? [];
