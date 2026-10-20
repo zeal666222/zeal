@@ -17,7 +17,7 @@ export const GET = withErrorHandler(async () => {
   const txs = await safeQuery<TxRow[]>(
     admin.from("Transaction")
       .select("id, amount, description, createdAt, metadata, walletId")
-      .eq("type", "PAYOUT")
+      .eq("type", "WITHDRAWAL_REQUEST")
       .order("createdAt", { ascending: false })
       .limit(200),
     "admin.withdrawals.list",
@@ -74,7 +74,7 @@ export const POST = withErrorHandler(async (req: Request) => {
   }
 
   const rpcData = await safeRpc<{ success?: boolean; error?: string }>(
-    admin.rpc("process_withdrawal", { p_tx_id: transactionId, p_action: action, p_reason: reason ?? null }),
+    admin.rpc("process_withdrawal", { p_txn_id: transactionId, p_action: action, p_actor_id: adminId }),
     "admin.withdrawals.process",
   );
 

@@ -27,8 +27,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 422 });
   }
 
+  // request_withdrawal reads the consultant from auth.uid() (this route uses the
+  // user-scoped client, so it is populated) and atomically moves balance →
+  // pendingOut under a row lock. UPI is stored on the resulting Transaction.
   const { data, error } = await supabase.rpc("request_withdrawal", {
-    p_user_id: user.id,
     p_amount: parsed.data.amount,
     p_upi: parsed.data.upiId,
     p_bank: null,

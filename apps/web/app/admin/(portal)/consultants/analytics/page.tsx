@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import {
   BarChart3, Download, Loader2, Star, TrendingDown, TrendingUp, Users,
 } from "lucide-react";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 interface ConsultantPerformance {
   id: string;
@@ -15,7 +16,7 @@ interface ConsultantPerformance {
   sessionsCompleted: number;
   revenue: number;
   rating: number;
-  avgResponseTime: number; // seconds
+  avgResponseTime: number | null; // seconds; null until Message-table rollup exists
   trend: "up" | "down" | "stable";
 }
 
@@ -24,42 +25,29 @@ function fmtINR(n: number): string {
 }
 
 export default function ConsultantAnalyticsPage() {
-  const { data, isLoading } = useQuery<{
+  const { data, isLoading, refetch } = useQuery<{
     consultants: ConsultantPerformance[];
-    averages: { sessions: number; revenue: number; rating: number; responseTime: number };
+    averages: { sessions: number; revenue: number; rating: number };
   }>({
     queryKey: ["admin", "consultants", "analytics"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/consultants?limit=50", { cache: "no-store" });
+      const res = await fetch("/api/admin/consultants/analytics", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load consultant analytics");
-      const json = await res.json();
-      // Augment with performance data (mock for now)
-      const consultants = (json.users ?? json.consultants ?? []).map((c: Record<string, unknown>, i: number) => ({
-        id: c.id as string,
-        name: (c.name as string) ?? (c.username as string) ?? "Unknown",
-        avatar: (c.avatar as string) ?? null,
-        sessionsCompleted: Math.floor(Math.random() * 200) + 10,
-        revenue: Math.floor(Math.random() * 100000) + 5000,
-        rating: 3 + Math.random() * 2,
-        avgResponseTime: Math.floor(Math.random() * 60) + 10,
-        trend: (["up", "down", "stable"] as const)[i % 3],
-      }));
-      const avgSessions = consultants.reduce((s: number, c: ConsultantPerformance) => s + c.sessionsCompleted, 0) / (consultants.length || 1);
-      const avgRevenue = consultants.reduce((s: number, c: ConsultantPerformance) => s + c.revenue, 0) / (consultants.length || 1);
-      const avgRating = consultants.reduce((s: number, c: ConsultantPerformance) => s + c.rating, 0) / (consultants.length || 1);
-      const avgResponse = consultants.reduce((s: number, c: ConsultantPerformance) => s + c.avgResponseTime, 0) / (consultants.length || 1);
-      return {
-        consultants,
-        averages: { sessions: avgSessions, revenue: avgRevenue, rating: avgRating, responseTime: avgResponse },
-      };
+      return res.json();
     },
+    refetchInterval: 60_000,
+  });
+  useChannel<BroadcastChange>({
+    channel: channels.adminBookings(),
+    event: "*",
+    onMessage: () => void refetch(),
   });
 
   const handleExportCSV = () => {
     if (!data?.consultants) return;
     const headers = "Name,Sessions,Revenue,Rating,Response Time (s),Trend\n";
     const rows = data.consultants.map((c) =>
-      `"${c.name}",${c.sessionsCompleted},${c.revenue},${c.rating.toFixed(1)},${c.avgResponseTime},${c.trend}`
+      `"${c.name}",${c.sessionsCompleted},${c.revenue},${c.rating.toFixed(1)},${c.avgResponseTime ?? ""},${c.trend}`
     ).join("\n");
     const blob = new Blob([headers + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -71,7 +59,7 @@ export default function ConsultantAnalyticsPage() {
   };
 
   const consultants = data?.consultants ?? [];
-  const averages = data?.averages ?? { sessions: 0, revenue: 0, rating: 0, responseTime: 0 };
+  const averages = data?.averages ?? { sessions: 0, revenue: 0, rating: 0 };
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -92,11 +80,10 @@ export default function ConsultantAnalyticsPage() {
       </div>
 
       {/* Platform averages */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         <AvgCard label="Avg Sessions" value={averages.sessions.toFixed(0)} />
         <AvgCard label="Avg Revenue" value={`₹${fmtINR(averages.revenue)}`} />
         <AvgCard label="Avg Rating" value={averages.rating.toFixed(1)} />
-        <AvgCard label="Avg Response" value={`${averages.responseTime.toFixed(0)}s`} />
       </div>
 
       {isLoading ? (
@@ -146,7 +133,9 @@ export default function ConsultantAnalyticsPage() {
                         <span className="font-mono">{c.rating.toFixed(1)}</span>
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-right font-mono text-muted-foreground">{c.avgResponseTime}s</td>
+                    <td className="py-3 px-4 text-right font-mono text-muted-foreground">
+                      {c.avgResponseTime == null ? <span title="Not yet measured">--</span> : `${c.avgResponseTime}s`}
+                    </td>
                     <td className="py-3 px-4 text-center">
                       {c.trend === "up" ? <TrendingUp size={14} className="text-emerald-400 inline" /> :
                        c.trend === "down" ? <TrendingDown size={14} className="text-rose-400 inline" /> :

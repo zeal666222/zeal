@@ -46,8 +46,8 @@ export async function POST(req: Request) {
 
   const rpc = action === "APPROVE" ? "approve_pricing_change" : "reject_pricing_change";
   const args = action === "APPROVE"
-    ? { p_request_id: requestId, p_note: reason ?? null }
-    : { p_request_id: requestId, p_reason: reason ?? "" };
+    ? { p_request_id: requestId, p_note: reason ?? null, p_actor_id: adminId }
+    : { p_request_id: requestId, p_reason: reason ?? "", p_actor_id: adminId };
 
   const { data, error } = await admin.rpc(rpc, args);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

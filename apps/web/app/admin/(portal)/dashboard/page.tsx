@@ -204,7 +204,6 @@ export default function AdminDashboardPage() {
   };
 
   const treasury = stats.treasury;
-  const drift = 0;
   const activity = activityData?.events ?? [];
   const tsPoints: TimeSeriesPoint[] = (timeseriesData?.series ?? []).map((s) => ({
     timestamp: s.day,
@@ -216,6 +215,13 @@ export default function AdminDashboardPage() {
     if (tsPoints.length < 2) return 0;
     const first = tsPoints[0]?.revenue ?? 0;
     const last = tsPoints[tsPoints.length - 1]?.revenue ?? 0;
+    return first > 0 ? Math.round(((last - first) / first) * 100) : 0;
+  }, [tsPoints]);
+
+  const bookingsGrowth = useMemo(() => {
+    if (tsPoints.length < 2) return 0;
+    const first = tsPoints[0]?.bookings ?? 0;
+    const last = tsPoints[tsPoints.length - 1]?.bookings ?? 0;
     return first > 0 ? Math.round(((last - first) / first) * 100) : 0;
   }, [tsPoints]);
 
@@ -254,20 +260,18 @@ export default function AdminDashboardPage() {
         <Kpi
           label="Total Users" value={stats.users.toLocaleString()} icon={Users}
           tone="blue" loading={isLoading}
-          trend={{ direction: "up", value: "+12%" }}
-          sparkline={generateSparkline(stats.users, 12)}
         />
         <Kpi
           label="Consultants" value={stats.consultants.toLocaleString()} icon={UserCog}
           tone="purple" loading={isLoading}
-          trend={{ direction: "up", value: "+5%" }}
-          sparkline={generateSparkline(stats.consultants, 8)}
         />
         <Kpi
           label="Bookings" value={stats.bookings.toLocaleString()} icon={Calendar}
           tone="emerald" loading={isLoading}
-          trend={{ direction: stats.bookings > 0 ? "up" : "flat", value: stats.bookings > 0 ? "+8%" : "---" }}
-          sparkline={generateSparkline(stats.bookings, 15)}
+          trend={bookingsGrowth !== 0
+            ? { direction: bookingsGrowth > 0 ? "up" : "down", value: `${bookingsGrowth > 0 ? "+" : ""}${bookingsGrowth}%` }
+            : undefined}
+          sparkline={tsPoints.map((p) => p.bookings)}
         />
         <Kpi
           label="Revenue (mo)" value={`\u20B9${fmtINR(stats.revenueMonth)}`} icon={DollarSign}
@@ -353,12 +357,14 @@ export default function AdminDashboardPage() {
                 </h2>
               </div>
               <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                drift === 0
-                  ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
-                  : "bg-rose-500/15 text-rose-400 border border-rose-500/20"
+                (treasury.totalPendingOut ?? 0) > 0
+                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                  : "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
               }`}>
                 <ShieldCheck size={10} />
-                {drift === 0 ? "Reconciled" : `Drift \u20B9${drift}`}
+                {(treasury.totalPendingOut ?? 0) > 0
+                  ? `\u20B9${fmtINR(treasury.totalPendingOut)} pending payout`
+                  : "No pending payouts"}
               </span>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -728,14 +734,4 @@ function RevenueChart({ points }: { points: TimeSeriesPoint[] }) {
       })}
     </div>
   );
-}
-
-function generateSparkline(base: number, variance: number): number[] {
-  const points: number[] = [];
-  let current = base * 0.7;
-  for (let i = 0; i < 12; i++) {
-    current += (Math.random() - 0.3) * variance;
-    points.push(Math.max(0, current));
-  }
-  return points;
 }

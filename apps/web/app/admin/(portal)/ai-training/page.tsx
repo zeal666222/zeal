@@ -21,12 +21,13 @@ interface AIConsultantStats {
   category: string;
   avatar: string;
   isActive: boolean;
-  conversationCount: number;
+  conversationCount: number | null;
   avgRating: number;
   commonTopics: string[];
   personalityTraits: string[];
-  trainingProgress: number;
-  humanLikenessScore: number;
+  accuracyPct: number | null;
+  humanLikenessScore: number | null;
+  responseTime: number | null;
 }
 
 interface TrainingTurn {
@@ -382,15 +383,27 @@ export default function AITrainingPage() {
       if (!res.ok) throw new Error("Failed to load AI consultants");
       const json = await res.json();
       return {
-        items: (json.items ?? []).map((c: Record<string, unknown>) => ({
-          ...c,
-          conversationCount: Math.floor(Math.random() * 500) + 50,
-          avgRating: 3.5 + Math.random() * 1.5,
-          commonTopics: ["Love", "Career", "Health"].slice(0, Math.floor(Math.random() * 3) + 1),
-          personalityTraits: PERSONALITY_PRESETS[(c.category as string)?.toLowerCase() ?? "vedic"]?.traits ?? ["Warm", "Insightful"],
-          trainingProgress: Math.floor(Math.random() * 40) + 60,
-          humanLikenessScore: Math.floor(Math.random() * 20) + 75,
-        })),
+        items: (json.items ?? []).map((c: Record<string, unknown>) => {
+          const rating = Number(c.rating ?? 0);
+          const accuracy = c.accuracy == null ? null : Number(c.accuracy);
+          return {
+            ...c,
+            conversationCount:
+              c.conversationCount == null ? null : Number(c.conversationCount),
+            avgRating: Number.isFinite(rating) ? rating : 0,
+            commonTopics: Array.isArray(c.specialties)
+              ? (c.specialties as string[])
+              : [],
+            personalityTraits:
+              PERSONALITY_PRESETS[(c.category as string)?.toLowerCase() ?? "vedic"]
+                ?.traits ?? ["Warm", "Insightful"],
+            accuracyPct:
+              accuracy != null && Number.isFinite(accuracy)
+                ? Math.round(accuracy <= 1 ? accuracy * 100 : accuracy)
+                : null,
+            humanLikenessScore: null,
+          };
+        }),
       };
     },
   });
@@ -585,13 +598,13 @@ export default function AITrainingPage() {
                         <div className="grid grid-cols-2 gap-3 mt-3">
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] text-muted-foreground font-bold">Training</span>
-                              <span className="text-[10px] text-purple-400 font-mono font-bold">{c.trainingProgress}%</span>
+                              <span className="text-[10px] text-muted-foreground font-bold">Accuracy</span>
+                              <span className="text-[10px] text-purple-400 font-mono font-bold">{c.accuracyPct == null ? "—" : `${c.accuracyPct}%`}</span>
                             </div>
                             <div className="h-1.5 rounded-full bg-surface-raised overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${c.trainingProgress}%` }}
+                                animate={{ width: `${c.accuracyPct ?? 0}%` }}
                                 transition={{ duration: 0.8, delay: idx * 0.05 }}
                                 className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500"
                               />
@@ -599,14 +612,13 @@ export default function AITrainingPage() {
                           </div>
                           <div>
                             <div className="flex items-center justify-between mb-1">
-                              <span className="text-[10px] text-muted-foreground font-bold">Human-like</span>
-                              <span className="text-[10px] text-emerald-400 font-mono font-bold">{c.humanLikenessScore}%</span>
+                              <span className="text-[10px] text-muted-foreground font-bold">Avg response</span>
+                              <span className="text-[10px] text-emerald-400 font-mono font-bold">{c.responseTime == null ? "—" : `${c.responseTime}ms`}</span>
                             </div>
                             <div className="h-1.5 rounded-full bg-surface-raised overflow-hidden">
                               <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${c.humanLikenessScore}%` }}
-                                transition={{ duration: 0.8, delay: idx * 0.05 + 0.1 }}
+                                animate={{ width: "0%" }}
                                 className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500"
                               />
                             </div>
@@ -616,7 +628,7 @@ export default function AITrainingPage() {
 
                       <div className="hidden md:flex flex-col items-end gap-2 shrink-0">
                         <div className="text-right">
-                          <p className="text-lg font-black text-foreground font-mono">{c.conversationCount}</p>
+                          <p className="text-lg font-black text-foreground font-mono">{c.conversationCount == null ? "—" : c.conversationCount}</p>
                           <p className="text-[9px] uppercase tracking-wider text-muted-foreground">Chats</p>
                         </div>
                         <div className="flex items-center gap-1">
