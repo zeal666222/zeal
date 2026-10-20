@@ -447,15 +447,16 @@ export async function requireSuperAdminAPI(): Promise<GuardResult> {
 
 // ─── API Key scope check ─────────────────────────────────────────────────────
 // Call after requireAdminAPI() when the request was authenticated via API key.
-// Returns true if the key has the required scope, or if the request was NOT
-// authenticated via API key (JWT/session users bypass scope checks).
+// Returns true if the key carries the required capability, or if the request was
+// NOT authenticated via API key (JWT/session users have no scopes to check).
 export function hasAPIScope(
   guard: GuardSuccess,
   requiredScope: string,
 ): boolean {
   // If not authenticated via API key, scope checks don't apply
   if (!guard.apiKeyScopes) return true;
-  // read-only scope grants GET-level access to everything
-  if (guard.apiKeyScopes.includes("read-only")) return true;
+  // 'read-only' is a *read* grant. It must never satisfy a capability a route
+  // demands, otherwise a read-only key could move money — which is what the
+  // blanket bypass used to allow.
   return guard.apiKeyScopes.includes(requiredScope);
 }

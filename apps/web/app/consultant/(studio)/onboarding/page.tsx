@@ -59,7 +59,9 @@ export default function ConsultantOnboardingPage() {
  saturday: [],
  sunday: [],
  },
- verificationDocs: ["https://placeholder.example.com/doc.pdf"],
+ // No verificationDocs: this flow has no document upload, so it must not write a
+ // placeholder URL. The admin verification queue reads this column and a fake
+ // link there invites approval on fabricated evidence.
  }),
  });
  if (!res.ok) {

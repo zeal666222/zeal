@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Check, Loader2, Tag, X } from "lucide-react";
+import { toast } from "@/components/ui/toaster";
 
 interface RateMap { [k: string]: number }
 
@@ -47,10 +48,20 @@ export default function PricingRequestsPage() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["admin", "pricing-requests"] });
       setRejecting(null);
       setReason("");
+      toast({
+        title: variables.action === "APPROVE" ? "Rate change approved" : "Rate change rejected",
+        description: variables.action === "APPROVE"
+          ? "The consultant's new rates are live now."
+          : "The consultant was told why and can resubmit.",
+        variant: "success",
+      });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Could not record the decision", description: err.message, variant: "destructive" });
     },
   });
 

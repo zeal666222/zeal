@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
+import { requireAdminAPI, logAdminAction, hasAPIScope } from "@/lib/auth/api-guard";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { safeQuery, safeRpc } from "@/lib/infra/guards";
 import { sendAdminBus } from "@/lib/realtime/admin-bus";
@@ -62,6 +62,9 @@ export const GET = withErrorHandler(async () => {
 export const POST = withErrorHandler(async (req: Request) => {
   const guard = await requireAdminAPI("ADMIN");
   if (!guard.ok) return guard.response;
+  if (!hasAPIScope(guard, "withdraw:process")) {
+    throw new AppError("API key missing scope withdraw:process", 403, ErrorCode.AUTH_FORBIDDEN);
+  }
   const { admin, userId: adminId } = guard;
 
   let body: { transactionId?: string; action?: string; reason?: string };

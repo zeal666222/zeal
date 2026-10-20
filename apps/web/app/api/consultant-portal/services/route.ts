@@ -112,19 +112,46 @@ export const PUT = withErrorHandler(async (req: Request) => {
     }
   }
 
-  // Wipe + insert (idempotent)
-  await admin.from("ConsultantService").delete().eq("consultant_id", consultant.id);
+  // Reconcile by diff instead of wipe+insert. The previous delete-then-insert
+  // sequence had a window where a failed insert left the consultant with zero
+  // services (their whole catalog destroyed by a bad write). Adding first and
+  // only pruning afterwards means a failure can never under-report their tags.
+  const { data: existingRows, error: existingErr } = await admin
+    .from("ConsultantService")
+    .select("service_id")
+    .eq("consultant_id", consultant.id);
 
-  if (idSet.size > 0) {
-    const rows = Array.from(idSet).map((id) => ({
-      consultant_id: consultant.id,
-      service_id: id,
-      proficiency: 3,
-    }));
+  if (existingErr) {
+    throw new AppError(existingErr.message, 500, ErrorCode.INTERNAL_SERVER);
+  }
 
-    const { error } = await admin.from("ConsultantService").insert(rows);
-    if (error) {
-      throw new AppError(error.message, 500, ErrorCode.INTERNAL_SERVER);
+  const existing = new Set<string>(
+    ((existingRows ?? []) as Array<{ service_id: string }>).map((r) => r.service_id),
+  );
+  const toAdd = Array.from(idSet).filter((id) => !existing.has(id));
+  const toRemove = Array.from(existing).filter((id) => !idSet.has(id));
+
+  if (toAdd.length > 0) {
+    const { error: insertErr } = await admin.from("ConsultantService").insert(
+      toAdd.map((id) => ({
+        consultant_id: consultant.id,
+        service_id: id,
+        proficiency: 3,
+      })),
+    );
+    if (insertErr) {
+      throw new AppError(insertErr.message, 500, ErrorCode.INTERNAL_SERVER);
+    }
+  }
+
+  if (toRemove.length > 0) {
+    const { error: deleteErr } = await admin
+      .from("ConsultantService")
+      .delete()
+      .eq("consultant_id", consultant.id)
+      .in("service_id", toRemove);
+    if (deleteErr) {
+      console.warn("[services] prune failed (extra tags retained):", deleteErr.message);
     }
   }
 

@@ -10,14 +10,14 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+// The only scopes that mean anything are the ones routes demand via hasAPIScope().
+// Listing decorative scopes here was how a key got created that could never call
+// the endpoint it was issued for (e.g. 'impersonate' vs 'impersonate:session').
 const VALID_SCOPES = [
-  "impersonate",
-  "manage-users",
-  "view-analytics",
-  "manage-content",
-  "manage-bookings",
-  "manage-wallet",
-  "system-health",
+  "wallet:credit",
+  "wallet:debit",
+  "withdraw:process",
+  "impersonate:session",
   "read-only",
 ] as const;
 

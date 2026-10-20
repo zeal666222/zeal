@@ -67,12 +67,20 @@ export async function POST(req: Request) {
       ? rate
       : Math.round((rate * durationMinutes / 60) * 100) / 100;
 
-  const { data: conflict } = await admin.rpc("check_booking_conflict", {
+  const slotEnd = new Date(new Date(scheduledAt).getTime() + durationMinutes * 60_000).toISOString();
+  const { data: conflictRes, error: conflictErr } = await admin.rpc("check_booking_conflict", {
     p_consultant_id: consultantId,
     p_start: scheduledAt,
-    p_duration_minutes: durationMinutes,
+    p_end: slotEnd,
   });
-  if (conflict === true) {
+  // Fail closed: selling a slot we could not verify risks double-booking a paid
+  // consultation. The payer can retry in a moment.
+  if (conflictErr) {
+    return NextResponse.json({ error: "Could not verify the slot, please retry" }, { status: 503 });
+  }
+  const conflict = conflictRes === true
+    || (conflictRes as { conflict?: boolean } | null)?.conflict === true;
+  if (conflict) {
     return NextResponse.json({ error: "Slot not available" }, { status: 409 });
   }
 

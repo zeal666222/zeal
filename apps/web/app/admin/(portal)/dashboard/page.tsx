@@ -52,6 +52,14 @@ interface ActivityEvent {
   amount?: number;
 }
 
+interface ProbeService {
+  key: string;
+  label: string;
+  status: "healthy" | "degraded" | "down";
+  latencyMs: number;
+  message?: string | null;
+}
+
 function fmtINR(n: number): string {
   return n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
@@ -135,29 +143,34 @@ export default function AdminDashboardPage() {
         fetch("/api/admin/bookings?limit=5&sort=recent", { cache: "no-store" }),
         fetch("/api/admin/sessions/live", { cache: "no-store" }),
       ]);
+      // Shapes mirror the routes verbatim: /api/admin/bookings -> {items:[{id, scheduledAt,
+      // amount, user:{name}, consultant:{user:{name}}}]} and /api/admin/sessions/live ->
+      // {items:[{id, userName, consultantName, startTime}]}. Reading invented keys made
+      // every event fall back to "now", so the feed permanently claimed "just now".
       const events: ActivityEvent[] = [];
       if (bookingsRes.ok) {
         const bJson = await bookingsRes.json();
-        for (const b of (bJson.bookings ?? bJson.items ?? []).slice(0, 5)) {
+        for (const b of (bJson.items ?? []).slice(0, 5)) {
           events.push({
             id: `b-${b.id}`,
             type: "booking",
-            title: "New booking",
-            description: `${b.client_name ?? b.userName ?? "User"} booked ${b.consultant_name ?? b.consultantName ?? "consultant"}`,
-            timestamp: b.created_at ?? b.createdAt ?? new Date().toISOString(),
-            amount: b.totalAmount ?? b.amount,
+            title: b.status === "CANCELLED" ? "Booking cancelled" : "Booking update",
+            description: `${b.user?.name ?? "User"} booked ${b.consultant?.user?.name ?? "consultant"}`,
+            timestamp: b.scheduledAt ?? new Date().toISOString(),
+            amount: b.amount,
           });
         }
       }
       if (sessionsRes.ok) {
         const sJson = await sessionsRes.json();
-        for (const s of (sJson.sessions ?? []).slice(0, 3)) {
+        for (const s of (sJson.items ?? []).slice(0, 3)) {
           events.push({
             id: `s-${s.id}`,
             type: "session",
-            title: "Live session",
+            title: s.isAI ? "AI session live" : "Live session",
             description: `${s.userName ?? "User"} in session with ${s.consultantName ?? "consultant"}`,
-            timestamp: s.startedAt ?? s.createdAt ?? new Date().toISOString(),
+            timestamp: s.startTime ?? new Date().toISOString(),
+            amount: s.amount,
           });
         }
       }
@@ -166,6 +179,21 @@ export default function AdminDashboardPage() {
     },
     refetchInterval: 30_000,
   });
+
+  // Measured, not asserted: each row is a live round trip run by
+  // lib/monitoring/health-check.ts. Probes can take a few seconds, so they are
+  // polled more slowly than the business metrics.
+  const { data: probeData, dataUpdatedAt: probeUpdatedAt, isFetching: probesFetching } =
+    useQuery<{ overall: ProbeService["status"]; services: ProbeService[]; portalMs: number; timestamp: string }>({
+      queryKey: ["admin", "probes", "health"],
+      queryFn: async () => {
+        const res = await fetch("/api/admin/probes/health", { cache: "no-store" });
+        if (!res.ok) throw new Error("Health probes failed");
+        return res.json();
+      },
+      refetchInterval: 45_000,
+      staleTime: 30_000,
+    });
 
   useEffect(() => {
     if (alertsData?.items) setAlerts(alertsData.items);
@@ -540,14 +568,40 @@ export default function AdminDashboardPage() {
           >
             <h2 className="text-sm font-black text-foreground flex items-center gap-2 mb-3">
               <Globe className="w-4 h-4 text-purple-500" /> Platform Status
+              {probeData && (
+                <span className={`ml-auto text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                  probeData.overall === "healthy"
+                    ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
+                    : probeData.overall === "degraded"
+                      ? "border-amber-500/25 bg-amber-500/10 text-amber-400"
+                      : "border-rose-500/25 bg-rose-500/10 text-rose-400"
+                }`}>
+                  {probeData.overall}
+                </span>
+              )}
             </h2>
             <div className="space-y-2">
-              <StatusRow label="API Gateway" status="operational" latency="12ms" />
-              <StatusRow label="Database" status="operational" latency="3ms" />
-              <StatusRow label="Realtime" status="operational" latency="8ms" />
-              <StatusRow label="AI Engine" status="operational" latency="45ms" />
-              <StatusRow label="Astro Worker" status="operational" latency="22ms" />
+              {(probeData?.services ?? []).map((s) => (
+                <StatusRow
+                  key={s.key}
+                  label={s.label}
+                  status={s.status === "healthy" ? "operational" : s.status}
+                  latency={s.latencyMs > 0 ? `${s.latencyMs}ms` : "—"}
+                  detail={s.message}
+                />
+              ))}
+              {!probeData && (
+                <p className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  {probesFetching ? "Measuring services…" : "Platform status unavailable — probes failed to load"}
+                </p>
+              )}
             </div>
+            {probeData && (
+              <p className="mt-3 text-[10px] text-muted-foreground/60">
+                Measured {probeUpdatedAt ? timeAgo(new Date(probeUpdatedAt).toISOString()) : "—"} · portal round trip {probeData.portalMs}ms
+              </p>
+            )}
           </motion.div>
         </div>
       </div>
@@ -659,18 +713,23 @@ function Metric({
   );
 }
 
-function StatusRow({ label, status, latency }: {
-  label: string; status: "operational" | "degraded" | "down"; latency: string;
+function StatusRow({ label, status, latency, detail }: {
+  label: string; status: "operational" | "degraded" | "down"; latency: string; detail?: string | null;
 }) {
   const dotColor = status === "operational" ? "bg-emerald-400" : status === "degraded" ? "bg-amber-400" : "bg-rose-400";
   const textColor = status === "operational" ? "text-emerald-400" : status === "degraded" ? "text-amber-400" : "text-rose-400";
   return (
-    <div className="flex items-center justify-between py-1.5">
-      <div className="flex items-center gap-2">
-        <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
-        <span className="text-xs text-muted-foreground">{label}</span>
+    <div className="flex items-start justify-between gap-3 py-1.5" title={detail ?? undefined}>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <div className="flex items-center gap-2">
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotColor}`} />
+          <span className="text-xs text-muted-foreground">{label}</span>
+        </div>
+        {detail && (
+          <span className="ml-3.5 text-[10px] leading-tight text-muted-foreground/60 line-clamp-1">{detail}</span>
+        )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <span className="text-[10px] font-mono text-muted-foreground/60">{latency}</span>
         <span className={`text-[10px] font-bold uppercase ${textColor}`}>{status}</span>
       </div>

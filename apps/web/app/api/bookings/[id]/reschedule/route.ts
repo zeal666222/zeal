@@ -61,14 +61,23 @@ export const POST = withErrorHandler(
     }
 
     const duration = durationMinutes ?? booking.durationMinutes ?? 30;
+    const end = new Date(newStart.getTime() + duration * 60_000);
 
-    // Conflict check
-    const { data: conflict } = await supabase.rpc("check_booking_conflict", {
+    // Live signature is (p_consultant_id, p_start, p_end) and it returns
+    // {conflict: boolean}. Passing p_duration_minutes made PostgREST fail to
+    // resolve the function, and comparing the jsonb to `true` was never true —
+    // together these let any reschedule double-book a consultant.
+    const { data: conflictRes, error: conflictErr } = await supabase.rpc("check_booking_conflict", {
       p_consultant_id: booking.consultantId,
       p_start: newStart.toISOString(),
-      p_duration_minutes: duration,
+      p_end: end.toISOString(),
     });
-    if (conflict === true) {
+    if (conflictErr) {
+      throw new AppError("Could not check consultant availability", 503, ErrorCode.BOOKING_CONFLICT);
+    }
+    const hasConflict = conflictRes === true
+      || (conflictRes as { conflict?: boolean } | null)?.conflict === true;
+    if (hasConflict) {
       throw new AppError("Consultant is not available at that time", 409, ErrorCode.BOOKING_CONFLICT);
     }
 

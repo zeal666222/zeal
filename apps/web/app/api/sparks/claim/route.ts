@@ -7,9 +7,11 @@ import {z} from "zod";
 
 export const dynamic = "force-dynamic";
 
+// Capped to match the DB-side ceiling in claim_quest(); anything higher would
+// be silently truncated by the RPC and the user would see a number we never paid.
 const ClaimSchema = z.object({
   questId: z.string().min(1),
-  reward: z.number().int().min(1).max(10000),
+  reward: z.number().int().min(1).max(500),
 });
 
 export const POST = withErrorHandler(async (req: Request) => {
@@ -30,21 +32,23 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   if (error) throw new AppError(error.message, 500, ErrorCode.INTERNAL_SERVER);
 
-  const result = data as { success?: boolean; alreadyClaimed?: boolean; sparks?: number; error?: string } | null;
+  const result = data as { success?: boolean; alreadyClaimed?: boolean; awarded?: number; sparks?: number; error?: string } | null;
 
   if (result?.alreadyClaimed) {
-    return NextResponse.json({ alreadyClaimed: true, sparks: reward });
+    // Report the wallet truth from the RPC, not the amount the client asked for.
+    return NextResponse.json({ alreadyClaimed: true, sparks: result.sparks ?? 0, awarded: 0 });
   }
   if (result && result.success === false) {
     throw new AppError(result.error || "Claim failed", 500, ErrorCode.INTERNAL_SERVER);
   }
 
+  const awarded = result?.awarded ?? 0;
   const newSparks = result?.sparks ?? 0;
 
   await serverPublish("consultant:" + userId + ":sparks", "sparks:updated", {
     type: "UPDATE",
-    record: { id: userId, sparkScore: newSparks, delta: reward },
+    record: { id: userId, sparkScore: newSparks, delta: awarded },
   });
 
-  return NextResponse.json({ success: true, sparks: newSparks });
+  return NextResponse.json({ success: true, sparks: newSparks, awarded });
 });

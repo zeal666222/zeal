@@ -117,6 +117,15 @@ export default function AdminAiConsultantsPage() {
         throw new Error((err as { error?: string }).error || "Save failed");
       }
       setShowForm(false);
+      toast({
+        title: editingId ? "AI consultant updated" : "AI consultant created",
+        description: editingId
+          ? "Changes are live for the next conversation."
+          : "It is now bookable in the AI directory.",
+        variant: "success",
+      });
+      setEditingId(null);
+      setForm(EMPTY_FORM);
       await load();
     } catch (err) {
       toast({ title: err instanceof Error ? err.message : "Save failed", variant: "destructive" });

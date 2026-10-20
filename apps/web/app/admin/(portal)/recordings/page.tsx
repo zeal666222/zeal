@@ -8,6 +8,7 @@ import {useAdminStore} from '@/lib/admin/store/adminStore';
 import {LoadingState} from '@/components/admin/shared/LoadingState';
 import {EmptyState} from '@/components/admin/shared/EmptyState';
 import {ErrorBoundary} from '@/components/admin/shared/ErrorBoundary';
+import {toast} from '@/components/ui/toaster';
 
 function RecordingsContent() {
  const { profile } = useAdminStore();
@@ -28,10 +29,20 @@ function RecordingsContent() {
  const sendRecording = useMutation({
  mutationFn: async (id: string) => {
  const res = await fetch(`/api/admin/recordings/${id}/send`, { method: 'POST' });
- if (!res.ok) throw new Error('Failed to send recording');
- return res.json();
+ const body = await res.json().catch(() => ({}));
+ if (!res.ok) throw new Error(body?.error || `Could not send the recording (${res.status})`);
+ return body;
  },
- onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin', 'recordings'] }),
+ onSuccess: (data) => {
+ queryClient.invalidateQueries({ queryKey: ['admin', 'recordings'] });
+ const sentCount = Number(data?.sent ?? 0);
+ toast({
+ title: sentCount > 0 ? `Recording emailed to ${sentCount} participant${sentCount > 1 ? 's' : ''}` : 'Recording not delivered',
+ description: sentCount > 0 ? 'Both sides got the link by email.' : 'No recipient email was on file for this session.',
+ variant: sentCount > 0 ? 'success' : 'destructive',
+ });
+ },
+ onError: (err: Error) => toast({ title: 'Recording not sent', description: err.message, variant: 'destructive' }),
  });
 
  if (isLoading) return <LoadingState />;
@@ -83,6 +94,7 @@ function RecordingsContent() {
 }
 
 export default function RecordingsPage() {
+ const queryClient = useQueryClient();
  return (
  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
  <div className="flex items-center justify-between mb-4">
@@ -90,7 +102,11 @@ export default function RecordingsPage() {
  <Video className="w-5 h-5 text-[var(--color-primary)]" /> Recordings
  <span className="text-xs text-[var(--color-subtle-foreground)]">Auto‑delete after 12h</span>
  </h1>
- <button onClick={() => window.location.reload()} className="p-2 rounded-full hover:bg-[var(--color-surface-sunken)] dark:hover:bg-gray-800 transition-colors">
+ <button
+ onClick={() => queryClient.invalidateQueries({ queryKey: ['admin', 'recordings'] })}
+ title="Refetch recordings"
+ className="p-2 rounded-full hover:bg-[var(--color-surface-sunken)] dark:hover:bg-gray-800 transition-colors"
+ >
  <RefreshCw className="w-5 h-5 text-[var(--color-subtle-foreground)]" />
  </button>
  </div>

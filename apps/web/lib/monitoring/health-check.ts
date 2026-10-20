@@ -1,12 +1,11 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// Health Check — periodic check of DB, Redis, CF Workers, AI providers
-// ═══════════════════════════════════════════════════════════════════════════════
-// Returns a structured health report used by:
-//   - /api/health endpoint
-//   - Admin dashboard system page
-//   - Alert system (triggers alerts on failures)
+// Health Check — measured probe of PostgREST, Supabase Realtime, AI providers
+// ─────────────────────────────────────────────────────────────────────────────
+// Every status/latency here is a real round trip. Consumed by
+// GET /api/admin/probes/health, which backs the admin "Platform Status" panel.
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import { createClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@zeal/database/server";
 import { logger } from "@/lib/logger";
 import { getPoolManager } from "@/lib/db/pool";
@@ -60,31 +59,40 @@ async function checkDatabase(): Promise<HealthCheck> {
 
 async function checkSupabaseRealtime(): Promise<HealthCheck> {
   const start = Date.now();
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!url) {
-      return {
-        name: "realtime",
-        status: "degraded",
-        latencyMs: 0,
-        message: "NEXT_PUBLIC_SUPABASE_URL not set",
-      };
-    }
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    return {
+      name: "realtime",
+      status: "degraded",
+      latencyMs: 0,
+      message: "NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY not set",
+    };
+  }
 
-    // Simple connectivity check — hit the Supabase REST endpoint
-    const res = await fetch(`${url}/rest/v1/`, {
-      method: "HEAD",
-      headers: {
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-      },
-      signal: AbortSignal.timeout(5000),
+  // A HEAD to the REST root is not realtime: it proved nothing about the socket
+  // tier and Supabase answers it 401 anyway, so the panel reported "degraded"
+  // while everything was fine. Joining a channel is the real signal.
+  // "system:health" is on the public allow-list, so RLS cannot reject the join.
+  let sb: ReturnType<typeof createClient> | null = null;
+  try {
+    sb = createClient(url, key, { auth: { persistSession: false } });
+    const joined = await new Promise<boolean>((resolve) => {
+      const timer = setTimeout(() => resolve(false), 8000);
+      const channel = sb!.channel("system:health", {
+        config: { broadcast: { self: false } },
+      });
+      channel.subscribe((status: string) => {
+        if (status === "SUBSCRIBED") { clearTimeout(timer); resolve(true); }
+        else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") { clearTimeout(timer); resolve(false); }
+      });
     });
 
     return {
       name: "realtime",
-      status: res.ok ? "healthy" : "degraded",
+      status: joined ? "healthy" : "down",
       latencyMs: Date.now() - start,
-      message: res.ok ? undefined : `HTTP ${res.status}`,
+      message: joined ? undefined : "Channel join failed or timed out",
     };
   } catch (err) {
     return {
@@ -92,42 +100,116 @@ async function checkSupabaseRealtime(): Promise<HealthCheck> {
       status: "down",
       latencyMs: Date.now() - start,
       message: err instanceof Error ? err.message : "Connection failed",
+    };
+  } finally {
+    try { await sb?.removeAllChannels(); } catch { /* ignore */ }
+  }
+}
+
+async function checkAIEngine(): Promise<HealthCheck> {
+  const start = Date.now();
+  // The chat worker is what actually answers AI replies in production, so its
+  // /api/health reports the live provider state instead of one hardcoded vendor.
+  const workerUrl = process.env.CHAT_WORKER_URL ?? "https://zeal-chat.zeal666-app.workers.dev";
+
+  try {
+    const res = await fetch(`${workerUrl}/api/health`, {
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) {
+      return {
+        name: "ai_provider",
+        status: "down",
+        latencyMs: Date.now() - start,
+        message: `Chat worker HTTP ${res.status}`,
+      };
+    }
+
+    const body = (await res.json().catch(() => null)) as {
+      providers?: Record<string, unknown>;
+    } | null;
+
+    // Shape from the worker: { providers: { groq: true, cloudflareAi: true,
+    // agnes: false, keylessFallbacks: ["pollinations", ...] } }. The keyless
+    // list is an array, so the `=== true` filter below skips it.
+    const ready = Object.entries(body?.providers ?? {})
+      .filter(([, v]) => v === true)
+      .map(([k]) => k);
+    const keylessRaw = body?.providers?.keylessFallbacks;
+    const fallbacks = Array.isArray(keylessRaw) ? keylessRaw.length : 0;
+
+    if (ready.length === 0 && fallbacks === 0) {
+      return {
+        name: "ai_provider",
+        status: "degraded",
+        latencyMs: Date.now() - start,
+        message: "Worker reports no configured providers",
+      };
+    }
+
+    return {
+      name: "ai_provider",
+      status: ready.length > 0 ? "healthy" : "degraded",
+      latencyMs: Date.now() - start,
+      message: ready.length > 0
+        ? `${ready.join(", ")} ready${fallbacks ? ` + ${fallbacks} keyless fallbacks` : ""}`
+        : `Only ${fallbacks} keyless fallbacks ready`,
+      details: { ready, fallbacks },
+    };
+  } catch (err) {
+    return {
+      name: "ai_provider",
+      status: "down",
+      latencyMs: Date.now() - start,
+      message: err instanceof Error ? err.message : "Chat worker unreachable",
     };
   }
 }
 
-async function checkAIProvider(): Promise<HealthCheck> {
+async function checkAdminBus(): Promise<HealthCheck> {
   const start = Date.now();
-  const apiKey = process.env.GROQ_API_KEY;
-
-  if (!apiKey) {
-    return {
-      name: "ai_provider",
-      status: "degraded",
-      latencyMs: 0,
-      message: "GROQ_API_KEY not set",
-    };
-  }
+  // The worker is deployed regardless of what apps/web is configured to do, so
+  // probe the known deployment and report ingest wiring separately — that was
+  // the difference between "live panel works" and "panel silently empty".
+  const workerUrl = process.env.ADMIN_BUS_URL ?? "https://zeal-admin-realtime.zeal666-app.workers.dev";
 
   try {
-    // Lightweight check: list models (no token usage)
-    const res = await fetch("https://api.groq.com/openai/v1/models", {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(5000),
+    const res = await fetch(`${workerUrl}/api/health`, {
+      signal: AbortSignal.timeout(6000),
     });
+    if (!res.ok) {
+      return {
+        name: "admin_bus",
+        status: "down",
+        latencyMs: Date.now() - start,
+        message: `Admin bus HTTP ${res.status}`,
+      };
+    }
+
+    const body = (await res.json().catch(() => null)) as { operators?: number } | null;
+    const operators = typeof body?.operators === "number" ? body.operators : 0;
+
+    if (!process.env.ADMIN_BUS_URL) {
+      return {
+        name: "admin_bus",
+        status: "degraded",
+        latencyMs: Date.now() - start,
+        message: `Worker live (${operators} operator${operators === 1 ? "" : "s"}) but ADMIN_BUS_URL is unset, so nothing is ingesting`,
+      };
+    }
 
     return {
-      name: "ai_provider",
-      status: res.ok ? "healthy" : "degraded",
+      name: "admin_bus",
+      status: "healthy",
       latencyMs: Date.now() - start,
-      message: res.ok ? undefined : `HTTP ${res.status}`,
+      message: `${operators} operator${operators === 1 ? "" : "s"} connected`,
     };
   } catch (err) {
     return {
-      name: "ai_provider",
+      name: "admin_bus",
       status: "down",
       latencyMs: Date.now() - start,
-      message: err instanceof Error ? err.message : "Connection failed",
+      message: err instanceof Error ? err.message : "Admin bus unreachable",
     };
   }
 }
@@ -146,7 +228,9 @@ async function checkAstroWorker(): Promise<HealthCheck> {
   }
 
   try {
-    const res = await fetch(`${workerUrl}/health`, {
+    // The worker serves /api/health; probing /health returned 404 and the panel
+    // showed this as permanently degraded.
+    const res = await fetch(`${workerUrl}/api/health`, {
       signal: AbortSignal.timeout(5000),
     });
 
@@ -172,18 +256,19 @@ async function checkAstroWorker(): Promise<HealthCheck> {
  * Run all health checks and return a comprehensive report.
  */
 export async function runHealthChecks(): Promise<HealthReport> {
+  const CHECK_NAMES = ["database", "realtime", "ai_provider", "astro_worker", "admin_bus"] as const;
   const checks = await Promise.allSettled([
     checkDatabase(),
     checkSupabaseRealtime(),
-    checkAIProvider(),
+    checkAIEngine(),
     checkAstroWorker(),
+    checkAdminBus(),
   ]);
 
   const results: HealthCheck[] = checks.map((c, i) => {
     if (c.status === "fulfilled") return c.value;
-    const names = ["database", "realtime", "ai_provider", "astro_worker"];
     return {
-      name: names[i] ?? "unknown",
+      name: CHECK_NAMES[i] ?? "unknown",
       status: "down" as HealthStatus,
       latencyMs: 0,
       message: c.reason?.message ?? "Check failed",

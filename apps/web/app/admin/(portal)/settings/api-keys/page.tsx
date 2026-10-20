@@ -20,15 +20,14 @@ interface APIKey {
   keyPrefix: string;
 }
 
+// Mirrors VALID_SCOPES in /api/admin/api-keys. These are capabilities an endpoint
+// actually checks, so a key can only be issued for work it can perform.
 const ALL_SCOPES = [
-  { value: "impersonate", label: "Impersonate users/AI" },
-  { value: "manage-users", label: "Manage users" },
-  { value: "view-analytics", label: "View analytics" },
-  { value: "manage-content", label: "Manage content" },
-  { value: "manage-bookings", label: "Manage bookings" },
-  { value: "manage-wallet", label: "Manage wallet" },
-  { value: "system-health", label: "System health" },
-  { value: "read-only", label: "Read-only (all)" },
+  { value: "wallet:credit", label: "Credit user wallets" },
+  { value: "wallet:debit", label: "Debit user wallets" },
+  { value: "withdraw:process", label: "Approve or reject withdrawals" },
+  { value: "impersonate:session", label: "Impersonate a user or AI consultant" },
+  { value: "read-only", label: "Read-only dashboards (no actions)" },
 ] as const;
 
 export default function APIKeysPage() {
