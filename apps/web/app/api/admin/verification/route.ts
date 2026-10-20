@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { safeQuery, safeQueryOne, safeRpc } from "@/lib/infra/guards";
+import { sendAdminBus } from "@/lib/realtime/admin-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,13 @@ export const POST = withErrorHandler(async (req: Request) => {
   await logAdminAction(admin, {
     adminId, action: action === "APPROVE" ? "CONSULTANT_APPROVE" : "CONSULTANT_REJECT",
     targetType: "consultant", targetId: consultantId, metadata: { reason },
+  });
+
+  void sendAdminBus({
+    kind: action === "APPROVE" ? "consultant_verified" : "consultant_rejected",
+    label: `Consultant ${consultantId.slice(0, 8)} ${action === "APPROVE" ? "approved" : "rejected"}`,
+    actor: adminId,
+    meta: { consultantId, reason: reason ?? null },
   });
 
   return NextResponse.json({ success: true, action });

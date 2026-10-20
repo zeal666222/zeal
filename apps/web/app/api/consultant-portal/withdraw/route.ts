@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
+import { sendAdminBus } from "@/lib/realtime/admin-bus";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -41,5 +42,12 @@ export async function POST(req: Request) {
   if (result && result.success === false) {
     return NextResponse.json({ error: result.error || "Withdrawal failed" }, { status: 400 });
   }
+  void sendAdminBus({
+    kind: "withdrawal_requested",
+    label: `Payout requested ₹${parsed.data.amount}`,
+    actor: user.id,
+    amount: parsed.data.amount,
+    meta: { upi: parsed.data.upiId },
+  });
   return NextResponse.json(result ?? { success: true });
 }

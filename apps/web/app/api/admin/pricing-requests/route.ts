@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminAPI, logAdminAction } from "@/lib/admin/auth/api-guard";
+import { sendAdminBus } from "@/lib/realtime/admin-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,13 @@ export async function POST(req: Request) {
     targetType: "pricing_request",
     targetId: requestId,
     metadata: { reason },
+  });
+
+  void sendAdminBus({
+    kind: action === "APPROVE" ? "pricing_approved" : "pricing_rejected",
+    label: `Pricing request ${requestId.slice(0, 8)} ${action === "APPROVE" ? "approved" : "rejected"}`,
+    actor: adminId,
+    meta: { requestId, reason: reason ?? null },
   });
 
   return NextResponse.json(data);

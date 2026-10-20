@@ -1,0 +1,17 @@
+{
+  "name": "@zeal/admin-realtime",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 execute zeal-admin-metrics --file=migrations/0001_schema.sql",
+    "db:migrate:local": "wrangler d1 execute zeal-admin-metrics --local --file=migrations/0001_schema.sql",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250401.0",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.149.0"
+  }
+}

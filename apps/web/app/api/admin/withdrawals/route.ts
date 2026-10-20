@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminAPI, logAdminAction } from "@/lib/auth/api-guard";
 import { withErrorHandler, AppError, ErrorCode } from "@/lib/errors";
 import { safeQuery, safeRpc } from "@/lib/infra/guards";
+import { sendAdminBus } from "@/lib/realtime/admin-bus";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +86,13 @@ export const POST = withErrorHandler(async (req: Request) => {
   await logAdminAction(admin, {
     adminId, action: action === "APPROVE" ? "WITHDRAWAL_APPROVE" : "WITHDRAWAL_REJECT",
     targetType: "withdrawal", targetId: transactionId, metadata: { reason },
+  });
+
+  void sendAdminBus({
+    kind: action === "APPROVE" ? "withdrawal_approved" : "withdrawal_rejected",
+    label: `Withdrawal ${transactionId.slice(0, 8)} ${action === "APPROVE" ? "approved" : "rejected"}`,
+    actor: adminId,
+    meta: { transactionId, reason: reason ?? null },
   });
 
   return NextResponse.json({ success: true, action });

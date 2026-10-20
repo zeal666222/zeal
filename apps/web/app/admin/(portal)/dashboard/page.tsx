@@ -10,6 +10,7 @@ import {
   MessageSquare, Video, CreditCard, ArrowDownRight, RefreshCw,
 } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import { LiveBusPanel } from "@/components/admin/dashboard/LiveBusPanel";
 
 interface Stats {
   users: number;
@@ -280,6 +281,9 @@ export default function AdminDashboardPage() {
           sparkline={tsPoints.map((p) => p.revenue)}
         />
       </div>
+
+      {/* Live Operations — Cloudflare realtime bus (fail-open, hides when dormant) */}
+      <LiveBusPanel />
 
       {/* Live Revenue Ticker + Revenue Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

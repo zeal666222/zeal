@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, createServerClientFromCookies } from "@zeal/database/server";
 import { serverPublish } from "@/lib/realtime/server";
+import { sendAdminBus } from "@/lib/realtime/admin-bus";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -141,6 +142,14 @@ export async function POST(
       await serverPublish(`consultant:${consultantUserId}:bookings`, "booking_updated", { id, status: "CONFIRMED" });
     }
   } catch { /* non-fatal */ }
+
+  void sendAdminBus({
+    kind: "booking_confirmed",
+    label: `Booking ${id.slice(0, 8)} confirmed`,
+    actor: user.id,
+    amount: consultantEarning > 0 ? consultantEarning : null,
+    meta: { bookingId: id },
+  });
 
   const { data: settled } = await admin.from("Booking").select("*").eq("id", id).maybeSingle();
   return NextResponse.json({ booking: settled });

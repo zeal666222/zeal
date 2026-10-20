@@ -1,6 +1,7 @@
 import {NextResponse} from "next/server";
 import {requireAdminAPI, logAdminAction, hasAPIScope, type GuardSuccess} from "@/lib/auth/api-guard";
 import {publishWalletBalance} from "@/lib/realtime/wallet";
+import {sendAdminBus} from "@/lib/realtime/admin-bus";
 import {z} from "zod";
 
 export const dynamic = "force-dynamic";
@@ -104,5 +105,12 @@ export async function POST(req: Request) {
 
   const {data: wallet} = await admin.from("Wallet").select("*").eq("userId", userId).maybeSingle();
   void publishWalletBalance(userId);
+  void sendAdminBus({
+    kind: "payment_topup",
+    label: `Wallet credit ₹${amount}`,
+    actor: adminId,
+    amount,
+    meta: { targetUserId: userId, referenceId: refId },
+  });
   return NextResponse.json({ ok: true, targetUserId: userId, wallet, newBalance: result?.balance ?? null });
 }
