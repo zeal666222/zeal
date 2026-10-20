@@ -32,9 +32,36 @@ export async function POST(
     amount: number; razorpayPaymentId: string | null;
   };
 
-  if (booking.userId !== user.id) {
+  // Authorization: seeker, the assigned consultant, or an admin.
+  let consultantUserId: string | null = null;
+  if (booking.consultantId) {
+    const { data: c } = await admin
+      .from("Consultant").select("userId").eq("id", booking.consultantId).maybeSingle();
+    consultantUserId = (c as { userId: string | null } | null)?.userId ?? null;
+  }
+  const { data: profile } = await admin
+    .from("User").select("role").eq("id", user.id).maybeSingle();
+  const callerRole = String((profile as { role: string | null } | null)?.role ?? "").toUpperCase();
+
+  const isSeeker = booking.userId === user.id;
+  const isConsultant = consultantUserId !== null && consultantUserId === user.id;
+  const isAdmin = callerRole === "SUPER_ADMIN" || callerRole === "ADMIN" || callerRole === "SUPPORT";
+
+  if (!isSeeker && !isConsultant && !isAdmin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  // A consultant may only decline a booking that has not been settled/credited
+  // yet. Cancelling a CONFIRMED booking would refund the seeker without clawing
+  // back the consultant's already-paid earning — reserve that for the seeker/admin.
+  const settled = booking.status === "CONFIRMED" || booking.status === "IN_PROGRESS" || booking.status === "COMPLETED";
+  if (isConsultant && !isSeeker && !isAdmin && settled) {
+    return NextResponse.json(
+      { error: "This booking is already confirmed. The client or support must cancel it." },
+      { status: 409 },
+    );
+  }
+
   if (booking.status === "CANCELLED") {
     return NextResponse.json({ ok: true, alreadyCancelled: true });
   }

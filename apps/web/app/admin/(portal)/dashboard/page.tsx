@@ -88,7 +88,6 @@ export default function AdminDashboardPage() {
   const [liveRevenue, setLiveRevenue] = useState(0);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [revenueHistory, setRevenueHistory] = useState<number[]>([]);
-  const revenueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { data, isLoading } = useQuery<Stats>({
     queryKey: ["admin", "stats"],
@@ -100,11 +99,11 @@ export default function AdminDashboardPage() {
     refetchInterval: 30_000,
   });
 
-  const { data: timeseriesData } = useQuery<{ points: TimeSeriesPoint[] }>({
+  const { data: timeseriesData } = useQuery<{ series: Array<{ day: string; revenue: number; bookings: number }> }>({
     queryKey: ["admin", "stats", "timeseries"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/stats/timeseries?period=7d", { cache: "no-store" });
-      if (!res.ok) return { points: [] };
+      const res = await fetch("/api/admin/stats/timeseries?days=7", { cache: "no-store" });
+      if (!res.ok) return { series: [] };
       return res.json();
     },
     refetchInterval: 60_000,
@@ -175,23 +174,13 @@ export default function AdminDashboardPage() {
     if (!data?.revenueToday) return;
     setLiveRevenue(data.revenueToday);
     setRevenueHistory((prev) => [...prev.slice(-23), data.revenueToday]);
-    revenueIntervalRef.current = setInterval(() => {
-      setLiveRevenue((prev) => {
-        const next = prev + Math.random() * 50;
-        setRevenueHistory((h) => [...h.slice(-23), next]);
-        return next;
-      });
-    }, 5000);
-    return () => {
-      if (revenueIntervalRef.current) clearInterval(revenueIntervalRef.current);
-    };
   }, [data?.revenueToday]);
 
   const refresh = useCallback(() => {
     void qc.invalidateQueries({ queryKey: ["admin", "stats"] });
+    void qc.invalidateQueries({ queryKey: ["admin", "stats", "timeseries"] });
     void qc.invalidateQueries({ queryKey: ["admin", "activity-feed"] });
   }, [qc]);
-
   useChannel<BroadcastChange>({
     channel: channels.adminBookings(),
     event: "*",
@@ -205,10 +194,7 @@ export default function AdminDashboardPage() {
   useChannel<BroadcastChange>({
     channel: channels.adminPayments(),
     event: "*",
-    onMessage: () => {
-      refresh();
-      setLiveRevenue((prev) => prev + Math.random() * 200 + 50);
-    },
+    onMessage: refresh,
   });
 
   const stats: Stats = data ?? {
@@ -220,7 +206,11 @@ export default function AdminDashboardPage() {
   const treasury = stats.treasury;
   const drift = 0;
   const activity = activityData?.events ?? [];
-  const tsPoints = timeseriesData?.points ?? [];
+  const tsPoints: TimeSeriesPoint[] = (timeseriesData?.series ?? []).map((s) => ({
+    timestamp: s.day,
+    revenue: s.revenue,
+    bookings: s.bookings,
+  }));
 
   const revenueGrowth = useMemo(() => {
     if (tsPoints.length < 2) return 0;

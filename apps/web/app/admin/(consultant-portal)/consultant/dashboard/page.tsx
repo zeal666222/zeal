@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Activity, Calendar, ChevronRight, Flame, IndianRupee, Loader2, MessageCircle,
+import { Activity, Calendar, Check, ChevronRight, Flame, IndianRupee, Loader2, MessageCircle,
   Power, Radio, Sparkles, Star, Users, Wallet } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { KpiCard } from "@zeal/ui";
@@ -44,15 +44,47 @@ export default function ConsultantDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
+  const [queueError, setQueueError] = useState<string | null>(null);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
+
+  // Live queue = real PENDING booking-requests. Populated on mount and refetched
+  // whenever a booking event lands on consultant:<uid>:incoming / :bookings.
+  const loadQueue = useCallback(async () => {
+    try {
+      const res = await fetch("/api/consultant-portal/bookings", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = (await res.json()) as {
+        bookings?: Array<ScheduleItem & { modality?: string }>;
+      };
+      const rows = d.bookings ?? [];
+      const today = new Date().toDateString();
+      setSchedule(rows.filter((b) => new Date(b.scheduledAt).toDateString() === today).slice(0, 6));
+      setQueue(
+        rows
+          .filter((b) => b.status === "PENDING" || b.status === "PENDING_PAYMENT")
+          .slice(0, 10)
+          .map((b) => ({
+            id: b.id,
+            seekerName: b.userName || "Seeker",
+            rate: b.amount,
+            modality: b.modality || "Consultation",
+            receivedAt: b.scheduledAt,
+          })),
+      );
+      setQueueError(null);
+    } catch {
+      setQueueError("Couldn't refresh your queue. Pull to retry.");
+    }
+  }, []);
 
   // ─── Initial fetch ──────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
-        const [me, p, bk] = await Promise.all([
+        const [me, p] = await Promise.all([
           fetch("/api/users/me/profile", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
           fetch("/api/consultant-portal/pulse", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
-          fetch("/api/consultant-portal/bookings", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+          loadQueue(),
         ]);
         if (me?.user) {
           setProfile(me.user);
@@ -66,19 +98,11 @@ export default function ConsultantDashboardPage() {
             sparks: p.consultant?.sparkScore ?? 0,
           });
         }
-        if (bk?.bookings) {
-          const today = new Date().toDateString();
-          setSchedule(
-            (bk.bookings as ScheduleItem[]).filter(
-              (b) => new Date(b.scheduledAt).toDateString() === today,
-            ).slice(0, 6),
-          );
-        }
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [loadQueue]);
 
   // ─── Realtime: wallet, sparks, incoming queue ──────────────────────────
   useChannel<BroadcastChange<{ balance?: number }>>({
@@ -99,17 +123,60 @@ export default function ConsultantDashboardPage() {
     }, []),
   });
 
-  useChannel<QueueItem>({
+  const onQueueEvent = useCallback(() => {
+    void loadQueue();
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      try { navigator.vibrate?.([100, 50, 100]); } catch { /* ignore */ }
+    }
+  }, [loadQueue]);
+
+  useChannel<BroadcastChange<{ id?: string; status?: string }>>({
     channel: profile?.id ? channels.consultantIncoming(profile.id) : null,
     event: "*",
+    onMessage: onQueueEvent,
+  });
+
+  useChannel<BroadcastChange<{ id?: string; status?: string }>>({
+    channel: profile?.id ? channels.consultantBookings(profile.id) : null,
+    event: "*",
+    onMessage: onQueueEvent,
+  });
+
+  // Presence: reflect live online-state changes from other tabs/devices.
+  useChannel<BroadcastChange<{ is_online?: boolean }>>({
+    channel: profile?.id ? channels.consultantStatus(profile.id) : null,
+    event: "*",
     onMessage: useCallback((p) => {
-      if (!p?.id) return;
-      setQueue((prev) => [p, ...prev].slice(0, 10));
-      if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-        try { navigator.vibrate?.([100, 50, 100]); } catch { /* ignore */ }
-      }
+      const v = p?.record?.is_online;
+      if (typeof v === "boolean") setOnline(v);
     }, []),
   });
+
+  // Accept / decline a booking-request straight from the queue.
+  const respondToBooking = useCallback(
+    async (bookingId: string, action: "confirm" | "cancel") => {
+      setRespondingId(bookingId);
+      try {
+        const res = await fetch(`/api/bookings/${bookingId}/${action}`, { method: "POST" });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error((body as { error?: string }).error || `HTTP ${res.status}`);
+        }
+        await Promise.all([
+          loadQueue(),
+          fetch("/api/consultant-portal/pulse", { cache: "no-store" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((p) => { if (p) setPulse((s) => ({ ...s, balance: p.wallet?.balance ?? p.consultant?.wallet?.balance ?? s.balance })); })
+            .catch(() => {}),
+        ]);
+      } catch (e) {
+        setQueueError(e instanceof Error ? e.message : "Action failed. Try again.");
+      } finally {
+        setRespondingId(null);
+      }
+    },
+    [loadQueue],
+  );
 
   // ─── Toggle online ──────────────────────────────────────────────────────
   const toggleOnline = async () => {
@@ -199,6 +266,12 @@ export default function ConsultantDashboardPage() {
               )}
             </div>
 
+            {queueError && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs flex items-center gap-2">
+                <Activity size={13} /> {queueError}
+              </div>
+            )}
+
             {queue.length > 0 ? (
               <div className="space-y-3">
                 {queue.map((r) => (
@@ -209,17 +282,20 @@ export default function ConsultantDashboardPage() {
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button
-                        onClick={() => setQueue((p) => p.filter((x) => x.id !== r.id))}
-                        className="px-3 py-1.5 rounded-lg bg-[var(--color-surface-raised)] text-[var(--color-muted-foreground)] text-xs font-bold"
+                        onClick={() => respondToBooking(r.id, "cancel")}
+                        disabled={respondingId === r.id}
+                        className="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 text-xs font-bold disabled:opacity-50"
                       >
-                        Skip
+                        Decline
                       </button>
-                      <Link
-                        href={`/admin/consultant/chat/${r.id}`}
-                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-[var(--color-primary-foreground)] text-xs font-bold"
+                      <button
+                        onClick={() => respondToBooking(r.id, "confirm")}
+                        disabled={respondingId === r.id}
+                        className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1.5"
                       >
+                        {respondingId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
                         Accept
-                      </Link>
+                      </button>
                     </div>
                   </div>
                 ))}

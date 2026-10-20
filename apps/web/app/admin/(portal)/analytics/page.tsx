@@ -13,12 +13,13 @@
 // rendered output. See: https://recharts.org/en-US/api/Tooltip#content
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import {useMemo} from "react";
+import {useCallback, useMemo} from "react";
 import {useQuery} from "@tanstack/react-query";
 import {motion} from "framer-motion";
 import { AlertCircle, AlertTriangle, BarChart3, Calendar, DollarSign, Loader2, Radio,
   TrendingUp, UserCog, Users } from "lucide-react";
 import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer} from "recharts";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -267,6 +268,16 @@ export default function AnalyticsPage() {
     },
     refetchInterval: REFETCH_SERIES_MS,
   });
+
+  const refetchAll = useCallback(() => {
+    void statsQuery.refetch();
+    void seriesQuery.refetch();
+  }, [statsQuery, seriesQuery]);
+
+  // Live refresh: a new booking or a captured payment moves every number here.
+  useChannel<BroadcastChange>({ channel: channels.adminBookings(), event: "*", onMessage: refetchAll });
+  useChannel<BroadcastChange>({ channel: channels.adminPayments(), event: "*", onMessage: refetchAll });
+  useChannel<BroadcastChange>({ channel: channels.adminVerification(), event: "*", onMessage: refetchAll });
 
   const stats: Stats = statsQuery.data ?? {
     users: 0,
