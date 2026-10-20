@@ -1,8 +1,15 @@
 // Check AIConsultant table schema
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://zyrunsnweznyrhuroduo.supabase.co';
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5cnVuc253ZXpueXJodXJvZHVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NzQ5NzYwOCwiZXhwIjoyMTAzMDczNjA4fQ.b5rggzXRCyLeH9HP_-J_IbM4mMpCou6Rk9i0qU-ztiU';
+// Credentials come from the environment only. A service-role key was once
+// hardcoded here and got committed — it must be rotated in the Supabase
+// dashboard, and it must never be re-added to a tracked file.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://zyrunsnweznyrhuroduo.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseServiceKey) {
+  console.error('SUPABASE_SERVICE_ROLE_KEY is not set. Export it in your shell; do not commit it.');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
