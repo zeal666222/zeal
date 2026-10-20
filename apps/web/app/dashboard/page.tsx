@@ -10,17 +10,21 @@ export default async function AuthSortingHat() {
 
   const {data: profile} = await supabase
     .from("User")
-    .select("role, onboarding_completed")
+    .select("role")
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = (profile?.role as string) || "USER";
-  const isOnboarded = Boolean(profile?.onboarding_completed);
+  // Normalise casing so a role stored as "super_admin" still routes correctly
+  // (matches adminLoginAction + requireAdminPortal, which both uppercase).
+  const role = String(profile?.role ?? "USER").toUpperCase();
 
-  if (role === "ADMIN" || role === "SUPER_ADMIN") redirect("/dashboard");
+  // SUPER_ADMIN / ADMIN / SUPPORT / VIEWER → admin console (never /dashboard
+  // again, which previously self-looped).
+  if (role === "SUPER_ADMIN" || role === "ADMIN" || role === "SUPPORT" || role === "VIEWER") {
+    redirect("/admin/dashboard");
+  }
   if (role === "CLIENT_ADMIN") {
-    if (!isOnboarded) redirect("/consultant/onboarding");
-    redirect("/consultant/dashboard");
+    redirect("/admin/consultant/dashboard");
   }
   redirect("/");
 }

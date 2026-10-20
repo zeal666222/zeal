@@ -48,19 +48,31 @@ export async function POST(req: Request) {
   // AI consultants don't have User records — create a solo conversation
   if (body.isAI) {
     const admin = createAdminClient();
-    
-    // Check if conversation already exists for this user + AI consultant
-    const { data: existing } = await admin
+
+    // Find an existing AI conversation for this user + consultant. Match in JS
+    // instead of a `Conversation!inner(metadata->>…)` filter: that embedded
+    // JSON-path query is fragile right after a migration (PostgREST schema
+    // cache lag) and would 500 the whole start-chat flow.
+    const { data: mine, error: mineErr } = await supabase
       .from("ConversationParticipant")
-      .select("conversationId, Conversation!inner(id, metadata)")
-      .eq("userId", user.id)
-      .eq("Conversation.metadata->>aiConsultantId", partnerId)
-      .maybeSingle();
-    
-    if (existing?.conversationId) {
-      return NextResponse.json({ conversationId: existing.conversationId });
+      .select("conversationId")
+      .eq("userId", user.id);
+    if (mineErr) {
+      return NextResponse.json({ error: mineErr.message }, { status: 500 });
     }
-    
+    const myIds = ((mine ?? []) as { conversationId: string }[]).map((r) => r.conversationId);
+    if (myIds.length > 0) {
+      const { data: existing } = await admin
+        .from("Conversation")
+        .select("id, metadata")
+        .in("id", myIds);
+      const found = ((existing ?? []) as { id: string; metadata: Record<string, unknown> | null }[])
+        .find((c) => c.metadata?.aiConsultantId === partnerId);
+      if (found) {
+        return NextResponse.json({ conversationId: found.id });
+      }
+    }
+
     // Create new conversation for AI chat
     const { data: newConv, error: convError } = await admin
       .from("Conversation")
@@ -69,25 +81,29 @@ export async function POST(req: Request) {
         metadata: { aiConsultantId: partnerId, type: "ai" },
       })
       .select("id")
-      .single();
-    
+      .maybeSingle();
+
     if (convError || !newConv) {
-      return NextResponse.json({ error: convError?.message ?? "Failed to create conversation" }, { status: 500 });
+      const hint =
+        convError && /column .*metadata|does not exist|schema cache|PGRST/i.test(convError.message)
+          ? "Conversation metadata is not available yet — apply the latest Supabase migration."
+          : convError?.message ?? "Failed to create conversation";
+      return NextResponse.json({ error: hint }, { status: 500 });
     }
-    
+
     // Add user as participant
     const { error: partError } = await admin
       .from("ConversationParticipant")
       .insert({
-        conversationId: newConv.id,
+        conversationId: (newConv as { id: string }).id,
         userId: user.id,
       });
-    
+
     if (partError) {
       return NextResponse.json({ error: partError.message }, { status: 500 });
     }
-    
-    return NextResponse.json({ conversationId: newConv.id });
+
+    return NextResponse.json({ conversationId: (newConv as { id: string }).id });
   }
 
   // Human-to-human conversation

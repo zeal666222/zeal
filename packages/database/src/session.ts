@@ -84,7 +84,10 @@ async function readSession(): Promise<SessionResult> {
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = ((profile?.role as AppRole | undefined) ?? "USER") as AppRole;
+  // Normalise casing: adminLoginAction uppercases the role before admitting, so
+  // the gate must read it the same way or a role stored as "super_admin" would
+  // pass login yet fail every uppercase comparison and bounce to the seeker site.
+  const role = String(profile?.role ?? "USER").toUpperCase() as AppRole;
 
   return { user, role, supabase };
 }
