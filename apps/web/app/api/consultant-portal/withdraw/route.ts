@@ -2,14 +2,18 @@
 // POST /api/consultant/withdraw — Request a payout
 // ═══════════════════════════════════════════════════════════════════════════════
 import { NextResponse } from "next/server";
-import { createServerClientFromCookies } from "@zeal/database/server";
+import {
+  createAdminClient,
+  createServerClientFromCookies,
+} from "@zeal/database/server";
+import { getPlatformSettings } from "@/lib/config/platform-settings";
 import { sendAdminBus } from "@/lib/realtime/admin-bus";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
 const BodySchema = z.object({
-  amount: z.number().positive().min(100).max(100000),
+  amount: z.number().positive().max(100_000),
   upiId: z.string().min(3).max(100),
 });
 
@@ -26,6 +30,17 @@ export async function POST(req: Request) {
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid input" }, { status: 422 });
+  }
+
+  // The floor is an operator setting (Admin Settings), so raising it takes
+  // effect without a deploy. Read with the service client: the table has no
+  // policy for the consultant's own role.
+  const settings = await getPlatformSettings(createAdminClient());
+  if (parsed.data.amount < settings.minimumWithdrawalRupees) {
+    return NextResponse.json(
+      { error: `Minimum withdrawal is ₹${settings.minimumWithdrawalRupees}` },
+      { status: 422 },
+    );
   }
 
   // request_withdrawal reads the consultant from auth.uid() (this route uses the

@@ -27,6 +27,7 @@ export default function ConsultantEarningsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [amount, setAmount] = useState(100);
+  const [minWithdraw, setMinWithdraw] = useState(100);
   const [upiId, setUpiId] = useState("");
   const [withdrawErr, setWithdrawErr] = useState<string | null>(null);
   const [withdrawOk, setWithdrawOk] = useState(false);
@@ -39,12 +40,20 @@ export default function ConsultantEarningsPage() {
         balance?: number;
         escrow?: number;
         pendingOut?: number;
+        minimumWithdrawal?: number;
         transactions?: Tx[];
       };
       setBalance(d.balance ?? 0);
       setEscrow(d.escrow ?? 0);
       setPendingOut(d.pendingOut ?? 0);
       setTxs(d.transactions ?? []);
+      // The floor is an operator setting; the API enforces it, so mirror it here
+      // instead of hardcoding a number that can drift out of sync.
+      if (typeof d.minimumWithdrawal === "number") {
+        const floor = d.minimumWithdrawal;
+        setMinWithdraw(floor);
+        setAmount((a) => (a < floor ? floor : a));
+      }
     } finally {
       setLoading(false);
     }
@@ -85,7 +94,7 @@ export default function ConsultantEarningsPage() {
 
   const submitWithdraw = async () => {
     setWithdrawErr(null);
-    if (amount < 100) { setWithdrawErr("Minimum ₹100"); throw new Error("min"); }
+    if (amount < minWithdraw) { setWithdrawErr(`Minimum ₹${minWithdraw}`); throw new Error("min"); }
     if (amount > balance) { setWithdrawErr("Insufficient balance"); throw new Error("bal"); }
     if (!upiId || upiId.length < 3) { setWithdrawErr("Valid UPI ID required"); throw new Error("upi"); }
     const res = await fetch("/api/consultant-portal/withdraw", {
@@ -268,13 +277,16 @@ export default function ConsultantEarningsPage() {
                       Amount (₹)
                     </label>
                     <input
-                      type="number" min={100} max={balance} value={amount}
+                      type="number" min={minWithdraw} max={balance} value={amount}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(Number(e.target.value))}
                       className="w-full px-4 py-3 bg-[var(--color-surface-raised)] border border-[var(--color-border)] rounded-xl text-[var(--color-foreground)] font-mono outline-none focus:border-[var(--color-primary)]"
                     />
+                    <p className="mt-1.5 text-[11px] text-[var(--color-muted-foreground)]">
+                      Minimum payout ₹{minWithdraw} — set by the platform.
+                    </p>
                     <div className="flex gap-2 mt-2">
                       {[500, 1000, Math.floor(balance)].map((amt) =>
-                        amt >= 100 && amt <= balance ? (
+                        amt >= minWithdraw && amt <= balance ? (
                           <button
                             key={amt}
                             onClick={() => setAmount(amt)}

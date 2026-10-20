@@ -3,6 +3,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, createServerClientFromCookies } from "@zeal/database/server";
 import { createRazorpayOrder, getPublicKeyId } from "@/lib/wallet/instamojo";
+import { feeRate, getPlatformSettings } from "@/lib/config/platform-settings";
 import { z } from "zod";
 
 export const dynamic = "force-dynamic";
@@ -84,6 +85,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Slot not available" }, { status: 409 });
   }
 
+  // Stamp the platform's current cut on the row: settle_booking reads the
+  // booking's own "platformFeeRate", so a settings change governs bookings
+  // created after it and never re-prices one already paid for.
+  const settings = await getPlatformSettings(admin);
+
   const { data: bookingRaw, error: bookingErr } = await admin
     .from("Booking")
     .insert({
@@ -94,6 +100,7 @@ export async function POST(req: Request) {
       status: "PENDING_PAYMENT",
       amount,
       serviceType,
+      platformFeeRate: feeRate(settings),
     } as never)
     .select("id")
     .single();

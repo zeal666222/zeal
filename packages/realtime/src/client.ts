@@ -107,6 +107,7 @@ const KNOWN_EVENTS = [
   "session:billing_tick",
   "system:health_tick",
   "system:alert",
+  "settings:updated",
 ] as const;
 
 type KnownEvent = (typeof KNOWN_EVENTS)[number];

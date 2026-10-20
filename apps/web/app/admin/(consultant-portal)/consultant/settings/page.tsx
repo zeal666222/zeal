@@ -40,6 +40,9 @@ export default function ConsultantSettingsPage() {
     audioRate: 75,
     videoRate: 100,
   });
+  // The platform's cut comes from the server so the payout preview cannot drift
+  // from what the booking actually settles at.
+  const [platformFeePercent, setPlatformFeePercent] = useState(10);
   const [requestReason, setRequestReason] = useState("");
   const [submittingRequest, setSubmittingRequest] = useState(false);
 
@@ -54,6 +57,9 @@ export default function ConsultantSettingsPage() {
 
         if (pulseRes.ok) {
           const data = await pulseRes.json();
+          if (typeof data?.platformFeePercent === "number") {
+            setPlatformFeePercent(data.platformFeePercent);
+          }
           const c = data?.consultant;
           if (c) {
             setBio(c.bio ?? "");
@@ -292,7 +298,7 @@ export default function ConsultantSettingsPage() {
               You earn
             </label>
             <div className="px-4 py-3 bg-surface-raised border border-border rounded-2xl text-sm text-emerald-600 dark:text-emerald-400 font-black font-mono">
-              ₹{Math.round(rate * 0.9)}/min (90%)
+              ₹{Math.round(rate * (1 - platformFeePercent / 100))}/min ({100 - platformFeePercent}%)
             </div>
           </div>
         </div>
