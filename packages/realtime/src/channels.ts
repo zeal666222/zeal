@@ -30,6 +30,7 @@ export const channels = {
   adminBroadcasts:   () => `admin:broadcasts`,
   adminPayments:     () => `admin:payments`,
   adminSettings:     () => `admin:settings`,
+  adminReconciliation: () => `admin:reconciliation`,
   adminRealtime:     () => `admin:realtime:monitor`,
   aiSessionMetrics:  (sessionId: string) => `ai:session:${sessionId}:metrics`,
   aiResponseStream:  (sessionId: string) => `ai:session:${sessionId}:response`,
