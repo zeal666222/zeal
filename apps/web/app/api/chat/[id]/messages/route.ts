@@ -60,7 +60,10 @@ export async function GET(
   if (!participant)
     return NextResponse.json({ error: "Not a participant" }, { status: 403 });
 
-  const { data: messages, error } = await supabase
+  // `before` is an ISO cursor for load-older pagination: fetch the page strictly
+  // older than the oldest message the client already holds.
+  const before = url.searchParams.get("before");
+  let query = supabase
     .from("Message")
     .select(
       "id, conversationId, senderId, content, type, createdAt, editedAt, deletedAt",
@@ -68,9 +71,16 @@ export async function GET(
     .eq("conversationId", conversationId)
     .order("createdAt", { ascending: false })
     .limit(limit);
+  if (before) query = query.lt("createdAt", before);
+
+  const { data: messages, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ messages: (messages ?? []).slice().reverse() });
+  const rows = messages ?? [];
+  return NextResponse.json({
+    messages: rows.slice().reverse(),
+    hasMore: rows.length === limit,
+  });
 }
 
 export async function POST(

@@ -6,10 +6,11 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ArrowLeft, Coins, Heart, Home, Loader2, MessageCircle, Moon, Paperclip, Send, ShieldCheck, Sparkles, Briefcase, Clock, BarChart3, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCheck, ChevronUp, Coins, Heart, Home, Loader2, MessageCircle, Moon, Paperclip, Send, ShieldCheck, Sparkles, Briefcase, Clock, BarChart3, WifiOff, X } from "lucide-react";
 import Image from "next/image";
 import { useChat, type BillingInfo, type ChatMessage, type StageEvent, type Suggestion } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
+import { useConnection } from "@zeal/realtime";
 import { BillingPanel } from "./BillingPanel";
 import { WalletGateDialog, type WalletGateInfo } from "@/components/billing/WalletGateDialog";
 import { BirthIntakeModal } from "@/components/chat/BirthIntakeModal";
@@ -31,6 +32,20 @@ interface Props {
 
 function formatTime(ts: string) {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function dayLabel(ts: string) {
+  const d = new Date(ts);
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === now.toDateString()) return "Today";
+  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return d.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+  });
 }
 
 function MessageContent({ content }: { content: string }) {
@@ -117,7 +132,7 @@ export function ChatInterface({
   const [liveRate, setLiveRate] = useState<number>(rate);
   const [walletGate, setWalletGate] = useState<WalletGateInfo | null>(null);
 
-  const { messages, isLoading, isSending, send, sendToAI } = useChat({
+  const { messages, isLoading, isSending, send, sendToAI, hasMore, isLoadingOlder, loadOlder } = useChat({
     conversationId,
     currentUserId,
     partnerId,
@@ -125,6 +140,7 @@ export function ChatInterface({
     partnerAvatar,
     isAI,
   });
+  const connection = useConnection();
   // What this consultant already knows about the seeker's birth chart — and the
   // form that fills the gaps before the first reading is spoken.
   const intake = useRoomIntake(isAI);
@@ -144,15 +160,76 @@ export function ChatInterface({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const nearBottomRef = useRef(true);
+  const prevHeightRef = useRef(0);
   // Synchronous in-flight guard — state-based disabling is async, so rapid
   // double-clicks can slip past `isSending` before React re-renders.
   const inFlightRef = useRef(false);
   // Fire the kundali-grounded opening message exactly once per conversation.
   const openerFiredRef = useRef(false);
 
+  // Smart autoscroll: follow new content only when the reader is already at the
+  // bottom (or the message is theirs, or AI output is streaming) — never yank
+  // the viewport while they're reading history.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, streamingText, fillerText, typingUsers.size]);
+    const last = messages[messages.length - 1];
+    const mine = last?.senderId === currentUserId;
+    if (nearBottomRef.current || mine || streamingText !== null || fillerText !== null) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [messages.length, streamingText, fillerText, typingUsers.size, currentUserId, messages]);
+
+  // Load-older scroll restore: after history prepends, keep the viewport pinned
+  // to the message the reader was looking at.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || isLoadingOlder || !prevHeightRef.current) return;
+    el.scrollTop += el.scrollHeight - prevHeightRef.current;
+    prevHeightRef.current = 0;
+  }, [messages.length, isLoadingOlder]);
+
+  const handleLoadOlder = async () => {
+    const el = scrollRef.current;
+    prevHeightRef.current = el?.scrollHeight ?? 0;
+    await loadOlder();
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 140;
+  };
+
+  // "Seen" receipts — the partner's lastReadAt from the read API, refreshed
+  // lightly while the tab is visible.
+  const [partnerReadAt, setPartnerReadAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (isAI || !conversationId) return;
+    let cancelled = false;
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await fetch(`/api/chat/${conversationId}/read`, { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { participants?: Array<{ userId: string; lastReadAt: string | null }> };
+        if (cancelled) return;
+        const other = (data.participants ?? []).find((p) => p.userId !== currentUserId);
+        setPartnerReadAt(other?.lastReadAt ?? null);
+      } catch { /* receipts are best-effort */ }
+    };
+    void check();
+    const id = setInterval(check, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [isAI, conversationId, currentUserId]);
+
+  // Mark read whenever new turns land while the tab is visible — not just on
+  // mount, so the unread badge on the other side clears within seconds.
+  useEffect(() => {
+    if (isAI || !conversationId || messages.length === 0) return;
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+    void fetch(`/api/chat/${conversationId}/read`, { method: "POST" }).catch(() => {});
+  }, [conversationId, messages.length, isAI]);
 
   useEffect(() => {
     void fetch(`/api/chat/${conversationId}/read`, { method: "POST" }).catch(() => {});
@@ -368,6 +445,11 @@ export function ChatInterface({
 
   const showTyping = !isAI && typingUsers.size > 0;
   const showStreaming = isAI && streamingText !== null;
+  const lastMine = [...messages].reverse().find((m) => m.senderId === currentUserId && !m._optimistic);
+  const isSeen = !isAI
+    && !!partnerReadAt
+    && !!lastMine
+    && new Date(partnerReadAt).getTime() >= new Date(lastMine.createdAt).getTime();
   const streamDisplay = showStreaming
     ? streamingText || (fillerText ? `${fillerText}` : "")
     : "";
@@ -438,6 +520,14 @@ export function ChatInterface({
         </div>
       </div>
 
+      {/* Reconnecting strip — human rooms fall back to polling while realtime
+          is down; say so instead of leaving the reader guessing. */}
+      {!isAI && connection !== "connected" && (
+        <div className="flex-none px-3 md:px-4 py-1.5 bg-amber-500/10 border-b border-amber-500/25 text-amber-500 text-[11px] font-bold flex items-center gap-2">
+          <WifiOff size={12} /> Reconnecting — messages may arrive with a short delay.
+        </div>
+      )}
+
       {/* Billing panel — while a billed session is active */}
       {sessionId && (
         <BillingPanel
@@ -458,6 +548,8 @@ export function ChatInterface({
 
       {/* Messages */}
       <div
+        ref={scrollRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar"
         role="log"
         aria-live="polite"
@@ -472,37 +564,67 @@ export function ChatInterface({
           </p>
         </div>
 
+        {!isAI && hasMore && messages.length > 0 && (
+          <div className="flex justify-center pb-1">
+            <button
+              type="button"
+              onClick={() => void handleLoadOlder()}
+              disabled={isLoadingOlder}
+              className="px-3 py-1.5 rounded-full text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground flex items-center gap-1.5 disabled:opacity-60"
+            >
+              {isLoadingOlder
+                ? <Loader2 size={12} className="animate-spin" />
+                : <ChevronUp size={12} />}
+              Load earlier messages
+            </button>
+          </div>
+        )}
+
         {isLoading && messages.length === 0 ? (
           <BrandLoader variant="chat-bubble" label="Opening the reading room…" />
         ) : messages.length === 0 ? (
           <ChatWelcomeSuggestions isAI={isAI} />
         ) : (
           <AnimatePresence initial={false}>
-            {messages.map((msg: ChatMessage) => {
+            {messages.map((msg: ChatMessage, idx: number) => {
               const isMe = msg.senderId === currentUserId;
+              const prev = idx > 0 ? messages[idx - 1] : null;
+              const newDay = !prev
+                || new Date(prev.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
               return (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  className={cn("flex flex-col", isMe ? "items-end" : "items-start")}
-                >
-                  <div className={cn(
-                    "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words relative",
-                    isMe
-                      ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/15"
-                      : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
-                    msg._optimistic && "opacity-85 saturate-75"
-                  )}>
-                    <MessageContent content={msg.content} />
-                  </div>
-                  <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 px-1 font-medium">
-                    {isMe && msg._optimistic && <PendingDot />}
-                    {formatTime(msg.createdAt)}
-                    {isMe && msg._optimistic && <span className="opacity-70">sending…</span>}
-                  </span>
-                </motion.div>
+                <div key={msg.id}>
+                  {newDay && (
+                    <div className="flex justify-center pb-1">
+                      <span className="px-3 py-1 rounded-full bg-surface-sunken border border-border text-[10px] font-bold text-muted-foreground">
+                        {dayLabel(msg.createdAt)}
+                      </span>
+                    </div>
+                  )}
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    className={cn("flex flex-col", isMe ? "items-end" : "items-start")}
+                  >
+                    <div className={cn(
+                      "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words relative",
+                      isMe
+                        ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/15"
+                        : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
+                      msg._optimistic && "opacity-85 saturate-75"
+                    )}>
+                      <MessageContent content={msg.content} />
+                    </div>
+                    <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 px-1 font-medium">
+                      {isMe && msg._optimistic && <PendingDot />}
+                      {formatTime(msg.createdAt)}
+                      {isMe && msg._optimistic && <span className="opacity-70">sending…</span>}
+                      {isMe && !msg._optimistic && isSeen && msg.id === lastMine?.id && (
+                        <CheckCheck size={12} className="text-sky-400" />
+                      )}
+                    </span>
+                  </motion.div>
+                </div>
               );
             })}
           </AnimatePresence>

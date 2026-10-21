@@ -99,6 +99,8 @@ export function useChat({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const seenIds = useRef<Set<string>>(new Set());
 
   const mergeIncoming = useCallback((incoming: ChatMessage) => {
@@ -128,11 +130,12 @@ export function useChat({
 
     fetch(`/api/chat/${conversationId}/messages?limit=${pageSize}`, { cache: "no-store" })
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((data: { messages?: ChatMessage[] }) => {
+      .then((data: { messages?: ChatMessage[]; hasMore?: boolean }) => {
         if (cancelled) return;
         const list = data.messages ?? [];
         list.forEach((m) => seenIds.current.add(m.id));
         setMessages(list);
+        setHasMore(!!data.hasMore && list.length > 0);
 
         // ─── IndexedDB write-through ─────────────────────────────────────
         // Persist every server-originated load so cold-open is instant.
@@ -527,6 +530,35 @@ export function useChat({
     [conversationId, currentUserId, mergeIncoming],
   );
 
+  // ─── Load-older pagination (human rooms) ──────────────────────────────────
+  // Fetches the page strictly older than the oldest held message and prepends
+  // it. The caller restores scroll offset so history scrolls in place.
+  const loadOlder = useCallback(async (): Promise<boolean> => {
+    if (!conversationId || isLoadingOlder || messages.length === 0) return false;
+    const oldest = messages[0];
+    if (!oldest || oldest._optimistic) return false;
+    setIsLoadingOlder(true);
+    try {
+      const r = await fetch(
+        `/api/chat/${conversationId}/messages?limit=${pageSize}&before=${encodeURIComponent(oldest.createdAt)}`,
+        { cache: "no-store" },
+      );
+      if (!r.ok) return false;
+      const data = (await r.json()) as { messages?: ChatMessage[]; hasMore?: boolean };
+      const older = (data.messages ?? []).filter((m) => m.id && !seenIds.current.has(m.id));
+      older.forEach((m) => seenIds.current.add(m.id));
+      if (older.length > 0) {
+        setMessages((prev) => [...older, ...prev]);
+      }
+      setHasMore(!!data.hasMore && older.length > 0);
+      return older.length > 0;
+    } catch {
+      return false;
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [conversationId, isLoadingOlder, messages, pageSize]);
+
   const retry = useCallback(() => setReloadKey((k) => k + 1), []);
-  return { messages, isLoading, isSending, error, send, sendToAI, retry };
+  return { messages, isLoading, isSending, error, hasMore, isLoadingOlder, loadOlder, send, sendToAI, retry };
 }
