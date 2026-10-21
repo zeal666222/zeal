@@ -21,12 +21,15 @@ import {
   ConsultantRecommendationCard,
   type RecommendationConsultant,
 } from "./ConsultantRecommendationCard";
+import {
+  ServiceRecommendationCard,
+  type RecommendationService,
+} from "./ServiceRecommendationCard";
 
 interface Recommendation {
   response: string;
-  categoryId: string;
-  categoryName: string;
   reason?: string;
+  services: RecommendationService[];
   consultants: RecommendationConsultant[];
   aiConsultants: RecommendationConsultant[];
 }
@@ -39,9 +42,11 @@ interface Message {
 
 const QUICK_PROMPTS = [
   { label: "💼 Career guidance", value: "I need clarity on my career path" },
-  { label: "💕 Relationships", value: "I'm navigating a relationship challenge" },
-  { label: "🌟 Vedic astrology", value: "I want a Vedic birth chart reading" },
-  { label: "🧘 Peace & calm", value: "I need help managing anxiety" },
+  { label: "💕 Love & relationships", value: "I'm navigating a relationship challenge" },
+  { label: "🪷 Free kundali reading", value: "Show me my free birth chart analysis" },
+  { label: "🎴 Tarot for today", value: "Give me a tarot reading for today" },
+  { label: "🧘 Stress & anxiety", value: "I need help managing anxiety and stress" },
+  { label: "✨ Daily horoscope", value: "What does today's horoscope say?" },
 ];
 
 export function ZealChat() {
@@ -50,7 +55,7 @@ export function ZealChat() {
     {
       role: "assistant",
       content:
-        "Hello. I'm Zeal — tell me what you're looking for, and I'll find the right guide for you.",
+        "Namaste! I'm Siddhi, your wellness guide. Tell me what's on your mind — career, love, health, or spirituality — and I'll suggest the best free service or expert for you. No birth details needed unless you want to share them.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -98,9 +103,8 @@ export function ZealChat() {
           content: data.response,
           recommendation: {
             response: data.response,
-            categoryId: data.categoryId,
-            categoryName: data.categoryName,
             reason: data.reason,
+            services: data.services ?? [],
             consultants: data.consultants ?? [],
             aiConsultants: data.aiConsultants ?? [],
           },
@@ -177,27 +181,62 @@ export function ZealChat() {
               </div>
 
               {m.recommendation &&
-                (m.recommendation.consultants.length > 0 ||
+                (m.recommendation.services.length > 0 ||
+                  m.recommendation.consultants.length > 0 ||
                   m.recommendation.aiConsultants.length > 0) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-[90%]">
-                    {m.recommendation.aiConsultants.map((c, idx) => (
-                      <ConsultantRecommendationCard
-                        key={c.id}
-                        consultant={{ ...c, isAI: true }}
-                        reason={m.recommendation?.reason}
-                        index={idx}
-                        onChat={handleChat}
-                      />
-                    ))}
-                    {m.recommendation.consultants.map((c, idx) => (
-                      <ConsultantRecommendationCard
-                        key={c.id}
-                        consultant={c}
-                        reason={m.recommendation?.reason}
-                        index={idx}
-                        onChat={handleChat}
-                      />
-                    ))}
+                  <div className="space-y-3 max-w-[90%]">
+                    {m.recommendation.services.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-2 px-1">
+                          <Sparkles size={12} className="text-emerald-400" />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                            Free Services
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {m.recommendation.services.map((s, idx) => (
+                            <ServiceRecommendationCard
+                              key={s.slug}
+                              service={s}
+                              reason={m.recommendation?.reason}
+                              index={idx}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {(m.recommendation.consultants.length > 0 ||
+                      m.recommendation.aiConsultants.length > 0) && (
+                      <>
+                        <div className="flex items-center gap-2 px-1 pt-2">
+                          <Sparkles size={12} className="text-[var(--color-luxury-gold)]" />
+                          <span className="text-[10px] font-black uppercase tracking-wider text-[var(--color-luxury-gold)]">
+                            Personalized Guides
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {m.recommendation.aiConsultants.map((c, idx) => (
+                            <ConsultantRecommendationCard
+                              key={c.id}
+                              consultant={{ ...c, isAI: true }}
+                              reason={m.recommendation?.reason}
+                              index={idx}
+                              onChat={handleChat}
+                            />
+                          ))}
+                          {m.recommendation.consultants.map((c, idx) => (
+                            <ConsultantRecommendationCard
+                              key={c.id}
+                              consultant={c}
+                              reason={m.recommendation?.reason}
+                              index={idx}
+                              onChat={handleChat}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
             </div>

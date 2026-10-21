@@ -362,7 +362,19 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
       },
     );
 
-    // 3. Compact payloads
+    // 3. Free services catalog
+    const freeServices = [
+      { slug: "horoscope", name: "Daily Horoscope", icon: "✨", description: "Personalized daily guidance based on your zodiac" },
+      { slug: "kundali", name: "Kundali Analysis", icon: "🪷", description: "Complete Vedic birth chart with predictions" },
+      { slug: "tarot", name: "Tarot Reading", icon: "🎴", description: "Interactive card spread for immediate clarity" },
+      { slug: "numerology", name: "Numerology", icon: "🔢", description: "Life path numbers and destiny analysis" },
+      { slug: "palmistry", name: "Palmistry", icon: "🤚", description: "Upload your palm for detailed reading" },
+      { slug: "dream", name: "Dream Analysis", icon: "🌙", description: "Interpret your dreams with symbolic meaning" },
+      { slug: "panchang", name: "Daily Panchang", icon: "📅", description: "Auspicious timings and lunar calendar" },
+      { slug: "milan", name: "Guna Milan", icon: "💑", description: "Compatibility matching for relationships" },
+    ];
+
+    // 4. Compact payloads
     const directoryBrief = (
       directory as Array<{
         id: string;
@@ -408,41 +420,59 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
       rating: a.rating,
     }));
 
+    const servicesBrief = freeServices.map((s) => ({
+      slug: s.slug,
+      name: s.name,
+      icon: s.icon,
+      description: s.description,
+    }));
+
     const categoryList = Object.entries(CATEGORY_ID_TO_NAME)
       .map(([id, name]) => `${id}: ${name}`)
       .join("\n");
 
-    // 4. System prompt — structured JSON contract
+    // 5. System prompt — structured JSON contract
     const systemPrompt = [
       ZEAL_CONSULTANT_DIRECTIVE,
       "",
       "IMPORTANT: the strict JSON-only contract below overrides this directive's free-text rules — return raw JSON only. Inside the \"response\" string field, follow the LANGUAGE rule (Hinglish default) and keep the warm, grounded tone.",
       "",
-      "You are Zeal, a warm, empathetic concierge for a multi-faith wellness platform.",
-      "Your job: understand what the user needs and connect them with the right guide.",
+      "ROLE: You are Siddhi, a warm and knowledgeable wellness assistant for Zeal.",
+      "Your job is to UNDERSTAND what the user needs and SUGGEST the best match — either a free service, an AI consultant, or a human expert.",
+      "",
+      "CRITICAL RULES:",
+      "1. NEVER ask for birth details (date, time, place) unless the user voluntarily provides them.",
+      "2. Focus on understanding their concern first — career, love, health, spirituality, etc.",
+      "3. Recommend FREE SERVICES first if they match the need (instant, no signup required).",
+      "4. Recommend AI CONSULTANTS for personalized guidance (free, available 24/7).",
+      "5. Recommend HUMAN CONSULTANTS for deep, specialized sessions (paid, by appointment).",
+      "6. Be conversational and helpful — act like a trusted friend who knows the platform.",
+      "",
+      "AVAILABLE FREE SERVICES (instant access):",
+      JSON.stringify(servicesBrief),
       "",
       "AVAILABLE CATEGORIES:",
       categoryList,
       "",
-      "AVAILABLE HUMAN CONSULTANTS (top 60):",
+      "AVAILABLE HUMAN CONSULTANTS (top 20):",
       JSON.stringify(directoryBrief),
       "",
       "AVAILABLE AI CONSULTANTS:",
       JSON.stringify(aiBrief),
       "",
       "Return ONLY valid JSON with this exact shape:",
-      '{ "response": "warm, concise message (max 60 words)", "categoryId": "<one of the category IDs above>", "consultantIds": ["id1", "id2"], "reason": "short reason" }',
+      '{ "response": "warm, helpful message (max 80 words)", "serviceSlugs": ["slug1"], "consultantIds": ["id1", "id2"], "reason": "why these match the need" }',
       "",
       "RULES:",
-      "1. Never invent IDs — only use IDs from the lists above.",
-      "2. Prefer online consultants over offline.",
-      "3. Prefer higher-rated and higher-spark consultants.",
-      "4. If the request is vague, ask ONE clarifying question and leave consultantIds empty.",
-      "5. If AI is a better fit (instant, free), include an AI consultant ID.",
+      "1. Never invent IDs or slugs — only use from the lists above.",
+      "2. Prefer free services for quick answers (horoscope, tarot, numerology).",
+      "3. Prefer online human consultants over offline.",
+      "4. Prefer higher-rated consultants.",
+      "5. If the request is vague, suggest 1-2 free services AND 1 consultant.",
       "6. Raw JSON only — no markdown fences, no commentary.",
     ].join("\n");
 
-    // 5. Call the engine (Cloudflare Workers AI first, then the rest of the chain)
+    // 6. Call the engine (Cloudflare Workers AI first, then the rest of the chain)
     const raw = await callAIJson({
       messages: [
         {
@@ -457,10 +487,10 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
       preferProvider: "cloudflareAi",
     });
 
-    // 6. Parse (defensive)
+    // 7. Parse (defensive)
     let parsed: {
       response: string;
-      categoryId: string;
+      serviceSlugs?: string[];
       consultantIds: string[];
       reason?: string;
     };
@@ -469,13 +499,13 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
     } catch {
       parsed = {
         response:
-          "Let me find the right guide for you. Could you tell me a bit more about what you're looking for?",
-        categoryId: "wellness",
+          "Let me help you find the right guidance. Could you tell me a bit more about what you're looking for?",
+        serviceSlugs: [],
         consultantIds: [],
       };
     }
 
-    // 7. Hydrate consultant rows
+    // 8. Hydrate consultant rows
     const validIds = new Set<string>(
       Array.isArray(parsed.consultantIds) ? parsed.consultantIds : [],
     );
@@ -488,11 +518,19 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
       .filter((a) => validIds.has(a.id))
       .slice(0, 3);
 
+    // 9. Hydrate service rows
+    const validSlugs = new Set<string>(
+      Array.isArray(parsed.serviceSlugs) ? parsed.serviceSlugs : [],
+    );
+
+    const recommendedServices = freeServices
+      .filter((s) => validSlugs.has(s.slug))
+      .slice(0, 3);
+
     return {
       response: parsed.response,
-      categoryId: parsed.categoryId,
-      categoryName: CATEGORY_ID_TO_NAME[parsed.categoryId] ?? parsed.categoryId,
       reason: parsed.reason ?? null,
+      services: recommendedServices,
       consultants: recommendedHumans,
       aiConsultants: recommendedAI,
     };
