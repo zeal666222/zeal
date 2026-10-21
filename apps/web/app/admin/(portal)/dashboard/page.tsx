@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { LiveBusPanel } from "@/components/admin/dashboard/LiveBusPanel";
+import { ActiveVisitors } from "@/components/admin/ActiveVisitors";
 
 interface Stats {
   users: number;
@@ -309,6 +310,9 @@ export default function AdminDashboardPage() {
           sparkline={tsPoints.map((p) => p.revenue)}
         />
       </div>
+
+      {/* Realtime active visitors — presence channel, no polling */}
+      <ActiveVisitors />
 
       {/* Live Operations — Cloudflare realtime bus (fail-open, hides when dormant) */}
       <LiveBusPanel />

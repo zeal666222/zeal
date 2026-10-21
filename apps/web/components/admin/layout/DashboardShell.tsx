@@ -33,15 +33,17 @@ export function DashboardShell({ role, user, children }: Props) {
  }, [setProfile, role, user]);
 
  return (
- <div className="flex h-screen bg-[var(--color-surface-sunken)] overflow-hidden">
+ <div className="flex h-screen flex-col bg-[var(--color-surface-sunken)] overflow-hidden">
  <ImpersonationBanner />
+ <div className="flex flex-1 overflow-hidden">
  <AdminSidebar role={role as AdminRole} />
- <div className="flex-1 flex flex-col overflow-hidden">
+ <div className="flex-1 flex flex-col overflow-hidden min-w-0">
  <AdminTopBar />
  <main className="flex-1 overflow-y-auto p-4 md:p-6">
  <Breadcrumbs />
  {children}
  </main>
+ </div>
  </div>
  </div>
  );

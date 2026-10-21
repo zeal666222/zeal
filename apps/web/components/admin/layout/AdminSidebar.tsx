@@ -5,9 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import {
-  BarChart3, Bot, Calendar, ChevronDown, CreditCard, Eye, Flag,
+  BarChart3, Activity, Bot, Calendar, ChevronDown, CreditCard, Eye, Flag,
   Heart, Key, LayoutDashboard, LogOut, Megaphone, Menu, Radio, Scale,
-  Settings, Shield, Tag, UserCog, UserPlus, Users, Video, Wallet, X, Zap,
+  Settings, Shield, Tag, UserCog, UserPlus, Users, Wallet, X, Zap,
 } from "lucide-react";
 import { cn, ZealMark } from "@zeal/ui";
 import { useAuth } from "@/components/admin/providers/SupabaseAuthProvider";
@@ -40,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { icon: LayoutDashboard, label: "Dashboard", href: "/admin/dashboard", minRole: "VIEWER" },
       { icon: BarChart3, label: "Analytics", href: "/admin/analytics", minRole: "VIEWER" },
+      { icon: Activity, label: "Operations", href: "/admin/operations", minRole: "SUPER_ADMIN" },
     ],
   },
   {
@@ -50,7 +51,6 @@ const NAV_GROUPS: NavGroup[] = [
       { icon: Shield, label: "Verification", href: "/admin/verification", minRole: "ADMIN" },
       { icon: Flag, label: "Content", href: "/admin/content", minRole: "SUPPORT" },
       { icon: Calendar, label: "Bookings", href: "/admin/bookings", minRole: "SUPPORT" },
-      { icon: Video, label: "Recordings", href: "/admin/recordings", minRole: "SUPPORT" },
     ],
   },
   {
@@ -288,8 +288,9 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
         <Menu className="w-5 h-5 text-muted-foreground" />
       </button>
 
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex fixed top-0 left-0 z-30 w-[260px] h-screen border-r border-border/50 bg-surface">
+      {/* Desktop sidebar — in-flow flex child so the impersonation banner
+          pushes it down instead of stacking over it */}
+      <aside className="hidden lg:flex w-[260px] shrink-0 h-full border-r border-border/50 bg-surface">
         {content}
       </aside>
 
@@ -305,11 +306,11 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
               className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
             />
             <motion.aside
-              initial={{ x: -280 }}
+              initial={{ x: -260 }}
               animate={{ x: 0 }}
-              exit={{ x: -280 }}
+              exit={{ x: -260 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed top-0 left-0 z-50 w-72 h-screen bg-surface border-r border-border"
+              className="lg:hidden fixed top-0 left-0 z-50 w-[260px] h-screen bg-surface border-r border-border"
             >
               {content}
             </motion.aside>

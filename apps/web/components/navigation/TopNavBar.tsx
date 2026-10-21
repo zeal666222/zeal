@@ -8,7 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, LogOut, Settings, Sparkles, UserCircle, Wallet } from "lucide-react";
+import { Home, LogOut, Settings, Shield, Sparkles, UserCircle, Wallet } from "lucide-react";
 import {
   ZealLockup,
   ThemeToggle,
@@ -45,6 +45,31 @@ export function TopNavBar({ userId, initialBalance }: Props) {
 
   const addNotification = useAppStore((s) => s.addNotification);
   const user = useAppStore((s) => s.user);
+  const [adminRole, setAdminRole] = useState<string | null>(null);
+
+  // Role lives in the DB, not the JWT, so poll it lightly (30s + on focus).
+  // This is what makes the panel button appear/disappear "realtime" after an
+  // owner grants or revokes staff access.
+  useEffect(() => {
+    if (!userId) { setAdminRole(null); return; }
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const res = await fetch("/api/admin/me", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { role?: string | null };
+        if (!cancelled) setAdminRole(data.role ?? null);
+      } catch { /* keep last known role */ }
+    };
+    void check();
+    const interval = setInterval(check, 30000);
+    window.addEventListener("focus", check);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("focus", check);
+    };
+  }, [userId]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -138,6 +163,11 @@ export function TopNavBar({ userId, initialBalance }: Props) {
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>{user?.name || "Your account"}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {adminRole && (
+                    <DropdownMenuItem onSelect={() => router.push("/admin/dashboard")}>
+                      <Shield size={14} /> {adminRole === "SUPER_ADMIN" ? "Super Admin Panel" : "Admin Panel"}
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onSelect={() => router.push("/profile")}>
                     <UserCircle size={14} /> Profile
                   </DropdownMenuItem>

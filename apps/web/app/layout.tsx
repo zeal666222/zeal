@@ -6,6 +6,7 @@ import { ThemeProvider } from "@zeal/ui/theme";
 import { MotionProvider, SmoothScroll } from "@zeal/ui/motion";
 import { GlobalCallListener } from "@/components/global/GlobalCallListener";
 import { GlobalLoader } from "@/components/global/GlobalLoader";
+import { VisitorPresence } from "@/components/global/VisitorPresence";
 import { AppLayout, type Profile } from "@/components/navigation/AppLayout";
 import { SupabaseAuthProvider } from "@/components/providers/SupabaseAuthProvider";
 import { RealtimeProvider } from "@/components/providers/RealtimeProvider";
@@ -165,6 +166,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <SmoothScroll>
 
                   {user && <GlobalCallListener userId={user.id} />}
+                  <VisitorPresence profile={profile} />
                   <AppLayout user={user} profile={profile}>
                     {children}
                   </AppLayout>

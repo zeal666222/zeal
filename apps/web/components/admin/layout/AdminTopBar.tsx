@@ -73,7 +73,7 @@ export function AdminTopBar() {
 
   return (
     <header className="sticky top-0 z-20 bg-surface/80 backdrop-blur-xl border-b border-border/50">
-      <div className="flex items-center justify-between h-14 px-4 lg:px-6">
+      <div className="flex items-center justify-between h-14 pl-16 pr-4 lg:pl-6 lg:pr-6">
         {/* Left: Page title */}
         <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">

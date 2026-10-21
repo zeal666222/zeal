@@ -54,5 +54,10 @@ export const channels = {
   aiResponseStream:  (sessionId: string) => `ai:session:${sessionId}:response`,
   systemHealth:      () => `system:health`,
   systemAlerts:      () => `system:alerts`,
+  // Site-wide visitor presence. Clients track themselves (path + profile);
+  // admins subscribe to count and list active visitors in realtime. The
+  // client joins this as `presence:site:presence`, which the public-prefix
+  // allowlist in client.ts already covers.
+  sitePresence:      () => `site:presence`,
 } as const;
 export type ChannelName = ReturnType<typeof channels[keyof typeof channels]>;
