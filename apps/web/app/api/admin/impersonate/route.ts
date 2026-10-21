@@ -6,9 +6,11 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const BodySchema = z.object({
-  targetUserId: z.string().uuid().optional(),
-  targetId: z.string().uuid().optional(),
+  targetUserId: z.string().min(1).optional(),
+  targetId: z.string().min(1).optional(),
   targetType: z.enum(["user", "consultant", "ai"]).default("user"),
 });
 
@@ -30,12 +32,17 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   const parsed = BodySchema.safeParse(body);
   if (!parsed.success) {
-    throw new AppError("targetUserId/targetId (uuid) and targetType required", 400, ErrorCode.VALIDATION_INPUT);
+    throw new AppError("targetUserId or targetId is required", 400, ErrorCode.VALIDATION_INPUT);
   }
 
   const { targetType } = parsed.data;
   const targetId = parsed.data.targetUserId ?? parsed.data.targetId;
   if (!targetId) throw new AppError("targetUserId or targetId is required", 400, ErrorCode.VALIDATION_INPUT);
+  // AI consultants are keyed by a TEXT slug (`ai-astro-arjun`), not a User uuid;
+  // only a user or human-consultant target has to be a uuid.
+  if (targetType !== "ai" && !UUID_RE.test(targetId)) {
+    throw new AppError("targetUserId/targetId must be a valid user id", 400, ErrorCode.VALIDATION_INPUT);
+  }
   if (targetId === adminId && targetType !== "ai") {
     throw new AppError("Cannot impersonate yourself", 400, ErrorCode.AUTH_FORBIDDEN);
   }
@@ -43,25 +50,24 @@ export const POST = withErrorHandler(async (req: Request) => {
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
   if (targetType === "ai") {
-    const consultant = await safeQueryOne<{ id: string; userId: string; bio: string | null; specialties: string[] | null }>(
-      admin.from("Consultant").select("id, userId, bio, specialties").eq("id", targetId).maybeSingle(),
+    // AI consultants are rows of `AIConsultant` keyed by a TEXT slug and have no
+    // `userId` — they are not User records, so there is no auth user to assume.
+    const consultant = await safeQueryOne<{
+      id: string; name: string; category: string; model: string | null; isPaid: boolean;
+    }>(
+      admin.from("AIConsultant").select("id, name, category, model, isPaid").eq("id", targetId).maybeSingle(),
       "impersonate.ai-consultant",
     );
     if (!consultant) throw new AppError("AI consultant not found", 404, ErrorCode.NOT_FOUND);
 
-    const aiUser = await safeQueryOne<{ id: string; email: string; name: string | null; username: string | null }>(
-      admin.from("User").select("id, email, name, username").eq("id", consultant.userId).maybeSingle(),
-      "impersonate.ai-user",
-    );
-
     await logAdminAction(admin, {
       adminId, action: "IMPERSONATE_AI_START", targetType: "ai_consultant", targetId,
-      metadata: { startedAt: new Date().toISOString(), expiresAt, consultantName: aiUser?.name ?? "AI Consultant" },
+      metadata: { startedAt: new Date().toISOString(), expiresAt, consultantName: consultant.name },
     });
 
     return NextResponse.json({
-      success: true, targetType: "ai", targetId, targetUserId: consultant.userId,
-      targetName: aiUser?.name ?? "AI Consultant", targetEmail: aiUser?.email ?? null, expiresAt,
+      success: true, targetType: "ai", targetId, targetUserId: consultant.id,
+      targetName: consultant.name, targetEmail: null, expiresAt,
     });
   }
 
