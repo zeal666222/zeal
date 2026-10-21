@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { playNotificationChime } from "@/lib/sound";
 
 export type AdminRole = "SUPER_ADMIN" | "ADMIN" | "SUPPORT" | "VIEWER";
 
@@ -110,13 +111,21 @@ export const useAdminStore = create<AdminState>()(
         return role ? ROLE_LEVEL[role] >= ROLE_LEVEL[min] : false;
       },
 
-      addNotification: (notif) =>
+      addNotification: (notif) => {
+        const createdAt = notif.createdAt || new Date().toISOString();
+        let added = false;
         set((state) => {
-          const createdAt = notif.createdAt || new Date().toISOString();
+          if (notif.id && state.notifications.some((n) => n.id === notif.id)) {
+            return state;
+          }
+          added = true;
           const full = { ...notif, createdAt } as Notification;
           const updated = [full, ...state.notifications].slice(0, 100);
-          return { notifications: updated, unreadCount: state.unreadCount + 1 };
-        }),
+          return { notifications: updated, unreadCount: updated.filter((n) => !n.read).length };
+        });
+        // Ring only for genuinely new notifications — re-delivered rows stay silent.
+        if (added) playNotificationChime();
+      },
 
       markNotificationRead: (id) =>
         set((state) => {
@@ -164,8 +173,11 @@ export const useAdminStore = create<AdminState>()(
     {
       name: "zeal-admin-storage",
       storage: createJSONStorage(() => localStorage),
+      // notifications must persist: read-state has to survive reloads, or
+      // realtime re-delivery re-adds every dismissed notification as unread.
       partialize: (s) => ({
         profile: s.profile,
+        notifications: s.notifications.slice(0, 50),
         alertSoundMuted: s.alertSoundMuted,
         isSidebarOpen: s.isSidebarOpen,
       }),

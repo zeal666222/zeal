@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ZealLockup } from "@zeal/ui";
+import { playLoaderTone } from "@/lib/sound";
 
 const BOOT_VISIBLE_MS = 1250;
 const MIN_VISIBLE_MS = 520;
@@ -41,6 +42,10 @@ export function GlobalLoader() {
 
   // Boot: after a fixed window, begin the exit sequence.
   useEffect(() => {
+    // The context is almost always still suspended at boot (autoplay policy),
+    // so this first attempt is usually silent — it warms the context for the
+    // next navigation, which is always triggered by a gesture.
+    playLoaderTone();
     const t = setTimeout(() => beginExit(), BOOT_VISIBLE_MS);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -72,6 +77,7 @@ export function GlobalLoader() {
     clearTimers();
     shownAtRef.current = performance.now();
     setPhase("showing");
+    playLoaderTone();
   };
 
   const beginExit = () => {

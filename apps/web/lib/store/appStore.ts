@@ -1,6 +1,7 @@
 import {create} from 'zustand';
 import {persist, devtools, createJSONStorage} from 'zustand/middleware';
 import {immer} from 'zustand/middleware/immer';
+import {playNotificationChime} from '@/lib/sound';
 export interface User {
   id: string;
   email: string;
@@ -116,7 +117,12 @@ export const useAppStore = create<AppState>()(
         updateWallet: (updates) => set((state) => { if (state.wallet) Object.assign(state.wallet, updates); }),
 
         addNotification: (notif) => {
+          let added = false;
           set((state) => {
+            // Realtime can re-deliver the same row after a reconnect; dedupe by
+            // id so a repeat broadcast can't double-ring or double-count unread.
+            if (notif.id && state.notifications.some((n) => n.id === notif.id)) return;
+            added = true;
             const createdAt = new Date().toISOString();
             state.notifications.unshift({ ...notif, createdAt } as Notification);
             if (state.notifications.length > 100) state.notifications = state.notifications.slice(0, 100);
@@ -124,6 +130,8 @@ export const useAppStore = create<AppState>()(
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
             new Notification('Zeal', { body: notif.message, icon: '/favicon.ico' });
           }
+          // Ring only for genuinely new notifications — re-delivered rows stay silent.
+          if (added) playNotificationChime();
         },
 
         markAllRead: () => set((state) => { state.notifications.forEach((n) => n.read = true); }),
