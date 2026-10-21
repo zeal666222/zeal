@@ -29,15 +29,18 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   const { conversationId, consultantId, content } = parsed.data;
 
-  const aiConsultant = await safeQueryOne<{ id: string; name: string; userId: string | null }>(
-    admin.from("AIConsultant").select("id, name, userId").eq("id", consultantId).maybeSingle(),
+  // AIConsultant has no userId column — its id IS the auth user id, which is how
+  // the row is seeded next to the "User" record. Asking for userId made this
+  // lookup fail, so "Talk as AI" could never resolve a consultant.
+  const aiConsultant = await safeQueryOne<{ id: string; name: string }>(
+    admin.from("AIConsultant").select("id, name").eq("id", consultantId).maybeSingle(),
     "chat-as-ai.lookup",
   );
   if (!aiConsultant) throw new AppError("AI consultant not found", 404, ErrorCode.NOT_FOUND);
 
   const participant = await safeQueryOne<{ userId: string }>(
     admin.from("ConversationParticipant").select("userId")
-      .eq("conversationId", conversationId).eq("userId", aiConsultant.userId as string).maybeSingle(),
+      .eq("conversationId", conversationId).eq("userId", aiConsultant.id).maybeSingle(),
     "chat-as-ai.participant",
   );
   if (!participant) {
@@ -46,7 +49,7 @@ export const POST = withErrorHandler(async (req: Request) => {
 
   const message = await safeQuery(
     admin.from("Message").insert({
-      conversationId, senderId: aiConsultant.userId as string, content, type: "text",
+      conversationId, senderId: aiConsultant.id, content, type: "text",
     }).select("id, conversationId, senderId, content, type, createdAt").single(),
     "chat-as-ai.insert",
   );

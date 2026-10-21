@@ -1,12 +1,44 @@
 import { createServerClientFromCookies, createAdminClient } from "@zeal/database/server";
 import { redirect, notFound } from "next/navigation";
 import { ChatInterface } from "@/components/session/ChatInterface";
+import { resolveWorkerAuth } from "@/lib/auth/access-token";
+import { getConversation, isAiConversationId, WorkerError } from "@/lib/chat/worker";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function ChatRoomPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = await params;
+
+  // ─── AI rooms: the worker owns membership, consultant and transcript ──────
+  // Zero Supabase reads — the participant table can't describe an `ai-` room
+  // and the consultant join compares a uuid to a TEXT slug.
+  if (isAiConversationId(conversationId)) {
+    const auth = await resolveWorkerAuth();
+    if (!auth.userId || !auth.accessToken) {
+      redirect(`/login?redirectedFrom=/chat/${conversationId}`);
+    }
+    let room;
+    try {
+      room = await getConversation(auth.accessToken, conversationId);
+    } catch (err) {
+      if (err instanceof WorkerError && err.status === 404) notFound();
+      throw err;
+    }
+    const consultant = room.consultant;
+    return (
+      <ChatInterface
+        conversationId={conversationId}
+        currentUserId={auth.userId}
+        partnerId={consultant?.id ?? room.consultantId ?? ""}
+        partnerName={consultant?.name ?? "AI Consultant"}
+        partnerAvatar={consultant?.avatar ?? null}
+        isAI
+        rate={consultant?.isPaid ? consultant.rate : 0}
+      />
+    );
+  }
+
   const supabase = await createServerClientFromCookies();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect(`/login?redirectedFrom=/chat/${conversationId}`);

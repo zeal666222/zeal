@@ -1,22 +1,32 @@
 import type { Env } from "./env";
-import { validateJWT, extractBearer, authSnapshot } from "./auth";
-import { loadPersona, type AstroContext } from "./persona-loader";
+import { validateJWT, extractBearer, authSnapshot, mintRoomTicket } from "./auth";
+import { loadPersona, seekerContextFor } from "./persona-loader";
 import { tryAcquire, release, stats as gateStats } from "./chat-concurrency";
-import { startChatBilling } from "./billing";
 import { handleAIChat, type CallAIResult, type AIMessage } from "./ai-chat-handler";
 import { snapshot as snapshotAiMetrics } from "./ai-metrics";
 import { callAI } from "./ai-engine";
 import { uploadToR2, deleteFromR2, listR2 } from "./storage";
 import { ChatGate } from "./chat-gate";
+import { ChatRoom } from "./chat-room";
+import {
+  getOrCreateConversation,
+  isAiConversationId,
+  listConversations,
+  loadConversation,
+  readMessages,
+  requireParticipant,
+  isoOf,
+} from "./conversation-store";
+import { describeProfile, readSeekerProfile, saveSeekerProfile, type SeekerPatch } from "./seeker-profile";
 
-export { ChatGate };
+export { ChatGate, ChatRoom };
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, DELETE, OPTIONS",
+      "Access-Control-Allow-Methods": "POST, GET, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
@@ -61,9 +71,52 @@ export default {
       return handleChatRequest(req, env, ctx, chatMatch[1], corsHeaders);
     }
 
+    // ── Conversations (D1 owns AI rooms end to end) ──
+    if (url.pathname === "/api/conversations" && req.method === "POST") {
+      return handleCreateConversation(req, env, corsHeaders);
+    }
+    if (url.pathname === "/api/conversations" && req.method === "GET") {
+      return handleListConversations(req, env, corsHeaders);
+    }
+
+    // ── Seeker birth profile (the intake form's answers) ──
+    if (url.pathname === "/api/profile/birth" && (req.method === "GET" || req.method === "PUT")) {
+      return handleBirthProfile(req, env, corsHeaders);
+    }
+
+    const conversationMatch = url.pathname.match(/^\/api\/conversations\/([A-Za-z0-9_-]+)(\/[a-z-]+)?$/);
+    if (conversationMatch) {
+      const conversationId = conversationMatch[1];
+      const sub = conversationMatch[2];
+      if (!isAiConversationId(conversationId)) {
+        return Response.json({ error: "Not an AI conversation" }, { status: 404, headers: corsHeaders });
+      }
+      if (!sub && req.method === "GET") {
+        return handleGetConversation(req, env, conversationId, corsHeaders);
+      }
+      if (sub === "/messages" && req.method === "GET") {
+        return handleGetMessages(req, env, conversationId, corsHeaders);
+      }
+      if (sub === "/ws-ticket" && req.method === "GET") {
+        return handleWsTicket(req, env, conversationId, corsHeaders);
+      }
+      if (sub === "/ws") {
+        // The socket lives on the Durable Object; hand the request straight to
+        // it. The ticket in the query string is what authenticates the upgrade.
+        return forwardToRoom(env, conversationId, req);
+      }
+    }
+
     return Response.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
   },
 };
+
+async function requireUserId(req: Request, env: Env): Promise<string | null> {
+  const token = extractBearer(req);
+  if (!token) return null;
+  const jwt = await validateJWT(env, token);
+  return jwt?.sub ?? null;
+}
 
 async function handleChatRequest(
   req: Request,
@@ -72,29 +125,23 @@ async function handleChatRequest(
   consultantId: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // 1. Auth
-  const token = extractBearer(req);
-  if (!token) {
+  // 1. Auth — the token's `sub` is the only identity a turn can speak for.
+  const userId = await requireUserId(req, env);
+  if (!userId) {
     return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
   }
-  const jwt = await validateJWT(env, token);
-  if (!jwt?.sub) {
-    return Response.json({ error: "Invalid token" }, { status: 401, headers: corsHeaders });
-  }
-  const userId = jwt.sub;
 
-  // 2. Parse body
-  let body: { conversationId?: string; content?: string; opener?: boolean; astro?: AstroContext };
+  // 2. Parse body. Birth details are deliberately NOT accepted here: an
+  //    `astro` object in the request used to be injected into the system
+  //    prompt verbatim, which is how one seeker's chart reached another's.
+  let body: { conversationId?: string; content?: string; opener?: boolean };
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders });
   }
 
-  const { conversationId, content, opener, astro } = body;
-  if (!conversationId) {
-    return Response.json({ error: "conversationId required" }, { status: 400, headers: corsHeaders });
-  }
+  const { content, opener } = body;
   // A normal turn needs user content; an opener turn is generated proactively.
   if (!opener && !content) {
     return Response.json({ error: "content required" }, { status: 400, headers: corsHeaders });
@@ -103,7 +150,20 @@ async function handleChatRequest(
     return Response.json({ error: "Message too long (max 4000 chars)" }, { status: 400, headers: corsHeaders });
   }
 
-  // 3. Concurrency
+  // 3. Room: the caller's id if it is genuinely theirs, else this seeker's
+  //    standing room with this consultant, created on first use.
+  let conversationId = typeof body.conversationId === "string" ? body.conversationId : "";
+  if (conversationId && !isAiConversationId(conversationId)) {
+    return Response.json({ error: "Not an AI conversation" }, { status: 404, headers: corsHeaders });
+  }
+  if (conversationId && !(await requireParticipant(env, conversationId, userId))) {
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: corsHeaders });
+  }
+  if (!conversationId) {
+    conversationId = (await getOrCreateConversation(env, userId, consultantId)).conversationId;
+  }
+
+  // 4. Concurrency
   const acquire = await tryAcquire(env, userId);
   if (!acquire.allowed) {
     return Response.json({ error: acquire.error ?? "Too many concurrent chats" }, { status: 429, headers: corsHeaders });
@@ -111,24 +171,26 @@ async function handleChatRequest(
   const leaseId = acquire.leaseId;
 
   try {
-    // 4. Load persona from D1 (kundali-grounded where the seeker has a chart)
-    const persona = await loadPersona(env, consultantId, astro);
+    // 5. Persona, grounded in this seeker's stored intake — never in the body.
+    const seekerRow = await readSeekerProfile(env, userId);
+    const persona = await loadPersona(env, consultantId, seekerContextFor(seekerRow));
     if (!persona) {
       return Response.json({ error: "Consultant not found" }, { status: 404, headers: corsHeaders });
     }
 
-    // 5. Billing (free consultants skip billing)
-    if (persona.isPaid) {
-      const billing = await startChatBilling(env, userId, consultantId, conversationId);
-      if (!billing.success) {
-        return Response.json(
-          { error: billing.error ?? "Billing failed" },
-          { status: billing.code === "INSUFFICIENT_BALANCE" ? 402 : 400, headers: corsHeaders },
-        );
-      }
+    // 6. Paid AI consultants are refused rather than billed. Money lives in
+    //    Supabase's ledger and its billing RPC takes a Supabase conversation
+    //    uuid; an AI room has no such row by design, so there is nothing safe
+    //    to debit against. Refusing loudly beats charging the wrong thing —
+    //    and every AI consultant is free today.
+    if (persona.isPaid || persona.perMinuteRate > 0) {
+      return Response.json(
+        { error: "This AI consultant is paid and is not available on the free chat path yet." },
+        { status: 409, headers: corsHeaders },
+      );
     }
 
-    // 6. Build callAI function bound to env
+    // 7. Build callAI function bound to env
     const callAIFn = async (opts: { messages: AIMessage[]; stream?: boolean; temperature?: number; maxTokens?: number }): Promise<CallAIResult> => {
       const result = await callAI(env, {
         messages: opts.messages,
@@ -139,7 +201,7 @@ async function handleChatRequest(
       return { response: result.response, provider: result.provider, attempts: result.attempts };
     };
 
-    // 7. Handle chat (SSE stream)
+    // 8. Handle chat (SSE stream)
     const { stream } = await handleAIChat({
       env,
       conversationId,
@@ -156,7 +218,7 @@ async function handleChatRequest(
         "Content-Type": "text/event-stream; charset=utf-8",
         "Cache-Control": "no-cache, no-transform",
         "X-Accel-Buffering": "no",
-        Connection: "keep-alive",
+        "Connection": "keep-alive",
         ...corsHeaders,
       },
     });
@@ -221,24 +283,29 @@ async function handleHealth(
     checks.supabase = `fail: ${e instanceof Error ? e.message : "unknown"}`;
   }
 
-  const allOk = Object.values(checks).every((v) => v === "ok");
+  // AI chat reads, writes and streams entirely from D1/R2/Workers AI, so only
+  // those decide `ok`. Supabase still gates paid-consultant billing and login,
+  // but an outage there must not make the free AI chat look broken.
+  const critical = ["d1", "r2"];
+  const allOk = critical.every((k) => checks[k] === "ok") && Boolean(env.AI);
   const body = {
     status: allOk ? "ok" : "degraded",
     service: "zeal-chat",
     ts: new Date().toISOString(),
     checks,
+    advisory: { supabase: checks.supabase },
     providers: {
       // Booleans only — never leak key material. A missing key causes the
       // engine to emit `provider:skip missing-api-key` and rotate to the
       // next slot in FALLBACK_CHAIN; hardcoded stays as last-resort.
-      groq: Boolean(env.GROQ_API_KEY),
+      cloudflare: Boolean(env.AI),
       cloudflareAi: Boolean(env.CF_AI_TOKEN && env.CF_ACCOUNT_ID),
-      cfBinding: Boolean(env.AI),
-      agnes: Boolean(env.AGNES_API_KEY),
+      groq: Boolean(env.GROQ_API_KEY),
       zhipu: Boolean(env.ZHIPU_API_KEY),
       keylessFallbacks: ["pollinations", "ovh", "kilo", "llm7", "duckduckgo", "freegpt"],
       lastResort: "hardcoded",
     },
+    realtime: env.CHAT_ROOM ? "configured" : "missing-binding",
     auth: authSnapshot(),
     ai: snapshotAiMetrics(),
     gate: await gateStats(env),
@@ -418,7 +485,6 @@ async function handleProvidersProbe(
     if (!persona) {
       return Response.json({ error: `Consultant ${consultantId} not found` }, { status: 404, headers: corsHeaders });
     }
-
     const messages = [
       { role: "system" as const, content: persona.systemPrompt },
       { role: "user" as const, content: message },
@@ -471,4 +537,283 @@ async function handleProvidersProbe(
       { status: 502, headers: corsHeaders },
     );
   }
+}
+
+// ─── AI conversations ────────────────────────────────────────────────────────
+//
+// Everything an AI room needs — minting it, listing it, reading its transcript,
+// the seeker's intake, and the realtime socket — is served from this worker and
+// backed by D1. Supabase is not on any of these paths.
+
+const CONSULTANT_ID_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
+
+async function handleCreateConversation(
+  req: Request,
+  env: Env,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const userId = await requireUserId(req, env);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+
+  let body: { consultantId?: string } = {};
+  try { body = await req.json(); } catch { /* falls through to validation */ }
+  const consultantId = typeof body.consultantId === "string" ? body.consultantId : "";
+  if (!CONSULTANT_ID_RE.test(consultantId)) {
+    return Response.json({ error: "consultantId required" }, { status: 400, headers: corsHeaders });
+  }
+
+  const live = await env.DB.prepare(
+    `SELECT 1 AS ok FROM ai_consultant WHERE id = ? AND is_active = 1`
+  ).bind(consultantId).first<{ ok: number }>();
+  if (!live) return Response.json({ error: "Consultant not found" }, { status: 404, headers: corsHeaders });
+
+  const { conversationId, reused } = await getOrCreateConversation(env, userId, consultantId);
+  return Response.json({ conversationId, isAI: true, reused }, { headers: corsHeaders });
+}
+
+async function handleListConversations(
+  req: Request,
+  env: Env,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const userId = await requireUserId(req, env);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+
+  const rows = await listConversations(env, userId);
+  return Response.json(
+    {
+      conversations: rows.map((r) => ({
+        conversationId: r.id,
+        consultantId: r.ai_consultant_id,
+        createdAt: r.created_at ? isoOf(r.created_at) : null,
+        lastMessageAt: r.last_message_at ? isoOf(r.last_message_at) : null,
+        lastMessageText: r.last_message_text,
+        consultantName: r.consultant_name,
+        consultantAvatar: r.consultant_avatar,
+        consultantCategory: r.consultant_category,
+      })),
+    },
+    { headers: corsHeaders },
+  );
+}
+
+/** Room metadata the chat page needs: who the consultant is and what intake is missing. */
+async function handleGetConversation(
+  req: Request,
+  env: Env,
+  conversationId: string,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const userId = await requireUserId(req, env);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+
+  const room = await loadConversation(env, conversationId);
+  if (!room || room.user_id !== userId) {
+    return Response.json({ error: "Not found" }, { status: 404, headers: corsHeaders });
+  }
+
+  const consultant = room.ai_consultant_id
+    ? await env.DB.prepare(
+        `SELECT id, name, avatar, category, per_minute_rate, is_paid FROM ai_consultant WHERE id = ?`,
+      ).bind(room.ai_consultant_id).first<{
+        id: string; name: string; avatar: string | null; category: string;
+        per_minute_rate: number; is_paid: number;
+      }>()
+    : null;
+
+  const state = describeProfile(await readSeekerProfile(env, userId));
+  return Response.json(
+    {
+      conversationId: room.id,
+      isAI: true,
+      consultantId: consultant?.id ?? room.ai_consultant_id,
+      consultant: consultant
+        ? {
+            id: consultant.id,
+            name: consultant.name,
+            avatar: consultant.avatar,
+            category: consultant.category,
+            rate: consultant.per_minute_rate ?? 0,
+            isPaid: consultant.is_paid === 1,
+          }
+        : null,
+      intake: {
+        chartStale: state.chartStale,
+        hasBirthData: state.hasBirthData,
+        missing: state.missing,
+      },
+    },
+    { headers: corsHeaders },
+  );
+}
+
+async function handleGetMessages(
+  req: Request,
+  env: Env,
+  conversationId: string,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const userId = await requireUserId(req, env);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+  if (!(await requireParticipant(env, conversationId, userId))) {
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: corsHeaders });
+  }
+
+  const raw = Number(new URL(req.url).searchParams.get("limit") ?? "50");
+  const limit = Math.min(Math.max(Number.isFinite(raw) ? raw : 50, 1), 200);
+  const rows = await readMessages(env, conversationId, limit);
+
+  return Response.json(
+    {
+      messages: rows.map((m) => ({
+        id: m.id,
+        conversationId: m.conversation_id,
+        senderId: m.sender_id,
+        content: m.content,
+        type: m.type,
+        createdAt: isoOf(m.created_at),
+      })),
+    },
+    { headers: corsHeaders },
+  );
+}
+
+// ─── Seeker birth profile ────────────────────────────────────────────────────
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function readPatch(body: Record<string, unknown>): SeekerPatch | { error: string } {
+  const str = (v: unknown, max: number): string | undefined => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v !== "string") return "";
+    const t = v.trim();
+    return t.length <= max ? t : "";
+  };
+  const num = (v: unknown): number | undefined => {
+    if (v === undefined || v === null || v === "") return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  const patch: SeekerPatch = {};
+  const name = str(body.name, 80);
+  if (name === "") return { error: "name too long" };
+  if (name) patch.name = name;
+
+  const dob = str(body.dob, 10);
+  if (dob !== undefined && dob !== "" && !DATE_RE.test(dob)) return { error: "dob must be YYYY-MM-DD" };
+  if (dob) patch.dob = dob;
+
+  const tob = str(body.tob, 5);
+  if (tob !== undefined && tob !== "" && !TIME_RE.test(tob)) return { error: "tob must be HH:MM" };
+  if (tob) patch.tob = tob;
+
+  const pob = str(body.pob, 120);
+  if (pob === "") return { error: "pob too long" };
+  if (pob) patch.pob = pob;
+
+  const lat = num(body.latitude);
+  if (lat !== undefined && (lat < -90 || lat > 90)) return { error: "latitude out of range" };
+  if (lat !== undefined) patch.latitude = lat;
+
+  const lng = num(body.longitude);
+  if (lng !== undefined && (lng < -180 || lng > 180)) return { error: "longitude out of range" };
+  if (lng !== undefined) patch.longitude = lng;
+
+  const gender = str(body.gender, 20);
+  if (gender !== undefined && gender !== "") patch.gender = gender;
+
+  const concern = str(body.concern, 500);
+  if (concern === "") return { error: "concern too long" };
+  if (concern) patch.concern = concern;
+
+  const chart = str(body.chartSummary, 20000);
+  if (chart === "") return { error: "chartSummary too large" };
+  if (chart) patch.chartSummary = chart;
+
+  return patch;
+}
+
+async function handleBirthProfile(
+  req: Request,
+  env: Env,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const userId = await requireUserId(req, env);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+
+  if (req.method === "GET") {
+    const state = describeProfile(await readSeekerProfile(env, userId));
+    return Response.json(profilePayload(state), { headers: corsHeaders });
+  }
+
+  let body: Record<string, unknown> = {};
+  try { body = (await req.json()) as Record<string, unknown>; } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400, headers: corsHeaders });
+  }
+  const patch = readPatch(body);
+  if ("error" in patch) {
+    return Response.json({ error: patch.error }, { status: 400, headers: corsHeaders });
+  }
+
+  const row = await saveSeekerProfile(env, userId, patch);
+  return Response.json(profilePayload(describeProfile(row)), { headers: corsHeaders });
+}
+
+function profilePayload(state: ReturnType<typeof describeProfile>) {
+  const p = state.profile;
+  return {
+    profile: p
+      ? {
+          name: p.name,
+          dob: p.dob,
+          tob: p.tob,
+          pob: p.pob,
+          latitude: p.latitude,
+          longitude: p.longitude,
+          gender: p.gender,
+          concern: p.concern,
+          hasChart: Boolean(p.chart_summary),
+          updatedAt: p.updated_at ? isoOf(p.updated_at) : null,
+        }
+      : null,
+    chartStale: state.chartStale,
+    hasBirthData: state.hasBirthData,
+    missing: state.missing,
+  };
+}
+
+// ─── Realtime room ───────────────────────────────────────────────────────────
+// A browser WebSocket cannot send an Authorization header, so the client asks
+// for a short-lived ticket here and puts it in the upgrade URL's query string.
+
+async function handleWsTicket(
+  req: Request,
+  env: Env,
+  conversationId: string,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const userId = await requireUserId(req, env);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+  if (!(await requireParticipant(env, conversationId, userId))) {
+    return Response.json({ error: "Forbidden" }, { status: 403, headers: corsHeaders });
+  }
+  const ticket = await mintRoomTicket(env, userId, conversationId);
+  if (!ticket) {
+    return Response.json({ error: "Realtime unavailable" }, { status: 503, headers: corsHeaders });
+  }
+  return Response.json({ ticket, expiresInSeconds: 30 }, { headers: corsHeaders });
+}
+
+async function forwardToRoom(env: Env, conversationId: string, req: Request): Promise<Response> {
+  if (!env.CHAT_ROOM) {
+    return Response.json({ error: "Realtime unavailable" }, { status: 503 });
+  }
+  const stub = env.CHAT_ROOM.get(env.CHAT_ROOM.idFromName(conversationId));
+  const search = new URL(req.url).search;
+  return stub.fetch(new Request(`https://room/ws${search}`, {
+    method: "GET",
+    headers: req.headers,
+  }));
 }

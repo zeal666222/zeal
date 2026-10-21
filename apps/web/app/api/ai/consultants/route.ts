@@ -29,9 +29,25 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json(data ?? [], {
-      headers: { "Cache-Control": "no-store, max-age=0" },
-    });
+    // AIConsultant has no location column; the city lives on the shadow "User"
+    // row whose id is the same uuid. Without this join every card rendered
+    // without a place, which is the detail that makes an AI profile read human.
+    const rows = data ?? [];
+    const ids = rows.map((r: { id: string }) => r.id);
+    let places: { id: string; location: string | null }[] = [];
+    if (ids.length > 0) {
+      const { data: userRows } = await admin
+        .from("User")
+        .select("id, location")
+        .in("id", ids);
+      places = userRows ?? [];
+    }
+    const byId = new Map(places.map((u) => [u.id, u.location]));
+
+    return NextResponse.json(
+      rows.map((r: { id: string }) => ({ ...r, location: byId.get(r.id) ?? null })),
+      { headers: { "Cache-Control": "no-store, max-age=0" } },
+    );
   } catch (err) {
     console.error("[AI Consultants API] failed:", err);
     return NextResponse.json([], {

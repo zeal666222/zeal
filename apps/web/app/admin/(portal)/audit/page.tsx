@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { Loader2, ScrollText, Search } from "lucide-react";
 
 interface AuditRow {
@@ -22,7 +23,7 @@ interface AuditRow {
 export default function AuditPage() {
   const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useQuery<{ items: AuditRow[] }>({
+  const { data, isLoading, refetch } = useQuery<{ items: AuditRow[] }>({
     queryKey: ["admin", "audit"],
     queryFn: async () => {
       const res = await fetch("/api/admin/audit?limit=200", { cache: "no-store" });
@@ -30,6 +31,14 @@ export default function AuditPage() {
       return res.json();
     },
     refetchInterval: 30_000,
+  });
+
+  // trg_broadcast_admin_audit fires on every AdminAuditLog insert, so an action
+  // taken in another tab shows up here immediately instead of on the next poll.
+  useChannel<BroadcastChange>({
+    channel: channels.adminAudit(),
+    event: "*",
+    onMessage: () => { void refetch(); },
   });
 
   const items = (data?.items ?? []).filter((r) =>

@@ -33,6 +33,10 @@ interface BirthIntakeModalProps {
   existingProfile?: Partial<IntakeData> | null;
   onSubmit: (data: IntakeData) => void;
   isLoading?: boolean;
+  /** A failed save keeps the form open, answers intact, with the reason shown. */
+  error?: string | null;
+  /** Overrides the call-to-action for in-room use ("Start Consultation" pre-chat). */
+  actionLabel?: string;
 }
 
 const CONCERN_SUGGESTIONS = [
@@ -51,6 +55,8 @@ export function BirthIntakeModal({
   existingProfile,
   onSubmit,
   isLoading = false,
+  error = null,
+  actionLabel = "Start Consultation",
 }: BirthIntakeModalProps) {
   const [step, setStep] = useState<"form" | "saving">("form");
   const [fullName, setFullName] = useState(existingProfile?.fullName ?? "");
@@ -66,6 +72,7 @@ export function BirthIntakeModal({
   const [primaryConcern, setPrimaryConcern] = useState(existingProfile?.primaryConcern ?? "");
 
   const canSubmit = fullName.trim() && dateOfBirth && placeOfBirth.trim();
+  const showingSaving = step === "saving" && !error;
 
   const handleSubmit = useCallback(async () => {
     if (!canSubmit) return;
@@ -104,7 +111,7 @@ export function BirthIntakeModal({
         </DialogHeader>
 
         <AnimatePresence mode="wait">
-          {step === "form" ? (
+          {!showingSaving ? (
             <motion.div
               key="form"
               initial={{ opacity: 0, y: 8 }}
@@ -216,6 +223,11 @@ export function BirthIntakeModal({
               </Field>
 
               {/* Submit */}
+              {error && (
+                <p className="text-xs font-bold text-rose-400" role="alert">
+                  {error}
+                </p>
+              )}
               <motion.button
                 type="button"
                 onClick={handleSubmit}
@@ -227,7 +239,7 @@ export function BirthIntakeModal({
                     : "bg-surface-raised text-[var(--color-muted-foreground)] cursor-not-allowed"
                 }`}
               >
-                {isLoading ? "Starting consultation…" : "Start Consultation"}
+                {isLoading ? "Saving…" : actionLabel}
               </motion.button>
             </motion.div>
           ) : (

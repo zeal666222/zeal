@@ -52,12 +52,24 @@ try {
   /* ignore malformed R2_PUBLIC_URL */
 }
 
+// ─── Cloudflare worker origins (added to CSP connect-src) ────────────────────
+// AI chat rooms, their realtime sockets and the admin bus all live on workers.dev
+// unless a custom domain is configured, so both the wildcard and the explicit
+// CHAT_WORKER_URL origin are allowed. Without this the socket is blocked in prod.
+const connectHosts = ["https://*.workers.dev", "wss://*.workers.dev"];
+try {
+  const workerUrl = process.env.CHAT_WORKER_URL;
+  if (workerUrl) connectHosts.push(new URL(workerUrl).origin);
+} catch {
+  /* ignore malformed CHAT_WORKER_URL */
+}
+
 const CSP = [
   "default-src 'self'",
   `img-src 'self' data: blob: https://*.r2.dev https://*.supabase.co https://ui-avatars.com https://images.unsplash.com https://picsum.photos https://lh3.googleusercontent.com ${imageHosts.join(" ")}`,
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.vercel.app https://api.groq.com https://apihub.agnes-ai.com https://vitals.vercel-insights.com",
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.vercel.app https://api.groq.com ${connectHosts.join(" ")} https://vitals.vercel-insights.com`,
   "font-src 'self' data:",
   "worker-src 'self' blob:",
   "frame-ancestors 'none'",

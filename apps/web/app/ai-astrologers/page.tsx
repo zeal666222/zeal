@@ -55,7 +55,7 @@ function AiConsultantCard({consultant, index}: {consultant: AiConsultant; index:
             <div className="flex items-center gap-1.5">
               {consultant.location && (
                 <span className="flex items-center gap-0.5 text-[9px] text-white/70">
-                  <MapPin size={8} /> {consultant.location}{consultant.country ? `, ${consultant.country}` : ''}
+                  <MapPin size={8} /> {consultant.location}
                 </span>
               )}
               {isFree && (

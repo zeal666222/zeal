@@ -1,6 +1,5 @@
 import type { Env } from "./env";
 import type { PersonaContext } from "./persona-loader";
-import { rpc, insertRow } from "./supabase-client";
 import { FillerEngine, type FillerLocale } from "./support/fillers";
 import { buildStageSequence, pickStageLocale } from "./support/stages";
 import { buildSuggestions, pickSuggestionLocale, type Suggestion } from "./support/suggestions";
@@ -9,6 +8,10 @@ import { detectUploadedFiles, readTextualAttachment, buildFileAnalysisDirective 
 import { detectBirthData } from "./support/birth-data-detector";
 import { retrieveKnowledge } from "./knowledge/rag";
 import { record as recordAiMetric } from "./ai-metrics";
+import { insertMessage, isoOf, readMessages, requireParticipant, sqliteNow, touchConversation } from "./conversation-store";
+import { describeProfile, saveSeekerProfile } from "./seeker-profile";
+import { screenReply } from "./moderation";
+import { publishToRoom } from "./realtime";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -80,46 +83,39 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
   if (!trimmed) throw new Error("Empty message");
   if (!opener && trimmed.length > MAX_MESSAGE_LENGTH) throw new Error(`Message exceeds ${MAX_MESSAGE_LENGTH} characters`);
 
-  // Participant check via D1 (lazy shadow creation)
-  const participant = await env.DB.prepare(
-    `SELECT user_id FROM conversation_participant WHERE conversation_id = ? AND user_id = ?`
-  ).bind(conversationId, userId).first();
-
-  if (!participant) {
-    const { data: supaParticipant } = await rpcQuery(env, "ConversationParticipant", {
-      conversationId: `eq.${conversationId}`,
-      userId: `eq.${userId}`,
-      limit: "1",
-    });
-    if (!supaParticipant || (supaParticipant as unknown[]).length === 0) {
-      throw new Error("Not a participant in this conversation");
-    }
-    await env.DB.prepare(`INSERT OR IGNORE INTO conversation (id) VALUES (?)`).bind(conversationId).run();
-    await env.DB.prepare(
-      `INSERT OR IGNORE INTO conversation_participant (conversation_id, user_id) VALUES (?, ?)`
-    ).bind(conversationId, userId).run();
-  }
+  // Membership gate — D1 alone decides who is in the room. The room id comes
+  // from the caller, so this is the only thing separating one seeker's
+  // transcript from another's.
+  const isMember = await requireParticipant(env, conversationId, userId);
+  if (!isMember) throw new Error("Not a participant in this conversation");
 
   // Prior context from D1
-  const prior = await env.DB.prepare(
-    `SELECT sender_id, content, created_at FROM message
-     WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?`
-  ).bind(conversationId, contextLimit).all<{ sender_id: string; content: string; created_at: string }>();
-  const priorMessages = (prior.results ?? []).slice().reverse();
+  const priorMessages = await readMessages(env, conversationId, contextLimit);
 
-  // Persist user message (skipped for the proactive opener — there is no
+  // Persist the user turn (skipped for the proactive opener — there is no
   // human turn to record, only the assistant's chart-grounded greeting).
   const userMsgId = crypto.randomUUID();
   if (!opener) {
-    await env.DB.prepare(
-      `INSERT INTO message (id, conversation_id, sender_id, content, type) VALUES (?, ?, ?, ?, 'text')`
-    ).bind(userMsgId, conversationId, userId, trimmed).run();
-
-    void insertRow(env, "Message", {
+    const userStamp = sqliteNow();
+    await insertMessage(env, {
+      id: userMsgId,
       conversationId,
       senderId: userId,
       content: trimmed,
       type: "text",
+      createdAt: userStamp,
+    });
+    await touchConversation(env, conversationId, trimmed);
+    // Another tab of the same seeker sees the turn immediately.
+    void publishToRoom(env, conversationId, {
+      type: "message",
+      message: {
+        id: userMsgId,
+        conversationId,
+        senderId: userId,
+        content: trimmed,
+        createdAt: isoOf(userStamp),
+      },
     });
   }
 
@@ -130,6 +126,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
   // directive from PersonaEngine.buildMessages lands just before the user turn.
 
   const enrichedPromptParts: string[] = [persona.systemPrompt];
+  const derivedEvents: unknown[] = [];
 
   if (opener) {
     enrichedPromptParts.push(
@@ -153,8 +150,35 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
 
     const birth = detectBirthData(trimmed);
     if (birth && birth.confidence !== "low") {
+      // A seeker who types their birth details mid-conversation is answering
+      // the same question the intake form asks — so store it under their own
+      // id and it grounds every later turn, across consultants and devices.
+      const stored = await saveSeekerProfile(env, userId, {
+        dob: birth.birthDate,
+        tob: birth.birthTime,
+        pob: birth.placeName,
+        latitude: birth.birthPlace.lat,
+        longitude: birth.birthPlace.lng,
+      });
+      if (stored) {
+        // The web owns the ephemeris (the worker has no astro engine), so it
+        // recomputes the chart from these values and PUTs it back.
+        derivedEvents.push({
+          profileUpdated: {
+            chartStale: describeProfile(stored).chartStale,
+            hasBirthData: describeProfile(stored).hasBirthData,
+            missing: describeProfile(stored).missing,
+            name: stored.name,
+            dob: stored.dob,
+            tob: stored.tob,
+            pob: stored.pob,
+            latitude: stored.latitude,
+            longitude: stored.longitude,
+          },
+        });
+      }
       enrichedPromptParts.push(
-        `\n\n[DETECTED BIRTH DATA — high-confidence parse from this turn]\n` +
+        `\n\n[DETECTED BIRTH DATA — high-confidence parse from this turn, now saved to this seeker's profile]\n` +
         `Date: ${birth.birthDate}\nTime: ${birth.birthTime}\nPlace: ${birth.placeName} (${birth.birthPlace.lat.toFixed(3)}, ${birth.birthPlace.lng.toFixed(3)})\n` +
         `Treat this as verified intake data. Ground your reading in this chart, ask only for details you still need (e.g. dominant hand for palmistry, specific question focus). Do NOT re-ask for date/time/place.`,
       );
@@ -215,7 +239,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
       };
 
       if (!opener) write({ userMessageId: userMsgId });
-      for (const evt of initialEvents) write(evt);
+      for (const evt of [...initialEvents, ...derivedEvents]) write(evt);
 
       // Semantic stage sequence — persona-aware "thinking out loud" labels.
       // We advance through them until the first token arrives; the client
@@ -343,62 +367,27 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
       let persisted: { id: string; senderId: string; content: string; createdAt: string } | null = null;
 
       if (finalText) {
-        let safeText = finalText;
-        try {
-          const { data: safety } = await rpc<{ safe?: boolean }>(env, "check_ai_safety", {
-            p_ai_id: persona.id,
-            p_content: finalText,
-          });
-          if (safety && safety.safe === false) {
-            safeText = "I sense this is outside what I can guide on. Let me redirect — what else is on your mind?";
-          }
-        } catch { /* safety RPC missing */ }
+        // Local screen: platform floor + this consultant's banned patterns.
+        // Read from D1 with the persona, so no database round-trip gates the reply.
+        const { text: safeText } = screenReply(finalText, persona);
 
         const assistantId = crypto.randomUUID();
-        const now = new Date().toISOString();
-        try {
-          await env.DB.prepare(
-            `INSERT INTO message (id, conversation_id, sender_id, content, type, created_at) VALUES (?, ?, ?, ?, 'text', ?)`
-          ).bind(assistantId, conversationId, persona.userId, safeText, now).run();
-        } catch (e) {
-          console.error("[chat-handler] D1 insert failed:", e instanceof Error ? e.message : e);
-        }
-
-        // Persist the assistant reply into Supabase so a page refresh shows the
-        // full conversation. Message.senderId has an FK to public."User" — on
-        // deployments where AI consultants don't have shadow auth.users rows
-        // (the 0000_consolidated migration seeds them, but the cleanup has not
-        // always been applied), the insert fails with a 23503 FK violation.
-        // Retry once with senderId=null: the column is nullable and the UI
-        // treats any message whose senderId differs from the human user's id
-        // as the AI's reply, so a null sender renders on the correct side.
-        const supaInsert = await insertRow(env, "Message", {
+        // D1 stores `datetime('now')` as "YYYY-MM-DD HH:MM:SS"; the user turn
+        // above uses that default. An ISO 'T'-separated stamp would sort ahead
+        // of same-second rows lexicographically and reorder the transcript.
+        const stamp = sqliteNow();
+        await insertMessage(env, {
           id: assistantId,
           conversationId,
           senderId: persona.userId,
           content: safeText,
           type: "text",
-          createdAt: now,
+          createdAt: stamp,
         });
-        if (supaInsert.error) {
-          console.warn("[chat-handler] Supabase Message insert failed (persona sender):", supaInsert.error.message);
-          const retry = await insertRow(env, "Message", {
-            id: assistantId,
-            conversationId,
-            senderId: null,
-            content: safeText,
-            type: "text",
-            metadata: { ai_consultant_id: persona.id, ai_consultant_name: persona.name },
-            createdAt: now,
-          });
-          if (retry.error) {
-            console.error("[chat-handler] Supabase Message retry insert failed:", retry.error.message);
-          } else {
-            persisted = { id: assistantId, senderId: persona.userId, content: safeText, createdAt: now };
-          }
-        } else {
-          persisted = { id: assistantId, senderId: persona.userId, content: safeText, createdAt: now };
-        }
+        await touchConversation(env, conversationId, safeText);
+        persisted = { id: assistantId, senderId: persona.userId, content: safeText, createdAt: isoOf(stamp) };
+
+        void publishToRoom(env, conversationId, { type: "message", message: { ...persisted, conversationId } });
       }
 
       const suggestionLocale = pickSuggestionLocale(trimmed);
@@ -420,19 +409,6 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
   });
 
   return { stream, userMessageId: userMsgId };
-}
-
-async function rpcQuery(env: Env, table: string, params: Record<string, string>) {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`${env.SUPABASE_URL}/rest/v1/${table}?${qs}`, {
-    headers: {
-      apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
-    },
-  });
-  if (!res.ok) return { data: null };
-  const data = await res.json();
-  return { data };
 }
 
 // ─── Refusal-shape detector ───────────────────────────────────────────────────

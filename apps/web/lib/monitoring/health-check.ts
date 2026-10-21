@@ -129,8 +129,8 @@ async function checkAIEngine(): Promise<HealthCheck> {
       providers?: Record<string, unknown>;
     } | null;
 
-    // Shape from the worker: { providers: { groq: true, cloudflareAi: true,
-    // agnes: false, keylessFallbacks: ["pollinations", ...] } }. The keyless
+    // Shape from the worker: { providers: { cloudflareAi: true, groqPro: true,
+    // zhipu: false, keylessFallbacks: ["pollinations", ...] } }. The keyless
     // list is an array, so the `=== true` filter below skips it.
     const ready = Object.entries(body?.providers ?? {})
       .filter(([, v]) => v === true)

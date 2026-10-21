@@ -18,6 +18,9 @@ import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 
 interface Props {
   consultantId: string;
+  // Presence arrives keyed by the consultant's auth user id (the trigger is on
+  // "User"), which is not Consultant.id — the two are not interchangeable here.
+  userId: string;
   consultantName: string;
   perMinuteRate: number;
   isOnline: boolean;
@@ -26,6 +29,7 @@ interface Props {
 
 export function ProfileActions({
   consultantId,
+  userId,
   consultantName,
   perMinuteRate,
   isOnline: initialOnline,
@@ -59,15 +63,20 @@ export function ProfileActions({
         const payload = p as unknown as {
           consultantId?: string;
           is_online?: boolean;
-          record?: { userId?: string; is_online?: boolean };
+          record?: { consultantId?: string; userId?: string; is_online?: boolean };
         };
-        const id = payload.consultantId ?? payload.record?.userId;
+        // DB trigger publishes wrap the body in `record`; route handlers publish
+        // it flat. Both shapes carry the consultant's user id.
+        const id =
+          payload.consultantId ??
+          payload.record?.consultantId ??
+          payload.record?.userId;
         const status = payload.is_online ?? payload.record?.is_online;
-        if (id === consultantId && typeof status === "boolean") {
+        if (id === userId && typeof status === "boolean") {
           setOnline(status || isAI);
         }
       },
-      [consultantId, isAI],
+      [userId, isAI],
     ),
   });
 

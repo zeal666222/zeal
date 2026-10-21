@@ -224,6 +224,7 @@ export default async function ConsultantProfilePage({ params }: PageProps) {
         {/* CTAs — ProfileActions owns the wallet gate + realtime presence */}
         <ProfileActions
           consultantId={profileRow.id}
+          userId={profileRow.userId}
           consultantName={displayName}
           perMinuteRate={profileRow.perMinuteRate}
           isOnline={Boolean(user.is_online)}

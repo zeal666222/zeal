@@ -22,12 +22,19 @@ binding = "AI"
 
 [durable_objects]
 bindings = [
-  { name = "CHAT_GATE", class_name = "ChatGate" }
+  { name = "CHAT_GATE", class_name = "ChatGate" },
+  { name = "CHAT_ROOM", class_name = "ChatRoom" }
 ]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["ChatGate"]
+
+# ChatRoom must be registered under a fresh tag — Cloudflare rejects reusing a
+# applied tag, and a namespace created as KV-backed gets the account flagged.
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["ChatRoom"]
 
 [observability]
 enabled = true

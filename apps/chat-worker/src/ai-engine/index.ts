@@ -24,21 +24,14 @@ function buildProviders(env: Env): Record<ProviderName, ProviderDef> {
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: () => env.GROQ_API_KEY,
       model: "llama-3.3-70b-versatile",
-      maxConcurrent: 50, rpm: 30, tpm: 14_000, weight: 100,
+      maxConcurrent: 50, rpm: 30, tpm: 14_000, weight: 85,
     },
     groqFast: {
       name: "groqFast", label: "Groq 8B",
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: () => env.GROQ_API_KEY,
       model: "llama-3.1-8b-instant",
-      maxConcurrent: 60, rpm: 30, tpm: 6_000, weight: 80,
-    },
-    agnes: {
-      name: "agnes", label: "Agnes 2.5 Flash",
-      url: "https://apihub.agnes-ai.com/v1/chat/completions",
-      key: () => env.AGNES_API_KEY,
-      model: "agnes-2.5-flash",
-      maxConcurrent: 15, rpm: 30, tpm: 32_000, weight: 70,
+      maxConcurrent: 60, rpm: 30, tpm: 6_000, weight: 65,
     },
     zhipu: {
       name: "zhipu", label: "Zhipu GLM",
@@ -137,8 +130,13 @@ function buildProviders(env: Env): Record<ProviderName, ProviderDef> {
   return map;
 }
 
+// Cloudflare first, always. `cfBinding` is the free Workers AI binding (no key,
+// no egress), `cloudflareAi` is the same models over the REST API with
+// CF_AI_TOKEN. Groq/Zhipu sit behind them as capacity overflow, the keyless pool
+// behind that, and the local oracle last. Weights encode that order because
+// healthWeightedChain re-sorts per request by circuit-breaker health.
 const FALLBACK_CHAIN: ProviderName[] = [
-  "cfBinding", "groqPro", "cloudflareAi", "agnes", "groqFast", "zhipu",
+  "cfBinding", "cloudflareAi", "groqPro", "groqFast", "zhipu",
   "pollinations", "ovh", "kilo", "llm7", "duckduckgo", "freegpt",
 ];
 

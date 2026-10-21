@@ -21,7 +21,7 @@ export async function DELETE(
     .from("AdminAPIKey")
     .select("id, name")
     .eq("id", id)
-    .eq("adminId", userId)
+    .eq("createdBy", userId)
     .maybeSingle();
 
   if (fetchErr || !key) {

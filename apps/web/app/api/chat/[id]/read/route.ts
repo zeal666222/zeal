@@ -2,6 +2,7 @@
 // Marks the conversation as read for the current user
 import { NextResponse } from "next/server";
 import {createServerClientFromCookies} from "@zeal/database/server";
+import { isAiConversationId } from "@/lib/chat/worker";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params;
+
+  // AI rooms live in the worker's D1 and have exactly one human participant, so
+  // there is no unread state to record — and the Supabase update below would
+  // fail on the uuid cast alone.
+  if (isAiConversationId(conversationId)) {
+    return NextResponse.json({ success: true });
+  }
+
   const supabase = await createServerClientFromCookies();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {

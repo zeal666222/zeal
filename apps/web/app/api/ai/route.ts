@@ -8,9 +8,9 @@
 //   search | horoscope | tarot | numerology | chat | assist | concierge
 //
 // Concierge (Phase 2) — reads search_consultants MV + AIConsultant table,
-// asks Agnes (fallback Groq) to pick ONE category + 2-3 consultants, returns
-// structured JSON with hydrated consultant rows so the UI can render cards
-// without a second fetch.
+// asks the engine (Cloudflare Workers AI first) to pick ONE category + 2-3
+// consultants, returns structured JSON with hydrated consultant rows so the UI
+// can render cards without a second fetch.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
@@ -442,7 +442,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
       "6. Raw JSON only — no markdown fences, no commentary.",
     ].join("\n");
 
-    // 5. Call Agnes (fallback Groq) via unified engine
+    // 5. Call the engine (Cloudflare Workers AI first, then the rest of the chain)
     const raw = await callAIJson({
       messages: [
         {
@@ -454,7 +454,7 @@ const HANDLERS: Record<TaskName, (ctx: TaskCtx) => Promise<unknown>> = {
       ],
       temperature: 0.7,
       maxTokens: 600,
-      preferProvider: "agnes",
+      preferProvider: "cloudflareAi",
     });
 
     // 6. Parse (defensive)

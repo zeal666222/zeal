@@ -2,13 +2,14 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // SlotPicker — realtime availability
 // ─────────────────────────────────────────────────────────────────────────────
-// • Subscribe to booking:{consultantId}:slots for live slot changes.
+// • Subscribe to slots:{consultantId} — published whenever a Booking row for
+//   this consultant changes.
 // • Grouped by Morning / Afternoon / Evening.
 // • Local timezone rendering with server ISO.
 // • Skeleton loaders + empty states.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Clock, Loader2, Sun, Sunrise, Sunset } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
@@ -51,6 +52,7 @@ export function SlotPicker({
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dateStr = useMemo(() => date.toISOString().slice(0, 10), [date]);
 
@@ -75,17 +77,19 @@ export function SlotPicker({
 
   useEffect(() => { void load(); }, [load]);
 
-  // Realtime slot updates
-  useChannel<BroadcastChange<{ slot?: string; available?: boolean }>>({
-    channel: channels.bookingSlots(consultantId),
+  useEffect(() => () => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current);
+  }, []);
+
+  // Someone else can take this slot while the picker is open. Availability is
+  // derived from Booking rows, so the event says "recompute", not "flip one
+  // slot" — and a booking write can arrive as an INSERT plus UPDATEs in a burst.
+  useChannel<BroadcastChange<{ consultantId?: string }>>({
+    channel: channels.slotAvailability(consultantId),
     event: "*",
-    onMessage: (p) => {
-      const slot = p?.record?.slot;
-      const available = p?.record?.available;
-      if (typeof slot !== "string" || typeof available !== "boolean") return;
-      setSlots((prev) => prev.map((s) =>
-        s.start === slot ? { ...s, available } : s,
-      ));
+    onMessage: () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => { void load(); }, 400);
     },
   });
 

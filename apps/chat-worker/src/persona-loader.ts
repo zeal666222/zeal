@@ -1,4 +1,5 @@
 import type { Env } from "./env";
+import type { SeekerProfileRow } from "./seeker-profile";
 import { PersonaEngine } from "./persona-engine";
 
 export interface ConsultantRow {
@@ -48,8 +49,8 @@ function parseJsonArray(raw: string | null): string[] {
   }
 }
 
-/** Kundali-grounded seeker context forwarded by the web proxy on every turn. */
-export interface AstroContext {
+/** Kundali-grounded seeker context, read from D1 under the caller's user id. */
+export interface SeekerContext {
   name?: string;
   dob?: string;
   tob?: string;
@@ -60,7 +61,7 @@ export interface AstroContext {
 
 type MissingField = "name" | "dob" | "tob" | "pob" | "concern";
 
-function seekerContextFrom(astro?: AstroContext) {
+function seekerContextFrom(astro?: SeekerContext | null) {
   if (!astro) return undefined;
   const sc: NonNullable<Parameters<typeof PersonaEngine.build>[0]["seekerContext"]> = {};
   if (astro.name) sc.name = astro.name;
@@ -72,7 +73,7 @@ function seekerContextFrom(astro?: AstroContext) {
   return Object.keys(sc).length > 0 ? sc : undefined;
 }
 
-function missingFieldsFrom(astro?: AstroContext): MissingField[] {
+function missingFieldsFrom(astro?: SeekerContext | null): MissingField[] {
   if (!astro) return ["name", "dob", "tob", "pob", "concern"];
   const missing: MissingField[] = [];
   if (!astro.name) missing.push("name");
@@ -85,10 +86,28 @@ function missingFieldsFrom(astro?: AstroContext): MissingField[] {
   return missing;
 }
 
+/**
+ * The seeker context a turn is grounded in. Callers must build this from the
+ * authenticated user's stored profile — never from the request body, which is
+ * how one seeker's birth details ended up in another seeker's reading.
+ */
+export function seekerContextFor(row: SeekerProfileRow | null): SeekerContext | undefined {
+  if (!row) return undefined;
+  const ctx: SeekerContext = {
+    name: row.name ?? undefined,
+    dob: row.dob ?? undefined,
+    tob: row.tob ?? undefined,
+    pob: row.pob ?? undefined,
+    concern: row.concern ?? undefined,
+    chartSummary: row.chart_summary ?? null,
+  };
+  return Object.values(ctx).some((v) => v) ? ctx : undefined;
+}
+
 export async function loadPersona(
   env: Env,
   consultantId: string,
-  astro?: AstroContext,
+  seeker?: SeekerContext | null,
 ): Promise<PersonaContext | null> {
   const row = await env.DB.prepare(
     `SELECT id, name, category, bio, specialties, languages, persona,
@@ -131,8 +150,8 @@ export async function loadPersona(
       systemPrompt: row.system_prompt,
       location: row.location,
       country: row.country,
-      seekerContext: seekerContextFrom(astro),
-      missingFields: missingFieldsFrom(astro),
+      seekerContext: seekerContextFrom(seeker),
+      missingFields: missingFieldsFrom(seeker),
     });
   } catch (e) {
     console.error("[persona-loader] PersonaEngine.build failed:", e);

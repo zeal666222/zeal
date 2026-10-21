@@ -2,9 +2,15 @@
 // apps/web/app/api/chat/[id]/messages/route.ts
 // GET  → paginated messages
 // POST → insert + best-effort auto_start_chat_billing
+//
+// `ai-` rooms are Cloudflare worker rooms: their transcript lives in D1 and the
+// human turn is written by the worker as part of the SSE stream, so this route
+// only reads from the worker for them and refuses writes.
 import { NextResponse } from "next/server";
 import { createServerClientFromCookies } from "@zeal/database/server";
 import { serverPublish } from "@/lib/realtime/server";
+import { resolveWorkerAuth } from "@/lib/auth/access-token";
+import { isAiConversationId, readMessages } from "@/lib/chat/worker";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,6 +25,25 @@ export async function GET(
     Math.max(parseInt(url.searchParams.get("limit") || "50", 10), 1),
     200,
   );
+
+  if (isAiConversationId(conversationId)) {
+    const auth = await resolveWorkerAuth();
+    if (!auth.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!auth.accessToken) {
+      return NextResponse.json(
+        { error: "Session is warming up — please try again in a moment." },
+        { status: 503 },
+      );
+    }
+    try {
+      const { messages } = await readMessages(auth.accessToken, conversationId, limit);
+      return NextResponse.json({ messages });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load";
+      console.error("[chat/messages] worker history failed:", message);
+      return NextResponse.json({ error: message }, { status: 502 });
+    }
+  }
 
   const supabase = await createServerClientFromCookies();
   const {
@@ -53,6 +78,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: conversationId } = await params;
+
+  if (isAiConversationId(conversationId)) {
+    return NextResponse.json(
+      { error: "AI transcripts are written by the chat worker — send through /api/chat/ai instead." },
+      { status: 405 },
+    );
+  }
+
   const supabase = await createServerClientFromCookies();
   const {
     data: { user },

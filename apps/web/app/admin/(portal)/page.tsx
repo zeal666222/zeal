@@ -17,9 +17,12 @@ export default async function AdminLandingPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/admin/login");
 
+  // "User" has no wallet_balance column, and a select that names a missing
+  // column errors out entirely — profile came back null, every admin fell to
+  // the USER branch, and /admin rendered "not authorized" instead of routing.
   const { data: profile } = await supabase
     .from("User")
-    .select("name, role, wallet_balance")
+    .select("role")
     .eq("id", user.id)
     .maybeSingle();
 

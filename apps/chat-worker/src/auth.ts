@@ -119,3 +119,78 @@ export function extractBearer(req: Request): string | null {
   if (auth?.startsWith("Bearer ")) return auth.slice(7);
   return null;
 }
+
+// ─── WebSocket room tickets ──────────────────────────────────────────────────
+// A room's sockets are owned by a Durable Object, which cannot re-check the
+// caller's Authorization header per message. So the fetch handler verifies the
+// JWT once, mints a 30-second ticket binding {sub, conversationId}, and the DO
+// redeems it before accepting the socket. A ticket for one room therefore
+// cannot open another.
+//
+// The HMAC key is derived from SUPABASE_JWT_SECRET with a domain separator
+// rather than reusing the signing key directly, so a leaked ticket key can't
+// forge access tokens. No new secret for the operator to provision.
+
+const TICKET_TTL_S = 30;
+
+async function ticketKey(env: Env): Promise<CryptoKey | null> {
+  if (!env.SUPABASE_JWT_SECRET) return null;
+  const material = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(env.SUPABASE_JWT_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const derived = await crypto.subtle.sign("HMAC", material, new TextEncoder().encode("zeal-chat-room-ticket-v1"));
+  return crypto.subtle.importKey("raw", derived, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+}
+
+function b64url(buf: ArrayBuffer): string {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return out === 0;
+}
+
+async function sign(env: Env, payload: string): Promise<string | null> {
+  const key = await ticketKey(env);
+  if (!key) return null;
+  return b64url(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload)));
+}
+
+export interface RoomTicket {
+  sub: string;
+  conversationId: string;
+  exp: number;
+}
+
+export async function mintRoomTicket(env: Env, sub: string, conversationId: string): Promise<string | null> {
+  const exp = Math.floor(Date.now() / 1000) + TICKET_TTL_S;
+  const payload = `${sub}|${conversationId}|${exp}`;
+  const sig = await sign(env, payload);
+  if (!sig) return null;
+  return `${btoa(payload)}.${sig}`;
+}
+
+export async function verifyRoomTicket(env: Env, ticket: string): Promise<RoomTicket | null> {
+  const dot = ticket.lastIndexOf(".");
+  if (dot < 0) return null;
+  try {
+    const payload = atob(ticket.slice(0, dot));
+    const expected = await sign(env, payload);
+    if (!expected || !timingSafeEqual(ticket.slice(dot + 1), expected)) return null;
+    const [sub, conversationId, expStr] = payload.split("|");
+    const exp = Number(expStr);
+    if (!sub || !conversationId || !Number.isFinite(exp)) return null;
+    if (Date.now() / 1000 > exp) return null;
+    return { sub, conversationId, exp };
+  } catch {
+    return null;
+  }
+}

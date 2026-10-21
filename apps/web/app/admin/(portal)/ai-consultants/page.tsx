@@ -59,21 +59,14 @@ export default function AdminAiConsultantsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  useChannel<BroadcastChange<AiConsultant>>({
+  // The public topic carries the card fields only — persona and systemPrompt are
+  // never broadcast, because anon can read that channel. The admin list needs
+  // the full row, so this refetches through the admin API instead of splicing
+  // the broadcast record into state.
+  useChannel<BroadcastChange>({
     channel: channels.consultantAiUpdates(),
     event: "*",
-    onMessage: (payload) => {
-      const type = payload?.type;
-      const record = payload?.record;
-      const old = payload?.old_record;
-      if (type === "INSERT" && record) {
-        setItems((prev) => prev.some((x) => x.id === record.id) ? prev : [record, ...prev]);
-      } else if (type === "UPDATE" && record) {
-        setItems((prev) => prev.map((x) => x.id === record.id ? record : x));
-      } else if (type === "DELETE" && old?.id) {
-        setItems((prev) => prev.filter((x) => x.id !== old.id));
-      }
-    },
+    onMessage: () => { void load(); },
   });
 
   const startCreate = () => {

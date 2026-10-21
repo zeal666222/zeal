@@ -3,12 +3,12 @@
 // CategoryGridRealtime — bubble cards with realtime counts
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { useCallback, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Sparkles } from "lucide-react";
-import { useChannel } from "@zeal/realtime";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { fadeUp, staggerContainer } from "@zeal/ui/motion";
 
 interface CategoryCard {
@@ -39,10 +39,21 @@ export function CategoryGridRealtime({ initial }: { initial: CategoryCard[] }) {
     refetchInterval: 30_000,
   });
 
-  useChannel<{ at?: string }>({
-    channel: "directory:counts",
+  // The count triggers publish an invalidation signal, not the new numbers, and
+  // one admin edit can fan out to several Consultant/ConsultantService rows —
+  // so coalesce the burst into a single refetch.
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (reloadTimer.current) clearTimeout(reloadTimer.current);
+  }, []);
+
+  useChannel<BroadcastChange<{ at?: string }>>({
+    channel: channels.directoryCounts(),
     event: "*",
-    onMessage: useCallback(() => { void refetch(); }, [refetch]),
+    onMessage: () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => { void refetch(); }, 400);
+    },
   });
 
   return (

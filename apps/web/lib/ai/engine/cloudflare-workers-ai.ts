@@ -4,8 +4,8 @@
 // FREE TIER ONLY. Cloudflare Workers AI ships a generous no-cost allowance
 // (~10,000 neurons/day on the Free plan) and is a natural fit for a SaaS that
 // already lives on the Cloudflare edge. It is a *keyed* provider (needs a CF
-// API token), so in the fallback chain it sits with the other keyed providers
-// (groq → agnes → zhipu → cloudflareAi) and ahead of the keyless free pool.
+// API token), so it leads the fallback chain ahead of the keyed Groq/Zhipu
+// pair and the keyless free pool.
 //
 // Two REST surfaces exist:
 //   1. OpenAI-COMPATIBLE  →  /accounts/{id}/ai/v1/chat/completions

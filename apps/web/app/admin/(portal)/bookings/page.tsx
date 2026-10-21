@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Badge, Card, CardContent, Button } from "@zeal/ui";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { toast } from "@/components/ui/toaster";
 import {
   Calendar, Check, ChevronLeft, ChevronRight, Loader2, RefreshCw, X,
@@ -71,6 +72,15 @@ export default function AdminBookingsPage() {
       void qc.invalidateQueries({ queryKey: ["admin", "bookings"] });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  // trg_fn_booking_broadcast publishes admin:bookings on every Booking write, so
+  // a seeker paying or a consultant accepting lands here immediately. The 20s
+  // poll stays as the fallback for the window between reconnects.
+  useChannel<BroadcastChange>({
+    channel: channels.adminBookings(),
+    event: "*",
+    onMessage: () => { void qc.invalidateQueries({ queryKey: ["admin", "bookings"] }); },
   });
 
   const bookings = data?.items ?? [];

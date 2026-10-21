@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Flame } from "lucide-react";
-import { useChannel } from "@zeal/realtime";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 
 interface ProfileSparkCounterProps {
   userId: string;
@@ -14,12 +14,15 @@ export function ProfileSparkCounter({ userId, initialSparks }: ProfileSparkCount
   const [sparks, setSparks] = useState(initialSparks);
   const [delta, setDelta] = useState<number | null>(null);
 
-  useChannel<{ sparks?: number; delta?: number }>({
-    channel: `user:${userId}:sparks`,
+  // trg_broadcast_user_sparks wraps the trigger payload in `record` (the shape
+  // safe_broadcast has always emitted), so reading the top level found nothing.
+  useChannel<BroadcastChange<{ sparks?: number; delta?: number }>>({
+    channel: channels.userSparks(userId),
     onMessage: (payload) => {
-      if (typeof payload.sparks === "number") setSparks(payload.sparks);
-      if (typeof payload.delta === "number" && payload.delta !== 0) {
-        setDelta(payload.delta);
+      const rec = payload?.record;
+      if (typeof rec?.sparks === "number") setSparks(rec.sparks);
+      if (typeof rec?.delta === "number" && rec.delta !== 0) {
+        setDelta(rec.delta);
         setTimeout(() => setDelta(null), 3000);
       }
     },

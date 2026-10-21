@@ -38,7 +38,6 @@ const CreateSchema = z.object({
   specialties: z.array(z.string()).max(20).default([]),
   languages: z.array(z.string()).max(20).default(["English"]),
   location: z.string().max(80).optional().nullable(),
-  country: z.string().max(80).optional().nullable(),
 });
 
 export const POST = withErrorHandler(async (req: Request) => {
@@ -63,6 +62,9 @@ export const POST = withErrorHandler(async (req: Request) => {
   const userRow = await safeQuery<{ id: string }>(
     admin.from("User").insert({
       email: `${username}@ai.zeal.local`, username, name: data.name, avatar: data.avatar,
+      // The AI consultant's city lives on the shadow "User" row — AIConsultant
+      // has no location column, and persona-loader reads it from here.
+      location: data.location ?? null,
       role: "AI", isVerified: true, is_online: true,
     }).select("id").single(),
     "admin.ai-consultants.create-user",
@@ -85,7 +87,6 @@ export const POST = withErrorHandler(async (req: Request) => {
       category: data.category, bio: data.bio, persona: data.persona ?? null,
       systemPrompt: data.systemPrompt, isPaid: data.isPaid, perMinuteRate: data.perMinuteRate,
       isFeatured: data.isFeatured, specialties: data.specialties, languages: data.languages,
-      location: data.location ?? null, country: data.country ?? null,
       model: "groq", responseTime: 200, accuracy: 0.95, isActive: true,
     }).select("*").single(),
     "admin.ai-consultants.create-ai",

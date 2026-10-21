@@ -47,7 +47,6 @@ interface AIConsultantRow {
   rating: number;
   isPaid: boolean | null;
   perMinuteRate: number | null;
-  sparkScore: number | null;
   specialties: string[] | null;
   languages: string[] | null;
 }
@@ -94,7 +93,7 @@ export default async function ServicePage({ params }: PageProps) {
   // Fetch AI consultants matching this category
   const { data: aiRaw } = await admin
     .from("AIConsultant")
-    .select('id, name, username, avatar, category, bio, rating, "isPaid", "perMinuteRate", "sparkScore", specialties, languages')
+    .select('id, name, username, avatar, category, bio, rating, "isPaid", "perMinuteRate", specialties, languages')
     .eq("isActive", true)
     .ilike("category", `%${def.category}%`)
     .limit(10);

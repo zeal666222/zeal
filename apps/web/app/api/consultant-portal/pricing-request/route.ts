@@ -24,7 +24,7 @@ export async function GET() {
     .select('id, "perMinuteRate", "chatRate", "audioRate", "videoRate", "physicalRate"')
     .eq("userId", userId)
     .maybeSingle();
-  if (!consultant) return NextResponse.json({ requests: [], currentRates: null });
+  if (!consultant) return NextResponse.json({ requests: [], currentRates: null, ownerId: userId });
 
   const { data } = await admin
     .from("PricingChangeRequest")
@@ -35,6 +35,9 @@ export async function GET() {
 
   return NextResponse.json({
     requests: data ?? [],
+    // The page subscribes to user:<ownerId>:pricing to hear the admin's decision;
+    // the client cannot derive that id from the request rows alone.
+    ownerId: userId,
     // The form must open on the rates the consultant actually charges, not on
     // numbers hard-coded in the page.
     currentRates: {

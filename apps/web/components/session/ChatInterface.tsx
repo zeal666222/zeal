@@ -12,6 +12,8 @@ import { useChat, type BillingInfo, type ChatMessage, type StageEvent, type Sugg
 import { useTyping } from "@/hooks/useTyping";
 import { BillingPanel } from "./BillingPanel";
 import { WalletGateDialog, type WalletGateInfo } from "@/components/billing/WalletGateDialog";
+import { BirthIntakeModal } from "@/components/chat/BirthIntakeModal";
+import { useRoomIntake } from "@/lib/chat/use-room-intake";
 import { cn, BrandLoader, PendingDot, StreamingIndicator } from "@zeal/ui";
 
 interface Props {
@@ -122,6 +124,9 @@ export function ChatInterface({
     partnerAvatar,
     isAI,
   });
+  // What this consultant already knows about the seeker's birth chart — and the
+  // form that fills the gaps before the first reading is spoken.
+  const intake = useRoomIntake(isAI);
   const { typingUsers, setTyping } = useTyping(conversationId, currentUserId);
 
   const [input, setInput] = useState("");
@@ -210,6 +215,7 @@ export function ChatInterface({
       },
       onStageDone: () => setStreamingStage(null),
       onSuggestions: (s) => setSuggestions(s),
+      onProfileUpdated: intake.applyProfileUpdate,
     }, 0, isOpener);
     setStreamingText(null);
     setFillerText(null);
@@ -218,8 +224,11 @@ export function ChatInterface({
 
   // Auto-opener: when an AI conversation has no messages yet, let the
   // consultant speak first with a reading grounded in the seeker's kundali.
+  // It waits for the intake read (and for the form, if one is up) so the first
+  // words are either chart-grounded or an honest ask — never a greeting built
+  // on a half-known chart.
   useEffect(() => {
-    if (!isAI || isLoading || openerFiredRef.current) return;
+    if (!isAI || isLoading || !intake.ready || intake.open || openerFiredRef.current) return;
     if (messages.length > 0 || inFlightRef.current || isSending) return;
     openerFiredRef.current = true;
     inFlightRef.current = true;
@@ -233,7 +242,7 @@ export function ChatInterface({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAI, isLoading, messages.length]);
+  }, [isAI, isLoading, messages.length, intake.ready, intake.open]);
 
   /** Deliver an already-composed message (text may include uploaded-file markdown). */
   const deliver = async (messageText: string, restoreText: string) => {
@@ -747,6 +756,19 @@ export function ChatInterface({
         info={walletGate}
         resume={false}
       />
+
+      {isAI && intake.open && (
+        <BirthIntakeModal
+          open
+          onOpenChange={(open) => { if (!open) intake.dismiss(); }}
+          consultantName={partnerName}
+          existingProfile={intake.prefill}
+          onSubmit={intake.submit}
+          isLoading={intake.saving}
+          error={intake.error}
+          actionLabel="Save and begin reading"
+        />
+      )}
     </div>
   );
 }

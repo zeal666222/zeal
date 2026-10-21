@@ -2,6 +2,7 @@
 import { toast } from "@/components/ui/toaster";
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { Loader2, Send, Tag } from "lucide-react";
 
 interface Request {
@@ -26,13 +27,26 @@ export default function ConsultantPricingPage() {
   });
   const [reason, setReason] = useState("");
 
-  const { data } = useQuery<{ requests: Request[]; currentRates: Record<string, number> | null }>({
+  const { data } = useQuery<{
+    requests: Request[];
+    currentRates: Record<string, number> | null;
+    ownerId?: string;
+  }>({
     queryKey: ["consultant", "pricing-requests"],
     queryFn: async () => {
       const res = await fetch("/api/consultant-portal/pricing-request", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
+  });
+
+  // approve_pricing_change / reject_pricing_change publish on the filing
+  // consultant's own channel, so the decision and the new live rates reach this
+  // form the moment an admin acts — no refresh, no double-filing.
+  useChannel<BroadcastChange>({
+    channel: data?.ownerId ? channels.userPricing(data.ownerId) : null,
+    event: "*",
+    onMessage: () => { void qc.invalidateQueries({ queryKey: ["consultant", "pricing-requests"] }); },
   });
 
   // Open the form on the live rates once they arrive, so "50" is never a guess.

@@ -63,21 +63,14 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.3-70b-versatile",
-    maxConcurrent: 50, rpm: 30, tpm: 14_000, weight: 100,
+    maxConcurrent: 50, rpm: 30, tpm: 14_000, weight: 85,
   },
   groqFast: {
     name: "groqFast", label: "Groq 8B",
     url: "https://api.groq.com/openai/v1/chat/completions",
     key: () => process.env.GROQ_API_KEY,
     model: "llama-3.1-8b-instant",
-    maxConcurrent: 60, rpm: 30, tpm: 6_000, weight: 80,
-  },
-  agnes: {
-    name: "agnes", label: "Agnes 2.5 Flash",
-    url: "https://apihub.agnes-ai.com/v1/chat/completions",
-    key: () => process.env.AGNES_API_KEY,
-    model: "agnes-2.5-flash",
-    maxConcurrent: 15, rpm: 30, tpm: 32_000, weight: 70,
+    maxConcurrent: 60, rpm: 30, tpm: 6_000, weight: 65,
   },
   zhipu: {
     name: "zhipu", label: "Zhipu GLM",
@@ -92,7 +85,7 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
     url: workersAiChatUrl(),
     key: workersAiKey,
     model: CF_AI_MODEL,
-    maxConcurrent: 40, rpm: 30, tpm: 20_000, weight: 90,
+    maxConcurrent: 60, rpm: 30, tpm: 20_000, weight: 100,
     supportsVision: CF_AI_MODEL.includes("vision"),
   },
   ovh: {
@@ -150,7 +143,7 @@ const PROVIDERS: Record<ProviderName, ProviderDef> = {
 };
 
 const FALLBACK_CHAIN: ProviderName[] = [
-  "groqPro", "cloudflareAi", "agnes", "groqFast", "zhipu",
+  "cloudflareAi", "groqPro", "groqFast", "zhipu",
   "pollinations", "ovh", "kilo", "llm7", "duckduckgo", "freegpt",
 ];
 // __ZEAL_ENGINE_BUDGET_V4__ — scaled for 1000+ concurrent users

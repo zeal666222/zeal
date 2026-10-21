@@ -24,7 +24,10 @@ const VALID_SCOPES = [
 const CreateKeySchema = z.object({
   name: z.string().min(1).max(100),
   scopes: z.array(z.enum(VALID_SCOPES)).min(1),
-  expiresAt: z.string().datetime().optional().nullable(),
+  // Days, not an ISO timestamp: the DB function works in days, and converting a
+  // timestamp back to a number here only introduced drift between what the admin
+  // picked and when the key actually dies. null = never expires.
+  expiresDays: z.number().int().min(1).max(3650).nullable().optional(),
 });
 
 // ─── GET: List keys (masked) ─────────────────────────────────────────────────
@@ -36,7 +39,7 @@ export async function GET() {
   const { data: keys, error } = await admin
     .from("AdminAPIKey")
     .select("id, name, scopes, expiresAt, lastUsedAt, createdAt, keyHash")
-    .eq("adminId", userId)
+    .eq("createdBy", userId)
     .order("createdAt", { ascending: false });
 
   if (error) {
@@ -47,7 +50,7 @@ export async function GET() {
   const masked = (keys ?? []).map((k: Record<string, unknown>) => ({
     id: k.id,
     name: k.name,
-    scopes: k.scopes,
+    scopes: (k.scopes as string[]) ?? [],
     expiresAt: k.expiresAt,
     lastUsedAt: k.lastUsedAt,
     createdAt: k.createdAt,
@@ -76,33 +79,48 @@ export async function POST(req: Request) {
     );
   }
 
-  const { name, scopes, expiresAt } = parsed.data;
+  const { name, scopes, expiresDays } = parsed.data;
 
-  // Call the DB function to generate the key (returns plaintext once)
-  const { data: rawKey, error } = await admin.rpc("generate_admin_api_key", {
-    p_admin_id: userId,
+  // Call the DB function to generate the key (returns plaintext once). The RPC
+  // answers with a jsonb envelope — {success, id, key} — not a bare string.
+  // p_admin_id is mandatory: the service-role client has no auth.uid(), so the
+  // acting admin is named here and re-checked against the User table in SQL.
+  const { data: issued, error } = await admin.rpc("generate_admin_api_key", {
     p_name: name,
+    p_admin_id: userId,
     p_scopes: scopes,
-    p_expires_at: expiresAt ?? null,
+    p_expires_days: expiresDays ?? null,
   });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const envelope = (issued ?? {}) as {
+    success?: boolean; error?: string; key?: string; id?: string;
+  };
+  if (!envelope.success || !envelope.key) {
+    return NextResponse.json(
+      { error: envelope.error ?? "Could not issue key" },
+      { status: envelope.error === "forbidden" ? 403 : 500 },
+    );
+  }
+
   await logAdminAction(admin, {
     adminId: userId,
     action: "API_KEY_CREATE",
     targetType: "admin_api_key",
-    metadata: { name, scopes, expiresAt },
+    targetId: envelope.id,
+    metadata: { name, scopes, expiresDays },
   });
 
   return NextResponse.json({
     success: true,
-    key: rawKey,
+    key: envelope.key,
+    id: envelope.id,
     name,
     scopes,
-    expiresAt,
+    expiresDays: expiresDays ?? null,
     message: "Store this key securely. It will not be shown again.",
   });
 }

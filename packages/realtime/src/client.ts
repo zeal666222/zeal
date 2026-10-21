@@ -85,7 +85,21 @@ const PUBLIC_CHANNELS = new Set<string>([
   "system:health",
   // Public post feed — same data as the public /api/posts/feed endpoint.
   "feed:posts",
+  // Category guide counts. Logged-out visitors render the service grid, and the
+  // payload is `{at}` — a refetch signal carrying no identity.
+  "directory:counts",
 ]);
+
+// Prefixes the database publishes with `private => false`
+// (public.safe_broadcast, section 3a of 20261020200000). A topic in this list is
+// joined without the RLS handshake; keeping these two files in step with the
+// realtime_public_channels policy is what decides whether a logged-out visitor
+// receives the message at all.
+const PUBLIC_PREFIXES = ["slots:", "presence:"];
+
+function isPublicChannel(topic: string): boolean {
+  return PUBLIC_CHANNELS.has(topic) || PUBLIC_PREFIXES.some((p) => topic.startsWith(p));
+}
 
 const KNOWN_EVENTS = [
   "INSERT",
@@ -416,7 +430,7 @@ function getOrCreateChannel(topic: string): ChannelEntry | null {
   const existing = channels.get(topic);
   if (existing) return existing;
 
-  const isPublic = PUBLIC_CHANNELS.has(topic);
+  const isPublic = isPublicChannel(topic);
   const channel = sb.channel(topic, {
     config: {
       broadcast: { self: false, ack: false },

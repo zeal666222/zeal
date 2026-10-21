@@ -3,6 +3,7 @@ export interface Env {
   BUCKET: R2Bucket;
   AI: Ai;
   CHAT_GATE: DurableObjectNamespace;
+  CHAT_ROOM: DurableObjectNamespace;
   ENVIRONMENT: string;
   ASTRO_WORKER_URL: string;
 
@@ -13,7 +14,6 @@ export interface Env {
 
   // AI provider keys (secrets)
   GROQ_API_KEY: string;
-  AGNES_API_KEY?: string;
   ZHIPU_API_KEY?: string;
   CF_ACCOUNT_ID: string;
   CF_AI_TOKEN: string;

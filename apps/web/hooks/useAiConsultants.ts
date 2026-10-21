@@ -30,7 +30,6 @@ export interface AiConsultant {
   model: string;
   voiceStyle: string | null;
   location: string | null;
-  country: string | null;
 }
 
 export function useAiConsultants(category?: string) {
@@ -82,7 +81,10 @@ export function useAiConsultants(category?: string) {
           const exists = prev.some((c) => c.id === record.id);
           if (record.isActive && !exists) return [record, ...prev];
           if (!record.isActive && exists) return prev.filter((c) => c.id !== record.id);
-          return prev.map((c) => (c.id === record.id ? record : c));
+          // Merge, never replace: the public broadcast carries the card fields
+          // only, so a wholesale swap would erase the location and any other
+          // value this list joined in from the shadow User row.
+          return prev.map((c) => (c.id === record.id ? { ...c, ...record } : c));
         });
       } else if (type === "DELETE" && old?.id) {
         setConsultants((prev) => prev.filter((c) => c.id !== old.id));

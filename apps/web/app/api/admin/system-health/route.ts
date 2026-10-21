@@ -19,10 +19,12 @@ export const GET = withErrorHandler(async () => {
     admin.from("User").select("id", { count: "exact", head: true }).eq("is_online", true),
     admin.from("CallSession").select("id", { count: "exact", head: true }).in("status", ["CONNECTED", "ACTIVE"]),
     admin.from("Wallet").select("balance, escrow, pendingIn, pendingOut, blocked"),
-    admin.from("AdminAuditLog").select("id, action_name, metadata, created_at")
+    // AdminAuditLog timestamps are camelCase in this schema — `created_at` made
+    // the whole select fail, so the errors panel always rendered empty.
+    admin.from("AdminAuditLog").select("id, action_name, metadata, createdAt")
       .eq("success", false)
-      .gte("created_at", new Date(Date.now() - 86400000).toISOString())
-      .order("created_at", { ascending: false }).limit(10),
+      .gte("createdAt", new Date(Date.now() - 86400000).toISOString())
+      .order("createdAt", { ascending: false }).limit(10),
     admin.from("Wallet").select("userId, balance").lt("balance", 0).limit(20),
     admin.from("AIConsultant").select("id, name, isActive", { count: "exact", head: false }),
     admin.from("Booking").select("id", { count: "exact", head: true })

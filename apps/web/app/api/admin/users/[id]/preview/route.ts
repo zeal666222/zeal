@@ -35,12 +35,14 @@ export async function GET(
     .order("createdAt", { ascending: false })
     .limit(5);
 
-  // Fetch last session (consulting session where user is the client)
+  // Last live session. There is no ConsultingSession table — CallSession is what
+  // the chat/call worker actually writes. durationSeconds → minutes because that
+  // is the unit the impersonation preview renders.
   const { data: lastSessions } = await admin
-    .from("ConsultingSession")
-    .select("id, createdAt, duration")
+    .from("CallSession")
+    .select("id, startTime, durationSeconds")
     .eq("userId", id)
-    .order("createdAt", { ascending: false })
+    .order("startTime", { ascending: false })
     .limit(1);
 
   // Fetch last booking
@@ -64,7 +66,13 @@ export async function GET(
       content: m.content,
       createdAt: m.createdAt,
     })),
-    lastSession: lastSessions?.[0] ?? null,
+    lastSession: lastSessions?.[0]
+      ? {
+          id: lastSessions[0].id,
+          createdAt: lastSessions[0].startTime,
+          duration: Math.round(((lastSessions[0].durationSeconds ?? 0) as number) / 60),
+        }
+      : null,
     lastBooking: lastBookings?.[0] ?? null,
   });
 }

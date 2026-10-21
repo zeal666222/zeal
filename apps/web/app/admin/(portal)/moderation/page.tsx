@@ -8,6 +8,7 @@ import {
   AlertTriangle, Check, Flag, Loader2, Trash2, Filter,
 } from "lucide-react";
 import { useState, useCallback } from "react";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { toast } from "@/components/ui/toaster";
 
 interface FlaggedContent {
@@ -72,6 +73,14 @@ export default function ModerationPage() {
       setSelectedIds(new Set());
       void qc.invalidateQueries({ queryKey: ["admin", "moderation"] });
     },
+  });
+
+  // Same feed as the reports queue: every new ContentReport and every
+  // isFlagged change lands here while the tab is open.
+  useChannel<BroadcastChange>({
+    channel: channels.adminModeration(),
+    event: "*",
+    onMessage: () => { void qc.invalidateQueries({ queryKey: ["admin", "moderation"] }); },
   });
 
   const toggleSelect = useCallback((id: string) => {

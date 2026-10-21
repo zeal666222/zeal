@@ -148,6 +148,10 @@ BEGIN
 
   PERFORM public.safe_broadcast('admin:pricing', 'INSERT', 'PricingChangeRequest',
                                 'public', to_jsonb(v_req), NULL);
+  -- The consultant's own rate page shows the pending request and locks the form
+  -- until it is decided; without their channel only a reload reveals it.
+  PERFORM public.safe_broadcast('user:' || v_caller::text || ':pricing', 'INSERT',
+                                'PricingChangeRequest', 'public', to_jsonb(v_req), NULL);
   RETURN jsonb_build_object('success', true, 'requestId', v_req.id);
 EXCEPTION WHEN OTHERS THEN
   RETURN jsonb_build_object('success', false, 'error', 'internal_error', 'code', SQLSTATE);
@@ -226,6 +230,8 @@ BEGIN
 
   PERFORM public.safe_broadcast('admin:pricing', 'UPDATE', 'PricingChangeRequest',
                                 'public', to_jsonb(v_req), NULL);
+  PERFORM public.safe_broadcast('user:' || v_req."requestedBy"::text || ':pricing', 'UPDATE',
+                                'PricingChangeRequest', 'public', to_jsonb(v_req), NULL);
   RETURN jsonb_build_object('success', true, 'status', v_req.status,
                             'consultantId', v_req."consultantId");
 EXCEPTION WHEN OTHERS THEN
@@ -281,6 +287,8 @@ BEGIN
 
   PERFORM public.safe_broadcast('admin:pricing', 'UPDATE', 'PricingChangeRequest',
                                 'public', to_jsonb(v_req), NULL);
+  PERFORM public.safe_broadcast('user:' || v_req."requestedBy"::text || ':pricing', 'UPDATE',
+                                'PricingChangeRequest', 'public', to_jsonb(v_req), NULL);
   RETURN jsonb_build_object('success', true, 'status', v_req.status);
 EXCEPTION WHEN OTHERS THEN
   RETURN jsonb_build_object('success', false, 'error', 'internal_error', 'code', SQLSTATE);

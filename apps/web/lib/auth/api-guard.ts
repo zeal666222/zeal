@@ -117,16 +117,23 @@ interface APIKeyVerified {
 async function verifyAPIKey(rawKey: string): Promise<APIKeyVerified | null> {
   try {
     const admin = createAdminClient();
+    // p_raw_key, not p_key: prod's parameter name is part of the RPC contract,
+    // and a mismatch is a 404 that reads as "invalid key".
     const { data, error } = await admin.rpc("validate_admin_api_key", {
       p_raw_key: rawKey,
     });
-    if (error || !data || (data as unknown[]).length === 0) return null;
+    if (error || !data) return null;
 
-    const row = (data as unknown[])[0] as Record<string, unknown>;
+    // A jsonb-returning RPC hands back the object itself, not a row array.
+    const row = data as Record<string, unknown>;
+    if (row.valid !== true) return null;
+    const adminId = row.adminId as string | null;
+    if (!adminId) return null;
+
     return {
-      adminId: row.adminId as string,
+      adminId,
       scopes: (row.scopes as string[]) ?? [],
-      keyName: (row.key_name as string) ?? "unknown",
+      keyName: (row.keyName as string) ?? "unknown",
     };
   } catch {
     return null;

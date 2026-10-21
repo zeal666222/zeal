@@ -40,8 +40,11 @@ export async function POST(req: Request) {
 
   try {
     const { serverPublish } = await import("@/lib/realtime/server");
+    // The shape has to be BroadcastChange — every subscriber reads
+    // `payload.record`, so a flat body was silently dropped.
     await serverPublish(`consultant:${user.id}:status`, "status_updated", {
-      consultantId: user.id, is_online: body.is_online,
+      type: "UPDATE", table: "User", schema: "public",
+      record: { consultantId: user.id, is_online: body.is_online },
     });
   } catch { /* best-effort */ }
 

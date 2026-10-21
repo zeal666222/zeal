@@ -20,7 +20,7 @@ interface SystemHealth {
     totalBlocked: number;
     walletCount: number;
   };
-  recentErrors: { action_name: string; created_at: string; metadata: Record<string, unknown> }[];
+  recentErrors: { action_name: string; createdAt: string; metadata: Record<string, unknown> }[];
   negativeBalances: number;
   dbPool: Record<string, unknown>;
   aiConsultants: { total: number; active: number };
@@ -167,7 +167,7 @@ export default function SystemHealthPage() {
             {data.recentErrors.map((err, i) => (
               <div key={i} className="flex items-center gap-3 p-2 rounded-lg bg-rose-500/5 text-xs">
                 <span className="text-muted-foreground font-mono text-[10px] shrink-0">
-                  {new Date(err.created_at).toLocaleTimeString()}
+                  {new Date(err.createdAt).toLocaleTimeString()}
                 </span>
                 <span className="text-rose-300 font-medium">{err.action_name}</span>
               </div>

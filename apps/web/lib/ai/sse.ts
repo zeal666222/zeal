@@ -1,4 +1,4 @@
-// Universal SSE parser for OpenAI-compatible streams (Groq, Agnes, Zhipu).
+// Universal SSE parser for OpenAI-compatible streams (Cloudflare AI, Groq, Zhipu).
 export interface SSECallbacks {
   onDelta: (accumulated: string) => void;
   onDone?: (final: string) => void;

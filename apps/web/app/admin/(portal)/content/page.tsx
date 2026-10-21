@@ -4,6 +4,7 @@ import {useMutation, useQuery, useQueryClient} from "@tanstack/react-query";
 import {useState} from "react";
 import {motion} from "framer-motion";
 import { ConfirmDialog } from "@zeal/ui";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { toast } from "@/components/ui/toaster";
 import { Check, ExternalLink, Eye, Flag, Loader2, X } from "lucide-react";
 
@@ -50,6 +51,15 @@ export default function AdminContentPage() {
       toast({ title: action === "delete" ? "Post deleted" : "Report dismissed", variant: "success" });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  // ContentReport writes and Post.isFlagged flips both publish admin:moderation,
+  // so a new report appears in the queue without a reload — and a second admin
+  // dismissing it removes the row from here before this tab acts on it.
+  useChannel<BroadcastChange>({
+    channel: channels.adminModeration(),
+    event: "*",
+    onMessage: () => { void qc.invalidateQueries({ queryKey: ["admin", "content"] }); },
   });
 
   const items = data?.items ?? [];

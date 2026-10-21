@@ -58,14 +58,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const admin = getSupabaseAdmin();
   if (admin) {
-    const { data: consultants } = await admin
-      .from("User")
-      .select("id, username, updatedAt")
-      .eq("role", "consultant")
-      .eq("isArchived", false);
+    // Human consultant pages. "User" has no isArchived column and no
+    // "consultant" role value — the role column carries USER / CLIENT_ADMIN /
+    // AI — so this used to error out and quietly contribute zero profile URLs.
+    // Verified consultants are found through the Consultant table instead.
+    const { data: verified } = await admin
+      .from("Consultant")
+      .select("userId")
+      .eq("status", "VERIFIED")
+      .eq("isActive", true);
+    const consultantIds = [...new Set((verified ?? []).map((c: { userId: string }) => c.userId))];
 
-    if (consultants) {
-      for (const c of consultants) {
+    if (consultantIds.length > 0) {
+      const { data: consultants } = await admin
+        .from("User")
+        .select("id, username, updatedAt")
+        .in("id", consultantIds);
+
+      for (const c of consultants ?? []) {
         const slug = c.username || c.id;
         entries.push({
           url: `${SITE_URL}/u/${slug}`,

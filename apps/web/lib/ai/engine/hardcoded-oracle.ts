@@ -2,8 +2,8 @@
 // ZEAL — Hardcoded Local Oracle (never-empty AI fallback)
 // ─────────────────────────────────────────────────────────────────────────────
 // Last-resort provider in the chain. Produces rich, structured, persona-aware
-// Hinglish/English responses ENTIRELY OFFLINE. When every upstream LLM (Groq,
-// Cloudflare AI, Agnes, Grok, Zhipu, Pollinations, OVH, Kilo, LLM7, DuckDuckGo,
+// Hinglish/English responses ENTIRELY OFFLINE. When every upstream LLM (Cloud-
+// flare AI, Groq, Zhipu, Pollinations, OVH, Kilo, LLM7, DuckDuckGo,
 // FreeGPT) is rate-limited or down, Zeal users still see a fully-formed,
 // on-brand reply within ~1 ms — never "AI is unavailable."
 //

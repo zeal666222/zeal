@@ -33,7 +33,7 @@ export function contentToText(content: string | AIContentPart[]): string {
     .join("\n");
 }
 
-export type ProviderName = "hardcoded" | "agnes" | "groqPro" | "groqFast" | "zhipu" | "ovh" | "kilo" | "llm7" | "duckduckgo" | "freegpt" | "cloudflareAi" | "pollinations";
+export type ProviderName = "hardcoded" | "groqPro" | "groqFast" | "zhipu" | "ovh" | "kilo" | "llm7" | "duckduckgo" | "freegpt" | "cloudflareAi" | "pollinations";
 
 export interface ProviderDef {
   readonly name: ProviderName;

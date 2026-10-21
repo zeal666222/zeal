@@ -39,27 +39,27 @@ export default function APIKeysPage() {
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const { data, isLoading } = useQuery<{ keys: APIKey[] }>({
+  const { data, isLoading, error: loadError } = useQuery<{ keys: APIKey[] }>({
     queryKey: ["admin", "api-keys"],
     queryFn: async () => {
       const res = await fetch("/api/admin/api-keys", { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to load API keys");
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || "Failed to load API keys");
+      }
       return res.json();
     },
   });
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const expiresAt = expiresDays
-        ? new Date(Date.now() + expiresDays * 86400000).toISOString()
-        : null;
       const res = await fetch("/api/admin/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newKeyName,
           scopes: selectedScopes,
-          expiresAt,
+          expiresDays,
         }),
       });
       if (!res.ok) {
@@ -149,6 +149,17 @@ export default function APIKeysPage() {
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+        </div>
+      ) : loadError ? (
+        // An empty list and a failed list look identical otherwise, and the
+        // honest reason here is usually an unapplied schema change.
+        <div className="p-4 border-2 border-rose-500/30 bg-rose-500/5 rounded-2xl text-sm">
+          <p className="font-bold text-rose-400 mb-1">Could not load keys</p>
+          <p className="text-muted-foreground">{(loadError as Error).message}</p>
+          <button onClick={() => qc.invalidateQueries({ queryKey: ["admin", "api-keys"] })}
+            className="mt-3 px-3 py-1.5 rounded-lg bg-surface border border-border text-xs font-bold text-foreground">
+            Retry
+          </button>
         </div>
       ) : keys.length === 0 ? (
         <div className="text-center py-16 border-2 border-dashed border-border rounded-3xl text-muted-foreground">

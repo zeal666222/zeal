@@ -34,7 +34,6 @@ interface AIDetail {
   voiceStyle: string | null;
   isActive: boolean;
   location: string | null;
-  country: string | null;
 }
 
 const CATEGORY_META: Record<string, {from: string; to: string; glow: string; accent: string; ring: string; icon: typeof Sun; label: string; pill: string; pillBorder: string}> = {
@@ -183,9 +182,9 @@ export default function AIAstrologerDetailPage() {
                       <CatIcon size={14} />
                       {theme.label}
                     </span>
-                    {(ai.location || ai.country) && (
+                    {ai.location && (
                       <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-                        <MapPin size={10} /> {[ai.location, ai.country].filter(Boolean).join(", ")}
+                        <MapPin size={10} /> {ai.location}
                       </span>
                     )}
                   </div>

@@ -1133,9 +1133,11 @@ export function HomeClient({
       const pl = p as unknown as {
         consultantId?: string;
         is_online?: boolean;
-        record?: { userId?: string; is_online?: boolean };
+        record?: { consultantId?: string; userId?: string; is_online?: boolean };
       };
-      const id = pl.consultantId ?? pl.record?.userId;
+      // DB trigger publishes wrap the body in `record`; route handlers publish
+      // it flat. Both shapes have to land on the same card.
+      const id = pl.consultantId ?? pl.record?.consultantId ?? pl.record?.userId;
       const st = pl.is_online ?? pl.record?.is_online;
       if (typeof id === "string" && typeof st === "boolean") {
         setExperts((prev) =>

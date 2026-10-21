@@ -51,8 +51,6 @@ interface AIConsultantRow {
   safetyLevel: string | null;
   bannedPatterns: string[] | null;
   isActive: boolean | null;
-  location: string | null;
-  country: string | null;
 }
 
 export async function loadPersona(
@@ -106,14 +104,20 @@ export async function loadPersona(
     }
 
     const admin = createAdminClient();
-    const { data, error } = await admin
-      .from("AIConsultant")
-      .select(
-        'id, name, category, bio, specialties, languages, persona, "systemPrompt", "isPaid", "perMinuteRate", "safetyLevel", "bannedPatterns", "isActive", location, country',
-      )
-      .eq("id", consultantId)
-      .eq("isActive", true)
-      .maybeSingle();
+    const [{ data, error }, cityRow] = await Promise.all([
+      admin
+        .from("AIConsultant")
+        .select(
+          'id, name, category, bio, specialties, languages, persona, "systemPrompt", "isPaid", "perMinuteRate", "safetyLevel", "bannedPatterns", "isActive"',
+        )
+        .eq("id", consultantId)
+        .eq("isActive", true)
+        .maybeSingle(),
+      // AIConsultant has no location column — the persona's city sits on the
+      // "User" row created next to it. Asking for location/country here made the
+      // whole select fail, so every consultant silently lost their persona.
+      admin.from("User").select("location").eq("id", consultantId).maybeSingle(),
+    ]);
 
     if (error) {
       console.error("[persona-loader] DB error loading consultant:", consultantId, error.message, error.details);
@@ -152,8 +156,8 @@ export async function loadPersona(
       languages: row.languages ?? [],
       persona: row.persona,
       systemPrompt: row.systemPrompt,
-      location: row.location,
-      country: row.country,
+      location: cityRow.data?.location ?? null,
+      country: null,
       seekerContext,
       missingFields,
     });

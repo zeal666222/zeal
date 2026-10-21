@@ -3,13 +3,16 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // useChat — Conversation messages with realtime + optimistic sends
 // Liveness sources (merged, deduped by message id):
-//   1. room:{id}:messages broadcast channel (@zeal/realtime)
-//   2. AI SSE stream events (userMessageId / delta / filler / done+message)
-//   3. Background poll (guaranteed fallback if broadcasts are unavailable)
+//   1. room:{id}:messages broadcast channel (@zeal/realtime)  — human rooms
+//   2. the AI room's Cloudflare Durable Object socket         — AI rooms
+//   3. AI SSE stream events (userMessageId / delta / filler / done+message)
+//   4. Background poll (guaranteed fallback when neither socket is live)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {useCallback, useEffect, useRef, useState} from "react";
 import {useChannel, useConnection, channels, type BroadcastChange} from "@zeal/realtime";
+import {isAiConversationId} from "@/lib/chat/conversation-id";
+import {useWorkerRoom} from "@/hooks/use-worker-room";
 
 export interface ChatMessage {
   id: string;
@@ -50,6 +53,13 @@ export interface Suggestion {
   label: string;
   prompt: string;
   icon?: "sparkle" | "chart" | "heart" | "briefcase" | "moon" | "clock";
+}
+
+/** What the worker knows about the seeker after a turn that carried birth data. */
+export interface ProfileUpdate {
+  hasBirthData: boolean;
+  chartStale: boolean;
+  missing: Array<"name" | "dob" | "pob">;
 }
 
 interface MessageRow {
@@ -145,9 +155,12 @@ export function useChat({
     return () => { cancelled = true; };
   }, [conversationId, pageSize, reloadKey]);
 
-  // ─── Realtime broadcast ───────────────────────────────────────────────────
+  // ─── Realtime broadcast (human rooms) ─────────────────────────────────────
+  // Which transport owns this room is decided by the id, not a lookup: the
+  // worker mints AI rooms as `ai-<uuid>`, so Supabase never sees their turns.
+  const aiRoom = isAI && isAiConversationId(conversationId);
   useChannel<BroadcastChange<MessageRow>>({
-    channel: conversationId ? channels.roomMessages(conversationId) : null,
+    channel: conversationId && !aiRoom ? channels.roomMessages(conversationId) : null,
     event: "*",
     onMessage: (payload) => {
       if (payload?.type !== "INSERT") return;
@@ -164,14 +177,36 @@ export function useChat({
     },
   });
 
+  // ─── Cloudflare room socket (AI rooms) ────────────────────────────────────
+  // Supabase realtime cannot carry these: the transcript lives in the worker's
+  // D1, and the worker publishes each persisted turn straight into the room's
+  // Durable Object. Same merge path, so the sender's other tabs stay live too.
+  const { connected: roomLive } = useWorkerRoom({
+    conversationId,
+    enabled: aiRoom,
+    onMessage: (raw) => {
+      const record = raw as MessageRow;
+      if (!record?.id || !record.content) return;
+      mergeIncoming({
+        id: record.id,
+        conversationId: record.conversationId ?? conversationId ?? "",
+        senderId: record.senderId ?? null,
+        content: record.content,
+        type: record.type ?? "text",
+        createdAt: record.createdAt ?? new Date().toISOString(),
+      });
+    },
+  });
+
   // ─── Background poll fallback ─────────────────────────────────────────────
-  // Only polls while the realtime socket is NOT connected — broadcasts are the
+  // Only polls while the room's own socket is NOT connected — broadcasts are the
   // primary transport, the poll is the guaranteed fallback, and an idle 15s
   // fetch per open chat is exactly the waterfall load we avoid when live.
+  // AI rooms have no Supabase channel at all, so they key off the DO socket.
   const connection = useConnection();
   useEffect(() => {
     if (!conversationId || pollMs <= 0) return;
-    if (connection === "connected") return;
+    if (aiRoom ? roomLive : connection === "connected") return;
     let cancelled = false;
     const tick = async () => {
       try {
@@ -186,7 +221,7 @@ export function useChat({
     void tick();
     const id = setInterval(() => { void tick(); }, pollMs);
     return () => { cancelled = true; clearInterval(id); };
-  }, [conversationId, pageSize, pollMs, mergeIncoming, connection]);
+  }, [conversationId, pageSize, pollMs, mergeIncoming, connection, aiRoom, roomLive]);
 
   // ─── send (user-to-user) ──────────────────────────────────────────────────
   const send = useCallback(
@@ -261,6 +296,9 @@ export function useChat({
     onStage?: (stage: StageEvent) => void;
     onStageDone?: () => void;
     onSuggestions?: (suggestions: Suggestion[]) => void;
+    /** The turn contained birth details the worker just saved to this seeker's
+     *  profile — the intake form can retire itself. */
+    onProfileUpdated?: (update: ProfileUpdate) => void;
   }
 
   // Typewriter pacing: burst provider chunks (Groq/CF AI can drop a whole
@@ -279,6 +317,7 @@ export function useChat({
       const onStage = typeof handlers === "function" ? undefined : handlers.onStage;
       const onStageDone = typeof handlers === "function" ? undefined : handlers.onStageDone;
       const onSuggestions = typeof handlers === "function" ? undefined : handlers.onSuggestions;
+      const onProfileUpdated = typeof handlers === "function" ? undefined : handlers.onProfileUpdated;
 
       const trimmed = content.trim();
       if ((!trimmed && !isOpener) || !conversationId || !consultantId) return;
@@ -390,6 +429,7 @@ export function useChat({
                   fullText?: string;
                   truncated?: boolean;
                   suggestions?: Suggestion[];
+                  profileUpdated?: ProfileUpdate;
                 };
                 if (parsed.userMessageId) {
                   progressed = true;
@@ -399,6 +439,7 @@ export function useChat({
                   ));
                 }
                 if (parsed.billing && onBilling) onBilling(parsed.billing);
+                if (parsed.profileUpdated && onProfileUpdated) onProfileUpdated(parsed.profileUpdated);
                 if (parsed.filler && !acc) onFiller?.(parsed.filler);
                 if (parsed.stage && onStage) onStage(parsed.stage);
                 if (parsed.stageDone && onStageDone) onStageDone();

@@ -1,30 +1,32 @@
 // apps/web/lib/chat/astro-context.ts
-// Server-side: turn the seeker's saved BirthProfile into a deterministic,
-// kundali-grounded context blob that is handed to the Cloudflare chat worker
-// on every AI turn. The chart is COMPUTED here (the worker has no ephemeris);
-// the worker only renders it into the persona prompt.
+// Server-side: turn the seeker's birth details into a deterministic,
+// kundali-grounded chart block. The chart is COMPUTED here (the worker has no
+// ephemeris) and stored in the worker's D1 against the seeker's user id.
 //
 // Design notes:
 //   • The chart is deterministic for a given (dob, tob, pob) triple, so we
 //     memoise the formatted block per-isolate for a few hours. This keeps a
-//     per-minute billed chat from recomputing the ephemeris on every turn.
+//     long chat from recomputing the ephemeris on every turn.
+//   • The memo key includes the user id. Keying it on birth data alone meant
+//     two seekers sharing a birthday, birth minute and birth place collided,
+//     and one of them got the other's cached kundali in their prompt.
 //   • Time-of-birth is optional in intake; when absent we compute at local
 //     noon and let the engine's own confidence score flag the reduced
 //     precision — better a grounded reading than none.
 
-import { fetchBirthProfile } from "@/lib/birth-profile";
 import { resolvePlace, timezoneFromLng, type ResolvedPlace } from "@/lib/kundali/geocoder";
 import { computeKundali, formatKundaliForPrompt } from "@/lib/kundali/engine";
 
-export interface AstroContext {
-  name?: string;
-  dob?: string;
-  tob?: string;
-  pob?: string;
-  concern?: string;
-  /** Formatted deterministic chart block; null when the birth data is
-   *  incomplete enough that a chart cannot be trusted. */
-  chartSummary?: string | null;
+export interface ChartInput {
+  /** Scopes the memo — always the authenticated user's id. */
+  userId: string;
+  name?: string | null;
+  dob: string;
+  /** 24h HH:MM. Defaults to local noon when the seeker doesn't know it. */
+  tob?: string | null;
+  pob: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 interface CacheEntry {
@@ -33,6 +35,7 @@ interface CacheEntry {
 }
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CACHE_MAX = 500;
 const chartCache = new Map<string, CacheEntry>();
 
 async function resolvedFromProfile(
@@ -58,24 +61,23 @@ async function resolvedFromProfile(
   return null;
 }
 
-async function buildChartSummary(
-  name: string,
-  dob: string,
-  tob: string,
-  pob: string,
-  latitude: number | null,
-  longitude: number | null,
-): Promise<string | null> {
-  const key = `${dob}|${tob}|${pob}|${latitude ?? ""}|${longitude ?? ""}`;
+/**
+ * The formatted chart block, or null when it could not be computed.
+ * A failed computation is cached too — otherwise every turn re-attempts a
+ * geo lookup that is going to fail again, on the seeker's critical path.
+ */
+export async function computeChartSummary(input: ChartInput): Promise<string | null> {
+  const tob = input.tob || "12:00";
+  const key = `${input.userId}|${input.dob}|${tob}|${input.pob}|${input.latitude ?? ""}|${input.longitude ?? ""}`;
   const hit = chartCache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.summary;
 
   let summary: string | null = null;
   try {
-    const resolved = await resolvedFromProfile(pob, latitude, longitude);
+    const resolved = await resolvedFromProfile(input.pob, input.latitude ?? null, input.longitude ?? null);
     if (resolved) {
       summary = formatKundaliForPrompt(
-        computeKundali(name || "Seeker", dob, tob, pob, resolved),
+        computeKundali(input.name || "Seeker", input.dob, tob, input.pob, resolved),
       );
     }
   } catch (err) {
@@ -83,40 +85,9 @@ async function buildChartSummary(
     summary = null;
   }
 
+  if (chartCache.size > CACHE_MAX) {
+    for (const [k, v] of chartCache) if (Date.now() - v.at > CACHE_TTL_MS) chartCache.delete(k);
+  }
   chartCache.set(key, { summary, at: Date.now() });
   return summary;
-}
-
-/**
- * Load the seeker's saved birth profile and compute the kundali block.
- * Returns an AstroContext that is safe to forward to the worker verbatim.
- */
-export async function buildAstroContext(userId: string): Promise<AstroContext> {
-  const profile = await fetchBirthProfile(userId);
-  if (!profile) return {};
-
-  const ctx: AstroContext = {
-    name: profile.fullName || undefined,
-    dob: profile.dateOfBirth || undefined,
-    tob: profile.timeOfBirth || undefined,
-    pob: profile.placeOfBirth || undefined,
-    concern: profile.primaryConcern || undefined,
-  };
-
-  // A chart needs at least a birth date and a place.
-  if (!profile.dateOfBirth || !profile.placeOfBirth) {
-    ctx.chartSummary = null;
-    return ctx;
-  }
-
-  ctx.chartSummary = await buildChartSummary(
-    profile.fullName ?? "",
-    profile.dateOfBirth,
-    profile.timeOfBirth || "12:00",
-    profile.placeOfBirth,
-    profile.latitude,
-    profile.longitude,
-  );
-
-  return ctx;
 }

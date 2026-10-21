@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Check, CreditCard, Loader2, X } from "lucide-react";
 import { ConfirmDialog } from "@zeal/ui";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { toast } from "@/components/ui/toaster";
 import { EmptyState } from "@/components/admin/shared/EmptyState";
 
@@ -59,6 +60,15 @@ export default function AdminWithdrawalsPage() {
       void qc.invalidateQueries({ queryKey: ["admin", "withdrawals"] });
     },
     onError: (e: Error) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  // request_withdrawal and process_withdrawal both publish on admin:withdrawals,
+  // so a consultant filing a payout shows up here while the tab is open — and two
+  // admins approving at once stop overwriting each other blind.
+  useChannel<BroadcastChange>({
+    channel: channels.adminWithdrawals(),
+    event: "*",
+    onMessage: () => { void qc.invalidateQueries({ queryKey: ["admin", "withdrawals"] }); },
   });
 
   const withdrawals = data?.withdrawals ?? [];

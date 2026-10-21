@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 // AIChatDiscovery — generative UI search
 // ─────────────────────────────────────────────────────────────────────────────
-// User types intent → POST /api/ai?task=search (Agnes → Groq) → returns
+// User types intent → POST /api/ai?task=search (Cloudflare AI → Groq) → returns
 // category classification + REAL consultants from DB → rendered as inline
 // cards + "View all N" CTA. Recognition over recall.
 // ═══════════════════════════════════════════════════════════════════════════════

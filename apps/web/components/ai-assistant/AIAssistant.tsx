@@ -21,7 +21,7 @@ export function AIAssistant({ astrologerId, onReplySuggestion, onAutoReply }: AI
  if (!query.trim()) return;
  setLoading(true);
  try {
- // In production: call /api/ai/assist with Zhipu/Agnes
+ // In production: call /api/ai/assist with Cloudflare AI / Zhipu
  const res = await fetch("/api/ai/assist", {
  method: "POST",
  headers: { "Content-Type": "application/json" },
