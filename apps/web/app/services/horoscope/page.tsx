@@ -444,10 +444,18 @@ function ConstellationLines() {
 /* ─── Degree Counter ─────────────────────────────────────────────────────────── */
 
 function DegreeCounter() {
-  const target = useMemo(() => Math.floor(Math.random() * 300) + 30, []);
+  // Target is drawn in an effect, not at render: Math.random() during render
+  // desyncs server and client HTML (hydration mismatch). 0 renders identically
+  // on both sides, then the count-up starts once the client picks a target.
+  const [target, setTarget] = useState(0);
   const [deg, setDeg] = useState(0);
 
   useEffect(() => {
+    setTarget(Math.floor(Math.random() * 300) + 30);
+  }, []);
+
+  useEffect(() => {
+    if (!target) return;
     const step = Math.max(1, Math.floor(target / 40));
     const interval = setInterval(() => {
       setDeg((prev) => {

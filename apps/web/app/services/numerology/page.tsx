@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { fetchAIJson } from "@/lib/ai/json-fetch";
+import { seeded } from "@/lib/rand";
 import { BrandSpinner } from "@zeal/ui";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -268,16 +269,20 @@ export default function NumerologyPage() {
 /* ─── Floating Number Particles ────────────────────────────────────────────── */
 
 function FloatingNumberParticles() {
+  // Seeded so SSR and hydration agree — Math.random() here causes a mismatch.
+  const rand = seeded(20261022);
   const digits = useMemo(
     () =>
       Array.from({ length: 18 }, (_, i) => ({
         digit: String(i % 10),
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        size: 12 + Math.random() * 18,
-        duration: 8 + Math.random() * 6,
-        delay: Math.random() * 4,
+        x: rand() * 100,
+        y: rand() * 100,
+        size: 12 + rand() * 18,
+        duration: 8 + rand() * 6,
+        delay: rand() * 4,
+        repeatDelay: rand() * 2,
       })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
@@ -301,7 +306,7 @@ function FloatingNumberParticles() {
             duration: d.duration,
             delay: d.delay,
             repeat: Infinity,
-            repeatDelay: Math.random() * 2,
+            repeatDelay: d.repeatDelay,
             ease: "easeInOut",
           }}
         >

@@ -14,12 +14,17 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {useCallback, useMemo} from "react";
+import dynamic from "next/dynamic";
 import {useQuery} from "@tanstack/react-query";
 import {motion} from "framer-motion";
 import { AlertCircle, AlertTriangle, BarChart3, Calendar, DollarSign, Loader2, Radio,
   TrendingUp, UserCog, Users } from "lucide-react";
-import {LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer} from "recharts";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+
+const AdminLineChart = dynamic(() => import("./AdminLineChart"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full animate-pulse bg-surface-overlay/40 rounded-xl" />,
+});
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,9 +71,8 @@ interface RechartsTooltipProps {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const CHART_GRID_STROKE = "rgba(255,255,255,0.05)";
-const CHART_AXIS_STROKE = "#64748b";
-const CHART_AXIS_FONT_SIZE = 11;
+const SERIES_DAYS = 30;
+
 const REVENUE_COLOR = "var(--color-primary)";
 const BOOKINGS_COLOR = "#10b981";
 
@@ -77,7 +81,6 @@ const TOOLTIP_CONTAINER_CLASS =
 
 const REFETCH_STATS_MS = 30_000;
 const REFETCH_SERIES_MS = 60_000;
-const SERIES_DAYS = 30;
 
 // ─── Custom Recharts tooltips ─────────────────────────────────────────────────
 
@@ -369,22 +372,7 @@ export default function AnalyticsPage() {
         emptyMessage="No revenue recorded in this window"
         heightClass="h-72"
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
-            <XAxis dataKey="day" stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
-            <YAxis stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
-            <Tooltip content={<RevenueTooltip />} />
-            <Line
-              type="monotone"
-              dataKey="revenue"
-              stroke={REVENUE_COLOR}
-              strokeWidth={2}
-              dot={{ fill: REVENUE_COLOR, r: 3 }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <AdminLineChart data={chartData} dataKey="revenue" stroke={REVENUE_COLOR} tooltip={<RevenueTooltip />} />
       </ChartCard>
 
       {/* Bookings chart */}
@@ -398,22 +386,7 @@ export default function AnalyticsPage() {
         emptyMessage="No bookings recorded in this window"
         heightClass="h-64"
       >
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID_STROKE} />
-            <XAxis dataKey="day" stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
-            <YAxis stroke={CHART_AXIS_STROKE} fontSize={CHART_AXIS_FONT_SIZE} />
-            <Tooltip content={<BookingsTooltip />} />
-            <Line
-              type="monotone"
-              dataKey="bookings"
-              stroke={BOOKINGS_COLOR}
-              strokeWidth={2}
-              dot={{ fill: BOOKINGS_COLOR, r: 3 }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+        <AdminLineChart data={chartData} dataKey="bookings" stroke={BOOKINGS_COLOR} tooltip={<BookingsTooltip />} />
       </ChartCard>
     </div>
   );

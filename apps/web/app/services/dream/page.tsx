@@ -8,10 +8,8 @@ import {
   ChevronRight, MessageCircle, Users, Clock, CheckCircle2,
   Zap, Heart, Brain, Compass, Eye, Cloud, Feather, X,
 } from "lucide-react";
-import { analyzeDream } from "@/lib/dream/analyzer";
 import { consumeOpenAIStream } from "@/lib/ai/sse";
-import { interpretDream } from "@/lib/dream/interpreter";
-import { THEME_INTERPRETATIONS, ARCHETYPE_PROFILES, EMOTION_PROFILES } from "@/lib/dream/knowledge";
+import { seeded } from "@/lib/rand";
 import type { DreamAnalysisResult, DreamReading, DreamFocus, DreamReadingSection } from "@/lib/dream/types";
 import { DREAM_FOCUS_OPTIONS } from "@/lib/dream/types";
 import ParticleBurst from "@/components/ui/ParticleBurst";
@@ -88,6 +86,12 @@ export default function DreamPage() {
     (async () => {
       try {
         await new Promise((r) => setTimeout(r, 1500));
+        // The knowledge corpus behind the analyzer/interpreter is large; load it
+        // on first analysis instead of shipping it with the page bundle.
+        const [{ analyzeDream }, { interpretDream }] = await Promise.all([
+          import("@/lib/dream/analyzer"),
+          import("@/lib/dream/interpreter"),
+        ]);
         const result = analyzeDream(dreamText);
         setAnalysis(result);
         const dreamReading = interpretDream(result);
@@ -220,15 +224,20 @@ export default function DreamPage() {
 
 // ─── AMBIENT EFFECTS ────────────────────────────────────────────────────────────
 
-function StarField() {
-  const stars = Array.from({ length: 50 }, (_, i) => ({
+const STARS = (() => {
+  const rand = seeded(20261021);
+  return Array.from({ length: 50 }, (_, i) => ({
     id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: Math.random() * 2 + 1,
-    delay: Math.random() * 5,
-    duration: Math.random() * 3 + 2,
+    x: rand() * 100,
+    y: rand() * 100,
+    size: rand() * 2 + 1,
+    delay: rand() * 5,
+    duration: rand() * 3 + 2,
   }));
+})();
+
+function StarField() {
+  const stars = STARS;
 
   const shootingStars = [
     { id: 0, delay: 0, duration: 1.2 },

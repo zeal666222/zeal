@@ -12,9 +12,8 @@ import {
   CheckCircle2, Scan, Zap, Heart, Brain, Compass, Star,
   Image as ImageIcon, X,
 } from "lucide-react";
-import { analyzePalmImage, getEdgeOverlay } from "@/lib/palmistry/analyzer";
 import { consumeOpenAIStream } from "@/lib/ai/sse";
-import { interpretAnalysis } from "@/lib/palmistry/interpreter";
+import { seeded } from "@/lib/rand";
 import { LINE_DISPLAY, ELEMENT_TRAITS } from "@/lib/palmistry/knowledge";
 import type {
   PalmAnalysisResult, PalmReading, HandSide, ReadingSection,
@@ -115,6 +114,12 @@ export default function PalmistryPage() {
 
     (async () => {
       try {
+        // The palm analyzer/interpreter are only needed once an image is
+        // uploaded; keep them out of the page's initial bundle.
+        const [{ analyzePalmImage, getEdgeOverlay }, { interpretAnalysis }] = await Promise.all([
+          import("@/lib/palmistry/analyzer"),
+          import("@/lib/palmistry/interpreter"),
+        ]);
         const result = await analyzePalmImage(image, handSide);
         setAnalysis(result);
         const overlay = await getEdgeOverlay(image, 600, 800);
@@ -750,25 +755,39 @@ function SectionCard({ section, index }: { section: ReadingSection; index: numbe
 
 // ─── FLOATING PARTICLES ─────────────────────────────────────────────────────────
 
-function FloatingParticles() {
-  const particles = Array.from({ length: 12 }, (_, i) => ({
+// Seeded so SSR and hydration render the same field (Math.random() mismatches).
+const PARTICLES = (() => {
+  const rand = seeded(20261023);
+  const arr = Array.from({ length: 12 }, (_, i) => ({
     id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    size: 2 + Math.random() * 3,
-    duration: 15 + Math.random() * 20,
-    delay: Math.random() * 10,
+    x: rand() * 100,
+    y: rand() * 100,
+    size: 2 + rand() * 3,
+    duration: 15 + rand() * 20,
+    delay: rand() * 10,
+    symbol: "",
   }));
-
   const palmSymbols = ["✋", "🖐️", "🤚"];
-  const symbolParticles = Array.from({ length: 6 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    y: Math.random() * 100,
-    symbol: palmSymbols[i % palmSymbols.length],
-    duration: 20 + Math.random() * 25,
-    delay: Math.random() * 15,
-  }));
+  for (let i = 0; i < 6; i++) {
+    arr.push({
+      id: 100 + i,
+      x: rand() * 100,
+      y: rand() * 100,
+      size: 0,
+      duration: 20 + rand() * 25,
+      delay: rand() * 15,
+      symbol: palmSymbols[i % palmSymbols.length]!,
+    });
+  }
+  return arr;
+})();
+
+const DOT_PARTICLES = PARTICLES.filter((p) => !p.symbol);
+const SYMBOL_PARTICLES = PARTICLES.filter((p) => p.symbol);
+
+function FloatingParticles() {
+  const particles = DOT_PARTICLES;
+  const symbolParticles = SYMBOL_PARTICLES;
 
   return (
     <div className="absolute inset-0 overflow-hidden">
