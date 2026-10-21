@@ -10,7 +10,7 @@ import { ArrowUpDown, Flame, Grid3x3, List, Loader2, MessageCircle, Search, Slid
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
 import { staggerContainer, fadeUp } from "@zeal/ui/motion";
 import { LuxuryConsultantCard } from "@/components/shared/LuxuryConsultantCard";
-import { useChatIntake } from "@/lib/chat/use-chat-intake";
+import { startChatFlow } from "@/lib/chat/start-chat-flow";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 import type { ConsultantProfile } from "@zeal/types";
 import { cn } from "@zeal/ui";
@@ -83,23 +83,22 @@ export function ConsultantDirectory({
     window.setTimeout(() => setToast(null), 3200);
   }, []);
 
-  const { startChat, IntakeModal } = useChatIntake({
-    onLowBalance: (info) => { setGateInfo(info); setGateOpen(true); },
-    onOffline: ({ consultantName }) => showToast(`${consultantName} is offline right now.`),
-    onError: showToast,
-  });
-
   const chatBusyRef = useRef(false);
   const handleChat = useCallback(async (consultantId: string, consultantName?: string) => {
     if (chatBusyRef.current) return; // prevent double-tap starting two sessions
     chatBusyRef.current = true;
     try {
       const name = consultantName ?? consultants.find((c) => c.id === consultantId)?.name ?? "Consultant";
-      await startChat(consultantId, name);
+      await startChatFlow(consultantId, {
+        router,
+        onLowBalance: (info) => { setGateInfo(info); setGateOpen(true); },
+        onOffline: () => showToast(`${name} is offline right now.`),
+        onError: showToast,
+      });
     } finally {
       chatBusyRef.current = false;
     }
-  }, [startChat, consultants]);
+  }, [router, consultants, showToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -471,7 +470,6 @@ export function ConsultantDirectory({
         onOpenChange={setGateOpen}
         info={gateInfo}
       />
-      <IntakeModal />
     </div>
   );
 }

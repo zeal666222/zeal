@@ -62,7 +62,7 @@ export default function ServicesPage() {
 
         <div className="relative z-10 max-w-6xl mx-auto px-6 md:px-10 lg:px-16 py-14 md:py-20">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--color-luxury-gold)]/[0.08] border border-[var(--color-luxury-gold)]/[0.20] text-[var(--color-luxury-gold)] text-[10px] font-black uppercase tracking-[0.25em] mb-6">
-            <Sparkles size={12} /> Powered by Cloudflare AI
+            <Sparkles size={12} /> Powered by Siddhi
           </div>
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black tracking-[-0.03em] leading-[0.95] text-foreground max-w-3xl">
             Ask Zeal,{" "}

@@ -30,6 +30,8 @@ export interface RoomIntake {
   ready: boolean;
   /** The form is on screen. */
   open: boolean;
+  /** Transitioning from form submission to chat initialization. */
+  transitioning: boolean;
   missing: MissingField[];
   prefill: Partial<IntakeData> | null;
   saving: boolean;
@@ -38,11 +40,14 @@ export interface RoomIntake {
   submit: (data: IntakeData) => Promise<void>;
   /** Fold in what a chat turn just taught the consultant. */
   applyProfileUpdate: (update: ProfileUpdate) => void;
+  /** Clear the transitioning state once chat is active. */
+  clearTransition: () => void;
 }
 
 export function useRoomIntake(enabled: boolean): RoomIntake {
   const [ready, setReady] = useState(!enabled);
   const [open, setOpen] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const [missing, setMissing] = useState<MissingField[]>([]);
   const [prefill, setPrefill] = useState<Partial<IntakeData> | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,9 +68,8 @@ export function useRoomIntake(enabled: boolean): RoomIntake {
         const gaps = data.intake?.missing ?? [];
         setMissing(gaps);
         setPrefill(data.existingProfile ?? null);
-        let dismissed = false;
-        try { dismissed = sessionStorage.getItem(DISMISS_KEY) === "1"; } catch { /* private mode */ }
-        setOpen(gaps.length > 0 && !dismissed);
+        // Intake form disabled — show consultants and services directly in chat
+        setOpen(false);
       } catch (err) {
         // Not fatal: the conversation works, the consultant simply asks for what
         // it needs as the chat goes on.
@@ -96,6 +100,7 @@ export function useRoomIntake(enabled: boolean): RoomIntake {
       setMissing(payload?.intake?.missing ?? []);
       setPrefill(payload?.existingProfile ?? data);
       setOpen(false);
+      setTransitioning(true);
       try { sessionStorage.removeItem(DISMISS_KEY); } catch { /* private mode */ }
     } catch (err) {
       // Stay on the form with the seeker's answers intact — they only have to
@@ -115,5 +120,9 @@ export function useRoomIntake(enabled: boolean): RoomIntake {
     setOpen((wasOpen) => (wasOpen && (update.missing?.length ?? 0) === 0 ? false : wasOpen));
   }, []);
 
-  return { ready, open, missing, prefill, saving, error, dismiss, submit, applyProfileUpdate };
+  const clearTransition = useCallback(() => {
+    setTransitioning(false);
+  }, []);
+
+  return { ready, open, transitioning, missing, prefill, saving, error, dismiss, submit, applyProfileUpdate, clearTransition };
 }

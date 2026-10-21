@@ -15,6 +15,7 @@ import { WalletGateDialog, type WalletGateInfo } from "@/components/billing/Wall
 import { BirthIntakeModal } from "@/components/chat/BirthIntakeModal";
 import { useRoomIntake } from "@/lib/chat/use-room-intake";
 import { cn, BrandLoader, PendingDot, StreamingIndicator } from "@zeal/ui";
+import { ChatWelcomeSuggestions } from "./ChatWelcomeSuggestions";
 
 interface Props {
   conversationId: string;
@@ -156,6 +157,15 @@ export function ChatInterface({
   useEffect(() => {
     void fetch(`/api/chat/${conversationId}/read`, { method: "POST" }).catch(() => {});
   }, [conversationId]);
+
+  // Clear the transitioning overlay once the chat actually starts loading or
+  // when the opener message fires — the seeker sees the brand loader, then the
+  // first message appears and the overlay fades away.
+  useEffect(() => {
+    if (intake.transitioning && (isLoading || messages.length > 0 || inFlightRef.current)) {
+      intake.clearTransition();
+    }
+  }, [intake.transitioning, isLoading, messages.length, intake.clearTransition]);
 
   // Mobile keyboard handling — keep composer visible when virtual keyboard opens
   useEffect(() => {
@@ -465,15 +475,7 @@ export function ChatInterface({
         {isLoading && messages.length === 0 ? (
           <BrandLoader variant="chat-bubble" label="Opening the reading room…" />
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface-sunken border border-border flex items-center justify-center">
-              <MessageCircle className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <p className="text-sm font-bold text-foreground">No messages yet</p>
-            <p className="text-[11px] text-muted-foreground max-w-[240px]">
-              {isAI ? "Start the conversation by asking a question." : "Say hello to start the conversation."}
-            </p>
-          </div>
+          <ChatWelcomeSuggestions isAI={isAI} />
         ) : (
           <AnimatePresence initial={false}>
             {messages.map((msg: ChatMessage) => {
@@ -768,6 +770,12 @@ export function ChatInterface({
           error={intake.error}
           actionLabel="Save and begin reading"
         />
+      )}
+
+      {isAI && intake.transitioning && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <BrandLoader variant="chat-bubble" label="Preparing your reading room…" />
+        </div>
       )}
     </div>
   );

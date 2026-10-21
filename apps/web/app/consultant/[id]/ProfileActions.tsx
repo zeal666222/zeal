@@ -13,7 +13,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, Loader2, MessageCircle } from "lucide-react";
 import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
-import { useChatIntake } from "@/lib/chat/use-chat-intake";
+import { startChatFlow } from "@/lib/chat/start-chat-flow";
 import { WalletGateDialog } from "@/components/billing/WalletGateDialog";
 
 interface Props {
@@ -42,15 +42,10 @@ export function ProfileActions({
   const [gateInfo, setGateInfo] = useState<{ balance: number; required: number; consultantName: string; consultantId: string } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const { startChat, IntakeModal } = useChatIntake({
-    onLowBalance: (info) => {
-      setGateInfo(info);
-      setGateOpen(true);
-    },
-    onOffline: ({ consultantName: n }) =>
-      showToast(`${n} is currently offline.`),
-    onError: (msg) => showToast(msg),
-  });
+  const showToast = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 3200);
+  };
 
   // Realtime: presence
   useChannel<
@@ -80,11 +75,6 @@ export function ProfileActions({
     ),
   });
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 3200);
-  };
-
   const handleChat = useCallback(async () => {
     if (!online && !isAI) {
       showToast(`${consultantName} is currently offline.`);
@@ -92,11 +82,19 @@ export function ProfileActions({
     }
     setBusy(true);
     try {
-      await startChat(consultantId, consultantName);
+      await startChatFlow(consultantId, {
+        router,
+        onLowBalance: (info) => {
+          setGateInfo(info);
+          setGateOpen(true);
+        },
+        onOffline: () => showToast(`${consultantName} is currently offline.`),
+        onError: (msg) => showToast(msg),
+      });
     } finally {
       setBusy(false);
     }
-  }, [consultantId, consultantName, isAI, online, startChat]);
+  }, [consultantId, consultantName, isAI, online, router]);
 
   const handleBook = useCallback(() => {
     router.push(`/booking?consultantId=${encodeURIComponent(consultantId)}`);
@@ -150,7 +148,6 @@ export function ProfileActions({
         onOpenChange={setGateOpen}
         info={gateInfo}
       />
-      <IntakeModal />
     </>
   );
 }

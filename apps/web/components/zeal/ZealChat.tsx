@@ -151,7 +151,7 @@ export function ZealChat() {
             <p className="text-sm font-black text-foreground">Ask Zeal</p>
             <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Online · powered by Cloudflare AI
+              Online · powered by Siddhi
             </p>
           </div>
         </div>
