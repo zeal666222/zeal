@@ -1,13 +1,14 @@
 // apps/web/app/chat/layout.tsx
 // ═══════════════════════════════════════════════════════════════════════════════
 // Chat layout — server component
-// Fetches conversations via typed helper; hands off to ChatShell
+// Auth-gates the route, then hands off to ChatShell with an EMPTY initial list.
+// Conversations are loaded client-side so the page renders instantly instead of
+// blocking on N+1 Supabase queries + a worker round-trip.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import {redirect} from "next/navigation";
 import {createServerClientFromCookies} from "@zeal/database/server";
 import {ChatShell} from "./ChatShell";
-import {fetchUserConversations} from "@/lib/chat/fetch-conversations";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,10 @@ export default async function ChatLayout({
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login?redirectedFrom=/chat");
 
-  const conversations = await fetchUserConversations(user.id);
-
   return (
     <ChatShell
       currentUserId={user.id}
-      initialConversations={conversations}
+      initialConversations={[]}
     >
       {children}
     </ChatShell>

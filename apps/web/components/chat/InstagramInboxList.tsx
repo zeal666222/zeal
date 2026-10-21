@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   ChevronRight,
   Compass,
+  Loader2,
   MessageCircle,
   Search,
   Sparkles,
@@ -64,7 +65,7 @@ function groupKey(ts: string | null): GroupKey {
 
 export function InstagramInboxList({ currentUserId, initialConversations }: Props) {
   const pathname = usePathname();
-  const { conversations, refresh } = useConversations(currentUserId, initialConversations);
+  const { conversations, refresh, isLoading } = useConversations(currentUserId, initialConversations);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<TabKey>("all");
 
@@ -175,7 +176,19 @@ export function InstagramInboxList({ currentUserId, initialConversations }: Prop
 
       {/* Conversation list */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        {filtered.length === 0 ? (
+        {isLoading && conversations.length === 0 ? (
+          <div className="px-5 py-4 space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 animate-pulse">
+                <div className="w-12 h-12 rounded-full bg-surface-raised shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 bg-surface-raised rounded w-1/3" />
+                  <div className="h-2.5 bg-surface-raised rounded w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <EmptyState tab={activeTab} hasQuery={query.trim().length > 0} />
         ) : (
           <div className="pb-4">
@@ -209,9 +222,11 @@ export function InstagramInboxList({ currentUserId, initialConversations }: Prop
         <button
           type="button"
           onClick={() => void refresh()}
-          className="w-full py-3 text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider"
+          disabled={isLoading}
+          className="w-full py-3 text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors uppercase tracking-wider flex items-center justify-center gap-1.5 disabled:opacity-50"
         >
-          Refresh conversations
+          {isLoading && <Loader2 size={10} className="animate-spin" />}
+          {isLoading ? "Updating…" : "Refresh conversations"}
         </button>
       </div>
     </div>

@@ -26,14 +26,18 @@ interface MessageRow {
   createdAt?: string;
 }
 
-const POLL_INTERVAL_MS = 15_000;
+const FAST_POLL_MS = 3_000;
+const SLOW_POLL_MS = 15_000;
+const FAST_POLL_DURATION_MS = 30_000;
 
 export function useConversations(
   userId: string,
   initial: ConversationItem[] = [],
 ) {
   const [conversations, setConversations] = useState<ConversationItem[]>(initial);
+  const [isLoading, setIsLoading] = useState(initial.length === 0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedAtRef = useRef(Date.now());
 
   const refresh = useCallback(async () => {
     try {
@@ -48,23 +52,43 @@ export function useConversations(
       }
     } catch (err) {
       console.warn("[useConversations] refresh:", err instanceof Error ? err.message : err);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  // Poll the worker for AI conversation updates every 15s.
-  // The Supabase realtime channel only covers human rooms — AI rooms live in
-  // the Cloudflare worker's D1 and need explicit polling.
+  // Fetch immediately on mount, then use adaptive polling:
+  // fast (3s) for the first 30s so the inbox feels instant, then slow (15s).
   useEffect(() => {
     if (!userId) return;
-    timerRef.current = setInterval(refresh, POLL_INTERVAL_MS);
+    mountedAtRef.current = Date.now();
+    void refresh();
+
+    timerRef.current = setInterval(() => {
+      const elapsed = Date.now() - mountedAtRef.current;
+      const interval = elapsed < FAST_POLL_DURATION_MS ? FAST_POLL_MS : SLOW_POLL_MS;
+      // Re-schedule at the adaptive rate by clearing and re-setting the timer
+      // only when the interval changes (fast→slow transition).
+      if (elapsed >= FAST_POLL_DURATION_MS && interval === SLOW_POLL_MS) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = setInterval(() => { void refresh(); }, SLOW_POLL_MS);
+      }
+      void refresh();
+    }, FAST_POLL_MS);
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [userId, refresh]);
 
-  // Refresh when the tab becomes visible again (user switches back).
+  // Refresh when the tab becomes visible again.
   useEffect(() => {
-    const handler = () => { if (document.visibilityState === "visible") void refresh(); };
+    const handler = () => {
+      if (document.visibilityState === "visible") {
+        mountedAtRef.current = Date.now();
+        void refresh();
+      }
+    };
     document.addEventListener("visibilitychange", handler);
     return () => document.removeEventListener("visibilitychange", handler);
   }, [refresh]);
@@ -103,7 +127,7 @@ export function useConversations(
     );
   }, []);
 
-  return { conversations, setConversations, refresh, markRead };
+  return { conversations, setConversations, refresh, markRead, isLoading };
 }
 
 function mergeConversations(
