@@ -73,9 +73,9 @@ export function AdminTopBar() {
 
   return (
     <header className="sticky top-0 z-20 bg-surface/80 backdrop-blur-xl border-b border-border/50">
-      <div className="flex items-center justify-between h-14 pl-16 pr-4 lg:pl-6 lg:pr-6">
+      <div className="flex items-center justify-between h-14 pl-14 pr-3 sm:pl-16 sm:pr-4 lg:pl-6 lg:pr-6">
         {/* Left: Page title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
             <Link href="/admin/dashboard" className="hover:text-foreground transition-colors font-medium">
               Admin
@@ -88,7 +88,7 @@ export function AdminTopBar() {
         </div>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           <AdminCommandMenu />
 
           {/* Notification Bell */}
@@ -96,7 +96,7 @@ export function AdminTopBar() {
             <button
               onClick={() => setNotifOpen(!notifOpen)}
               className={cn(
-                "relative p-2 rounded-lg transition-colors",
+                "relative p-2 rounded-lg transition-colors min-w-[40px] min-h-[40px] flex items-center justify-center",
                 notifOpen
                   ? "bg-rose-500/10 text-rose-400"
                   : "hover:bg-surface-raised text-muted-foreground hover:text-foreground"
@@ -123,7 +123,7 @@ export function AdminTopBar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.97 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-border/50 bg-surface shadow-2xl shadow-black/20 overflow-hidden z-50"
+                  className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-80 rounded-2xl border border-border/50 bg-surface shadow-2xl shadow-black/20 overflow-hidden z-50"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">

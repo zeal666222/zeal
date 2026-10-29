@@ -170,7 +170,7 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen-app bg-background text-foreground">
+    <div className="min-h-[100dvh] bg-background text-foreground">
       {/* Ambient backdrop */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 left-1/4 w-[600px] h-[600px] bg-indigo-600/10 blur-[180px] rounded-full" />
@@ -178,15 +178,15 @@ export function AppShell({
       </div>
 
       {/* Desktop sidebar */}
-      <aside className="hidden lg:flex lg:flex-col fixed top-0 left-0 w-72 h-screen bg-background/80 backdrop-blur-2xl border-r border-border z-30">
+      <aside className="hidden lg:flex lg:flex-col fixed top-0 left-0 w-72 h-[100dvh] bg-background/80 backdrop-blur-2xl border-r border-border z-30">
         {sidebarContent()}
       </aside>
 
       {/* Mobile top bar */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-background/95 backdrop-blur-2xl border-b border-border flex items-center justify-between px-4">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-40 h-14 bg-background/95 backdrop-blur-2xl border-b border-border flex items-center justify-between px-3 sm:px-4 pt-[max(0px,env(safe-area-inset-top))]">
         <button
           onClick={() => setDrawerOpen(true)}
-          className="p-2 -ml-2 rounded-lg hover:bg-surface-raised"
+          className="p-2.5 -ml-1.5 rounded-xl hover:bg-surface-raised min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Menu"
         >
           <Menu className="w-5 h-5 text-foreground" />
@@ -197,7 +197,7 @@ export function AppShell({
             <Wifi className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-pulse" />
           )}
         </div>
-        <div className="w-9" />
+        <div className="w-[44px]" />
       </header>
 
       {/* Mobile drawer */}
@@ -212,11 +212,11 @@ export function AppShell({
             <motion.aside
               initial={{ x: -300 }} animate={{ x: 0 }} exit={{ x: -300 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed top-0 left-0 z-50 w-72 h-screen bg-background border-r border-border"
+              className="lg:hidden fixed top-0 left-0 z-50 w-[280px] sm:w-72 h-[100dvh] bg-background border-r border-border"
             >
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="absolute top-4 right-4 p-2 rounded-lg hover:bg-surface-overlay"
+                className="absolute top-4 right-3 p-2.5 rounded-xl hover:bg-surface-overlay min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="Close"
               >
                 <X className="w-5 h-5 text-foreground" />
@@ -228,7 +228,7 @@ export function AppShell({
       </AnimatePresence>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-background/95 backdrop-blur-2xl border-t border-border flex items-center justify-around pb-safe">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-2xl border-t border-border flex items-center justify-around pb-[max(0.25rem,env(safe-area-inset-bottom))]">
         {NAV.filter((i) => i.mobile).map((item) => {
           const Icon = item.icon;
           const on = isActive(item.href);
@@ -236,7 +236,7 @@ export function AppShell({
             <Link
               key={item.href}
               href={item.href}
-              className="relative flex flex-col items-center gap-0.5 min-w-[56px] py-1.5"
+              className="relative flex flex-col items-center gap-0.5 min-w-[56px] py-2 min-h-[52px] justify-center"
             >
               <span className={`absolute top-0 w-8 h-0.5 rounded-full transition-all ${
                 on ? "bg-purple-500" : "opacity-0"
@@ -246,7 +246,7 @@ export function AppShell({
                 on ? "text-purple-600 dark:text-purple-400" : "text-slate-600"
               }`}>{item.label}</span>
               {item.href === "/admin/consultant/bookings" && pendingBookings > 0 && (
-                <span className="absolute top-0 right-2 min-w-[16px] h-4 px-1 bg-rose-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center">
+                <span className="absolute top-1 right-2 min-w-[16px] h-4 px-1 bg-rose-500 rounded-full text-white text-[9px] font-bold flex items-center justify-center">
                   {pendingBookings > 9 ? "9+" : pendingBookings}
                 </span>
               )}
@@ -257,8 +257,8 @@ export function AppShell({
 
       {/* Main content */}
       <main className="lg:ml-72 relative z-10">
-        <div className="pt-14 lg:pt-0 pb-20 lg:pb-0 min-h-screen-app">
-          <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8">
+        <div className="pt-14 lg:pt-0 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0 min-h-[100dvh]">
+          <div className="max-w-6xl mx-auto px-4 sm:px-5 lg:px-8 py-5 sm:py-6 lg:py-8">
             {children}
           </div>
         </div>

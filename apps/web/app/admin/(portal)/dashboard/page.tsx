@@ -256,28 +256,28 @@ export default function AdminDashboardPage() {
   }, [tsPoints]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-black text-foreground flex items-center gap-3">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground flex items-center gap-2 sm:gap-3">
             Platform Pulse
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400">
+            <span className="flex items-center gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-emerald-400">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Live
             </span>
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Enterprise command center &middot; real-time platform intelligence
           </p>
         </div>
-        <div className="hidden lg:flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto scrollbar-none -mx-1 px-1 pb-1 sm:pb-0 sm:mx-0 sm:px-0 sm:flex-wrap sm:justify-end">
           <QuickAction href="/admin/impersonate" icon={Users} label="Impersonate" shortcut="I" />
           <QuickAction href="/admin/settings/api-keys" icon={ShieldCheck} label="API Keys" shortcut="K" />
           <QuickAction href="/admin/system" icon={Zap} label="System" shortcut="S" />
           <button
             onClick={refresh}
-            className="btn-premium px-3 py-1.5 rounded-lg bg-surface border border-border text-xs font-bold text-muted-foreground hover:text-foreground hover:border-rose-500/30 transition-all flex items-center gap-1.5"
+            className="btn-premium px-3 py-1.5 rounded-lg bg-surface border border-border text-xs font-bold text-muted-foreground hover:text-foreground hover:border-rose-500/30 transition-all flex items-center gap-1.5 shrink-0"
             title="Refresh all data"
           >
             <RefreshCw size={12} /> Refresh
@@ -286,7 +286,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Primary KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 lg:gap-4">
         <Kpi
           label="Total Users" value={stats.users.toLocaleString()} icon={Users}
           tone="blue" loading={isLoading}
@@ -318,7 +318,7 @@ export default function AdminDashboardPage() {
       <LiveBusPanel />
 
       {/* Live Revenue Ticker + Revenue Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         <motion.div
           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-950/30 via-surface to-surface p-5 flex flex-col justify-between"
@@ -403,7 +403,7 @@ export default function AdminDashboardPage() {
                   : "No pending payouts"}
               </span>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Metric label="Total balance" value={`\u20B9${fmtINR(treasury.totalBalance)}`} />
               <Metric label="In escrow" value={`\u20B9${fmtINR(treasury.totalEscrow)}`} tone="amber" />
               <Metric label="Pending payouts" value={`\u20B9${fmtINR(treasury.totalPendingOut)}`} tone="rose" />
@@ -424,7 +424,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Three-column: Activity Feed + Action Required + Alert Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
         {/* Activity Feed */}
         <motion.div
           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}

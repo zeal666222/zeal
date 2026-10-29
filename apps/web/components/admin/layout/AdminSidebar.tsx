@@ -129,7 +129,7 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
   const content = (
     <div className="flex flex-col h-full bg-surface/95 backdrop-blur-xl">
       {/* Logo */}
-      <div className="flex items-center justify-between h-16 px-4 border-b border-border/50">
+      <div className="flex items-center justify-between h-16 px-5 border-b border-border/50">
         <Link href="/admin/dashboard" className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center">
             <ZealMark size={32} />
@@ -145,7 +145,7 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
         </Link>
         <button
           onClick={() => setMobileOpen(false)}
-          className="lg:hidden p-1.5 rounded-lg hover:bg-surface-raised transition-colors"
+          className="lg:hidden p-2.5 rounded-xl hover:bg-surface-raised transition-colors -mr-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Close menu"
         >
           <X className="w-5 h-5 text-muted-foreground" />
@@ -153,7 +153,7 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 scrollbar-thin overscroll-contain">
         {filteredGroups.map((group) => {
           const isCollapsed = collapsedGroups[group.label] ?? false;
           const hasActive = group.items.some(
@@ -161,12 +161,12 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
           );
 
           return (
-            <div key={group.label} className="mb-2">
+            <div key={group.label} className="mb-3">
               {/* Group Header */}
               <button
                 onClick={() => toggleGroup(group.label)}
                 className={cn(
-                  "flex items-center justify-between w-full px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-[0.15em] transition-colors",
+                  "flex items-center justify-between w-full px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-[0.15em] transition-colors min-h-[36px]",
                   hasActive ? "text-rose-400/80" : "text-muted-foreground/50 hover:text-muted-foreground"
                 )}
               >
@@ -175,7 +175,7 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
                   animate={{ rotate: isCollapsed ? -90 : 0 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <ChevronDown size={10} />
+                  <ChevronDown size={11} />
                 </motion.div>
               </button>
 
@@ -198,7 +198,7 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
                             href={item.href}
                             onClick={() => setMobileOpen(false)}
                             className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-150 group relative",
+                              "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-150 group relative min-h-[44px]",
                               isActive
                                 ? "bg-gradient-to-r from-rose-500/15 to-rose-500/5 text-rose-400 shadow-sm shadow-rose-500/5"
                                 : "text-muted-foreground hover:bg-surface-raised/80 hover:text-foreground"
@@ -207,12 +207,12 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
                             {isActive && (
                               <motion.div
                                 layoutId="sidebar-active"
-                                className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full bg-rose-500"
+                                className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 rounded-full bg-rose-500"
                                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
                               />
                             )}
                             <item.icon className={cn(
-                              "w-4 h-4 transition-colors shrink-0",
+                              "w-[18px] h-[18px] transition-colors shrink-0",
                               isActive ? "text-rose-400" : "text-muted-foreground group-hover:text-foreground"
                             )} />
                             <span className="text-[13px] font-medium flex-1">{item.label}</span>
@@ -234,10 +234,10 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
       </nav>
 
       {/* User section */}
-      <div className="p-3 border-t border-border/50 space-y-2">
+      <div className="p-3 border-t border-border/50 space-y-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         {/* Notification count */}
         {unreadCount > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20">
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20">
             <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             <span className="text-[11px] font-bold text-rose-400">
               {unreadCount} unread notification{unreadCount !== 1 ? "s" : ""}
@@ -246,10 +246,10 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
         )}
 
         {/* Profile card */}
-        <div className="flex items-center gap-3 p-2.5 rounded-xl bg-surface-raised/50 border border-border/30">
-          <Avatar className="w-9 h-9 ring-2 ring-rose-500/20">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-raised/50 border border-border/30">
+          <Avatar className="w-10 h-10 ring-2 ring-rose-500/20">
             <AvatarImage src={profile?.avatar || undefined} alt={profile?.name || ""} />
-            <AvatarFallback className="bg-gradient-to-br from-rose-500 to-rose-700 text-white text-xs font-bold">
+            <AvatarFallback className="bg-gradient-to-br from-rose-500 to-rose-700 text-white text-sm font-bold">
               {(profile?.name || profile?.email || "A")[0]?.toUpperCase()}
             </AvatarFallback>
           </Avatar>
@@ -262,13 +262,13 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
               </p>
             </div>
           </div>
-          <Eye size={12} className="text-muted-foreground/40" />
+          <Eye size={13} className="text-muted-foreground/40" />
         </div>
 
         {/* Logout */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 w-full rounded-xl text-rose-500 hover:bg-rose-500/10 transition-colors group"
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-xl text-rose-500 hover:bg-rose-500/10 transition-colors group min-h-[44px]"
         >
           <LogOut className="w-4 h-4 group-hover:rotate-12 transition-transform" />
           <span className="text-xs font-medium">Sign out</span>
@@ -282,15 +282,14 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
       {/* Mobile trigger */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40 p-2.5 rounded-xl bg-surface border border-border shadow-lg shadow-black/10"
+        className="lg:hidden fixed top-3 left-3 z-40 p-2.5 rounded-xl bg-surface/90 backdrop-blur-xl border border-border/60 shadow-lg shadow-black/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
         aria-label="Open menu"
       >
         <Menu className="w-5 h-5 text-muted-foreground" />
       </button>
 
-      {/* Desktop sidebar — in-flow flex child so the impersonation banner
-          pushes it down instead of stacking over it */}
-      <aside className="hidden lg:flex w-[260px] shrink-0 h-full border-r border-border/50 bg-surface">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:flex w-[268px] shrink-0 h-full border-r border-border/50 bg-surface">
         {content}
       </aside>
 
@@ -306,11 +305,11 @@ export function AdminSidebar({ role: roleProp }: { role?: AdminRole } = {}) {
               className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
             />
             <motion.aside
-              initial={{ x: -260 }}
+              initial={{ x: -280 }}
               animate={{ x: 0 }}
-              exit={{ x: -260 }}
+              exit={{ x: -280 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="lg:hidden fixed top-0 left-0 z-50 w-[260px] h-screen bg-surface border-r border-border"
+              className="lg:hidden fixed top-0 left-0 z-50 w-[280px] h-screen bg-surface border-r border-border"
             >
               {content}
             </motion.aside>

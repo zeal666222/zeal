@@ -1,8 +1,4 @@
 "use client";
-// ═══════════════════════════════════════════════════════════════════════════════
-// DashboardShell — client chrome for the admin dashboard.
-// Role is passed as a prop from the server layout.
-// ═══════════════════════════════════════════════════════════════════════════════
 
 import { useEffect } from "react";
 import { useAdminStore, type AdminRole } from "@/lib/admin/store/adminStore";
@@ -20,7 +16,6 @@ interface Props {
 export function DashboardShell({ role, user, children }: Props) {
  const setProfile = useAdminStore((s) => s.setProfile);
 
- // Hydrate the store once from the server-passed role.
  useEffect(() => {
  setProfile({
  id: user.id,
@@ -33,15 +28,17 @@ export function DashboardShell({ role, user, children }: Props) {
  }, [setProfile, role, user]);
 
  return (
- <div className="flex h-screen flex-col bg-[var(--color-surface-sunken)] overflow-hidden">
+ <div className="flex h-[100dvh] flex-col bg-[var(--color-surface-sunken)] overflow-hidden">
  <ImpersonationBanner />
  <div className="flex flex-1 overflow-hidden">
  <AdminSidebar role={role as AdminRole} />
  <div className="flex-1 flex flex-col overflow-hidden min-w-0">
  <AdminTopBar />
- <main className="flex-1 overflow-y-auto p-4 md:p-6">
+ <main className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-5 lg:p-8">
  <Breadcrumbs />
+ <div className="mx-auto max-w-[1600px]">
  {children}
+ </div>
  </main>
  </div>
  </div>
