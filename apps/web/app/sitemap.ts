@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://zeal.app").replace(/\/$/, "");
+const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in").replace(/\/$/, "");
 
 const STATIC_PAGES: Array<{ url: string; priority: number; changeFrequency: MetadataRoute.Sitemap[0]["changeFrequency"] }> = [
   { url: "/", priority: 1.0, changeFrequency: "daily" },

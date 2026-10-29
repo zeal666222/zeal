@@ -113,11 +113,20 @@ export async function POST(req: Request) {
   }
   const bookingId = (bookingRaw as { id: string }).id;
 
-  const order = await createRazorpayOrder({
-    amount,
-    receipt: `booking_${bookingId}`,
-    notes: { userId: user.id, purpose: "booking_payment", bookingId, consultantId },
-  });
+  let order;
+  try {
+    order = await createRazorpayOrder({
+      amount,
+      receipt: `booking_${bookingId}`,
+      notes: { userId: user.id, purpose: "booking_payment", bookingId, consultantId },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Payment service unavailable";
+    if (msg.includes("missing")) {
+      return NextResponse.json({ error: "Payment service is not configured yet. Please try again later." }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Could not create payment order. Please try again." }, { status: 502 });
+  }
 
   await admin.from("RazorpayPayment").insert({
     orderId: order.id, amount: order.amount, currency: order.currency,

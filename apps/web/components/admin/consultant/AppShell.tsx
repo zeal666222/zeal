@@ -67,7 +67,7 @@ export function AppShell({
   const copySubdomain = async () => {
     if (!subdomain) return;
     try {
-      await navigator.clipboard.writeText(`https://${subdomain}.zeal.app`);
+      await navigator.clipboard.writeText(`https://${subdomain}.zealer.co.in`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch { /* ignore */ }
@@ -111,7 +111,7 @@ export function AppShell({
         >
           <div className="min-w-0">
             <p className="text-[9px] uppercase tracking-widest text-purple-600 dark:text-purple-400 font-bold">Your Site</p>
-            <p className="text-xs font-mono text-foreground truncate">{subdomain}.zeal.app</p>
+            <p className="text-xs font-mono text-foreground truncate">{subdomain}.zealer.co.in</p>
           </div>
           {copied
             ? <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />

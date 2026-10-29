@@ -26,12 +26,22 @@ export async function POST(req: Request) {
 
     const report = evaluateConsultantProfile(c);
     if (!report.isLive) {
+      const { error } = await supabase.from("User").update({ is_online: true }).eq("id", user.id);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      try {
+        const { serverPublish } = await import("@/lib/realtime/server");
+        await serverPublish(`consultant:${user.id}:status`, "status_updated", {
+          type: "UPDATE", table: "User", schema: "public",
+          record: { consultantId: user.id, is_online: true },
+        });
+      } catch { /* best-effort */ }
       return NextResponse.json({
-        error: "PROFILE_INCOMPLETE",
-        message: "Complete your profile to accept sessions",
+        success: true, is_online: true,
+        warning: "PROFILE_INCOMPLETE",
+        message: "You are live but your profile is incomplete. Complete it for better visibility.",
         score: report.score,
         checks: report.checks,
-      }, { status: 403 });
+      });
     }
   }
 

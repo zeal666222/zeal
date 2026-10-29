@@ -6,7 +6,7 @@
 export async function generateMeetingLink(bookingId: string): Promise<string> {
   // Placeholder: returns a deterministic room URL for future LiveKit integration.
   // Replace with real LiveKit SDK when video phase begins.
-  return `https://meet.zeal.app/room/${encodeURIComponent(bookingId)}`;
+  return `https://meet.zealer.co.in/room/${encodeURIComponent(bookingId)}`;
 }
 
 export async function createRoomToken(_params: {

@@ -8,7 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, LogOut, Settings, Shield, Sparkles, UserCircle, Wallet } from "lucide-react";
+import { Home, LogOut, Settings, Shield, Sparkles, UserCircle, Wallet, Pencil } from "lucide-react";
 import {
   ZealLockup,
   ThemeToggle,
@@ -164,10 +164,15 @@ export function TopNavBar({ userId, initialBalance }: Props) {
                   <DropdownMenuLabel>{user?.name || "Your account"}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {adminRole && (
-                    <DropdownMenuItem onSelect={() => router.push("/admin/dashboard")}>
+                    <DropdownMenuItem onSelect={() => router.push(
+                      adminRole === "CLIENT_ADMIN" ? "/admin/consultant/dashboard" : "/admin/dashboard"
+                    )}>
                       <Shield size={14} /> {adminRole === "SUPER_ADMIN" ? "Super Admin Panel" : "Admin Panel"}
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuItem onSelect={() => router.push("/profile/edit")}>
+                    <Pencil size={14} /> Edit Profile
+                  </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => router.push("/profile")}>
                     <UserCircle size={14} /> Profile
                   </DropdownMenuItem>

@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://zeal.app").replace(/\/$/, "");
+const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in").replace(/\/$/, "");
 
 // Public, indexable surfaces. Anything not listed is user-private or API.
 const ALLOW = [

@@ -46,6 +46,7 @@ export default function ConsultantDashboardPage() {
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [queueError, setQueueError] = useState<string | null>(null);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   // Live queue = real PENDING booking-requests. Populated on mount and refetched
   // whenever a booking event lands on consultant:<uid>:incoming / :bookings.
@@ -187,7 +188,18 @@ export default function ConsultantDashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_online: !online }),
       });
-      if (res.ok) setOnline(!online);
+      if (res.ok) {
+        setOnline(!online);
+        const data = await res.json().catch(() => null);
+        if (data?.warning === "PROFILE_INCOMPLETE") {
+          setToast("You are live! Complete your profile for better visibility.");
+          setTimeout(() => setToast(null), 4000);
+        }
+      } else {
+        const data = await res.json().catch(() => null);
+        setToast(data?.error ?? "Could not update status");
+        setTimeout(() => setToast(null), 4000);
+      }
     } finally {
       setToggling(false);
     }
@@ -242,6 +254,13 @@ export default function ConsultantDashboardPage() {
         </div>
         <ChevronRight className="w-5 h-5 text-[var(--color-muted-foreground)]" />
       </motion.button>
+
+      {toast && (
+        <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+          className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-bold">
+          {toast}
+        </motion.div>
+      )}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

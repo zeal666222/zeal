@@ -87,9 +87,9 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
               <Sparkles size={13} /> Complete your profile
             </div>
             <h2 className="text-xl font-black text-foreground mb-1">
-              {completeness.score}% complete — unlock going live
+              {completeness.score}% complete — boost your visibility
             </h2>
-            <p className="text-sm text-muted-foreground mb-4">Finish the checklist to accept sessions and earn.</p>
+            <p className="text-sm text-muted-foreground mb-4">Finish the checklist to appear higher in search results and earn more.</p>
             <div className="h-1.5 rounded-full bg-surface-raised overflow-hidden mb-5">
               <div className="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all" style={{ width: `${completeness.score}%` }} />
             </div>
@@ -120,8 +120,7 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
           <h1 className="text-2xl lg:text-3xl font-black text-foreground">Welcome back, {initialProfile.full_name}</h1>
           <p className="text-sm text-muted-foreground mt-1">Your practice at a glance</p>
         </div>
-        <button onClick={toggle} disabled={toggling || !completeness.isLive}
-          title={!completeness.isLive ? "Complete profile to go live" : undefined}
+        <button onClick={toggle} disabled={toggling}
           className={`flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
             online ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-surface-sunken border-border text-muted-foreground"
           }`}
@@ -186,14 +185,12 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
                     {online ? <Users size={28} /> : <Power size={28} />}
                   </div>
                   <h2 className="text-base font-bold text-foreground mb-2">
-                    {online ? "Waiting for connections…" : completeness.isLive ? "You're offline" : "Studio locked"}
+                    {online ? "Waiting for connections…" : "You're offline"}
                   </h2>
                   <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                     {online
                       ? "Your profile is visible to seekers. Requests appear here instantly."
-                      : completeness.isLive
-                      ? "Toggle the switch above to start receiving sessions."
-                      : "Complete your profile to unlock the studio."}
+                      : "Toggle the switch above to start receiving sessions."}
                   </p>
                 </div>
               </div>
@@ -215,7 +212,7 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
           {subdomain && (
             <div className="bg-surface backdrop-blur-xl border border-[var(--color-primary)]/20 rounded-3xl p-6 shadow-2xl">
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-primary)] font-bold mb-1">Your White-Label Site</p>
-              <p className="text-sm font-mono text-foreground break-all">{subdomain}.zeal.app</p>
+              <p className="text-sm font-mono text-foreground break-all">{subdomain}.zealer.co.in</p>
               <a href={`/white-label/${subdomain}`} target="_blank"
                 className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-foreground font-bold">
                 Open site <ChevronRight size={12} />

@@ -15,6 +15,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { ThemeScript } from "@zeal/ui/theme-script";
 import { Toaster } from "@/components/ui/toaster";
+import { PWAInstallBanner } from "@/components/global/PWAInstallBanner";
 import { OrganizationSchema, WebSiteSchema, SoftwareApplicationSchema } from "@/components/seo/StructuredData";
 
 const inter = Inter({
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
   },
   description:
     "Free online astrology, tarot, kundali, numerology, palmistry, dream interpretation, therapy, reiki, meditation & more. 37+ spiritual services — connect with verified astrologers, therapists, healers & life coaches. AI-powered readings available 24/7.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://zeal.app"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in"),
   alternates: {
     canonical: "/",
   },
@@ -178,6 +179,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           </QueryProvider>
         </ThemeProvider>
         <Toaster />
+        <PWAInstallBanner />
       </body>
     </html>
   );

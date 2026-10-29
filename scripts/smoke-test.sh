@@ -6,8 +6,8 @@
 #
 # Usage:
 #   bash scripts/smoke-test.sh                                 # local defaults
-#   bash scripts/smoke-test.sh https://web.zeal.app            # prod web
-#   bash scripts/smoke-test.sh https://web.zeal.app https://admin.zeal.app
+#   bash scripts/smoke-test.sh https://zealer.co.in            # prod web
+#   bash scripts/smoke-test.sh https://zealer.co.in https://admin.zealer.co.in
 # ═══════════════════════════════════════════════════════════════════════════════
 
 set -uo pipefail

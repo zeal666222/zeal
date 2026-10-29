@@ -112,11 +112,20 @@ export async function POST(req: Request) {
     }
   }
 
-  const order = await createRazorpayOrder({
-    amount,
-    receipt: `wallet_${user.id}_${Date.now()}`,
-    notes: { userId: user.id, purpose: "wallet_topup", idempotencyKey: idemKey },
-  });
+  let order;
+  try {
+    order = await createRazorpayOrder({
+      amount,
+      receipt: `wallet_${user.id}_${Date.now()}`,
+      notes: { userId: user.id, purpose: "wallet_topup", idempotencyKey: idemKey },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Payment service unavailable";
+    if (msg.includes("missing")) {
+      return NextResponse.json({ error: "Payment service is not configured yet. Please try again later." }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Could not create payment order. Please try again." }, { status: 502 });
+  }
 
   await admin.from("RazorpayPayment").insert({
     orderId: order.id, amount: order.amount, currency: order.currency,

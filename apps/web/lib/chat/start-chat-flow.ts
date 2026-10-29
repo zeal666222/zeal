@@ -66,6 +66,9 @@ export async function startChatFlow(
 ): Promise<StartChatResult> {
   const { router, onLowBalance, onError, onOffline, onLoading } = options;
   onLoading?.(true);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("zeal:navigate-start"));
+  }
 
   try {
     // ─── 1. Auth ──────────────────────────────────────────────────────────
@@ -151,5 +154,8 @@ export async function startChatFlow(
     return { ok: false, reason: "network" };
   } finally {
     onLoading?.(false);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("zeal:navigate-end"));
+    }
   }
 }

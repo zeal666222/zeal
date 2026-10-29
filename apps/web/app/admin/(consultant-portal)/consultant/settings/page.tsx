@@ -178,7 +178,7 @@ export default function ConsultantSettingsPage() {
   const copySubdomain = async () => {
     if (!subdomain) return;
     try {
-      await navigator.clipboard.writeText(`https://${subdomain}.zeal.app`);
+      await navigator.clipboard.writeText(`https://${subdomain}.zealer.co.in`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -339,7 +339,7 @@ export default function ConsultantSettingsPage() {
             </p>
             <div className="flex items-center gap-2">
               <p className="text-sm font-mono text-foreground flex-1 truncate">
-                {subdomain}.zeal.app
+                {subdomain}.zealer.co.in
               </p>
               <button
                 type="button"

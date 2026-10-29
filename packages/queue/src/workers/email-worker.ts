@@ -22,7 +22,7 @@ async function sendEmail(payload: EmailJobPayload): Promise<void> {
   // ─── STUB: Replace with real email provider ──────────────────────────────
   // Example with Resend:
   //   const resend = new Resend(process.env.RESEND_API_KEY);
-  //   await resend.emails.send({ from: payload.from ?? 'noreply@zeal.app', ... });
+  //   await resend.emails.send({ from: payload.from ?? 'noreply@zealer.co.in', ... });
   console.log(`[email-worker] Sending email to ${payload.to}: ${payload.subject}`);
   // Simulate async work
   await new Promise((r) => setTimeout(r, 100));

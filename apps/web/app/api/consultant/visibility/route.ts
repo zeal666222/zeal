@@ -85,7 +85,7 @@ export const GET = withErrorHandler(async () => {
       has_subdomain: consultant.subdomain !== null,
     },
     service_count: serviceCount,
-    public_url: consultant.subdomain ? `https://${consultant.subdomain}.zeal.app` : null,
+    public_url: consultant.subdomain ? `https://${consultant.subdomain}.zealer.co.in` : null,
     profile_url: `/consultant/${consultant.id}`,
   });
 });

@@ -57,13 +57,18 @@ function getBlocksForDate(
   return [];
 }
 
+const DEFAULT_BLOCKS: TimeBlock[] = [
+  { start: "09:00", end: "13:00" },
+  { start: "14:00", end: "21:00" },
+];
+
 // ─── Generate available slots ────────────────────────────────────────────────
 export function generateSlots(params: SlotGenerationParams): SlotGenerationResult {
   const { availability, date, durationMinutes, bufferMinutes, existingBookings } = params;
 
-  const blocks = getBlocksForDate(availability, date);
+  let blocks = getBlocksForDate(availability, date);
   if (blocks.length === 0) {
-    return { slots: [], hasAvailability: false };
+    blocks = DEFAULT_BLOCKS;
   }
 
   const now = new Date();

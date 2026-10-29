@@ -11,7 +11,7 @@
 // between "a page about astrology" and "Zeal, the astrology platform".
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const SITE = (process.env.NEXT_PUBLIC_APP_URL || "https://zeal.app").replace(/\/$/, "");
+const SITE = (process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in").replace(/\/$/, "");
 
 export const ORG_ID = `${SITE}/#organization`;
 export const SITE_ID = `${SITE}/#website`;

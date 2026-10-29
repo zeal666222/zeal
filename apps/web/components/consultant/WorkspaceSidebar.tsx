@@ -38,7 +38,7 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
 
   const copySubdomain = async () => {
     if (!consultant.subdomain) return;
-    const url = `https://${consultant.subdomain}.zeal.app`;
+    const url = `https://${consultant.subdomain}.zealer.co.in`;
     try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch {}
   };
 
@@ -76,7 +76,7 @@ export function WorkspaceSidebar({ user, consultant, completeness, pendingBookin
         >
           <div className="min-w-0">
             <p className="text-[10px] uppercase tracking-wider text-[var(--color-primary)]">Your Site</p>
-            <p className="text-xs font-medium text-foreground truncate">{consultant.subdomain}.zeal.app</p>
+            <p className="text-xs font-medium text-foreground truncate">{consultant.subdomain}.zealer.co.in</p>
           </div>
           {copied ? <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Copy className="w-3.5 h-3.5 text-[var(--color-primary)] shrink-0" />}
         </button>

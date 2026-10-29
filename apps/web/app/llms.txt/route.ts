@@ -7,7 +7,7 @@
 export const dynamic = "force-static";
 export const revalidate = 3600;
 
-const SITE = (process.env.NEXT_PUBLIC_APP_URL || "https://zeal.app").replace(/\/$/, "");
+const SITE = (process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in").replace(/\/$/, "");
 
 const FREE_SERVICES: Array<[string, string, string]> = [
   ["Tarot Reading", "/services/tarot", "Three-card and Celtic cross spreads with AI-guided interpretation of major arcana, reversed cards and suit combinations."],

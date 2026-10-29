@@ -221,7 +221,7 @@ async function lookupNominatim(input: string, timeoutMs: number): Promise<Resolv
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { "User-Agent": "Zeal-Astro/1.0 (contact: zeal.app)", "Accept": "application/json" },
+      headers: { "User-Agent": "Zeal-Astro/1.0 (contact: zealer.co.in)", "Accept": "application/json" },
     });
     clearTimeout(timer);
     const json = (await res.json()) as Array<{
@@ -356,7 +356,7 @@ export async function suggestPlaces(
     const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 2500);
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { "User-Agent": "Zeal-Astro/1.0 (contact: zeal.app)", Accept: "application/json" },
+      headers: { "User-Agent": "Zeal-Astro/1.0 (contact: zealer.co.in)", Accept: "application/json" },
     });
     clearTimeout(timer);
     const json = (await res.json()) as Array<{

@@ -575,6 +575,56 @@ export interface PresenceHandle<T> {
   untrack: () => void;
 }
 
+interface PresenceEntry {
+  readonly channel: RealtimeChannel;
+  readonly syncListeners: Map<string, (state: Record<string, unknown[]>) => void>;
+  subscribed: boolean;
+  refCount: number;
+}
+
+const presenceChannels = new Map<string, PresenceEntry>();
+
+function getOrCreatePresenceChannel(topic: string, key: string): PresenceEntry {
+  const fullTopic = `presence:${topic}`;
+  const existing = presenceChannels.get(fullTopic);
+  if (existing) {
+    existing.refCount++;
+    return existing;
+  }
+
+  const sb = getRealtimeClient()!;
+  const channel = sb.channel(fullTopic, {
+    config: { presence: { key } },
+  });
+
+  const entry: PresenceEntry = {
+    channel,
+    syncListeners: new Map(),
+    subscribed: false,
+    refCount: 1,
+  };
+
+  channel.on("presence", { event: "sync" }, () => {
+    const state = channel.presenceState();
+    for (const fn of entry.syncListeners.values()) {
+      try {
+        fn(state as Record<string, unknown[]>);
+      } catch (err) {
+        console.error("[realtime] presence sync threw:", err);
+      }
+    }
+  });
+
+  channel.subscribe((status) => {
+    if (status === "SUBSCRIBED") {
+      entry.subscribed = true;
+    }
+  });
+
+  presenceChannels.set(fullTopic, entry);
+  return entry;
+}
+
 export function subscribePresence<T extends Record<string, unknown>>(
   topic: string,
   key: string,
@@ -585,55 +635,50 @@ export function subscribePresence<T extends Record<string, unknown>>(
     return { unsubscribe: () => {}, track: () => {}, untrack: () => {} };
   }
 
-  const channel = sb.channel(`presence:${topic}`, {
-    config: { presence: { key } },
-  });
-  let tracked = false;
+  const fullTopic = `presence:${topic}`;
+  const entry = getOrCreatePresenceChannel(topic, key);
+  const listenerId = `ps-${++listenerCounter}-${Date.now().toString(36)}`;
 
-  channel
-    .on("presence", { event: "sync" }, () => {
+  entry.syncListeners.set(listenerId, onSync as (state: Record<string, unknown[]>) => void);
+
+  let tracked = false;
+  const tryTrack = () => {
+    if (entry.subscribed && !tracked) {
+      tracked = true;
       try {
-        onSync(channel.presenceState() as Record<string, T[]>);
-      } catch (err) {
-        console.error("[realtime] presence sync threw:", err);
-      }
-    })
-    .subscribe((status) => {
-      if (status === "SUBSCRIBED" && !tracked) {
-        tracked = true;
-        try {
-          channel.track({ online_at: new Date().toISOString() });
-        } catch {
-          /* ignore */
-        }
-      }
-    });
+        entry.channel.track({ online_at: new Date().toISOString() });
+      } catch { /* ignore */ }
+    }
+  };
+  tryTrack();
+  const checkInterval = setInterval(() => {
+    tryTrack();
+    if (tracked || entry.refCount <= 0) clearInterval(checkInterval);
+  }, 200);
 
   return {
     track: (state: T) => {
       try {
-        channel.track(state);
-      } catch {
-        /* ignore */
-      }
+        entry.channel.track(state);
+      } catch { /* ignore */ }
     },
     untrack: () => {
       try {
-        channel.untrack();
-      } catch {
-        /* ignore */
-      }
+        entry.channel.untrack();
+      } catch { /* ignore */ }
     },
     unsubscribe: () => {
+      clearInterval(checkInterval);
+      entry.syncListeners.delete(listenerId);
       try {
-        channel.untrack();
-      } catch {
-        /* ignore */
-      }
-      try {
-        sb.removeChannel(channel);
-      } catch {
-        /* ignore */
+        entry.channel.untrack();
+      } catch { /* ignore */ }
+      entry.refCount--;
+      if (entry.refCount <= 0 && entry.syncListeners.size === 0) {
+        try {
+          sb.removeChannel(entry.channel);
+        } catch { /* ignore */ }
+        presenceChannels.delete(fullTopic);
       }
     },
   };
