@@ -21,7 +21,7 @@ body {
   .h-screen-app { height: 100vh; height: 100dvh; }
   .min-h-screen-app { min-height: 100vh; min-height: 100dvh; }
 
-  /* Cursor blink animation for AI streaming */}
+  /* Cursor blink animation for AI streaming */
   @keyframes cursor-blink {
     0%, 50% { opacity: 1; }
     51%, 100% { opacity: 0; }
