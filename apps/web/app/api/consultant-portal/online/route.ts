@@ -1,6 +1,6 @@
 // apps/admin/app/api/consultant/online/route.ts
 import {NextResponse} from "next/server";
-import {createServerClientFromCookies, evaluateConsultantProfile} from "@zeal/database/server";
+import {createServerClientFromCookies, createAdminClient, evaluateConsultantProfile} from "@zeal/database/server";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +15,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "is_online must be boolean" }, { status: 400 });
   }
 
+  // Use admin client for User updates to bypass RLS — the user_self_update
+  // policy has sub-SELECTs on User that cause infinite recursion under forced RLS.
+  const admin = createAdminClient();
+
   if (body.is_online === true) {
     const { data: c } = await supabase
       .from("Consultant")
@@ -26,7 +30,7 @@ export async function POST(req: Request) {
 
     const report = evaluateConsultantProfile(c);
     if (!report.isLive) {
-      const { error } = await supabase.from("User").update({ is_online: true }).eq("id", user.id);
+      const { error } = await admin.from("User").update({ is_online: true }).eq("id", user.id);
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
       try {
         const { serverPublish } = await import("@/lib/realtime/server");
@@ -45,13 +49,11 @@ export async function POST(req: Request) {
     }
   }
 
-  const { error } = await supabase.from("User").update({ is_online: body.is_online }).eq("id", user.id);
+  const { error } = await admin.from("User").update({ is_online: body.is_online }).eq("id", user.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   try {
     const { serverPublish } = await import("@/lib/realtime/server");
-    // The shape has to be BroadcastChange — every subscriber reads
-    // `payload.record`, so a flat body was silently dropped.
     await serverPublish(`consultant:${user.id}:status`, "status_updated", {
       type: "UPDATE", table: "User", schema: "public",
       record: { consultantId: user.id, is_online: body.is_online },
