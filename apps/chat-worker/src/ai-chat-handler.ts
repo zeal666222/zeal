@@ -189,7 +189,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
     // seeker's message; the model treats these as its own internal reasoning
     // fuel. Legitimate topics like love/marriage yogas now have specific
     // vocabulary in-context, so upstream safety filters stop firing.
-    const grounding = retrieveKnowledge(trimmed, persona.category, 6);
+    const grounding = retrieveKnowledge(trimmed, persona.category, 6, persona.specialties);
     if (grounding) enrichedPromptParts.push(grounding);
   }
 

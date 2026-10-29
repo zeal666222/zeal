@@ -68,8 +68,9 @@ export function useRoomIntake(enabled: boolean): RoomIntake {
         const gaps = data.intake?.missing ?? [];
         setMissing(gaps);
         setPrefill(data.existingProfile ?? null);
-        // Intake form disabled — show consultants and services directly in chat
-        setOpen(false);
+        // Always show the intake form when starting a chat — even with existing data,
+        // the seeker confirms/updates their birth details before the consultation begins.
+        setOpen(true);
       } catch (err) {
         // Not fatal: the conversation works, the consultant simply asks for what
         // it needs as the chat goes on.

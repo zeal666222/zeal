@@ -174,19 +174,56 @@ function cleanupStore(): void {
   }
 }
 
+// ─── Subdomain detection ──────────────────────────────────────────────────────
+// Reserved subdomains that should NOT be routed to white-label pages.
+const RESERVED_SUBDOMAINS = new Set([
+  "www", "admin", "app", "api", "chat", "mail", "smtp", "ftp", "cdn",
+  "staging", "dev", "preview", "vercel", "localhost",
+]);
+
+// Known apex domains (add custom domains here as needed).
+const APEX_DOMAINS = ["zealer.co.in", "localhost"];
+
+function extractSubdomain(host: string): string | null {
+  const hostname = host.split(":")[0]!.toLowerCase();
+
+  for (const apex of APEX_DOMAINS) {
+    if (hostname === apex) return null;
+    const suffix = `.${apex}`;
+    if (hostname.endsWith(suffix)) {
+      const sub = hostname.slice(0, -suffix.length);
+      if (!sub || sub.includes(".") || RESERVED_SUBDOMAINS.has(sub)) return null;
+      return sub;
+    }
+  }
+  return null;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const requestId = getRequestId(request);
 
-  // Forward the request id to origin/handlers via a request header.
   const forwarded = new Headers(request.headers);
   forwarded.set("x-request-id", requestId);
 
-  // ─── OPTIONS preflight: pass through untouched (browser handles CORS) ──────
+  // ─── OPTIONS preflight: pass through untouched ──────────────────────────────
   if (request.method === "OPTIONS") {
     const preflight = NextResponse.next({ request: { headers: forwarded } });
     preflight.headers.set("x-request-id", requestId);
     return preflight;
+  }
+
+  // ─── Subdomain routing: rewrite to /white-label/[subdomain] ─────────────────
+  const host = request.headers.get("host") ?? "";
+  const subdomain = extractSubdomain(host);
+  if (subdomain && !pathname.startsWith("/white-label/")) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/white-label/${subdomain}${pathname === "/" ? "" : pathname}`;
+    const rewritten = NextResponse.rewrite(url, { request: { headers: forwarded } });
+    rewritten.headers.set("x-request-id", requestId);
+    rewritten.headers.set("x-zeal-subdomain", subdomain);
+    applySecurityHeaders(rewritten.headers);
+    return rewritten;
   }
 
   // ─── Static assets, build files & image optimizer: NEVER rate limit ────────

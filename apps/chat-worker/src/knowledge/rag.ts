@@ -1,27 +1,40 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// ZEAL — Per-turn Knowledge Grounding (300-chunk corpus, zero-dependency RAG)
+// ZEAL — Per-turn Knowledge Grounding (~340-chunk corpus, zero-dependency RAG)
 // ─────────────────────────────────────────────────────────────────────────────
-// Injects the most relevant excerpts from the 300-book training corpus
-// (100 astrology + 100 psychology + 100 communication) directly into the
-// system prompt so every AI consultant answers from real domain grounding,
-// not generic horoscope fluff — and so legitimate topics like love/marriage
-// yogas never trigger the upstream model's safety caution.
+// Injects the most relevant excerpts from the training corpus (astrology +
+// psychology + communication + tarot + numerology + palmistry + healing)
+// directly into the system prompt so every AI consultant answers from real
+// domain grounding, not generic horoscope fluff — and so legitimate topics
+// like love/marriage yogas never trigger the upstream model's safety caution.
 //
 // Design:
 //   • No embeddings, no Vectorize, no paid service. Pure keyword + substring
 //     scoring on the query, executed in <0.5 ms on the worker isolate.
 //   • Multi-lingual: Devanagari + Latin transliteration synonyms both score.
-//   • Category boost: astrology chunks boost for ASTROLOGER/TAROT/etc.
+//   • Category boost: each category gets domain weights; consultant
+//     specialties add a per-persona boost on top.
 //   • Cache: corpus is a static array, no re-parsing per request.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import type { TrainingChunk } from "../../../../packages/astrology/knowledge/training/index";
-import { ASTROLOGY_BOOKS, PSYCHOLOGY_BOOKS, COMMUNICATION_SKILLS } from "../../../../packages/astrology/knowledge/training/index";
+import {
+  ASTROLOGY_BOOKS,
+  PSYCHOLOGY_BOOKS,
+  COMMUNICATION_SKILLS,
+  TAROT_BOOKS,
+  NUMEROLOGY_BOOKS,
+  PALMISTRY_BOOKS,
+  HEALING_BOOKS,
+} from "../../../../packages/astrology/knowledge/training/index";
 
 const CORPUS: TrainingChunk[] = [
   ...ASTROLOGY_BOOKS,
   ...PSYCHOLOGY_BOOKS,
   ...COMMUNICATION_SKILLS,
+  ...TAROT_BOOKS,
+  ...NUMEROLOGY_BOOKS,
+  ...PALMISTRY_BOOKS,
+  ...HEALING_BOOKS,
 ];
 
 // Curated seed-key map — expand coverage of the query so a "love/marriage yog"
@@ -60,13 +73,16 @@ const QUERY_SYNONYMS: Array<{ match: RegExp; add: string[] }> = [
 // Weight per keyword hit; also boost for chunk-domain relevance per persona.
 const DOMAIN_WEIGHTS: Record<string, Record<string, number>> = {
   ASTROLOGER:     { astrology: 3.0, psychology: 1.2, communication: 0.6 },
+  TAROT:          { tarot: 3.2, astrology: 1.0, psychology: 1.4, communication: 0.6 },
+  NUMEROLOGIST:   { numerology: 3.2, astrology: 1.0, psychology: 1.2, communication: 0.6 },
+  PALMIST:        { palmistry: 3.2, astrology: 1.0, psychology: 1.2, communication: 0.6 },
   PSYCHOLOGIST:   { astrology: 0.4, psychology: 3.0, communication: 1.6 },
   LIFE_COACH:     { astrology: 0.6, psychology: 2.4, communication: 2.0 },
-  REIKI:          { astrology: 1.6, psychology: 1.4, communication: 1.0 },
-  HEALER:         { astrology: 1.2, psychology: 1.8, communication: 1.2 },
-  SPIRITUAL_GUIDE:{ astrology: 1.6, psychology: 1.6, communication: 1.0 },
+  REIKI:          { healing: 2.8, astrology: 1.4, psychology: 1.4, communication: 1.0 },
+  HEALER:         { healing: 2.8, astrology: 1.0, psychology: 1.8, communication: 1.2 },
+  SPIRITUAL_GUIDE:{ astrology: 1.6, healing: 1.2, psychology: 1.6, communication: 1.0 },
   VASTU:          { astrology: 2.4, psychology: 0.6, communication: 0.8 },
-  YOGA_INSTRUCTOR:{ astrology: 1.4, psychology: 1.6, communication: 1.2 },
+  YOGA_INSTRUCTOR:{ astrology: 1.4, healing: 1.4, psychology: 1.6, communication: 1.2 },
 };
 
 interface Scored { chunk: TrainingChunk; score: number; }
@@ -79,7 +95,7 @@ function tokenize(s: string): string[] {
     .filter((t) => t.length >= 2);
 }
 
-function scoreChunk(chunk: TrainingChunk, tokens: string[], extra: string[], domainBoost: number): number {
+function scoreChunk(chunk: TrainingChunk, tokens: string[], extra: string[], domainBoost: number, specialtyTerms: string[]): number {
   let score = 0;
   // Keyword exact-token hits (biggest signal).
   for (const kw of chunk.keywords) {
@@ -103,23 +119,44 @@ function scoreChunk(chunk: TrainingChunk, tokens: string[], extra: string[], dom
   for (const t of tokens) if (t.length >= 4 && contentLower.includes(t)) contentHits++;
   score += Math.min(contentHits, 6);
 
+  // Per-consultant specialty boost — a tarot reader tagged "Celtic Cross"
+  // outranks a generic chunk on the same query.
+  if (specialtyTerms.length > 0) {
+    let specHits = 0;
+    for (const spec of specialtyTerms) {
+      if (
+        chunk.keywords.some((k) => k.toLowerCase().includes(spec)) ||
+        chunk.title.toLowerCase().includes(spec) ||
+        contentLower.includes(spec)
+      ) specHits++;
+    }
+    if (specHits > 0) score *= 1 + Math.min(specHits, 3) * 0.3;
+  }
+
   return score * domainBoost;
 }
 
 /**
  * Retrieve the top-K most relevant training chunks for a user message,
  * formatted as a compact grounding block ready to append to the system prompt.
+ * `specialtyTerms` (the consultant's specialties from D1) tilts retrieval
+ * toward that consultant's declared expertise.
  */
 export function retrieveKnowledge(
   userMessage: string,
   personaCategory: string,
   topK = 6,
+  specialtyTerms?: string[],
 ): string {
   const trimmed = userMessage.trim();
   if (!trimmed) return "";
 
   const tokens = tokenize(trimmed);
   if (tokens.length === 0) return "";
+
+  const specialties = (specialtyTerms ?? [])
+    .map((s) => s.toLowerCase().trim())
+    .filter((s) => s.length >= 3);
 
   // Curated expansions from the synonym table.
   const extra = new Set<string>();
@@ -135,7 +172,7 @@ export function retrieveKnowledge(
   const scored: Scored[] = [];
   for (const chunk of CORPUS) {
     const boost = weights[chunk.domain] ?? 1;
-    const s = scoreChunk(chunk, tokens, [...extra], boost);
+    const s = scoreChunk(chunk, tokens, [...extra], boost, specialties);
     if (s > 0) scored.push({ chunk, score: s });
   }
 

@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import {
   BarChart3, Activity, Bot, Calendar, ChevronDown, CreditCard, Eye, Flag,
-  Heart, Key, LayoutDashboard, LogOut, Megaphone, Menu, Radio, Scale,
+  Globe, Heart, Key, LayoutDashboard, LogOut, Megaphone, Menu, Radio, Scale,
   Settings, Shield, Tag, UserCog, UserPlus, Users, Wallet, X, Zap,
 } from "lucide-react";
 import { cn, ZealMark } from "@zeal/ui";
@@ -48,6 +48,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { icon: Users, label: "Users", href: "/admin/users", minRole: "ADMIN" },
       { icon: UserCog, label: "Consultants", href: "/admin/consultants", minRole: "ADMIN" },
+      { icon: Globe, label: "Subdomains", href: "/admin/subdomains", minRole: "ADMIN" },
       { icon: Shield, label: "Verification", href: "/admin/verification", minRole: "ADMIN" },
       { icon: Flag, label: "Content", href: "/admin/content", minRole: "SUPPORT" },
       { icon: Calendar, label: "Bookings", href: "/admin/bookings", minRole: "SUPPORT" },

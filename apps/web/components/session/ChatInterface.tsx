@@ -49,47 +49,147 @@ function dayLabel(ts: string) {
 }
 
 function MessageContent({ content }: { content: string }) {
-  const parts = content.split(/(!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g);
-  const hasVisual = parts.some((p) => p.startsWith("!["));
-  if (!hasVisual && !content.includes("](http")) {
-    return <>{content}</>;
-  }
-  return (
-    <div className="space-y-2">
-      {parts.map((part, i) => {
-        const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
-        if (imgMatch) {
-          return (
-            <img
-              key={i}
-              src={imgMatch[2]}
-              alt={imgMatch[1] || "attachment"}
-              className="max-w-full rounded-xl border border-border/50"
-              loading="lazy"
-            />
-          );
+  // Parse markdown-like formatting: bold, italic, lists, headers, links, images
+  const lines = content.split("\n");
+  const elements: React.ReactNode[] = [];
+  let inList = false;
+  let listItems: React.ReactNode[] = [];
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      elements.push(
+        <ul key={`list-${elements.length}`} className="list-disc list-inside space-y-1 my-2">
+          {listItems}
+        </ul>
+      );
+      listItems = [];
+    }
+    inList = false;
+  };
+
+  const parseInline = (text: string, keyPrefix: string): React.ReactNode => {
+    // Split by images and links first
+    const parts = text.split(/(!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g);
+    return parts.map((part, i) => {
+      const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+      if (imgMatch) {
+        return (
+          <img
+            key={`${keyPrefix}-img-${i}`}
+            src={imgMatch[2]}
+            alt={imgMatch[1] || "attachment"}
+            className="max-w-full rounded-xl border border-border/50 my-2"
+            loading="lazy"
+          />
+        );
+      }
+      const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        return (
+          <a
+            key={`${keyPrefix}-link-${i}`}
+            href={linkMatch[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[var(--color-primary)] underline underline-offset-2 text-xs"
+          >
+            <Paperclip size={10} /> {linkMatch[1]}
+          </a>
+        );
+      }
+      if (!part.trim()) return null;
+
+      // Parse inline formatting: bold, italic, code
+      const formatted = part.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g).map((segment, j) => {
+        if (segment.startsWith("**") && segment.endsWith("**")) {
+          return <strong key={`${keyPrefix}-b-${j}`} className="font-bold">{segment.slice(2, -2)}</strong>;
         }
-        const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
-        if (linkMatch) {
-          return (
-            <a
-              key={i}
-              href={linkMatch[2]}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[var(--color-primary)] underline underline-offset-2 text-xs"
-            >
-              <Paperclip size={10} /> {linkMatch[1]}
-            </a>
-          );
+        if (segment.startsWith("*") && segment.endsWith("*") && !segment.startsWith("**")) {
+          return <em key={`${keyPrefix}-i-${j}`} className="italic">{segment.slice(1, -1)}</em>;
         }
-        if (part.trim()) {
-          return <span key={i}>{part}</span>;
+        if (segment.startsWith("`") && segment.endsWith("`")) {
+          return <code key={`${keyPrefix}-c-${j}`} className="px-1.5 py-0.5 rounded bg-surface-raised text-xs font-mono">{segment.slice(1, -1)}</code>;
         }
-        return null;
-      })}
-    </div>
-  );
+        return <span key={`${keyPrefix}-t-${j}`}>{segment}</span>;
+      });
+      return <span key={`${keyPrefix}-p-${i}`}>{formatted}</span>;
+    });
+  };
+
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+
+    // Empty line
+    if (!trimmed) {
+      flushList();
+      elements.push(<br key={`br-${idx}`} />);
+      return;
+    }
+
+    // Headers
+    if (trimmed.startsWith("### ")) {
+      flushList();
+      elements.push(
+        <h3 key={`h3-${idx}`} className="text-base font-bold mt-3 mb-1">
+          {parseInline(trimmed.slice(4), `h3-${idx}`)}
+        </h3>
+      );
+      return;
+    }
+    if (trimmed.startsWith("## ")) {
+      flushList();
+      elements.push(
+        <h2 key={`h2-${idx}`} className="text-lg font-bold mt-3 mb-1">
+          {parseInline(trimmed.slice(3), `h2-${idx}`)}
+        </h2>
+      );
+      return;
+    }
+    if (trimmed.startsWith("# ")) {
+      flushList();
+      elements.push(
+        <h1 key={`h1-${idx}`} className="text-xl font-bold mt-3 mb-1">
+          {parseInline(trimmed.slice(2), `h1-${idx}`)}
+        </h1>
+      );
+      return;
+    }
+
+    // Unordered list items
+    if (trimmed.match(/^[-*]\s+/)) {
+      inList = true;
+      listItems.push(
+        <li key={`li-${idx}`} className="text-sm">
+          {parseInline(trimmed.replace(/^[-*]\s+/, ""), `li-${idx}`)}
+        </li>
+      );
+      return;
+    }
+
+    // Ordered list items
+    if (trimmed.match(/^\d+\.\s+/)) {
+      flushList();
+      elements.push(
+        <div key={`ol-${idx}`} className="flex gap-2 my-1">
+          <span className="font-bold text-sm min-w-[1.5em]">{trimmed.match(/^\d+/)?.[0]}.</span>
+          <span className="flex-1 text-sm">{parseInline(trimmed.replace(/^\d+\.\s+/, ""), `ol-${idx}`)}</span>
+        </div>
+      );
+      return;
+    }
+
+    // Regular paragraph
+    flushList();
+    elements.push(
+      <p key={`p-${idx}`} className="my-1">
+        {parseInline(trimmed, `p-${idx}`)}
+      </p>
+    );
+  });
+
+  flushList();
+
+  return <div className="space-y-0.5">{elements}</div>;
 }
 
 const AI_QUICK_REPLIES = [
@@ -601,16 +701,23 @@ export function ChatInterface({
                     </div>
                   )}
                   <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                    initial={{ opacity: 0, y: 12, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className={cn("flex flex-col", isMe ? "items-end" : "items-start")}
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: isMe ? 35 : 30,
+                      delay: idx * 0.03,
+                    }}
+                    className={cn("flex flex-col group", isMe ? "items-end" : "items-start")}
                   >
                     <div className={cn(
                       "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words relative",
+                      "[&>*]:max-w-[65ch]", // Optimal line width for readability (ChatGPT standard)
                       isMe
                         ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/15"
                         : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
+                      !isMe && isAI && "shadow-md shadow-[var(--color-primary)]/5",
                       msg._optimistic && "opacity-85 saturate-75"
                     )}>
                       <MessageContent content={msg.content} />
@@ -621,6 +728,39 @@ export function ChatInterface({
                       {isMe && msg._optimistic && <span className="opacity-70">sending…</span>}
                       {isMe && !msg._optimistic && isSeen && msg.id === lastMine?.id && (
                         <CheckCheck size={12} className="text-sky-400" />
+                      )}
+                      {/* Feedback buttons for AI messages */}
+                      {!isMe && isAI && (
+                        <span className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // TODO: Wire to feedback API
+                              console.log("Thumbs up for message:", msg.id);
+                            }}
+                            className="p-0.5 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-400 transition-colors"
+                            aria-label="Helpful response"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M7 10v12" />
+                              <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              // TODO: Wire to feedback API
+                              console.log("Thumbs down for message:", msg.id);
+                            }}
+                            className="p-0.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 transition-colors"
+                            aria-label="Not helpful"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M17 14V2" />
+                              <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 1-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z" />
+                            </svg>
+                          </button>
+                        </span>
                       )}
                     </span>
                   </motion.div>
@@ -650,24 +790,50 @@ export function ChatInterface({
                 <span>Composing your reading…</span>
               </div>
             )}
-            <div className={cn(
-              "max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken text-foreground border border-border text-sm leading-relaxed",
-              streamingStage && !streamingText && "opacity-60",
-            )}>
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className={cn(
+                "max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken text-foreground border border-border text-sm leading-relaxed relative",
+                "[&>*]:max-w-[65ch]", // Optimal line width for readability
+                streamingStage && !streamingText && "opacity-60",
+              )}
+            >
               {streamDisplay ? (
                 <>
                   {!streamingText && fillerText && (
                     <span className="italic text-muted-foreground">{streamDisplay}</span>
                   )}
-                  {streamingText}
+                  {streamingText && <MessageContent content={streamingText} />}
                 </>
               ) : !streamingStage ? (
                 <StreamingIndicator />
               ) : (
                 <span className="italic text-muted-foreground">Thinking…</span>
               )}
-              <span className="inline-block w-1.5 h-4 ml-1 bg-[var(--color-primary)] animate-pulse align-middle" />
-            </div>
+              {/* Blinking cursor during streaming */}
+              {streamingText && (
+                <span className="inline-block w-0.5 h-4 ml-0.5 bg-[var(--color-primary)] align-middle animate-cursor-blink" />
+              )}
+              {/* Stop generation button */}
+              {streamingText && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // TODO: Implement abort controller exposure from useChat
+                    setStreamingText(null);
+                    setFillerText(null);
+                    setStreamingStage(null);
+                  }}
+                  className="absolute -bottom-3 right-2 px-2.5 py-1 rounded-full bg-surface border border-border text-[10px] font-bold text-muted-foreground hover:text-foreground hover:border-[var(--color-primary)]/40 transition-all active:scale-95 flex items-center gap-1"
+                  aria-label="Stop generating"
+                >
+                  <span className="w-1.5 h-1.5 rounded-sm bg-current" />
+                  Stop
+                </button>
+              )}
+            </motion.div>
           </div>
         )}
 
@@ -701,15 +867,29 @@ export function ChatInterface({
 
         {showTyping && (
           <motion.div
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 px-4 py-3 bg-surface-sunken border border-border rounded-2xl w-max"
+            initial={{ opacity: 0, y: 6, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className="flex items-center gap-2 px-4 py-3 bg-surface-sunken border border-border rounded-2xl rounded-bl-sm w-max shadow-sm"
           >
             <span className="text-[10px] font-bold text-muted-foreground">{partnerName}</span>
-            <span className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce" />
-              <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:150ms]" />
-              <span className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full animate-bounce [animation-delay:300ms]" />
+            <span className="flex gap-1 items-center">
+              <motion.span
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
+                className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full"
+              />
+              <motion.span
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
+                className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full"
+              />
+              <motion.span
+                animate={{ y: [0, -4, 0] }}
+                transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full"
+              />
             </span>
           </motion.div>
         )}
@@ -884,7 +1064,7 @@ export function ChatInterface({
       {isAI && intake.open && (
         <BirthIntakeModal
           open
-          onOpenChange={(open) => { if (!open) intake.dismiss(); }}
+          onOpenChange={() => {}}
           consultantName={partnerName}
           existingProfile={intake.prefill}
           onSubmit={intake.submit}

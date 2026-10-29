@@ -18,6 +18,9 @@ export interface ConsultantRow {
   is_active: number;
   location: string | null;
   country: string | null;
+  religion: string | null;
+  lineage: string | null;
+  native_language: string | null;
 }
 
 export interface PersonaContext {
@@ -37,6 +40,9 @@ export interface PersonaContext {
   fewShots: Array<{ role: "assistant" | "user"; content: string }>;
   location: string | null;
   country: string | null;
+  religion: string | null;
+  lineage: string | null;
+  nativeLanguage: string | null;
 }
 
 function parseJsonArray(raw: string | null): string[] {
@@ -112,7 +118,8 @@ export async function loadPersona(
   const row = await env.DB.prepare(
     `SELECT id, name, category, bio, specialties, languages, persona,
             system_prompt, is_paid, per_minute_rate, safety_level,
-            banned_patterns, is_active, location, country
+            banned_patterns, is_active, location, country,
+            religion, lineage, native_language
      FROM ai_consultant WHERE id = ? AND is_active = 1`
   ).bind(consultantId).first<ConsultantRow>();
 
@@ -150,6 +157,11 @@ export async function loadPersona(
       systemPrompt: row.system_prompt,
       location: row.location,
       country: row.country,
+      religion: row.religion,
+      lineage: row.lineage,
+      nativeLanguage: row.native_language,
+      safetyLevel: row.safety_level,
+      bannedPatterns,
       seekerContext: seekerContextFrom(seeker),
       missingFields: missingFieldsFrom(seeker),
     });
@@ -179,5 +191,8 @@ export async function loadPersona(
     fewShots: contract.fewShots,
     location: row.location,
     country: row.country,
+    religion: row.religion,
+    lineage: row.lineage,
+    nativeLanguage: row.native_language,
   };
 }

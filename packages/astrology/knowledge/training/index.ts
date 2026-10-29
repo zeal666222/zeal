@@ -1,13 +1,14 @@
 // ============================================================================
 // AI Consultant Training System — Comprehensive Knowledge Base
 // ============================================================================
-// Three-pillar training: Communication (100 skills), Psychology (100 books),
-// Astrology (100 classical texts). Compressed for Cloudflare Vectorize RAG.
+// Six-domain training: Communication (100 skills), Psychology (100 books),
+// Astrology (100 classical texts), Tarot, Numerology, Palmistry, Healing.
+// Compressed for zero-dependency keyword RAG in the chat worker.
 // ============================================================================
 
 export interface TrainingChunk {
   id: string;
-  domain: "communication" | "psychology" | "astrology";
+  domain: "communication" | "psychology" | "astrology" | "tarot" | "numerology" | "palmistry" | "healing";
   category: string;
   title: string;
   content: string;
@@ -18,9 +19,14 @@ export interface TrainingChunk {
 
 import { COMMUNICATION_SKILLS_DATA } from "./communication-skills";
 import { PSYCHOLOGY_BOOKS_DATA } from "./psychology-books";
+import { TAROT_BOOKS } from "./tarot-books";
+import { NUMEROLOGY_BOOKS } from "./numerology-books";
+import { PALMISTRY_BOOKS } from "./palmistry-books";
+import { HEALING_BOOKS } from "./healing-books";
 
 export const COMMUNICATION_SKILLS: TrainingChunk[] = COMMUNICATION_SKILLS_DATA;
 export const PSYCHOLOGY_BOOKS: TrainingChunk[] = PSYCHOLOGY_BOOKS_DATA;
+export { TAROT_BOOKS, NUMEROLOGY_BOOKS, PALMISTRY_BOOKS, HEALING_BOOKS };
 
 // ─── 100+ Astrology Books (Classical + Modern) ───────────────────────────────
 export const ASTROLOGY_BOOKS: TrainingChunk[] = [
@@ -932,11 +938,16 @@ export function buildTrainingChunks(): TrainingChunk[] {
     ...COMMUNICATION_SKILLS,
     ...PSYCHOLOGY_BOOKS,
     ...ASTROLOGY_BOOKS,
+    ...TAROT_BOOKS,
+    ...NUMEROLOGY_BOOKS,
+    ...PALMISTRY_BOOKS,
+    ...HEALING_BOOKS,
   ];
 }
 
 // ─── Domain-Specific Retrieval ───────────────────────────────────────────────
-export function getTrainingByDomain(domain: "communication" | "psychology" | "astrology"): TrainingChunk[] {
+export type TrainingDomain = TrainingChunk["domain"];
+export function getTrainingByDomain(domain: TrainingDomain): TrainingChunk[] {
   return buildTrainingChunks().filter(c => c.domain === domain);
 }
 
