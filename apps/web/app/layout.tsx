@@ -95,7 +95,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Zeal",
-    startupUrl: "/",
   },
 };
 

@@ -38,10 +38,6 @@ export function GoogleAuthButton({
         provider: "google",
         options: {
           redirectTo: callbackUrl,
-          // Persist the session when the tab is backgrounded for the Google
-          // consent screen — critical for returning into the installed PWA
-          // (standalone) instead of a Chrome tab with a live session lost.
-          event: "visibilitychange",
           queryParams: {
             access_type: "offline",
             prompt: "consent",
