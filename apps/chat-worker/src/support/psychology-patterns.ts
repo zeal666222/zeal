@@ -193,18 +193,6 @@ export function getPatternsForCategory(category: string): PsychologyPattern[] {
 
 export function buildPsychologyInstructions(category: string): string {
   const patterns = getPatternsForCategory(category);
-  const lines: string[] = [
-    "CONVERSATION PSYCHOLOGY (follow these naturally — never announce them):",
-  ];
-  for (const p of patterns) {
-    lines.push(`• ${p.name}: ${p.description}`);
-  }
-  lines.push("");
-  lines.push("AVOID THESE PATTERNS (they sound robotic):");
-  for (const p of patterns) {
-    for (const avoid of p.avoidFragments.slice(0, 2)) {
-      lines.push(`• Never say: "${avoid}"`);
-    }
-  }
-  return lines.join("\n");
+  const patternNames = patterns.map(p => p.name).join(", ");
+  return `NATURAL SKILLS (weave these in organically — never announce them): ${patternNames}. The key: validate emotion BEFORE offering guidance. Ask real questions you want answered. Give one tiny doable step, not a life overhaul. And never say "don't worry" or "it's not that bad" — those erase feelings.`;
 }
