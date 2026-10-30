@@ -19,6 +19,7 @@ export interface TrainingChunk {
 
 import { COMMUNICATION_SKILLS_DATA } from "./communication-skills";
 import { PSYCHOLOGY_BOOKS_DATA } from "./psychology-books";
+import { HUMAN_PSYCHOLOGY_DATA } from "./human-psychology";
 import { TAROT_BOOKS } from "./tarot-books";
 import { NUMEROLOGY_BOOKS } from "./numerology-books";
 import { PALMISTRY_BOOKS } from "./palmistry-books";
@@ -26,6 +27,7 @@ import { HEALING_BOOKS } from "./healing-books";
 
 export const COMMUNICATION_SKILLS: TrainingChunk[] = COMMUNICATION_SKILLS_DATA;
 export const PSYCHOLOGY_BOOKS: TrainingChunk[] = PSYCHOLOGY_BOOKS_DATA;
+export const HUMAN_PSYCHOLOGY: TrainingChunk[] = HUMAN_PSYCHOLOGY_DATA;
 export { TAROT_BOOKS, NUMEROLOGY_BOOKS, PALMISTRY_BOOKS, HEALING_BOOKS };
 
 // ─── 100+ Astrology Books (Classical + Modern) ───────────────────────────────
@@ -937,6 +939,7 @@ export function buildTrainingChunks(): TrainingChunk[] {
   return [
     ...COMMUNICATION_SKILLS,
     ...PSYCHOLOGY_BOOKS,
+    ...HUMAN_PSYCHOLOGY,
     ...ASTROLOGY_BOOKS,
     ...TAROT_BOOKS,
     ...NUMEROLOGY_BOOKS,

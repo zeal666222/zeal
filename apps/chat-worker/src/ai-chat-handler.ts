@@ -7,6 +7,7 @@ import { PersonaEngine } from "./persona-engine";
 import { detectUploadedFiles, readTextualAttachment, buildFileAnalysisDirective } from "./support/file-analysis";
 import { detectBirthData } from "./support/birth-data-detector";
 import { retrieveKnowledge } from "./knowledge/rag";
+import { detectEmotion, buildEmotionDirective, trackEmotionalTrajectory } from "./knowledge/emotion-detect";
 import { record as recordAiMetric } from "./ai-metrics";
 import { insertMessage, isoOf, readMessages, requireParticipant, sqliteNow, touchConversation } from "./conversation-store";
 import { describeProfile, saveSeekerProfile, readSeekerProfile } from "./seeker-profile";
@@ -128,6 +129,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
 
   const enrichedPromptParts: string[] = [persona.systemPrompt];
   const derivedEvents: unknown[] = [];
+  let emotionSignal: ReturnType<typeof detectEmotion> | null = null;
 
   if (opener) {
     enrichedPromptParts.push(
@@ -189,7 +191,15 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
       );
     }
 
-    // Per-turn knowledge grounding from the 300-book training corpus.
+    // Real-time emotion detection — runs in <0.1ms, pure regex.
+    // Detects emotional state from the user's message and injects a psychology-
+    // grounded directive into the system prompt BEFORE knowledge retrieval,
+    // so the AI responds with appropriate emotional intelligence from the start.
+    emotionSignal = detectEmotion(trimmed);
+    const emotionDirective = buildEmotionDirective(emotionSignal);
+    if (emotionDirective) enrichedPromptParts.push(`\n\n${emotionDirective}`);
+
+    // Per-turn knowledge grounding from the 400+ book training corpus.
     // Retrieves astrology + psychology + communication excerpts matching the
     // seeker's message; the model treats these as its own internal reasoning
     // fuel. Legitimate topics like love/marriage yogas now have specific
@@ -198,15 +208,22 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
     if (grounding) enrichedPromptParts.push(grounding);
   }
 
-  const finalSystemPrompt = enrichedPromptParts.join("");
-
   const history = priorMessages.map((m) => ({
     role: (m.sender_id === persona.userId ? "assistant" : "user") as "assistant" | "user",
     content: m.content,
   }));
 
-  // Use PersonaEngine.buildMessages for consistent structure:
-  //   system (contract) → few-shots → history → TURN LANGUAGE directive → user
+  // Track emotional trajectory across the conversation. If the user has been
+  // in the same emotional state for 3+ turns, deepen the approach. If they've
+  // shifted emotions, follow the shift naturally.
+  if (emotionSignal) {
+    const trajectory = trackEmotionalTrajectory(history, emotionSignal);
+    if (trajectory.adjust && trajectory.adjustment) {
+      enrichedPromptParts.push(`\n\n${trajectory.adjustment}`);
+    }
+  }
+
+  const finalSystemPrompt = enrichedPromptParts.join("");
   const messages = PersonaEngine.buildMessages(
     {
       systemPrompt: finalSystemPrompt,
