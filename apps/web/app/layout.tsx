@@ -91,6 +91,12 @@ export const metadata: Metadata = {
     ],
   },
   category: "spirituality",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Zeal",
+    startupUrl: "/",
+  },
 };
 
 export const viewport: Viewport = {
