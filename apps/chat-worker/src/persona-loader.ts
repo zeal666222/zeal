@@ -21,6 +21,7 @@ export interface ConsultantRow {
   religion: string | null;
   lineage: string | null;
   native_language: string | null;
+  gender: string | null;
 }
 
 export interface PersonaContext {
@@ -43,6 +44,7 @@ export interface PersonaContext {
   religion: string | null;
   lineage: string | null;
   nativeLanguage: string | null;
+  gender: "male" | "female" | null;
 }
 
 function parseJsonArray(raw: string | null): string[] {
@@ -119,7 +121,7 @@ export async function loadPersona(
     `SELECT id, name, category, bio, specialties, languages, persona,
             system_prompt, is_paid, per_minute_rate, safety_level,
             banned_patterns, is_active, location, country,
-            religion, lineage, native_language
+            religion, lineage, native_language, gender
      FROM ai_consultant WHERE id = ? AND is_active = 1`
   ).bind(consultantId).first<ConsultantRow>();
 
@@ -160,6 +162,7 @@ export async function loadPersona(
       religion: row.religion,
       lineage: row.lineage,
       nativeLanguage: row.native_language,
+      gender: (row.gender === "male" || row.gender === "female") ? row.gender : null,
       safetyLevel: row.safety_level,
       bannedPatterns,
       seekerContext: seekerContextFrom(seeker),
@@ -194,5 +197,6 @@ export async function loadPersona(
     religion: row.religion,
     lineage: row.lineage,
     nativeLanguage: row.native_language,
+    gender: (row.gender === "male" || row.gender === "female") ? row.gender as "male" | "female" : null,
   };
 }
