@@ -20,6 +20,8 @@ export interface TrainingChunk {
 import { COMMUNICATION_SKILLS_DATA } from "./communication-skills";
 import { PSYCHOLOGY_BOOKS_DATA } from "./psychology-books";
 import { HUMAN_PSYCHOLOGY_DATA } from "./human-psychology";
+import { EMOTIONAL_DEPTH_DATA } from "./emotional-depth";
+import { CHAT_STYLE_DATA } from "./chat-style";
 import { TAROT_BOOKS } from "./tarot-books";
 import { NUMEROLOGY_BOOKS } from "./numerology-books";
 import { PALMISTRY_BOOKS } from "./palmistry-books";
@@ -28,6 +30,8 @@ import { HEALING_BOOKS } from "./healing-books";
 export const COMMUNICATION_SKILLS: TrainingChunk[] = COMMUNICATION_SKILLS_DATA;
 export const PSYCHOLOGY_BOOKS: TrainingChunk[] = PSYCHOLOGY_BOOKS_DATA;
 export const HUMAN_PSYCHOLOGY: TrainingChunk[] = HUMAN_PSYCHOLOGY_DATA;
+export const EMOTIONAL_DEPTH: TrainingChunk[] = EMOTIONAL_DEPTH_DATA;
+export const CHAT_STYLE: TrainingChunk[] = CHAT_STYLE_DATA;
 export { TAROT_BOOKS, NUMEROLOGY_BOOKS, PALMISTRY_BOOKS, HEALING_BOOKS };
 
 // ─── 100+ Astrology Books (Classical + Modern) ───────────────────────────────
