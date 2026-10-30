@@ -7,6 +7,101 @@
 import type { HouseCusp, ZodiacSign, HouseSystem } from "../types";
 import { ZODIAC_SIGNS } from "../types";
 
+const DEG = Math.PI / 180;
+
+/** Julian Date (UT) from a JS Date — used by the sidereal-time and nutation series. */
+export function toJulianDate(date: Date): number {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth() + 1;
+  const d = date.getUTCDate() + date.getUTCHours() / 24
+    + date.getUTCMinutes() / 1440 + date.getUTCSeconds() / 86400;
+
+  let yr = y;
+  let mo = m;
+  if (mo <= 2) {
+    yr -= 1;
+    mo += 12;
+  }
+
+  const A = Math.floor(yr / 100);
+  const B = 2 - A + Math.floor(A / 4);
+
+  return Math.floor(365.25 * (yr + 4716)) + Math.floor(30.6001 * (mo + 1)) + d + B - 1524.5;
+}
+
+/**
+ * Mean obliquity of the ecliptic, degrees (Meeus ch. 22).
+ * The J2000 constant 23.4392911° drifts ~0.013°/century, which is ~0.02° of
+ * Lagna across a human lifetime — worth using the value for the date.
+ */
+export function meanObliquity(jd: number): number {
+  const T = (jd - 2451545.0) / 36525;
+  const e0 = 23.439291111111
+    - (46.8150 * T - 0.00059 * T * T + 0.001813 * T * T * T) / 3600;
+  return e0;
+}
+
+/**
+ * Nutation in longitude (Δψ) and obliquity (Δε), arcseconds, from Meeus'
+ * four-term abbreviated series. The full 148-term IAU series moves these by
+ * under 0.1", far below what any ephemeris-grade chart resolution needs.
+ */
+export function nutation(jd: number): { dPsi: number; dEps: number } {
+  const T = (jd - 2451545.0) / 36525;
+  const omega = 125.04452 - 1934.136261 * T + 0.0020754 * T * T + (T * T * T) / 467441;
+  const sunLong = 280.4661737 + 36000.7698278 * T;
+  const moonLong = 218.316386254 + 481267.88175154 * T;
+
+  const dPsi =
+    -17.20 * Math.sin(omega * DEG)
+    - 1.32 * Math.sin(2 * sunLong * DEG)
+    - 0.23 * Math.sin(2 * moonLong * DEG)
+    + 0.21 * Math.sin(2 * omega * DEG);
+
+  const dEps =
+    9.20 * Math.cos(omega * DEG)
+    + 0.57 * Math.cos(2 * sunLong * DEG)
+    + 0.10 * Math.cos(2 * moonLong * DEG)
+    - 0.09 * Math.cos(2 * omega * DEG);
+
+  return { dPsi, dEps };
+}
+
+/** Apparent obliquity of the ecliptic for a date, degrees (mean + nutation). */
+export function apparentObliquity(jd: number): number {
+  return meanObliquity(jd) + nutation(jd).dEps / 3600;
+}
+
+/**
+ * Greenwich Mean Sidereal Time, degrees (IAU-82 expression in JD0).
+ */
+function gmstDegrees(jd: number): number {
+  const T = (jd - 2451545.0) / 36525;
+  const gmst =
+    280.46061837 + 360.98564736629 * (jd - 2451545.0) +
+    0.000387933 * T * T - (T * T * T) / 38710000.0;
+  return ((gmst % 360) + 360) % 360;
+}
+
+/**
+ * Compute Local Sidereal Time (apparent, i.e. GAST + east longitude) in degrees.
+ *
+ * Apparent rather than mean: the equation of equinoxes (Δψ·cos ε) is worth up to
+ * 0.016° of sidereal time, which puts the Lagna out by a similar amount — the
+ * difference between "Mesha 29°58'" and "Vrishabha 0°01'" for a boundary birth.
+ */
+export function computeLST(date: Date, longitude: number): number {
+  const jd = toJulianDate(date);
+  const ee = (nutation(jd).dPsi * Math.cos(meanObliquity(jd) * DEG)) / 3600;
+  const gast = gmstDegrees(jd) + ee;
+  return (((gast + longitude) % 360) + 360) % 360;
+}
+
+/** Obliquity argument used by the cusp formulas, defaulting to the WGS-era mean. */
+function obliquityRad(obliquity?: number): number {
+  return (obliquity ?? 23.43929111) * DEG;
+}
+
 /**
  * Compute house cusps based on the selected house system.
  *
@@ -281,64 +376,21 @@ export function computeAscendant(
 }
 
 /**
- * Compute the Midheaven (MC) from local sidereal time.
+ * Compute the Midheaven (MC) from the local (apparent) sidereal time.
+ *
+ *   tan(MC) = tan(RAMC) / cos(eps)
+ * atan2 of (sin RAMC, cos RAMC · cos eps) already lands in the correct
+ * quadrant, because cos eps > 0 keeps the sign of the x-component — so no
+ * post-hoc 180° flip is applied here (the old flip only ever risked moving a
+ * correct MC to the IC).
  */
 export function computeMC(
   lst: number, // Local sidereal time in degrees
   obliquity: number = 23.43929111
 ): number {
-  const lstRad = lst * Math.PI / 180;
-  const oblRad = obliquity * Math.PI / 180;
+  const lstRad = lst * DEG;
+  const oblRad = obliquityRad(obliquity);
 
-  let mc = Math.atan2(Math.sin(lstRad), Math.cos(lstRad) * Math.cos(oblRad)) * 180 / Math.PI;
-  mc = ((mc % 360) + 360) % 360;
-
-  // Ensure MC is in the correct quadrant (should be near the top of the chart)
-  if (mc < lst - 90 || mc > lst + 90) {
-    mc = (mc + 180) % 360;
-  }
-
-  return mc;
-}
-
-/**
- * Compute Local Sidereal Time (LST) from date, time, and longitude.
- */
-export function computeLST(date: Date, longitude: number): number {
-  // Julian Date
-  const jd = dateToJD(date);
-  const T = (jd - 2451545.0) / 36525.0;
-
-  // Greenwich Mean Sidereal Time (GMST) in degrees
-  // Using IAU 1982 model
-  let gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0)
-    + 0.000387933 * T * T - T * T * T / 38710000.0;
-  gmst = ((gmst % 360) + 360) % 360;
-
-  // Local Sidereal Time = GMST + observer's longitude (east positive)
-  const lst = (gmst + longitude + 360) % 360;
-
-  return lst;
-}
-
-/**
- * Convert a JS Date to Julian Date.
- */
-function dateToJD(date: Date): number {
-  const y = date.getUTCFullYear();
-  const m = date.getUTCMonth() + 1;
-  const d = date.getUTCDate() + date.getUTCHours() / 24
-    + date.getUTCMinutes() / 1440 + date.getUTCSeconds() / 86400;
-
-  let yr = y;
-  let mo = m;
-  if (mo <= 2) {
-    yr -= 1;
-    mo += 12;
-  }
-
-  const A = Math.floor(yr / 100);
-  const B = 2 - A + Math.floor(A / 4);
-
-  return Math.floor(365.25 * (yr + 4716)) + Math.floor(30.6001 * (mo + 1)) + d + B - 1524.5;
+  const mc = Math.atan2(Math.sin(lstRad), Math.cos(lstRad) * Math.cos(oblRad)) * 180 / Math.PI;
+  return ((mc % 360) + 360) % 360;
 }

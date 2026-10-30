@@ -56,18 +56,22 @@ export function computeDivisionalLongitude(rashiLongitude: number, division: num
   let divSignIndex: number;
 
   if (division === 2) {
-    // Hora: Odd signs -> Sun's signs (Leo, Cancer alternating)
-    // Even signs -> reverse
-    if (signIndex % 2 === 0) {
-      divSignIndex = partIndex === 0 ? 4 : 3; // Leo or Cancer
-    } else {
-      divSignIndex = partIndex === 0 ? 3 : 4; // Cancer or Leo
-    }
+    // Hora (D2): 15° halves. Odd signs run Sun's hora (Leo) then Moon's (Cancer);
+    // even signs run the reverse.
+    divSignIndex = partIndex === 0 ? (signIndex % 2 === 0 ? 4 : 3) : (signIndex % 2 === 0 ? 3 : 4);
   } else if (division === 3) {
-    // Drekkana: Count from the sign itself
-    divSignIndex = (signIndex + partIndex) % 12;
+    // Drekkana (D3): 10° thirds — own sign, 5th, 9th (step of 4 signs).
+    divSignIndex = (signIndex + partIndex * 4) % 12;
+  } else if (division === 4) {
+    // Chaturthamsa (D4): 7.5° quarters — own sign and the three kendra from it
+    // (step of 3 signs).
+    divSignIndex = (signIndex + partIndex * 3) % 12;
+  } else if (division === 9) {
+    // Navamsa: the sign × 9 rotation reproduces the classical rule (movable
+    // varga in the 1st part, fixed in the 5th, dual in the 9th).
+    divSignIndex = (signIndex * division + partIndex) % 12;
   } else {
-    // General method for other divisions
+    // Generalised scheme for the remaining vargas.
     divSignIndex = (signIndex * division + partIndex) % 12;
   }
 

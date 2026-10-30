@@ -27,6 +27,7 @@ function toPatch(p: NonNullable<worker.WorkerIntakeState["profile"]>): worker.Wo
     pob: p.pob ?? undefined,
     latitude: p.latitude ?? undefined,
     longitude: p.longitude ?? undefined,
+    timezone: p.timezone ?? undefined,
     gender: p.gender ?? undefined,
     concern: p.concern ?? undefined,
   };
@@ -48,6 +49,7 @@ async function seedFromAppProfile(userId: string, accessToken: string): Promise<
       pob: bp.placeOfBirth,
       latitude: bp.latitude ?? undefined,
       longitude: bp.longitude ?? undefined,
+      timezone: bp.timezone ?? undefined,
       gender: bp.gender ?? undefined,
       concern: bp.primaryConcern || undefined,
     })
@@ -111,7 +113,7 @@ export async function refreshSeekerState(
 export async function saveSeekerIntake(
   userId: string,
   accessToken: string,
-  input: { name?: string; dob: string; tob?: string; pob: string; latitude?: number; longitude?: number; gender?: string; concern?: string },
+  input: { name?: string; dob: string; tob?: string; pob: string; latitude?: number; longitude?: number; timezone?: string; gender?: string; concern?: string },
 ): Promise<worker.WorkerIntakeState> {
   const summary = await computeChartSummary({
     userId,
@@ -130,6 +132,7 @@ export async function saveSeekerIntake(
     pob: input.pob,
     latitude: input.latitude,
     longitude: input.longitude,
+    timezone: input.timezone,
     gender: input.gender || undefined,
     concern: input.concern || undefined,
     chartSummary: summary || undefined,

@@ -59,6 +59,7 @@ export interface WorkerProfile {
   pob: string | null;
   latitude: number | null;
   longitude: number | null;
+  timezone: string | null;
   gender: string | null;
   concern: string | null;
   hasChart: boolean;
@@ -79,6 +80,7 @@ export interface WorkerProfilePatch {
   pob?: string;
   latitude?: number;
   longitude?: number;
+  timezone?: string;
   gender?: string;
   concern?: string;
   chartSummary?: string;

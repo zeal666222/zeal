@@ -89,6 +89,7 @@ export async function PUT(req: Request) {
   const dateOfBirth = str("dateOfBirth", 10);
   const rawTime = str("timeOfBirth", 5);
   const placeOfBirth = str("placeOfBirth", 120);
+  const timezone = str("timezone", 60);
 
   if (!fullName) return NextResponse.json({ error: "Name is required" }, { status: 400 });
   if (!DATE_RE.test(dateOfBirth)) {
@@ -110,6 +111,7 @@ export async function PUT(req: Request) {
     pob: placeOfBirth,
     latitude: coord("latitude", 90),
     longitude: coord("longitude", 180),
+    timezone: timezone || undefined,
     concern: str("primaryConcern", 500) || undefined,
   };
 
@@ -139,6 +141,7 @@ export async function PUT(req: Request) {
       p_place_of_birth: placeOfBirth,
       p_latitude: input.latitude ?? null,
       p_longitude: input.longitude ?? null,
+      p_timezone: input.timezone ?? null,
       p_gender: null,
       p_primary_concern: input.concern ?? "",
     });

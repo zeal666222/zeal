@@ -10,7 +10,7 @@ import { ZODIAC_SIGNS } from "../types";
 import { computeRashiChart, degreesToSignDeg, getNakshatra } from "./rashi";
 import { getVedicPlanetPositions, getAstroTime } from "../utils/ephemeris";
 import { getAyanamsa } from "../utils/ayanamsa";
-import { computeHouses, getHouseForPlanet, computeMC, computeAscendant, computeLST } from "../utils/houses";
+import { computeHouses, getHouseForPlanet, computeMC, computeAscendant, computeLST, apparentObliquity, toJulianDate } from "../utils/houses";
 import { parseBirthDateTime } from "./rashi";
 import { VEDIC_PLANETS } from "../types";
 
@@ -102,7 +102,7 @@ export function computeNavamsaChart(birthData: BirthData): DivisionalChart {
 
   // Compute LST and houses for navamsa
   const lst = computeLST(dateTime, birthData.birthPlace.lng);
-  const mcDegree = computeMC(lst);
+  const mcDegree = computeMC(lst, apparentObliquity(toJulianDate(dateTime)));
   const mcSidereal = ((mcDegree - ayanamsa) % 360 + 360) % 360;
 
   // Navamsa ascendant: compute from the rashi ascendant's navamsa position

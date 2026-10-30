@@ -13,7 +13,7 @@ import type {
 import { ZODIAC_SIGNS, RASHI_NAMES, VEDIC_PLANETS } from "../types";
 import { getVedicPlanetPositions, getAstroTime } from "../utils/ephemeris";
 import { getAyanamsa } from "../utils/ayanamsa";
-import { computeHouses, getHouseForPlanet, computeAscendant, computeMC, computeLST } from "../utils/houses";
+import { computeHouses, getHouseForPlanet, computeAscendant, computeMC, computeLST, apparentObliquity, toJulianDate } from "../utils/houses";
 
 /** 27 Nakshatras with their lords and degree ranges */
 export const NAKSHATRAS = [
@@ -106,14 +106,18 @@ export function computeRashiChart(birthData: BirthData): NatalChart {
   const time = getAstroTime(dateTime);
   const ayanamsa = getAyanamsa(time, "lahiri");
 
-  // Compute Local Sidereal Time
+  // Compute Local Sidereal Time (apparent: nutation-corrected equinox)
   const lst = computeLST(dateTime, birthData.birthPlace.lng);
 
+  // Angles of the date, not of the J2000 epoch — the Lagna and MC both move
+  // with the drifting obliquity.
+  const eps = apparentObliquity(toJulianDate(dateTime));
+
   // Compute Ascendant and MC
-  const ramc = lst; // RAMC = LST for most purposes
-  const mcDegree = computeMC(lst);
+  const ramc = lst; // RAMC = local apparent sidereal time, by definition
+  const mcDegree = computeMC(lst, eps);
   const mcSidereal = ((mcDegree - ayanamsa) % 360 + 360) % 360;
-  const ascDegree = computeAscendant(ramc, birthData.birthPlace.lat);
+  const ascDegree = computeAscendant(ramc, birthData.birthPlace.lat, eps);
   const ascSidereal = ((ascDegree - ayanamsa) % 360 + 360) % 360;
 
   // Compute houses using Whole Sign (default for Vedic)

@@ -1,17 +1,25 @@
 // ============================================================================
-// Vimshottari Dasha - Planetary Period System
+// Vimshottari Dasha - the 120-year planetary period system
 // ============================================================================
-// The Vimshottari Dasha system is a 120-year cycle based on the Moon's
-// nakshatra position at birth. Each planet rules a period (Mahadasha)
-// of a specific number of years.
+// Birth nakshatra lord sets the starting Mahadasha; the Moon's position inside
+// the nakshatra sets how much of it is left. Mahadasha (MD) splits into 9
+// Antardasha (AD), and each AD into 9 Pratyantardasha (PA).
+//
+// Two rules that are easy to get wrong and that every consultant's "you are in
+// X's period" line depends on:
+//   1. Sub-periods begin with the *lord of the parent period* and then run the
+//      fixed Vimshottari order (K-V-Su-M-Ma-Ra-J-Sa-Me). Starting every AD list
+//      at Ketu puts every sub-period of a Saturn Mahadasha a full turn early.
+//   2. Boundaries come from one continuous clock anchored at the birth instant.
+//      Re-parsing the printed date at each step rounds every boundary to whole
+//      days and the error walks forward through the sequence.
 // ============================================================================
 
 import type { BirthData, DashaPeriod, VimshottariDasha, PlanetName } from "../types";
 import { computeRashiChart, parseBirthDateTime } from "./rashi";
-import { getNakshatra } from "./rashi";
 
-/** Vimshottari Dasha planetary periods (in years) */
-const DASHA_PERIODS: Array<{ planet: PlanetName; years: number }> = [
+/** Vimshottari Mahadasha periods, in the classical order. */
+const DASHA_ORDER: Array<{ planet: PlanetName; years: number }> = [
   { planet: "Ketu", years: 7 },
   { planet: "Venus", years: 20 },
   { planet: "Sun", years: 6 },
@@ -23,182 +31,147 @@ const DASHA_PERIODS: Array<{ planet: PlanetName; years: number }> = [
   { planet: "Mercury", years: 17 },
 ];
 
-/** Total cycle length */
 const TOTAL_CYCLE_YEARS = 120;
+const DAY_MS = 86400000;
+/** Mean (Julian) year, the convention Indian dasha tables are printed in. */
+const YEAR_DAYS = 365.25;
+
+const YEARS_BY_PLANET: Record<PlanetName, number> = DASHA_ORDER.reduce(
+  (acc, p) => ({ ...acc, [p.planet]: p.years }),
+  {} as Record<PlanetName, number>,
+);
 
 /**
- * Determine the starting Mahadasha lord based on the Moon's nakshatra at birth.
- * Each nakshatra is ruled by a planet, and that planet's Mahadasha begins at birth.
+ * The 27 nakshatra lords, indexed by nakshatra number - 1 (Ashwini first).
+ * Used both to pick the starting Mahadasha and to verify the seeding.
  */
-function getStartingDashaLord(moonNakshatra: string): PlanetName {
-  // Find the nakshatra lord
-  for (const entry of DASHA_PERIODS) {
-    // The nakshatra lords cycle through the dasha order
-    if (isNakshatraLord(moonNakshatra, entry.planet)) {
-      return entry.planet;
+export const NAKSHATRA_LORDS: PlanetName[] = [
+  "Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury",
+  "Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury",
+  "Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury",
+];
+
+/** Cycle position of a dasha lord, for "start the sub-periods here" maths. */
+function orderIndexOf(planet: PlanetName): number {
+  const i = DASHA_ORDER.findIndex((p) => p.planet === planet);
+  return i < 0 ? 0 : i;
+}
+
+function isoDay(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/**
+ * Split a parent period into its 9 child periods, starting from the parent
+ * lord and running the fixed Vimshottari order.
+ *
+ * Child duration = parent duration x (child lord's years / 120) — the same
+ * ratio at both levels, so an Antardasha of Saturn-Saturn is 19x19/120 = 3.008
+ * years and its Pratyantardasha is 3.008x19/120 = 0.476 years.
+ */
+function buildSubPeriods(
+  parentLord: PlanetName,
+  startMs: number,
+  parentDurationYears: number,
+  withGrandChildren: boolean,
+): DashaPeriod[] {
+  const startIndex = orderIndexOf(parentLord);
+  const out: DashaPeriod[] = [];
+  let cursor = startMs;
+
+  for (let i = 0; i < 9; i++) {
+    const lord = DASHA_ORDER[(startIndex + i) % 9]!;
+    const years = (parentDurationYears * lord.years) / TOTAL_CYCLE_YEARS;
+    const endMs = cursor + years * YEAR_DAYS * DAY_MS;
+
+    const period: DashaPeriod = {
+      planet: lord.planet,
+      startDate: isoDay(cursor),
+      endDate: isoDay(endMs),
+      durationYears: Math.round(years * 1000) / 1000,
+    };
+
+    if (withGrandChildren) {
+      period.subPeriods = buildSubPeriods(lord.planet, cursor, years, false);
     }
-  }
-  return "Ketu"; // Default fallback
-}
 
-function isNakshatraLord(nakshatra: string, planet: PlanetName): boolean {
-  const nakshatraLords: Record<string, PlanetName> = {
-    "Ashwini": "Ketu", "Magha": "Ketu", "Mula": "Ketu",
-    "Bharani": "Venus", "Purva Phalguni": "Venus", "Purva Ashadha": "Venus",
-    "Krittika": "Sun", "Uttara Phalguni": "Sun", "Uttara Ashadha": "Sun",
-    "Rohini": "Moon", "Hasta": "Moon", "Shravana": "Moon",
-    "Mrigashira": "Mars", "Chitra": "Mars", "Dhanishta": "Mars",
-    "Ardra": "Rahu", "Swati": "Rahu", "Shatabhisha": "Rahu",
-    "Punarvasu": "Jupiter", "Vishakha": "Jupiter", "Purva Bhadrapada": "Jupiter",
-    "Pushya": "Saturn", "Anuradha": "Saturn", "Uttara Bhadrapada": "Saturn",
-    "Ashlesha": "Mercury", "Jyeshtha": "Mercury", "Revati": "Mercury",
-  };
-  return nakshatraLords[nakshatra] === planet;
-}
-
-/**
- * Compute the balance of the starting Mahadasha at birth.
- * The Moon's position within its nakshatra determines how much of the
- * first Mahadasha has already elapsed.
- */
-function computeDashaBalance(moonLongitude: number, startingLord: PlanetName): number {
-  const normalizedLon = ((moonLongitude % 360) + 360) % 360;
-  const nakshatraIndex = Math.floor(normalizedLon / (360 / 27));
-  const nakshatraStart = nakshatraIndex * (360 / 27);
-  const degreesInNakshatra = normalizedLon - nakshatraStart;
-  const fraction = degreesInNakshatra / (360 / 27); // 0 to 1
-
-  // Find the period for the starting lord
-  const period = DASHA_PERIODS.find(p => p.planet === startingLord);
-  if (!period) return 0;
-
-  // Remaining balance = total period * (1 - fraction elapsed)
-  return period.years * (1 - fraction);
-}
-
-/**
- * Add years to a date and return ISO date string.
- */
-function addYears(date: Date, years: number): string {
-  const result = new Date(date);
-  // Approximate: add years * 365.25 days
-  result.setDate(result.getDate() + Math.round(years * 365.25));
-  return result.toISOString().split("T")[0] ?? "";
-}
-
-/**
- * Compute the Antardasha (sub-period) within a Mahadasha.
- * Each Mahadasha is divided into 9 Antardashas proportional to each planet's period.
- */
-function computeAntardashas(mahadasha: DashaPeriod): DashaPeriod[] {
-  const antardashas: DashaPeriod[] = [];
-  const totalYears = mahadasha.durationYears;
-  let currentDate = mahadasha.startDate;
-
-  for (const antardashaLord of DASHA_PERIODS) {
-    // Antardasha duration = (Mahadasha lord years * Antardasha lord years) / 120
-    const mahadashaLordPeriod = DASHA_PERIODS.find(p => p.planet === mahadasha.planet);
-    if (!mahadashaLordPeriod) continue;
-
-    const duration = (mahadashaLordPeriod.years * antardashaLord.years) / TOTAL_CYCLE_YEARS;
-    const endDate = addYears(new Date(currentDate), duration);
-
-    antardashas.push({
-      planet: antardashaLord.planet,
-      startDate: currentDate,
-      endDate,
-      durationYears: Math.round(duration * 1000) / 1000,
-    });
-
-    currentDate = endDate;
+    out.push(period);
+    cursor = endMs;
   }
 
-  return antardashas;
+  return out;
 }
 
 /**
- * Compute the full Vimshottari Dasha sequence from birth.
+ * Compute the full Vimshottari Dasha sequence from birth, and where the seeker
+ * stands in it right now (Mahadasha / Antardasha / Pratyantardasha).
  */
 export function computeVimshottariDasha(birthData: BirthData): {
   allMahardashas: DashaPeriod[];
   currentDasha: VimshottariDasha;
 } {
-  // Compute the Rashi chart to get Moon's position
   const chart = computeRashiChart(birthData);
-  const moonPlanet = chart.planets.find(p => p.planet === "Moon");
-  if (!moonPlanet || !moonPlanet.nakshatra) {
-    throw new Error("Could not determine Moon's nakshatra for Dasha calculation");
+  const moon = chart.planets.find((p) => p.planet === "Moon");
+  if (!moon || !moon.nakshatra) {
+    throw new Error("Could not determine the Moon's nakshatra for the Dasha calculation");
   }
 
-  const startingLord = getStartingDashaLord(moonPlanet.nakshatra);
-  const dashaBalance = computeDashaBalance(moonPlanet.absoluteDegree, startingLord);
+  const nakIndex = Math.floor((((moon.absoluteDegree % 360) + 360) % 360) / (360 / 27));
+  const startingLord = NAKSHATRA_LORDS[nakIndex] ?? "Ketu";
 
-  const birthDate = parseBirthDateTime(birthData);
+  // How much of the starting lord's period is still to be lived.
+  const degreesIntoNakshatra = (((moon.absoluteDegree % 360) + 360) % 360) - nakIndex * (360 / 27);
+  const elapsedFraction = degreesIntoNakshatra / (360 / 27);
+  const fullYearsOfStart = YEARS_BY_PLANET[startingLord] ?? 7;
+  const balanceYears = fullYearsOfStart * (1 - elapsedFraction);
+
+  const birthMs = parseBirthDateTime(birthData).getTime();
+  const startIndex = orderIndexOf(startingLord);
   const allMahardashas: DashaPeriod[] = [];
-
-  // Build the sequence starting from the starting lord
-  const startIndex = DASHA_PERIODS.findIndex(p => p.planet === startingLord);
-  let currentDate = birthDate.toISOString().split("T")[0] ?? "";
+  let cursor = birthMs;
 
   for (let i = 0; i < 9; i++) {
-    const idx = (startIndex + i) % 9;
-    const period = DASHA_PERIODS[idx]!;
-
-    let duration: number;
-    if (i === 0) {
-      // First Mahadasha uses the remaining balance
-      duration = Math.round(dashaBalance * 1000) / 1000;
-    } else {
-      duration = period.years;
-    }
-
-    const endDate = addYears(new Date(currentDate), duration);
+    const lord = DASHA_ORDER[(startIndex + i) % 9]!;
+    const years = i === 0 ? balanceYears : lord.years;
+    const endMs = cursor + years * YEAR_DAYS * DAY_MS;
 
     const mahadasha: DashaPeriod = {
-      planet: period.planet,
-      startDate: currentDate,
-      endDate,
-      durationYears: duration,
+      planet: lord.planet,
+      startDate: isoDay(cursor),
+      endDate: isoDay(endMs),
+      durationYears: Math.round(years * 1000) / 1000,
     };
-
-    // Compute Antardashas
-    mahadasha.subPeriods = computeAntardashas(mahadasha);
-
+    mahadasha.subPeriods = buildSubPeriods(lord.planet, cursor, years, true);
     allMahardashas.push(mahadasha);
-    currentDate = endDate;
+    cursor = endMs;
   }
 
-  // Determine current Dasha based on today's date
-  const today = new Date().toISOString().split("T")[0] ?? "";
-  let currentMahadasha = allMahardashas[0]!;
-  let currentAntardasha = currentMahadasha.subPeriods?.[0] ?? currentMahadasha;
+  // Where is "now"? (A seeker past 120 stays in the last charted stretch.)
+  const todayMs = Date.now();
+  const today = isoDay(todayMs);
+  const currentMd =
+    allMahardashas.find((md) => today >= md.startDate && today <= md.endDate) ??
+    allMahardashas[allMahardashas.length - 1]!;
 
-  for (const md of allMahardashas) {
-    if (today >= md.startDate && today <= md.endDate) {
-      currentMahadasha = md;
-      // Find current Antardasha
-      if (md.subPeriods) {
-        for (const ad of md.subPeriods) {
-          if (today >= ad.startDate && today <= ad.endDate) {
-            currentAntardasha = ad;
-            break;
-          }
-        }
-      }
-      break;
-    }
-  }
+  const currentAd =
+    currentMd.subPeriods?.find((ad) => today >= ad.startDate && today <= ad.endDate) ??
+    currentMd.subPeriods?.[0] ??
+    currentMd;
 
-  // Calculate remaining years
-  const remainingYears = Math.max(0,
-    (new Date(currentMahadasha.endDate).getTime() - Date.now()) / (365.25 * 24 * 60 * 60 * 1000)
-  );
+  const currentPa =
+    currentAd.subPeriods?.find((pa) => today >= pa.startDate && today <= pa.endDate) ??
+    currentAd.subPeriods?.[0] ??
+    currentAd;
+
+  const mdEndMs = Date.parse(`${currentMd.endDate}T00:00:00Z`);
+  const remainingYears = Math.max(0, (mdEndMs - todayMs) / (YEAR_DAYS * DAY_MS));
 
   return {
     allMahardashas,
     currentDasha: {
-      mahadasha: currentMahadasha,
-      antardasha: currentAntardasha,
+      mahadasha: currentMd,
+      antardasha: currentAd,
+      pratyantardasha: currentPa,
       remainingYears: Math.round(remainingYears * 100) / 100,
     },
   };

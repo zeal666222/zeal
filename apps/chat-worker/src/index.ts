@@ -18,6 +18,7 @@ import {
   isoOf,
 } from "./conversation-store";
 import { describeProfile, readSeekerProfile, saveSeekerProfile, type SeekerPatch } from "./seeker-profile";
+import { ensureChart } from "./kundali/service";
 
 export { ChatGate, ChatRoom };
 
@@ -172,7 +173,11 @@ async function handleChatRequest(
 
   try {
     // 5. Persona, grounded in this seeker's stored intake — never in the body.
-    const seekerRow = await readSeekerProfile(env, userId);
+    let seekerRow = await readSeekerProfile(env, userId);
+    // Ensure the chart is computed and fresh. If the birth data moved, the
+    // chart is recomputed here before the persona sees it.
+    await ensureChart(env, userId, seekerRow);
+    seekerRow = await readSeekerProfile(env, userId);
     const persona = await loadPersona(env, consultantId, seekerContextFor(seekerRow));
     if (!persona) {
       return Response.json({ error: "Consultant not found" }, { status: 404, headers: corsHeaders });
@@ -721,6 +726,16 @@ function readPatch(body: Record<string, unknown>): SeekerPatch | { error: string
   if (lng !== undefined && (lng < -180 || lng > 180)) return { error: "longitude out of range" };
   if (lng !== undefined) patch.longitude = lng;
 
+  const tz = str(body.timezone, 60);
+  if (tz !== undefined && tz !== "") {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: tz });
+      patch.timezone = tz;
+    } catch {
+      return { error: "timezone must be a valid IANA zone" };
+    }
+  }
+
   const gender = str(body.gender, 20);
   if (gender !== undefined && gender !== "") patch.gender = gender;
 
@@ -758,6 +773,9 @@ async function handleBirthProfile(
   }
 
   const row = await saveSeekerProfile(env, userId, patch);
+  if (row && (patch.dob || patch.tob || patch.pob || patch.latitude !== undefined || patch.longitude !== undefined)) {
+    await ensureChart(env, userId, row);
+  }
   return Response.json(profilePayload(describeProfile(row)), { headers: corsHeaders });
 }
 
@@ -772,6 +790,7 @@ function profilePayload(state: ReturnType<typeof describeProfile>) {
           pob: p.pob,
           latitude: p.latitude,
           longitude: p.longitude,
+          timezone: p.timezone,
           gender: p.gender,
           concern: p.concern,
           hasChart: Boolean(p.chart_summary),

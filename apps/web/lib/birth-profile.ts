@@ -11,6 +11,7 @@ export interface BirthProfile {
   placeOfBirth: string;
   latitude: number | null;
   longitude: number | null;
+  timezone: string | null;
   gender: string | null;
   primaryConcern: string;
   createdAt: string;

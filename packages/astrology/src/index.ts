@@ -53,7 +53,9 @@ export { ZODIAC_SIGNS, RASHI_NAMES, VEDIC_PLANETS, WESTERN_PLANETS } from "./typ
 export {
   computeRashiChart,
   computeNavamsaChart,
+  computeNavamsaLongitude,
   computeDivisionalChart,
+  computeDivisionalLongitude,
   computeVimshottariDasha,
   computePanchanga,
   computeShadbala,
@@ -62,7 +64,12 @@ export {
   getNakshatra,
   degreesToSignDeg,
   normalizeBirthTime,
+  parseBirthDateTime,
   NAKSHATRAS,
+  NAKSHATRA_LORDS,
+  karanaNameFor,
+  computeKundaliBrief,
+  formatKundaliBrief,
   DIVISIONAL_CHARTS,
 } from "./vedic/index";
 
@@ -78,7 +85,14 @@ export {
 export { computeFourPillars } from "./chinese/index";
 
 // Utils
-export { getAyanamsa, computeLahiriAyanamsa } from "./utils/ayanamsa";
+export {
+  getAyanamsa,
+  computeLahiriAyanamsa,
+  computeRamanAyanamsa,
+  computeKrishnamurtiAyanamsa,
+  generalPrecessionInLongitude,
+  julianCenturiesFromJ2000,
+} from "./utils/ayanamsa";
 export {
   getAstroTime,
   getVedicPlanetPositions,
@@ -86,5 +100,26 @@ export {
   getRahuLongitude,
   type PlanetState,
 } from "./utils/ephemeris";
-export { computeHouses, getHouseForPlanet, computeAscendant, computeMC, computeLST } from "./utils/houses";
+export {
+  computeHouses,
+  getHouseForPlanet,
+  computeAscendant,
+  computeMC,
+  computeLST,
+  toJulianDate,
+  meanObliquity,
+  apparentObliquity,
+  nutation,
+} from "./utils/houses";
 export { computeAllAspects, checkAspect, angularDistance, ASPECT_DEFINITIONS } from "./utils/aspects";
+export { timezoneFromLng } from "./utils/timezone";
+export {
+  GAZETTEER,
+  lookupGazetteerPlace,
+  suggestGazetteerPlaces,
+  normalizePlace,
+  type GazetteerEntry,
+  type GazetteerPlace,
+  type GazetteerSuggestion,
+} from "./utils/gazetteer";
+export type { KundaliBrief, BriefPlanet, BriefVerification } from "./vedic/brief";

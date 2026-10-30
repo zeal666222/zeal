@@ -9,7 +9,8 @@ import { detectBirthData } from "./support/birth-data-detector";
 import { retrieveKnowledge } from "./knowledge/rag";
 import { record as recordAiMetric } from "./ai-metrics";
 import { insertMessage, isoOf, readMessages, requireParticipant, sqliteNow, touchConversation } from "./conversation-store";
-import { describeProfile, saveSeekerProfile } from "./seeker-profile";
+import { describeProfile, saveSeekerProfile, readSeekerProfile } from "./seeker-profile";
+import { ensureChart } from "./kundali/service";
 import { screenReply } from "./moderation";
 import { publishToRoom } from "./realtime";
 
@@ -159,21 +160,25 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         pob: birth.placeName,
         latitude: birth.birthPlace.lat,
         longitude: birth.birthPlace.lng,
+        timezone: birth.timezone,
       });
       if (stored) {
-        // The web owns the ephemeris (the worker has no astro engine), so it
-        // recomputes the chart from these values and PUTs it back.
+        // Compute the chart now, on the worker, so the next turn's persona
+        // sees a fresh summary instead of a stale flag.
+        await ensureChart(env, userId, stored);
+        const refreshed = await readSeekerProfile(env, userId);
         derivedEvents.push({
           profileUpdated: {
-            chartStale: describeProfile(stored).chartStale,
-            hasBirthData: describeProfile(stored).hasBirthData,
-            missing: describeProfile(stored).missing,
-            name: stored.name,
-            dob: stored.dob,
-            tob: stored.tob,
-            pob: stored.pob,
-            latitude: stored.latitude,
-            longitude: stored.longitude,
+            chartStale: describeProfile(refreshed).chartStale,
+            hasBirthData: describeProfile(refreshed).hasBirthData,
+            missing: describeProfile(refreshed).missing,
+            name: refreshed?.name,
+            dob: refreshed?.dob,
+            tob: refreshed?.tob,
+            pob: refreshed?.pob,
+            latitude: refreshed?.latitude,
+            longitude: refreshed?.longitude,
+            timezone: refreshed?.timezone,
           },
         });
       }

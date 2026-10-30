@@ -1,23 +1,34 @@
 // ============================================================================
-// Panchanga - Daily Astrological Calendar
+// Panchanga - The five limbs of the Hindu calendar
 // ============================================================================
-// Computes Tithi, Nakshatra, Yoga, and Karana for a given date.
-// These are the five limbs (anga) of the Hindu calendar.
+// Tithi, Nakshatra, Yoga and Karana are *intervals*, not labels: a tithi ends
+// when the Moon-Sun elongation crosses the next multiple of 12°, a nakshatra
+// when the Moon crosses the next 13°20'. So along with the value in effect at
+// the instant asked about, we publish the instant each one runs out — that is
+// what makes "is this birth in Chitra?" answerable instead of guessable.
+//
+// The instant must be the true local instant: reading "1990-08-15T14:35" as if
+// it were UTC shifts the whole computation by the place's offset (5h30m for
+// India), which is a third of a nakshatra and enough to rename the birth star.
 // ============================================================================
 
 import type { Panchanga, BirthData } from "../types";
-import { getVedicPlanetPositions, getAstroTime, getRahuLongitude } from "../utils/ephemeris";
+import { getVedicPlanetPositions, getAstroTime } from "../utils/ephemeris";
 import { getAyanamsa } from "../utils/ayanamsa";
-import { NAKSHATRAS } from "./rashi";
+import { NAKSHATRAS, parseBirthDateTime } from "./rashi";
 
-/** Tithi names */
+/** Tithi names, by index within a paksha (0-14). */
 const TITHI_NAMES = [
   "Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami",
   "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami",
-  "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima/Amavasya",
+  "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi",
 ];
 
-/** Yoga names (27 yogas) */
+/** The 15th of the bright half and the dark half have their own names. */
+const FULL_MOON = "Purnima";
+const NEW_MOON = "Amavasya";
+
+/** Yoga names (27 yogas). */
 const YOGA_NAMES = [
   "Vishkambha", "Priti", "Ayushman", "Saubhagya", "Shobhana",
   "Atiganda", "Sukarma", "Dhriti", "Shula", "Ganda",
@@ -27,132 +38,161 @@ const YOGA_NAMES = [
   "Indra", "Vaidhriti",
 ];
 
-/** Karana names (11 karanas, 7 fixed + 4 movable) */
-const KARANA_NAMES = [
-  "Bava", "Balava", "Kaulava", "Taitila", "Garaja",
-  "Vanija", "Vishti", "Shakuni", "Chatushpada", "Naga", "Kimstughna",
-];
+/** The 7 movable karanas, repeated 7 times through the dark+bright half. */
+const MOVABLE_KARANA = ["Bava", "Balava", "Kaulava", "Taitila", "Garaja", "Vanija", "Vishti"];
+/** The 4 fixed karanas, in their canonical slots (1, 58, 59, 60). */
+const FIXED_KARANA = ["Kimstughna", "Shakuni", "Chatushpada", "Naga"];
+
+const NAKSHATRA_SPAN = 360 / 27;
 
 /**
- * Compute the Tithi for a given Sun-Moon longitude difference.
- * Tithi = (Moon longitude - Sun longitude) / 12 degrees
+ * Name the karana from its number in the 60-karana cycle.
+ * Slot 1 is Kimstughna, slots 58-60 are the other three fixed karanas, and the
+ * 49 slots between them cycle the 7 movable ones.
+ */
+export function karanaNameFor(number: number): string {
+  if (number === 1) return FIXED_KARANA[0]!;
+  if (number >= 58) return FIXED_KARANA[number - 57]!;
+  return MOVABLE_KARANA[(number - 2) % 7]!;
+}
+
+/**
+ * Compute the Tithi from the Moon-Sun elongation.
  */
 function computeTithi(sunLon: number, moonLon: number): {
   name: string;
   number: number;
   paksha: "Shukla" | "Krishna";
 } {
-  let diff = ((moonLon - sunLon) % 360 + 360) % 360;
-  const tithiNumber = Math.floor(diff / 12) + 1;
-  const paksha: "Shukla" | "Krishna" = tithiNumber <= 15 ? "Shukla" : "Krishna";
-  const tithiIndex = paksha === "Shukla" ? tithiNumber - 1 : tithiNumber - 16;
-  const name = TITHI_NAMES[tithiIndex] ?? "Unknown";
+  const diff = ((moonLon - sunLon) % 360 + 360) % 360;
+  const number = Math.floor(diff / 12) + 1; // 1-30
+  const paksha: "Shukla" | "Krishna" = number <= 15 ? "Shukla" : "Krishna";
+  const indexInPaksha = ((number - 1) % 15) + 1; // 1-15
+  const name = indexInPaksha === 15 ? (paksha === "Shukla" ? FULL_MOON : NEW_MOON) : TITHI_NAMES[indexInPaksha - 1]!;
 
-  return { name, number: tithiNumber, paksha };
+  return { name, number, paksha };
 }
 
 /**
- * Compute Yoga from Sun-Moon combined longitude.
- * Yoga = (Sun longitude + Moon longitude) / 13.333 degrees
+ * Compute Karana (half a tithi) from the elongation.
  */
-function computeYoga(sunLon: number, moonLon: number): {
-  name: string;
-  number: number;
-} {
+function computeKarana(sunLon: number, moonLon: number): { name: string; number: number } {
+  const diff = ((moonLon - sunLon) % 360 + 360) % 360;
+  const number = Math.floor(diff / 6) + 1; // 1-60
+  return { name: karanaNameFor(number), number };
+}
+
+/**
+ * Compute Yoga from the combined (sidereal) Sun+Moon longitude.
+ */
+function computeYoga(sunLon: number, moonLon: number): { name: string; number: number } {
   const combined = (sunLon + moonLon) % 360;
-  const yogaNumber = Math.floor(combined / (360 / 27)) + 1;
-  const name = YOGA_NAMES[(yogaNumber - 1) % 27] ?? "Unknown";
-
-  return { name, number: yogaNumber };
+  const number = Math.floor(combined / NAKSHATRA_SPAN) + 1; // 1-27
+  return { name: YOGA_NAMES[(number - 1) % 27]!, number };
 }
 
 /**
- * Compute Karana from Sun-Moon longitude difference.
- * Karana = half a Tithi (6 degrees)
+ * Find the instant a monotonically-increasing angular value next crosses a
+ * multiple of `step`, by bisection inside `windowDays`.
+ *
+ * Values are unwrapped relative to the start so a crossing at the 360° seam is
+ * still found; the 12-13°/day drift of these quantities never approaches the
+ * wraparound inside the window used.
  */
-function computeKarana(sunLon: number, moonLon: number): {
-  name: string;
-  number: number;
-} {
-  let diff = ((moonLon - sunLon) % 360 + 360) % 360;
-  const karanaNumber = Math.floor(diff / 6);
+function nextCrossing(
+  valueAt: (date: Date) => number,
+  from: Date,
+  step: number,
+  windowDays: number,
+): string | null {
+  const start = valueAt(from);
+  const goal = (Math.floor(start / step) + 1) * step - start; // > 0, <= step
+  const spanMs = windowDays * 86400000;
 
-  // First and last karanas are fixed (Kimstughna)
-  if (karanaNumber === 0) {
-    return { name: "Kimstughna", number: 57 };
+  const drift = (ms: number): number => {
+    let d = valueAt(new Date(from.getTime() + ms)) - start;
+    if (d > 180) d -= 360;
+    if (d < -180) d += 360;
+    return d;
+  };
+
+  if (drift(spanMs) < goal) return null; // no crossing inside the window
+
+  let lo = 0;
+  let hi = spanMs;
+  for (let i = 0; i < 32; i++) {
+    const mid = (lo + hi) / 2;
+    if (drift(mid) < goal) lo = mid;
+    else hi = mid;
   }
+  return new Date(from.getTime() + (lo + hi) / 2).toISOString();
+}
 
-  // Karana 57-56 repeat in cycles of 7 (movable karanas)
-  const adjustedKarana = ((karanaNumber - 1) % 56) + 1;
-  if (adjustedKarana <= 7) {
-    return { name: KARANA_NAMES[adjustedKarana - 1] ?? "Unknown", number: adjustedKarana };
-  }
-
-  const cycleIndex = (adjustedKarana - 1) % 7;
-  return { name: KARANA_NAMES[cycleIndex] ?? "Unknown", number: adjustedKarana };
+/** Sidereal Sun/Moon longitudes at an instant. */
+function sunMoonAt(date: Date): { sun: number; moon: number; nak: number } {
+  const time = getAstroTime(date);
+  const ayanamsa = getAyanamsa(time, "lahiri");
+  const states = getVedicPlanetPositions(time, ayanamsa);
+  const sun = states.get("Sun")?.longitude ?? 0;
+  const moon = states.get("Moon")?.longitude ?? 0;
+  return { sun, moon, nak: moon };
 }
 
 /**
- * Compute the Panchanga for a given date and location.
+ * Compute the Panchanga for a birth (or any) instant, in the place's own
+ * timezone — tithi/nakshatra/yoga/karana in effect, plus when each one ends.
  */
 export function computePanchanga(birthData: BirthData): Panchanga {
-  const dateTime = new Date(`${birthData.birthDate}T${birthData.birthTime}:00Z`);
-  const time = getAstroTime(dateTime);
-  const ayanamsa = getAyanamsa(time, "lahiri");
+  const instant = parseBirthDateTime(birthData);
+  const at = sunMoonAt(instant);
 
-  // Get Sun and Moon sidereal longitudes
-  const planetStates = getVedicPlanetPositions(time, ayanamsa);
-  const sunState = planetStates.get("Sun");
-  const moonState = planetStates.get("Moon");
+  const tithi = computeTithi(at.sun, at.moon);
+  const karana = computeKarana(at.sun, at.moon);
+  const yoga = computeYoga(at.sun, at.moon);
 
-  if (!sunState || !moonState) {
-    throw new Error("Could not compute Sun/Moon positions for Panchanga");
-  }
-
-  const sunLon = sunState.longitude;
-  const moonLon = moonState.longitude;
-
-  // Compute Tithi
-  const tithi = computeTithi(sunLon, moonLon);
-
-  // Compute Nakshatra (from Moon's position)
-  const nakshatraIndex = Math.floor(moonLon / (360 / 27));
+  const nakshatraIndex = Math.floor(at.moon / NAKSHATRA_SPAN);
   const nakshatra = NAKSHATRAS[nakshatraIndex] ?? NAKSHATRAS[0]!;
 
-  // Compute Yoga
-  const yoga = computeYoga(sunLon, moonLon);
-
-  // Compute Karana
-  const karana = computeKarana(sunLon, moonLon);
-
-  // Approximate sunrise/sunset (simplified)
-  const dateStr = birthData.birthDate;
+  // End instants: elongation for tithi (12°) and karana (6°), combined longitude
+  // for yoga (13°20'), Moon's own longitude for the nakshatra (13°20').
+  const elongation = (d: Date): number => {
+    const p = sunMoonAt(d);
+    return ((p.moon - p.sun) % 360 + 360) % 360;
+  };
+  const combined = (d: Date): number => {
+    const p = sunMoonAt(d);
+    return (p.sun + p.moon) % 360;
+  };
+  const moonLon = (d: Date): number => sunMoonAt(d).moon;
 
   return {
-    date: dateStr,
+    date: birthData.birthDate,
     tithi: {
       name: tithi.name,
       number: tithi.number,
       paksha: tithi.paksha,
-      endTime: dateStr, // TODO: compute exact end time
+      endTime: nextCrossing(elongation, instant, 12, 2) ?? birthData.birthDate,
     },
     nakshatra: {
       name: nakshatra.name,
       number: nakshatraIndex + 1,
       lord: nakshatra.lord,
-      endTime: dateStr, // TODO: compute exact end time
+      endTime: nextCrossing(moonLon, instant, NAKSHATRA_SPAN, 2) ?? birthData.birthDate,
     },
     yoga: {
       name: yoga.name,
       number: yoga.number,
-      endTime: dateStr,
+      endTime: nextCrossing(combined, instant, NAKSHATRA_SPAN, 3) ?? birthData.birthDate,
     },
     karana: {
       name: karana.name,
       number: karana.number,
-      endTime: dateStr,
+      endTime: nextCrossing(elongation, instant, 6, 1) ?? birthData.birthDate,
     },
-    sunrise: `${dateStr}T06:00:00Z`, // TODO: compute actual sunrise
-    sunset: `${dateStr}T18:00:00Z`,  // TODO: compute actual sunset
+    // The consumer pages (Panchang service) compute sunrise/sunset for the
+    // seeker's city with the NOAA solar equations; the ephemeris has no horizon,
+    // so these stay the date-only placeholders rather than a fabricated time.
+    sunrise: `${birthData.birthDate}T06:00:00Z`,
+    sunset: `${birthData.birthDate}T18:00:00Z`,
   };
 }

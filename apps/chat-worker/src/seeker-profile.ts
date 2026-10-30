@@ -16,6 +16,7 @@ export interface SeekerProfileRow {
   pob: string | null;
   latitude: number | null;
   longitude: number | null;
+  timezone: string | null;
   gender: string | null;
   concern: string | null;
   chart_summary: string | null;
@@ -30,9 +31,10 @@ export interface SeekerPatch {
   pob?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  timezone?: string | null;
   gender?: string | null;
   concern?: string | null;
-  /** Computed by the web (the worker has no ephemeris). */
+  /** Computed by the worker from the shared @zeal/astrology ephemeris. */
   chartSummary?: string | null;
 }
 
@@ -43,17 +45,17 @@ export interface SeekerPatch {
  */
 export function chartSignatureOf(p: {
   dob?: string | null; tob?: string | null; pob?: string | null;
-  latitude?: number | null; longitude?: number | null;
+  latitude?: number | null; longitude?: number | null; timezone?: string | null;
 }): string {
   return [
     p.dob ?? "", p.tob ?? "", p.pob ?? "",
-    p.latitude ?? "", p.longitude ?? "",
+    p.latitude ?? "", p.longitude ?? "", p.timezone ?? "",
   ].join("|");
 }
 
 export async function readSeekerProfile(env: Env, userId: string): Promise<SeekerProfileRow | null> {
   return await env.DB.prepare(
-    `SELECT user_id, name, dob, tob, pob, latitude, longitude, gender, concern,
+    `SELECT user_id, name, dob, tob, pob, latitude, longitude, timezone, gender, concern,
             chart_summary, chart_key, updated_at
      FROM seeker_profile WHERE user_id = ?`
   ).bind(userId).first<SeekerProfileRow>();
@@ -73,8 +75,8 @@ export async function saveSeekerProfile(
   patch: SeekerPatch,
 ): Promise<SeekerProfileRow | null> {
   await env.DB.prepare(
-    `INSERT INTO seeker_profile (user_id, name, dob, tob, pob, latitude, longitude, gender, concern)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+    `INSERT INTO seeker_profile (user_id, name, dob, tob, pob, latitude, longitude, timezone, gender, concern)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
      ON CONFLICT(user_id) DO UPDATE SET
        name      = COALESCE(excluded.name, name),
        dob       = COALESCE(excluded.dob, dob),
@@ -82,6 +84,7 @@ export async function saveSeekerProfile(
        pob       = COALESCE(excluded.pob, pob),
        latitude  = COALESCE(excluded.latitude, latitude),
        longitude = COALESCE(excluded.longitude, longitude),
+       timezone  = COALESCE(excluded.timezone, timezone),
        gender    = COALESCE(excluded.gender, gender),
        concern   = COALESCE(excluded.concern, concern),
        updated_at = datetime('now')`,
@@ -93,6 +96,7 @@ export async function saveSeekerProfile(
     patch.pob ?? null,
     patch.latitude ?? null,
     patch.longitude ?? null,
+    patch.timezone ?? null,
     patch.gender ?? null,
     patch.concern ?? null,
   ).run();
