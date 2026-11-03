@@ -321,7 +321,7 @@ export function ChatInterface({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [chartType, setChartType] = useState<"D1" | "D9">("D1");
-  const [showAllCharts, setShowAllCharts] = useState(false);
+  const [showKundaliDrawer, setShowKundaliDrawer] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1193,6 +1193,166 @@ export function ChatInterface({
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#0a0a0f]/90 backdrop-blur-sm">
           <BrandLoader variant="chat-bubble" label="Preparing your reading room…" />
         </div>
+      )}
+
+      {/* Kundali & Chart Drawer */}
+      {isAI && birthInfo && kundaliChart && (
+        <>
+          {/* Floating Button */}
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 1, type: "spring" }}
+            onClick={() => setShowKundaliDrawer(true)}
+            className="fixed bottom-24 right-4 z-30 w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-purple-600 text-white shadow-2xl shadow-amber-500/30 flex items-center justify-center hover:scale-110 transition-transform"
+            aria-label="View Kundali Chart"
+          >
+            <BarChart3 size={24} />
+          </motion.button>
+
+          {/* Drawer Overlay */}
+          <AnimatePresence>
+            {showKundaliDrawer && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowKundaliDrawer(false)}
+                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+                />
+                <motion.div
+                  initial={{ x: "100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "100%" }}
+                  transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                  className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-gradient-to-b from-[#0f0f1a] to-[#0a0a0f] border-l border-amber-500/20 z-50 overflow-y-auto"
+                >
+                  {/* Drawer Header */}
+                  <div className="sticky top-0 bg-[#0f0f1a]/95 backdrop-blur-xl border-b border-amber-500/20 p-4 flex items-center justify-between z-10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-purple-500/20 flex items-center justify-center">
+                        <Sparkles size={20} className="text-amber-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-amber-100">Kundali & Chart</h3>
+                        <p className="text-xs text-amber-100/50">{seekerName ?? "Seeker"}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowKundaliDrawer(false)}
+                      className="p-2 rounded-xl hover:bg-white/5 text-amber-100/70 hover:text-amber-100 transition-all"
+                      aria-label="Close drawer"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  {/* Drawer Content */}
+                  <div className="p-4 space-y-4">
+                    {/* Birth Details */}
+                    <div className="rounded-2xl bg-gradient-to-br from-[#1a1a2e] to-[#16162a] border border-amber-500/20 p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar size={14} className="text-amber-400" />
+                        <h4 className="text-xs font-bold text-amber-100 uppercase tracking-wider">Birth Details</h4>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        {birthInfo.name && (
+                          <div>
+                            <p className="text-amber-100/50 mb-1">Name</p>
+                            <p className="font-bold text-amber-100">{birthInfo.name}</p>
+                          </div>
+                        )}
+                        {birthInfo.dob && (
+                          <div>
+                            <p className="text-amber-100/50 mb-1">Birth Date</p>
+                            <p className="font-bold text-amber-100">{new Date(birthInfo.dob).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+                          </div>
+                        )}
+                        {birthInfo.tob && (
+                          <div>
+                            <p className="text-amber-100/50 mb-1">Birth Time</p>
+                            <p className="font-bold text-amber-100">{birthInfo.tob}</p>
+                          </div>
+                        )}
+                        {birthInfo.pob && (
+                          <div className="col-span-2">
+                            <p className="text-amber-100/50 mb-1">Birth Place</p>
+                            <p className="font-bold text-amber-100">{birthInfo.pob}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Info Cards */}
+                    <div className="grid grid-cols-3 gap-2">
+                      {lagna && (
+                        <div className="rounded-xl bg-gradient-to-br from-purple-900/40 to-purple-950/60 border border-purple-500/30 px-3 py-3 text-center">
+                          <p className="text-[9px] text-purple-200/70 font-semibold uppercase tracking-wider">Lagan</p>
+                          <p className="text-sm font-bold text-purple-100 mt-1">{lagna}</p>
+                        </div>
+                      )}
+                      {moonSign && (
+                        <div className="rounded-xl bg-gradient-to-br from-amber-900/40 to-amber-950/60 border border-amber-500/30 px-3 py-3 text-center">
+                          <p className="text-[9px] text-amber-200/70 font-semibold uppercase tracking-wider">Moon Sign</p>
+                          <p className="text-sm font-bold text-amber-100 mt-1">{moonSign}</p>
+                        </div>
+                      )}
+                      {nakshatra && (
+                        <div className="rounded-xl bg-gradient-to-br from-teal-900/40 to-teal-950/60 border border-teal-500/30 px-3 py-3 text-center">
+                          <p className="text-[9px] text-teal-200/70 font-semibold uppercase tracking-wider">Nakshatra</p>
+                          <p className="text-sm font-bold text-teal-100 mt-1">{nakshatra}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Moon Phase */}
+                    <MoonPhaseBar date={new Date()} />
+
+                    {/* Chart Type Toggle */}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setChartType("D1")}
+                        className={cn(
+                          "flex-1 py-2.5 rounded-xl text-xs font-bold transition-all",
+                          chartType === "D1"
+                            ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
+                            : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
+                        )}
+                      >
+                        Ascendant (D1)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setChartType("D9")}
+                        className={cn(
+                          "flex-1 py-2.5 rounded-xl text-xs font-bold transition-all",
+                          chartType === "D9"
+                            ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
+                            : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
+                        )}
+                      >
+                        Navamsha (D9)
+                      </button>
+                    </div>
+
+                    {/* Kundali Chart */}
+                    <div>
+                      <p className="text-center text-xs font-bold text-amber-100/70 mb-3">
+                        {chartType === "D1" ? "Ascendant Chart (D1)" : "Navamsha Chart (D9)"}
+                      </p>
+                      <ChatKundaliChart
+                        data={kundaliChart}
+                        seekerName={seekerName}
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </>
       )}
 
       <ConfirmDialog
