@@ -49,6 +49,8 @@ export interface PersonaInput {
   };
   /** Fields the AI should ask for conversationally (progressive enrichment). */
   missingFields?: Array<"name" | "dob" | "tob" | "pob" | "concern">;
+  /** When true, birth details were just detected mid-chat — chart is rendering client-side, AI must deny stating positions. */
+  birthDataJustDetected?: boolean;
 }
 
 export interface RoleContract {
@@ -122,8 +124,13 @@ export class PersonaEngine {
     // authoritative — the model must interpret it, never recompute or contradict
     // it. Injecting the real chart is what turns a generic reading into one the
     // seeker can verify against their own lifeline events.
+    //
+    // When birthDataJustDetected is true, the chart is being rendered client-side
+    // as an SVG. The AI must NOT state positions — only acknowledge and deny.
     const chartBlock = ctx.chartSummary
-      ? `\n\n${ctx.chartSummary}\n\nUse this chart as ground truth. Reference specific houses, signs, nakshatras and the running dasha when you speak. Do NOT recompute or alter these values, and do NOT ask again for birth details already captured here.`
+      ? input.birthDataJustDetected
+        ? `\n\n[CHART DATA — DO NOT READ ALOUD] The seeker just typed birth details. Their chart is being rendered as an SVG on their screen RIGHT NOW. You are FORBIDDEN from stating any planetary positions, house placements, nakshatras, degrees, or dasha periods. Your ONLY job: acknowledge warmly in 1-2 sentences and ask what they'd like to explore. Say: "Maine aapki details note kar li hain — chart aapki screen par dikh raha hai. Bataiye, kis baare mein baat karein?"`
+        : `\n\n${ctx.chartSummary}\n\nUse this chart as ground truth. Reference specific houses, signs, nakshatras and the running dasha when you speak. Do NOT recompute or alter these values, and do NOT ask again for birth details already captured here.`
       : `\n\nIMPORTANT: No birth chart has been computed yet. Do NOT state specific planetary positions, house placements, transits, or aspects. Speak in general archetypes and practical guidance until you have the actual computed chart data.`;
 
     // ─── Progressive enrichment block ────────────────────────────────────

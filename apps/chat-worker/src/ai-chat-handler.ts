@@ -199,17 +199,40 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
             },
           });
         }
+        // Rebuild the system prompt with birthDataJustDetected=true so the
+        // chartBlock instructs denial, not interpretation.
+        const seekerCtx = refreshed
+          ? {
+              name: refreshed.name ?? undefined,
+              dob: refreshed.dob ?? undefined,
+              tob: refreshed.tob ?? undefined,
+              pob: refreshed.pob ?? undefined,
+              concern: refreshed.concern ?? undefined,
+              chartSummary: refreshed.chart_summary ?? undefined,
+            }
+          : undefined;
+        const rebuilt = PersonaEngine.build({
+          id: persona.id,
+          name: persona.name,
+          category: persona.category,
+          bio: persona.bio,
+          specialties: persona.specialties,
+          languages: persona.languages,
+          persona: persona.persona,
+          systemPrompt: persona.systemPrompt,
+          location: persona.location,
+          country: persona.country,
+          religion: persona.religion,
+          lineage: persona.lineage,
+          nativeLanguage: persona.nativeLanguage,
+          gender: persona.gender,
+          safetyLevel: persona.safetyLevel,
+          bannedPatterns: persona.bannedPatterns,
+          seekerContext: seekerCtx,
+          birthDataJustDetected: true,
+        });
+        enrichedPromptParts[0] = rebuilt.systemPrompt;
       }
-      // Hard refusal directive — the AI must NOT attempt to read or compute
-      // any planetary positions from this turn. The chart is rendered by the
-      // client; the AI only interprets it from the NEXT turn onwards.
-      enrichedPromptParts.push(
-        `\n\n[MANDATORY INSTRUCTION — DO NOT OVERRIDE] The seeker typed birth details in this message. ` +
-        `You are FORBIDDEN from reading, computing, stating, or hinting at any planetary positions, house placements, nakshatras, or dasha periods in this response. ` +
-        `Do NOT say "let me compute the chart" or "I'll provide the chart details." ` +
-        `Instead, respond in 1-2 short sentences: warmly acknowledge their details, confirm the chart is being prepared, and ask what they'd like to explore once it's ready. ` +
-        `Example: "Maine aapki details note kar li hain. Chart taiyaar ho raha hai — thodi der mein exact positions dekh ke bataungi. Usse pehle bataiye, aap kis baare mein jaanna chahte hain?"`,
-      );
     }
 
     // Real-time emotion detection — runs in <0.1ms, pure regex.
