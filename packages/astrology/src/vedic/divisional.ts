@@ -39,7 +39,10 @@ export const DIVISIONAL_CHARTS: Record<number, { name: string; signification: st
 
 /**
  * Compute the divisional longitude for a given division number.
- * Uses the Parashara method for divisional charts.
+ * Uses the Parashara method with correct counting rules for each varga.
+ *
+ * Reference: Parashara Hora Shastra, Chapter 3 (Shodashavarga)
+ * Each varga has specific counting rules based on sign type (movable/fixed/dual).
  */
 export function computeDivisionalLongitude(rashiLongitude: number, division: number): number {
   const normalizedLon = ((rashiLongitude % 360) + 360) % 360;
@@ -50,28 +53,110 @@ export function computeDivisionalLongitude(rashiLongitude: number, division: num
   const partSize = 30 / division;
   const partIndex = Math.floor(degreesInSign / partSize);
 
-  // The divisional sign depends on the type of division
-  // For odd divisions: count from the sign itself
-  // For even divisions: different counting rules apply
+  // Sign type classification
+  const isMovable = [0, 3, 6, 9].includes(signIndex); // Ar, Cn, Li, Cp
+  const isFixed = [1, 4, 7, 10].includes(signIndex);  // Ta, Le, Sc, Aq
+  const isDual = [2, 5, 8, 11].includes(signIndex);   // Ge, Vi, Sg, Pi
+
   let divSignIndex: number;
 
   if (division === 2) {
-    // Hora (D2): 15° halves. Odd signs run Sun's hora (Leo) then Moon's (Cancer);
-    // even signs run the reverse.
-    divSignIndex = partIndex === 0 ? (signIndex % 2 === 0 ? 4 : 3) : (signIndex % 2 === 0 ? 3 : 4);
+    // Hora (D2): 15° halves
+    // Odd signs (Ar, Ge, Le, Li, Sg, Aq): 1st half = Leo (Sun), 2nd half = Cancer (Moon)
+    // Even signs (Ta, Cn, Vi, Sc, Cp, Pi): 1st half = Cancer (Moon), 2nd half = Leo (Sun)
+    if (signIndex % 2 === 0) {
+      // Odd sign
+      divSignIndex = partIndex === 0 ? 4 : 3; // Leo, then Cancer
+    } else {
+      // Even sign
+      divSignIndex = partIndex === 0 ? 3 : 4; // Cancer, then Leo
+    }
   } else if (division === 3) {
-    // Drekkana (D3): 10° thirds — own sign, 5th, 9th (step of 4 signs).
+    // Drekkana (D3): 10° thirds
+    // All signs: own sign, 5th, 9th (step of 4)
     divSignIndex = (signIndex + partIndex * 4) % 12;
   } else if (division === 4) {
-    // Chaturthamsa (D4): 7.5° quarters — own sign and the three kendra from it
-    // (step of 3 signs).
-    divSignIndex = (signIndex + partIndex * 3) % 12;
+    // Chaturthamsa (D4): 7.5° quarters
+    // Movable: own, 4th, 7th, 10th (step of 3)
+    // Fixed: 4th, 7th, 10th, own (step of 3, starting from 4th)
+    // Dual: 7th, 10th, own, 4th (step of 3, starting from 7th)
+    if (isMovable) {
+      divSignIndex = (signIndex + partIndex * 3) % 12;
+    } else if (isFixed) {
+      divSignIndex = (signIndex + 3 + partIndex * 3) % 12;
+    } else {
+      divSignIndex = (signIndex + 6 + partIndex * 3) % 12;
+    }
+  } else if (division === 5) {
+    // Panchamsa (D5): 6° fifths
+    // Movable: same sign repeated (all 5 parts in own sign)
+    // Fixed: 5th, 9th, own, 5th, 9th (step of 4, starting from 5th)
+    // Dual: 9th, 5th, own, 9th, 5th (step of 8, starting from 9th)
+    if (isMovable) {
+      divSignIndex = signIndex;
+    } else if (isFixed) {
+      divSignIndex = (signIndex + 4 + partIndex * 4) % 12;
+    } else {
+      divSignIndex = (signIndex + 8 + partIndex * 8) % 12;
+    }
+  } else if (division === 6) {
+    // Shashthamsa (D6): 5° sixths
+    // All signs: 6th from sign repeated (step of 5, but all in 6th house)
+    // Actually: each part is in the 6th sign from the original
+    divSignIndex = (signIndex + 5) % 12;
+  } else if (division === 7) {
+    // Saptamsa (D7): ~4.28° sevenths
+    // Movable: own, 7th, own, 7th, own, 7th, own (alternating)
+    // Fixed: 7th, own, 7th, own, 7th, own, 7th (alternating, starting from 7th)
+    // Dual: own, 7th, own, 7th, own, 7th, own (same as movable)
+    if (partIndex % 2 === 0) {
+      divSignIndex = isFixed ? (signIndex + 6) % 12 : signIndex;
+    } else {
+      divSignIndex = isFixed ? signIndex : (signIndex + 6) % 12;
+    }
+  } else if (division === 8) {
+    // Ashtamsa (D8): 3.75° eighths
+    // All signs: 8th from sign repeated (step of 7)
+    divSignIndex = (signIndex + 7) % 12;
   } else if (division === 9) {
-    // Navamsa: the sign × 9 rotation reproduces the classical rule (movable
-    // varga in the 1st part, fixed in the 5th, dual in the 9th).
-    divSignIndex = (signIndex * division + partIndex) % 12;
+    // Navamsa (D9): 3.33° ninths
+    // Movable: own, 5th, 9th, own, 5th, 9th, own, 5th, 9th (step of 4)
+    // Fixed: 9th, 5th, own, 9th, 5th, own, 9th, 5th, own (step of 8, starting from 9th)
+    // Dual: 5th, 9th, own, 5th, 9th, own, 5th, 9th, own (step of 4, starting from 5th)
+    if (isMovable) {
+      divSignIndex = (signIndex + partIndex * 4) % 12;
+    } else if (isFixed) {
+      divSignIndex = (signIndex + 8 + partIndex * 8) % 12;
+    } else {
+      divSignIndex = (signIndex + 4 + partIndex * 4) % 12;
+    }
+  } else if (division === 10) {
+    // Dasamsa (D10): 3° tenths
+    // Movable: own, 10th, own, 10th, ... (alternating, step of 9)
+    // Fixed: 10th, own, 10th, own, ... (alternating, starting from 10th)
+    // Dual: own, 10th, own, 10th, ... (same as movable)
+    if (partIndex % 2 === 0) {
+      divSignIndex = isFixed ? (signIndex + 9) % 12 : signIndex;
+    } else {
+      divSignIndex = isFixed ? signIndex : (signIndex + 9) % 12;
+    }
+  } else if (division === 11) {
+    // Rudramsha (D11): ~2.73° elevenths
+    // All signs: 11th from sign repeated (step of 10)
+    divSignIndex = (signIndex + 10) % 12;
+  } else if (division === 12) {
+    // Dwadashamsa (D12): 2.5° twelfths
+    // Movable: own, 12th, own, 12th, ... (alternating, step of 11)
+    // Fixed: 12th, own, 12th, own, ... (alternating, starting from 12th)
+    // Dual: own, 12th, own, 12th, ... (same as movable)
+    if (partIndex % 2 === 0) {
+      divSignIndex = isFixed ? (signIndex + 11) % 12 : signIndex;
+    } else {
+      divSignIndex = isFixed ? signIndex : (signIndex + 11) % 12;
+    }
   } else {
-    // Generalised scheme for the remaining vargas.
+    // Generalized scheme for higher divisional charts (D16, D20, D24, D27, D30, D40, D45, D60)
+    // Uses the standard Parashara formula: sign × division + partIndex
     divSignIndex = (signIndex * division + partIndex) % 12;
   }
 

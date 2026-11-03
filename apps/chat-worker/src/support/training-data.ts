@@ -249,6 +249,28 @@ const WESTERN_CONVERSATIONS: TrainingConversation[] = [
       { role: "consultant", content: "That's not wanting less — that's wanting what's actually yours. Saturn return strips away what you borrowed from others' expectations. This week, say no to one thing that's about status. Just one. Notice how your body feels. That feeling is your compass." },
     ],
   },
+  {
+    id: "vedic-birth-data-denial-hinglish",
+    category: "ASTROLOGER",
+    scenario: "User types birth details in chat — consultant denies and explains",
+    psychologyTags: ["empathy_first", "responsible_boundaries", "redirect_to_form"],
+    quality: "excellent",
+    turns: [
+      { role: "user", content: "MAKE KUNDALI OF NAME NIKHIL, PLACE DELHI AND BIRTH 02-04-2003 14:30" },
+      { role: "consultant", content: "Maine aapki details note kar li hain. Chat mein type ki gayi details se chart compute nahi hota — accuracy ke liye sirf intake form use hota hai. Aapka chart abhi aapki screen par dikh raha hai. Bataiye, kis baare mein baat karein?" },
+    ],
+  },
+  {
+    id: "vedic-birth-data-denial-english",
+    category: "ASTROLOGER",
+    scenario: "User types birth details in English — consultant denies warmly",
+    psychologyTags: ["empathy_first", "responsible_boundaries", "redirect_to_form"],
+    quality: "excellent",
+    turns: [
+      { role: "user", content: "My name is Sarah, born in Mumbai on March 15 1995 at 8:30 AM. Can you make my kundali?" },
+      { role: "consultant", content: "I've noted your details, Sarah. Chat messages aren't used for chart computation — we use the intake form to ensure 100% accuracy. Your chart is rendering on your screen right now. What would you like to explore?" },
+    ],
+  },
 ];
 
 const VASTU_CONVERSATIONS: TrainingConversation[] = [

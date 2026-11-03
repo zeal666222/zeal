@@ -17,6 +17,7 @@ import { ThemeScript } from "@zeal/ui/theme-script";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallBanner } from "@/components/global/PWAInstallBanner";
 import { OrganizationSchema, WebSiteSchema, SoftwareApplicationSchema } from "@/components/seo/StructuredData";
+import { ImpersonationProvider } from "@/components/providers/ImpersonationProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -166,6 +167,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           themes={["light", "dark"]}
         >
           <QueryProvider>
+            <ImpersonationProvider />
             <SupabaseAuthProvider>
               <RealtimeProvider>
                 <MotionProvider>

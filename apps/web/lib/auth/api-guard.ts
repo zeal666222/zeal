@@ -214,8 +214,8 @@ async function resolveAIImpersonation(
     const admin = createAdminClient();
     // Verify the AI consultant exists
     const { data: consultant } = await admin
-      .from("Consultant")
-      .select("id, userId")
+      .from("AIConsultant")
+      .select("id")
       .eq("id", aiConsultantId)
       .maybeSingle();
 

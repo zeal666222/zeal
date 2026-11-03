@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/toaster";
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   Loader2, Search, ShieldAlert, UserCheck, Bot, UserCog, Users,
   MessageSquare, Calendar, Wallet, Clock, Eye, ArrowRight, Activity,
@@ -62,6 +63,7 @@ interface SessionLogEntry {
 }
 
 export default function ImpersonatePage() {
+  const router = useRouter();
   const [tab, setTab] = useState<TabType>("users");
   const [search, setSearch] = useState("");
   const [starting, setStarting] = useState<string | null>(null);
@@ -142,7 +144,7 @@ export default function ImpersonatePage() {
         },
       ]);
 
-      sessionStorage.setItem("zeal-impersonate", JSON.stringify({
+      localStorage.setItem("zeal-impersonate", JSON.stringify({
         targetUserId: r.targetUserId ?? r.targetId,
         targetName: r.targetName,
         targetType,
@@ -154,12 +156,8 @@ export default function ImpersonatePage() {
         description: "15-minute session started. All actions are audited.",
       });
 
-      // Redirect based on type
-      if (targetType === "ai") {
-        window.location.href = "/admin/consultant/dashboard";
-      } else {
-        window.location.href = "/admin/consultant/dashboard";
-      }
+      // Redirect based on type using client-side routing (no full page reload)
+      router.push("/admin/consultant/dashboard");
     } finally {
       setStarting(null);
     }

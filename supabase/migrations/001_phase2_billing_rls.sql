@@ -121,7 +121,7 @@ BEGIN
   v_fee     := p_amount * 0.20;
   v_earning := p_amount - v_fee;
 
-  UPDATE "Wallet" SET balance = balance - p_amount, updated_at = now() WHERE id = v_uw.id;
+  UPDATE "Wallet" SET balance = balance - p_amount, "updatedAt" = now() WHERE id = v_uw.id;
 
   INSERT INTO "Transaction" (id, "walletId", type, amount, balance, description, "referenceId")
   VALUES (gen_random_uuid(), v_uw.id, 'PAYMENT'::"TransactionType", -p_amount,
@@ -130,13 +130,13 @@ BEGIN
   IF v_consultant_uid IS NOT NULL THEN
     SELECT * INTO v_cw FROM "Wallet" WHERE "userId" = v_consultant_uid FOR UPDATE;
     IF FOUND THEN
-      UPDATE "Wallet" SET balance = balance + v_earning, updated_at = now() WHERE id = v_cw.id;
+      UPDATE "Wallet" SET balance = balance + v_earning, "updatedAt" = now() WHERE id = v_cw.id;
       INSERT INTO "Transaction" (id, "walletId", type, amount, balance, description, "referenceId")
       VALUES (gen_random_uuid(), v_cw.id, 'COMMISSION'::"TransactionType", v_earning,
               v_cw.balance + v_earning, 'Per-minute earning', v_ref || ':earn');
     END IF;
     IF NOT p_is_ai THEN
-      UPDATE "Consultant" SET earnings = earnings + v_earning, updated_at = now()
+      UPDATE "Consultant" SET earnings = earnings + v_earning, "updatedAt" = now()
       WHERE id = p_consultant_id::uuid;
     END IF;
   END IF;
@@ -194,7 +194,7 @@ BEGIN
                               'walletCreated', true);
   END IF;
 
-  UPDATE "Wallet" SET balance = balance + p_amount, updated_at = now() WHERE id = v_wallet.id;
+  UPDATE "Wallet" SET balance = balance + p_amount, "updatedAt" = now() WHERE id = v_wallet.id;
 
   v_txn_id := gen_random_uuid()::text;
   INSERT INTO "Transaction" (id, "walletId", type, amount, balance, description, "referenceId")
@@ -246,7 +246,7 @@ BEGIN
   END IF;
 
   UPDATE "Wallet" SET balance = balance - p_amount, escrow = escrow + p_amount,
-                       updated_at = now() WHERE id = v_wallet.id;
+                       "updatedAt" = now() WHERE id = v_wallet.id;
 
   v_txn_id := gen_random_uuid()::text;
   INSERT INTO "Transaction" (id, "walletId", type, amount, balance, description, "referenceId")
@@ -556,7 +556,7 @@ AS $$
 DECLARE v_count int;
 BEGIN
   UPDATE public."CallSession"
-  SET status = 'ENDED'::"CallStatus", "endTime" = now(), updated_at = now()
+  SET status = 'ENDED'::"CallStatus", "endTime" = now(), "updatedAt" = now()
   WHERE status IN ('INITIATED'::"CallStatus", 'CONNECTED'::"CallStatus")
     AND "startTime" < now() - (p_older_than_hours || ' hours')::interval;
 

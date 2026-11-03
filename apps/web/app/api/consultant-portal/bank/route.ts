@@ -10,6 +10,12 @@ const BankSchema = z.object({
   accountHolder: z.string().trim().min(2).max(100),
 });
 
+function maskAccountNumber(accountNumber: string | null): string | null {
+  if (!accountNumber) return null;
+  if (accountNumber.length <= 4) return "****";
+  return "XXXX" + accountNumber.slice(-4);
+}
+
 export async function GET() {
   const supabase = await createServerClientFromCookies();
   const { data: { user } } = await supabase.auth.getUser();
@@ -28,7 +34,7 @@ export async function GET() {
 
   return NextResponse.json({
     success: true,
-    accountNumber: consultant.bankAccountNumber,
+    accountNumber: maskAccountNumber(consultant.bankAccountNumber),
     ifsc: consultant.bankIfsc,
     accountHolder: consultant.bankAccountHolder,
   });

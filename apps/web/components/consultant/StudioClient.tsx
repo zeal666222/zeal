@@ -213,7 +213,7 @@ export function StudioClient({ initialProfile, completeness, subdomain, stats }:
             <div className="bg-surface backdrop-blur-xl border border-[var(--color-primary)]/20 rounded-3xl p-6 shadow-2xl">
               <p className="text-[10px] uppercase tracking-widest text-[var(--color-primary)] font-bold mb-1">Your White-Label Site</p>
               <p className="text-sm font-mono text-foreground break-all">{subdomain}.zealer.co.in</p>
-              <a href={`/white-label/${subdomain}`} target="_blank"
+              <a href={`https://${subdomain}.zealer.co.in`} target="_blank" rel="noopener noreferrer"
                 className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-primary)] hover:text-foreground font-bold">
                 Open site <ChevronRight size={12} />
               </a>

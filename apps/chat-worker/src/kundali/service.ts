@@ -29,6 +29,7 @@ import {
   saveSeekerProfile,
   type SeekerProfileRow,
 } from "../seeker-profile";
+import { validateWithLiveAPIs, getConsensusPosition } from "./live-api";
 
 interface ResolvedBirth {
   birthData: BirthData;
@@ -122,14 +123,15 @@ function birthDataFrom(row: SeekerProfileRow): ResolvedBirth | null {
 
 /**
  * Ensure the seeker has a chart summary. If the stored chart matches the
- * current birth signature, return it; otherwise recompute, persist, and return
- * the fresh summary. Returns null if the profile lacks enough to chart.
+ * current birth signature, return it; otherwise recompute, validate against
+ * live APIs, persist, and return the fresh summary. Returns null if the
+ * profile lacks enough to chart.
  */
 export async function ensureChart(
   env: Env,
   userId: string,
   row: SeekerProfileRow | null,
-): Promise<{ summary: string; stale: boolean } | null> {
+): Promise<{ summary: string; stale: boolean; validation?: { validated: boolean; confidence: number; sources: string[] } | null } | null> {
   const currentRow = row ?? (await readSeekerProfile(env, userId));
   if (!currentRow) return null;
   const resolved = birthDataFrom(currentRow);
@@ -150,11 +152,39 @@ export async function ensureChart(
 
   // Compute.
   let summary: string;
+  let validationInfo: { validated: boolean; confidence: number; sources: string[] } | null = null;
   try {
     const brief = computeKundaliBrief(resolved.birthData, {
       name: resolved.name,
       place: resolved.place,
     });
+
+    // Validate against live APIs for industry-grade accuracy
+    if (brief.planets && brief.planets.length > 0) {
+      try {
+        const validation = await validateWithLiveAPIs(brief.planets, resolved.birthData, {
+          tolerance: 0.5,
+          timeout: 3000,
+          requiredSources: 2,
+        });
+        validationInfo = {
+          validated: validation.validated,
+          confidence: validation.confidence,
+          sources: validation.sources,
+        };
+
+        if (!validation.validated && validation.discrepancies.length > 0) {
+          console.warn(
+            `[kundali] Live API validation found ${validation.discrepancies.length} discrepancies`,
+            validation.discrepancies.slice(0, 3)
+          );
+        }
+      } catch (valErr) {
+        console.warn("[kundali] Live API validation failed (non-fatal):", valErr instanceof Error ? valErr.message : valErr);
+        // Continue with local computation - validation is optional enhancement
+      }
+    }
+
     summary = formatKundaliBrief(brief);
   } catch (err) {
     console.warn("[kundali] compute failed:", err instanceof Error ? err.message : err);
@@ -165,11 +195,11 @@ export async function ensureChart(
   const updated = await saveSeekerProfile(env, userId, { chartSummary: summary });
   if (updated) {
     memoSet(key, summary);
-    return { summary, stale: false };
+    return { summary, stale: false, validation: validationInfo };
   }
   // Persist failed (shouldn't happen, but don't lose the chart).
   memoSet(key, summary);
-  return { summary, stale: true };
+  return { summary, stale: true, validation: validationInfo };
 }
 
 /**
@@ -215,6 +245,27 @@ export async function recomputeChart(
       name: resolved.name,
       place: resolved.place,
     });
+
+    // Validate against live APIs for industry-grade accuracy
+    if (brief.planets && brief.planets.length > 0) {
+      try {
+        const validation = await validateWithLiveAPIs(brief.planets, resolved.birthData, {
+          tolerance: 0.5,
+          timeout: 3000,
+          requiredSources: 2,
+        });
+
+        if (!validation.validated && validation.discrepancies.length > 0) {
+          console.warn(
+            `[kundali] Live API validation found ${validation.discrepancies.length} discrepancies`,
+            validation.discrepancies.slice(0, 3)
+          );
+        }
+      } catch (valErr) {
+        console.warn("[kundali] Live API validation failed (non-fatal):", valErr instanceof Error ? valErr.message : valErr);
+      }
+    }
+
     summary = formatKundaliBrief(brief);
   } catch (err) {
     console.warn("[kundali] recompute failed:", err instanceof Error ? err.message : err);

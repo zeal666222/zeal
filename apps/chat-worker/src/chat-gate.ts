@@ -38,13 +38,15 @@ export class ChatGate {
 
   private acquire(userId: string, maxPerUser: number, maxGlobal: number, ttlMs: number): Response {
     const now = Date.now();
-    // Prune expired leases
+    // Prune expired leases and recount
     for (const [id, lease] of this.leases) {
       if (now - lease.createdAt > lease.ttlMs) {
         this.leases.delete(id);
-        this.globalCount = Math.max(0, this.globalCount - 1);
       }
     }
+    // Recount from actual leases to prevent drift
+    this.globalCount = this.leases.size;
+    
     // Per-user count
     let userCount = 0;
     for (const lease of this.leases.values()) {
@@ -67,7 +69,7 @@ export class ChatGate {
     const lease = this.leases.get(leaseId);
     if (lease) {
       this.leases.delete(leaseId);
-      this.globalCount = Math.max(0, this.globalCount - 1);
+      this.globalCount = this.leases.size;
       this.persist();
       return Response.json({ released: true });
     }

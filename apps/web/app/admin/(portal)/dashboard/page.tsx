@@ -126,7 +126,7 @@ export default function AdminDashboardPage() {
       if (!res.ok) return { items: [] };
       const json = await res.json();
       return {
-        items: (json.logs ?? []).map((l: Record<string, unknown>, i: number) => ({
+        items: (json.items ?? []).map((l: Record<string, unknown>, i: number) => ({
           id: String(l.id ?? i),
           type: "error" as const,
           message: `${l.action_name ?? l.action ?? "Event"}`,

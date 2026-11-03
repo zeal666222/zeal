@@ -649,7 +649,7 @@ export default function ConsultantSettingsPage() {
                     {copied ? <Check size={14} /> : <Copy size={14} />}
                   </button>
                   <a
-                    href={`/white-label/${subdomain}`}
+                    href={`https://${subdomain}.zealer.co.in`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-2 rounded-lg hover:bg-purple-500/20 text-purple-400 transition-colors"

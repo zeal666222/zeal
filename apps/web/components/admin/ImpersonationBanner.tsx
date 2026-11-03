@@ -3,6 +3,7 @@
 // ImpersonationBanner — visible red banner when super-admin acts as another user
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShieldAlert, X } from "lucide-react";
 
 interface ImpersonationState {
@@ -12,32 +13,50 @@ interface ImpersonationState {
 }
 
 export function ImpersonationBanner() {
+  const router = useRouter();
   const [state, setState] = useState<ImpersonationState | null>(null);
 
   useEffect(() => {
     const read = () => {
       try {
-        const raw = sessionStorage.getItem("zeal-impersonate");
+        const raw = localStorage.getItem("zeal-impersonate");
         if (!raw) { setState(null); return; }
         const parsed = JSON.parse(raw) as ImpersonationState;
         if (new Date(parsed.expiresAt).getTime() < Date.now()) {
-          sessionStorage.removeItem("zeal-impersonate");
+          localStorage.removeItem("zeal-impersonate");
           setState(null);
           return;
         }
         setState(parsed);
       } catch { setState(null); }
     };
+    
+    // Initial read
     read();
-    const interval = setInterval(read, 5000);
-    return () => clearInterval(interval);
+    
+    // Listen for storage changes (cross-tab sync - works with localStorage)
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "zeal-impersonate") {
+        read();
+      }
+    };
+    
+    window.addEventListener("storage", handleStorage);
+    
+    // Check expiry every 30 seconds
+    const interval = setInterval(read, 30000);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   if (!state) return null;
 
   const stop = () => {
-    sessionStorage.removeItem("zeal-impersonate");
-    window.location.href = "/admin/impersonate";
+    localStorage.removeItem("zeal-impersonate");
+    router.push("/admin/impersonate");
   };
 
   return (

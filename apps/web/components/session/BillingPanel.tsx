@@ -22,6 +22,8 @@ import {
   HEARTBEAT_INTERVAL_SECONDS,
   type HeartbeatResult,
 } from "@/lib/billing/types";
+import { useChannel, channels, type BroadcastChange } from "@zeal/realtime";
+import { useAppStore } from "@/lib/store/appStore";
 
 interface Props {
   sessionId: string;
@@ -84,6 +86,19 @@ export function BillingPanel({ sessionId, rate, onEnd, onTerminated }: Props) {
   const onTerminatedRef = useRef(onTerminated);
   useEffect(() => { onEndRef.current = onEnd; }, [onEnd]);
   useEffect(() => { onTerminatedRef.current = onTerminated; }, [onTerminated]);
+
+  // Realtime wallet subscription — updates remaining balance between heartbeats
+  const user = useAppStore((s) => s.user);
+  useChannel<BroadcastChange<{ balance?: number }>>({
+    channel: user?.id ? channels.userWallet(user.id) : null,
+    event: "*",
+    onMessage: (payload) => {
+      const newBalance = payload?.record?.balance;
+      if (typeof newBalance === "number") {
+        setRemaining(newBalance);
+      }
+    },
+  });
 
   // Reset all display state when the session changes.
   useEffect(() => {

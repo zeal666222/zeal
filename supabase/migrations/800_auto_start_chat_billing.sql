@@ -43,7 +43,7 @@ BEGIN
       RETURN jsonb_build_object('success', true, 'free', true);
     END IF;
   ELSE
-    SELECT c.id, c."perMinuteRate" INTO v_partner
+    SELECT c.id, COALESCE(c."chatRate", c."perMinuteRate") AS "perMinuteRate" INTO v_partner
     FROM public."ConversationParticipant" cp
     JOIN public."Consultant" c ON c."userId" = cp."userId"
     WHERE cp."conversationId" = p_conversation_id
@@ -69,12 +69,12 @@ BEGIN
 
   INSERT INTO public."CallSession" (
     "userId", "consultantId", "aiConsultantId", "isAI",
-    "conversationId", "startTime", status, amount, "durationSeconds"
+    "conversationId", "startTime", status, amount, "durationSeconds", "lockedRate"
   ) VALUES (
     p_user_id,
     CASE WHEN v_is_ai THEN NULL ELSE v_partner.id END,
     CASE WHEN v_is_ai THEN v_partner.id ELSE NULL END,
-    v_is_ai, p_conversation_id, now(), 'CONNECTED', 0, 0
+    v_is_ai, p_conversation_id, now(), 'CONNECTED', 0, 0, v_rate
   ) RETURNING id INTO v_session_id;
 
   RETURN jsonb_build_object(

@@ -104,7 +104,7 @@ BEGIN
   END IF;
   v_rate := COALESCE(v_rate, 0);
   v_cost := v_minutes * v_rate;
-  v_fee := v_cost * 0.10;
+  v_fee := v_cost * 0.20;
   v_earning := v_cost - v_fee;
 
   UPDATE "CallSession"

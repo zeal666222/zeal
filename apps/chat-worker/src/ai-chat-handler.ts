@@ -3,15 +3,14 @@ import type { PersonaContext } from "./persona-loader";
 import { FillerEngine, type FillerLocale } from "./support/fillers";
 import { buildStageSequence, pickStageLocale } from "./support/stages";
 import { buildSuggestions, pickSuggestionLocale, type Suggestion } from "./support/suggestions";
-import { PersonaEngine } from "./persona-engine";
 import { detectUploadedFiles, readTextualAttachment, buildFileAnalysisDirective } from "./support/file-analysis";
 import { detectBirthData } from "./support/birth-data-detector";
 import { retrieveKnowledge } from "./knowledge/rag";
 import { detectEmotion, buildEmotionDirective, trackEmotionalTrajectory } from "./knowledge/emotion-detect";
 import { record as recordAiMetric } from "./ai-metrics";
 import { insertMessage, isoOf, readMessages, requireParticipant, sqliteNow, touchConversation } from "./conversation-store";
-import { describeProfile, saveSeekerProfile, readSeekerProfile } from "./seeker-profile";
-import { ensureChart } from "./kundali/service";
+import { orchestrateBirthDisclosure, buildOpenerChartEvent } from "./kundali/orchestrator";
+import { PersonaEngine } from "./persona-engine";
 import { screenReply } from "./moderation";
 import { publishToRoom } from "./realtime";
 
@@ -154,84 +153,12 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
     const birth = detectBirthData(trimmed);
     if (birth && birth.confidence !== "low") {
       // A seeker who types their birth details mid-conversation is answering
-      // the same question the intake form asks — so store it under their own
-      // id and it grounds every later turn, across consultants and devices.
-      const stored = await saveSeekerProfile(env, userId, {
-        dob: birth.birthDate,
-        tob: birth.birthTime,
-        pob: birth.placeName,
-        latitude: birth.birthPlace.lat,
-        longitude: birth.birthPlace.lng,
-        timezone: birth.timezone,
-      });
-      if (stored) {
-        // Compute the chart now, on the worker, so the next turn's persona
-        // sees a fresh summary instead of a stale flag.
-        await ensureChart(env, userId, stored);
-        const refreshed = await readSeekerProfile(env, userId);
-        derivedEvents.push({
-          profileUpdated: {
-            chartStale: describeProfile(refreshed).chartStale,
-            hasBirthData: describeProfile(refreshed).hasBirthData,
-            missing: describeProfile(refreshed).missing,
-            name: refreshed?.name,
-            dob: refreshed?.dob,
-            tob: refreshed?.tob,
-            pob: refreshed?.pob,
-            latitude: refreshed?.latitude,
-            longitude: refreshed?.longitude,
-            timezone: refreshed?.timezone,
-          },
-        });
-        // Fire the kundali_chart event so the client renders the SVG chart
-        // immediately — same payload shape as the opener turn.
-        if (refreshed?.dob && refreshed?.tob && refreshed?.pob) {
-          derivedEvents.push({
-            type: "kundali_chart",
-            birth: {
-              name: refreshed.name,
-              dob: refreshed.dob,
-              tob: refreshed.tob,
-              pob: refreshed.pob,
-              latitude: refreshed.latitude,
-              longitude: refreshed.longitude,
-              timezone: refreshed.timezone,
-            },
-          });
-        }
-        // Rebuild the system prompt with birthDataJustDetected=true so the
-        // chartBlock instructs denial, not interpretation.
-        const seekerCtx = refreshed
-          ? {
-              name: refreshed.name ?? undefined,
-              dob: refreshed.dob ?? undefined,
-              tob: refreshed.tob ?? undefined,
-              pob: refreshed.pob ?? undefined,
-              concern: refreshed.concern ?? undefined,
-              chartSummary: refreshed.chart_summary ?? undefined,
-            }
-          : undefined;
-        const rebuilt = PersonaEngine.build({
-          id: persona.id,
-          name: persona.name,
-          category: persona.category,
-          bio: persona.bio,
-          specialties: persona.specialties,
-          languages: persona.languages,
-          persona: persona.persona,
-          systemPrompt: persona.systemPrompt,
-          location: persona.location,
-          country: persona.country,
-          religion: persona.religion,
-          lineage: persona.lineage,
-          nativeLanguage: persona.nativeLanguage,
-          gender: persona.gender,
-          safetyLevel: persona.safetyLevel,
-          bannedPatterns: persona.bannedPatterns,
-          seekerContext: seekerCtx,
-          birthDataJustDetected: true,
-        });
-        enrichedPromptParts[0] = rebuilt.systemPrompt;
+      // the same question the intake form asks — orchestrate the full flow:
+      // persist → compute → emit SSE events → rebuild prompt with denial.
+      const orchestrated = await orchestrateBirthDisclosure(env, userId, birth, persona);
+      if (orchestrated.processed) {
+        derivedEvents.push(...orchestrated.events);
+        enrichedPromptParts[0] = orchestrated.rebuiltSystemPrompt;
       }
     }
 
@@ -309,21 +236,8 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
       // When this is the opener turn (first message after intake), send the
       // seeker's birth data so the client can compute and render the kundali chart.
       if (opener) {
-        const seekerRow = await readSeekerProfile(env, userId);
-        if (seekerRow?.dob && seekerRow?.tob && seekerRow?.pob) {
-          write({
-            type: "kundali_chart",
-            birth: {
-              name: seekerRow.name,
-              dob: seekerRow.dob,
-              tob: seekerRow.tob,
-              pob: seekerRow.pob,
-              latitude: seekerRow.latitude,
-              longitude: seekerRow.longitude,
-              timezone: seekerRow.timezone,
-            },
-          });
-        }
+        const openerEvent = await buildOpenerChartEvent(env, userId);
+        if (openerEvent) write(openerEvent);
       }
 
       for (const evt of [...initialEvents, ...derivedEvents]) write(evt);

@@ -6,7 +6,8 @@ import {useChannel, channels, type BroadcastChange} from "@zeal/realtime";
 import {initiateSessionAction} from "@/actions/signaling";
 import {useRouter, usePathname} from "next/navigation";
 import Image from "next/image";
-import { ImageIcon, MessageSquare, Phone, Shield, Sparkles, Star } from "lucide-react";
+import { ImageIcon, MessageSquare, Phone, Shield, Sparkles, Star, Loader2 } from "lucide-react";
+import { startChatFlow } from "@/lib/chat/start-chat-flow";
 
 type PublicProfile = { id: string; full_name: string; avatar_url: string | null; cover_url: string | null; is_ai: boolean; is_online: boolean; };
 type Post = { id: string; image_url: string | null; content: string; created_at: string; };
@@ -15,6 +16,7 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
   const [profile, setProfile] = useState<PublicProfile>(initialProfile);
   const [activeTab, setActiveTab] = useState<"grid" | "about">("grid");
   const [callState, setCallState] = useState<'idle' | 'calling' | 'declined'>('idle');
+  const [chatState, setChatState] = useState<'idle' | 'loading'>('idle');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -50,6 +52,22 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
     }
   };
 
+  const handleChat = async () => {
+    await startChatFlow(profile.id, {
+      router,
+      onLoading: (loading) => setChatState(loading ? 'loading' : 'idle'),
+      onLowBalance: (info) => {
+        toast({ title: `Insufficient balance. Need ₹${info.required}/min`, variant: "destructive" });
+      },
+      onOffline: (info) => {
+        toast({ title: `${info.consultantName} is currently offline`, variant: "destructive" });
+      },
+      onError: (msg) => {
+        toast({ title: msg, variant: "destructive" });
+      },
+    });
+  };
+
   const fallbackCover = "bg-gradient-to-tr from-slate-900 via-indigo-950 to-purple-900";
   const fallbackAvatar = "bg-gradient-to-br from-indigo-500 to-purple-600 text-white";
 
@@ -74,6 +92,18 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
           </div>
           
           <div className="hidden md:flex items-center gap-3 mb-2">
+            <button 
+              onClick={handleChat}
+              disabled={!profile.is_online || chatState !== 'idle'}
+              className={`btn-3d px-8 py-3.5 rounded-full font-bold flex items-center gap-2 transition-all shadow-xl ${!profile.is_online ? 'bg-surface-sunken text-muted-foreground cursor-not-allowed border border-border' : chatState === 'loading' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white'}`}
+            >
+              {chatState === 'loading' ? (
+                <Loader2 size={18} className="animate-spin drop-shadow-md" />
+              ) : (
+                <MessageSquare size={18} className="drop-shadow-md" />
+              )}
+              <span className="drop-shadow-md">{chatState === 'loading' ? 'Starting...' : 'Chat Now'}</span>
+            </button>
             <button 
               onClick={handleInitiateSession}
               disabled={!profile.is_online || callState !== 'idle'}
@@ -108,13 +138,25 @@ export function ConsultantProfileClient({ initialProfile, posts }: { initialProf
       </div>
 
       {/* Sticky Mobile CTA wrapped in btn-3d styling */}
-      <div className="md:hidden fixed bottom-24 left-4 right-4 z-40 flex justify-center">
+      <div className="md:hidden fixed bottom-24 left-4 right-4 z-40 flex gap-2">
+        <button 
+          onClick={handleChat}
+          disabled={!profile.is_online || chatState !== 'idle'}
+          className={`btn-3d flex-1 py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-2xl ${!profile.is_online ? 'bg-surface-sunken text-muted-foreground border border-border opacity-90' : chatState === 'loading' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'}`}
+        >
+          {chatState === 'loading' ? (
+            <Loader2 size={20} className="animate-spin drop-shadow-md" />
+          ) : (
+            <MessageSquare size={20} className="drop-shadow-md" />
+          )}
+          <span className="drop-shadow-md">{chatState === 'loading' ? 'Starting...' : 'Chat'}</span>
+        </button>
         <button 
           onClick={handleInitiateSession}
           disabled={!profile.is_online || callState !== 'idle'}
-          className={`btn-3d w-full py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-2xl ${!profile.is_online ? 'bg-surface-sunken text-muted-foreground border border-border opacity-90' : callState === 'calling' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white'}`}
+          className={`btn-3d flex-1 py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-transform active:scale-95 shadow-2xl ${!profile.is_online ? 'bg-surface-sunken text-muted-foreground border border-border opacity-90' : callState === 'calling' ? 'bg-indigo-600 text-white animate-pulse' : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white'}`}
         >
-          <Phone size={20} className="drop-shadow-md"/> <span className="drop-shadow-md">{callState === 'calling' ? 'Ringing...' : 'Initiate Live Session'}</span>
+          <Phone size={20} className="drop-shadow-md"/> <span className="drop-shadow-md">{callState === 'calling' ? 'Ringing...' : 'Call'}</span>
         </button>
       </div>
     </div>

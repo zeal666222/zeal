@@ -2,7 +2,10 @@
 
 import {Avatar, AvatarImage, AvatarFallback, Badge, Button} from "@zeal/ui";
 import {useRouter} from "next/navigation";
-import { Calendar, MessageCircle, Phone } from "lucide-react";
+import { useState } from "react";
+import { Calendar, MessageCircle, Phone, Loader2 } from "lucide-react";
+import { startChatFlow } from "@/lib/chat/start-chat-flow";
+import { toast } from "@/components/ui/toaster";
 
 export interface ConsultantProfileData {
  id: string;
@@ -24,9 +27,26 @@ interface ConsultantProfileProps {
 
 export function ConsultantProfile({ consultant, isAI }: ConsultantProfileProps) {
  const router = useRouter();
+ const [chatLoading, setChatLoading] = useState(false);
  if (!consultant) return null;
 
  const name = consultant.name || consultant.username || "Consultant";
+
+ const handleChat = async () => {
+   await startChatFlow(consultant.id, {
+     router,
+     onLoading: setChatLoading,
+     onLowBalance: (info) => {
+       toast({ title: `Insufficient balance. Need ₹${info.required}/min, have ₹${info.balance}`, variant: "destructive" });
+     },
+     onOffline: (info) => {
+       toast({ title: `${info.consultantName} is currently offline`, variant: "destructive" });
+     },
+     onError: (msg) => {
+       toast({ title: msg, variant: "destructive" });
+     },
+   });
+ };
 
  return (
  <div className="max-w-4xl mx-auto px-4 py-8">
@@ -68,8 +88,17 @@ export function ConsultantProfile({ consultant, isAI }: ConsultantProfileProps) 
  <Button variant="primary" onClick={() => router.push("/booking?consultantId=" + consultant.id)}>
  <Calendar className="w-4 h-4 mr-2" /> Book
  </Button>
- <Button variant="secondary" onClick={() => router.push("/chat/" + consultant.id)}>
- <MessageCircle className="w-4 h-4 mr-2" /> Chat
+ <Button
+   variant="secondary"
+   onClick={handleChat}
+   disabled={chatLoading}
+ >
+   {chatLoading ? (
+     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+   ) : (
+     <MessageCircle className="w-4 h-4 mr-2" />
+   )}
+   Chat
  </Button>
  <Button variant="secondary" onClick={() => router.push("/call/" + consultant.id)}>
  <Phone className="w-4 h-4 mr-2" /> Call
