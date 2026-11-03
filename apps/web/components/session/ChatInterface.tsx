@@ -932,16 +932,6 @@ export function ChatInterface({
                 />
               </motion.div>
             )}
-
-            {/* Show All Charts Button */}
-            <button
-              type="button"
-              onClick={() => setShowAllCharts(!showAllCharts)}
-              className="w-full mt-4 py-2.5 rounded-xl bg-white/5 border border-amber-500/20 text-amber-100/90 text-xs font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-            >
-              <BarChart3 size={14} />
-              {showAllCharts ? "Hide Charts" : "Show All Charts"}
-            </button>
           </motion.div>
         )}
 
