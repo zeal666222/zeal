@@ -708,6 +708,7 @@ export function ChatInterface({
     try {
       const res = await fetch(`/api/chat/${conversationId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
+      // Navigate to chat home to trigger sidebar refresh
       router.push("/chat");
     } catch {
       setSendError("Failed to delete conversation. Please try again.");
@@ -1125,20 +1126,6 @@ export function ChatInterface({
 
         <div ref={bottomRef} />
       </div>
-
-      {/* Bottom Status Bar */}
-      {isAI && (
-        <div className="flex-none px-4 py-2 bg-[#0f0f1a]/90 border-t border-amber-500/10 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-amber-400">Free</span>
-            <span className="text-amber-100/50">·</span>
-            <span className="text-amber-100/70">1 questions left</span>
-          </div>
-          <button className="font-bold text-amber-400 hover:text-amber-300 transition-colors">
-            Upgrade
-          </button>
-        </div>
-      )}
 
       {/* Input */}
       <motion.div
