@@ -302,6 +302,16 @@ export function useChat({
     /** The turn contained birth details the worker just saved to this seeker's
      *  profile — the intake form can retire itself. */
     onProfileUpdated?: (update: ProfileUpdate) => void;
+    /** Opener turn included birth data for client-side chart rendering. */
+    onKundaliChart?: (birth: {
+      name?: string;
+      dob: string;
+      tob: string;
+      pob: string;
+      latitude?: number;
+      longitude?: number;
+      timezone?: string;
+    }) => void;
   }
 
   // Typewriter pacing: burst provider chunks (Groq/CF AI can drop a whole
@@ -321,6 +331,7 @@ export function useChat({
       const onStageDone = typeof handlers === "function" ? undefined : handlers.onStageDone;
       const onSuggestions = typeof handlers === "function" ? undefined : handlers.onSuggestions;
       const onProfileUpdated = typeof handlers === "function" ? undefined : handlers.onProfileUpdated;
+      const onKundaliChart = typeof handlers === "function" ? undefined : handlers.onKundaliChart;
 
       const trimmed = content.trim();
       if ((!trimmed && !isOpener) || !conversationId || !consultantId) return;
@@ -421,6 +432,16 @@ export function useChat({
               if (!data || data === "[DONE]") continue;
               try {
                 const parsed = JSON.parse(data) as {
+                  type?: string;
+                  birth?: {
+                    name?: string;
+                    dob: string;
+                    tob: string;
+                    pob: string;
+                    latitude?: number;
+                    longitude?: number;
+                    timezone?: string;
+                  };
                   delta?: string;
                   filler?: string;
                   userMessageId?: string;
@@ -434,6 +455,9 @@ export function useChat({
                   suggestions?: Suggestion[];
                   profileUpdated?: ProfileUpdate;
                 };
+                if (parsed.type === "kundali_chart" && parsed.birth && onKundaliChart) {
+                  onKundaliChart(parsed.birth);
+                }
                 if (parsed.userMessageId) {
                   progressed = true;
                   seenIds.current.add(parsed.userMessageId);

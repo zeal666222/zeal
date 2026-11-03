@@ -185,9 +185,9 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         });
       }
       enrichedPromptParts.push(
-        `\n\n[DETECTED BIRTH DATA — high-confidence parse from this turn, now saved to this seeker's profile]\n` +
-        `Date: ${birth.birthDate}\nTime: ${birth.birthTime}\nPlace: ${birth.placeName} (${birth.birthPlace.lat.toFixed(3)}, ${birth.birthPlace.lng.toFixed(3)})\n` +
-        `Treat this as verified intake data. Ground your reading in this chart, ask only for details you still need (e.g. dominant hand for palmistry, specific question focus). Do NOT re-ask for date/time/place.`,
+        `\n\n[SYSTEM NOTE] The seeker just typed birth details in chat. Their profile has been updated and a chart computation has been triggered. ` +
+        `Do NOT attempt to read planetary positions, house placements, or dasha periods right now — the computed chart will be available from the NEXT turn onwards. ` +
+        `For this turn, acknowledge their details warmly and continue the conversation naturally. If they ask for a kundali reading, say you've noted their details and will read their chart shortly.`,
       );
     }
 
@@ -261,6 +261,27 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
       };
 
       if (!opener) write({ userMessageId: userMsgId });
+
+      // When this is the opener turn (first message after intake), send the
+      // seeker's birth data so the client can compute and render the kundali chart.
+      if (opener) {
+        const seekerRow = await readSeekerProfile(env, userId);
+        if (seekerRow?.dob && seekerRow?.tob && seekerRow?.pob) {
+          write({
+            type: "kundali_chart",
+            birth: {
+              name: seekerRow.name,
+              dob: seekerRow.dob,
+              tob: seekerRow.tob,
+              pob: seekerRow.pob,
+              latitude: seekerRow.latitude,
+              longitude: seekerRow.longitude,
+              timezone: seekerRow.timezone,
+            },
+          });
+        }
+      }
+
       for (const evt of [...initialEvents, ...derivedEvents]) write(evt);
 
       // Semantic stage sequence — persona-aware "thinking out loud" labels.
@@ -373,7 +394,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         const replacement = generateHardcoded({
           personaName: persona.name,
           personaCategory: persona.category,
-          systemPrompt: persona.systemPrompt.slice(0, 400),
+          systemPrompt: persona.systemPrompt,
           userMessage: trimmed || "Tell me something.",
         });
         if (refusalShape && finalText) {

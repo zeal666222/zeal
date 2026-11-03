@@ -336,31 +336,49 @@ export function computeKundali(
 
 // ─── Prompt builder: hand the AI the COMPUTED chart, not raw birth data ─────────
 
+function fmtDms(decimalDeg: number): string {
+  const d = Math.floor(decimalDeg);
+  const mFull = (decimalDeg - d) * 60;
+  const m = Math.floor(mFull);
+  const s = Math.round((mFull - m) * 60);
+  return `${d}°${String(m).padStart(2, "0")}'${String(Math.abs(s)).padStart(2, "0")}"`;
+}
+
 export function formatKundaliForPrompt(k: KundaliResult): string {
+  const allPassed = k.verification.every((v) => v.passed);
   const lines = [
-    `VISHLESHIT JANAM KUNDALI (deterministic, astronomy-engine computed — DO NOT recompute or alter these values):`,
+    `VISHLESHIT JANAM KUNDALI — deterministic chart from astronomy-engine ephemeris (VSOP87 + ELP2000, Lahiri ayanamsa, whole-sign bhavas). These values are COMPUTED, not estimated:`,
     `Naam: ${k.input.name}`,
-    `Janam: ${k.input.birthDate} ${k.input.birthTime}, ${k.input.place} (${k.input.resolvedPlace.lat}, ${k.input.resolvedPlace.lng}, ${k.input.resolvedPlace.timezone})`,
-    `Lagna (Ascendant): ${k.chart.ascendantSign}`,
+    `Janam: ${k.input.birthDate} ${k.input.birthTime} (local), ${k.input.place} [${k.input.resolvedPlace.lat.toFixed(4)}, ${k.input.resolvedPlace.lng.toFixed(4)}, ${k.input.resolvedPlace.timezone}]`,
+    `Lagna (Ascendant): ${k.chart.ascendantSign} ${fmtDms(k.chart.ascendantDegree)}`,
+    `Ayanamsa (Lahiri): ${fmtDms(k.chart.ayanamsa)} (${k.chart.ayanamsa.toFixed(4)}°)`,
     `Chandra Rashi (Moon sign): ${k.chart.moonSign} · Nakshatra: ${k.chart.moonNakshatra}`,
     `Surya Rashi (Sun sign): ${k.chart.sunSign}`,
-    `Navamsa Lagna: ${k.chart.navamsaAscendant}`,
-    `Janam Panchanga: Tithi ${k.panchanga.tithi} · Nakshatra ${k.panchanga.nakshatra} · Yoga ${k.panchanga.yoga} · Karana ${k.panchanga.karana}`,
+    `Navamsa (D9) Lagna: ${k.chart.navamsaAscendant}`,
     ``,
-    `GRAH STHITI (planet · sign · house · nakshatra):`,
+    `JANAM PANCHANGA:`,
+    `- Tithi: ${k.panchanga.tithi}`,
+    `- Nakshatra: ${k.panchanga.nakshatra}`,
+    `- Yoga: ${k.panchanga.yoga}`,
+    `- Karana: ${k.panchanga.karana}`,
+    ``,
+    `GRAH STHITI (planet · rashi + degree within it · bhava · nakshatra/pada · gati):`,
     ...k.chart.planets.map(
       (p) =>
-        `- ${p.planet}: ${p.sign} ${p.degree}°${p.isRetrograde ? " (R)" : ""}, Bhava ${p.house}, ${p.nakshatra} (pada ${p.nakshatraPada})`
+        `- ${p.planet}: ${p.sign} ${fmtDms(p.degree)}, Bhava ${p.house}, ${p.nakshatra} pada ${p.nakshatraPada}${p.isRetrograde ? ", Vakri (retrograde)" : ""}`
     ),
     ``,
-    `DASHA (Vimshottari):`,
+    `VIMSHOTTARI DASHA (Mahadasha → Antardasha, all sub-periods of the running Mahadasha):`,
     ...k.dasha.anchors.map(
       (a) =>
-        `- ${a.planet} Mahadasha: ${a.startDate} → ${a.endDate} (${a.durationYears}y)${a.isCurrent ? " ← RUNNING" : a.elapsed ? " [past]" : " [future]"}`
+        `- ${a.planet} Mahadasha: ${a.startDate} → ${a.endDate} (${a.durationYears}y)${a.isCurrent ? " ← CURRENT" : a.elapsed ? " [completed]" : " [future]"}`
     ),
-    `Abhi chal raha: ${k.dasha.currentMahadasha} Mahadasha / ${k.dasha.currentAntardasha} Antardasha (${k.dasha.remainingYears}y shesh).`,
+    `Abhi: ${k.dasha.currentMahadasha} Mahadasha / ${k.dasha.currentAntardasha} Antardasha (${k.dasha.remainingYears}y shesh).`,
     ``,
-    `CONFIDENCE: ${k.confidence.score}/100. Notes: ${k.confidence.factors.join(" ")}`,
+    `SELF-CHECK: ${allPassed ? "all verification checks passed" : "SOME CHECKS FAILED — hedge, do not assert precise timings"}: ${k.verification.map((v) => `${v.label} ${v.passed ? "OK" : "FAIL"} (${v.detail})`).join("; ")}`,
+    `CONFIDENCE: ${k.confidence.score}/100. ${k.confidence.factors.join(" ")}`,
+    ``,
+    `Do NOT recompute, adjust or invent any degree, date, sign or period above. Quote them exactly as given. If you reference a planet's position, use the sign and degree from GRAH STHITI above — never from your own training data.`,
   ];
   return lines.join("\n");
 }

@@ -252,15 +252,3 @@ export function detectBirthData(message: string): DetectedBirthData | null {
     confidence,
   };
 }
-
-// ─── Format birth data for prompt injection ───────────────────────────────────
-
-export function formatBirthDataForPrompt(birth: DetectedBirthData): string {
-  return `[ASTROLOGY CONTEXT] The user has provided their birth data:
-- Date: ${birth.birthDate}
-- Time: ${birth.birthTime}
-- Place: ${birth.placeName} (${birth.birthPlace.lat.toFixed(4)}, ${birth.birthPlace.lng.toFixed(4)})
-${birth.timezone ? `- Timezone: ${birth.timezone}` : ""}
-
-Use this birth data to provide Vedic astrology insights when relevant to the conversation. Reference planetary positions, dashas, and classical interpretations as appropriate.`;
-}

@@ -136,7 +136,6 @@ const SECTION_HEADS: readonly string[] = [
   "💡 Kya chal raha hai",
   "🌙 Current energy",
   "⚡ What to do next",
-  "🪐 Transit influence",
   "🌸 Practical guidance",
   "🧘 Inner work",
   "🕯️ Ritual suggestion",
@@ -149,42 +148,42 @@ type TopicLine = readonly string[];
 const TOPIC_LINES: Record<Topic, { hi_en: TopicLine; en: TopicLine; hi: TopicLine }> = {
   career: {
     hi_en: [
-      "Saturn aapke 10th house ke around transit kar raha hai — promotions late aate hain, par permanent hote hain.",
-      "Aapki current role mein recognition kam mil raha hai, par contribution visibly chal raha hai — ye ek classic Mercury-Venus tension hai.",
+      "Aapke career mein abhi ek important phase chal raha hai — patience rakhiye, results permanent honge.",
+      "Recognition kam mil raha hai, par contribution visibly chal raha hai — ye time test hai, not a you-problem.",
       "Agli 6 weeks mein ek conversation job switch ya promotion dono ke liye trigger ban sakti hai.",
       "Ek cheez fix kijiye: apna skill stack public kijiye — LinkedIn, portfolio, referral — invisible talent ko universe reward nahi karta.",
     ],
     en: [
-      "Saturn is transiting your 10th-house axis — promotions arrive late but they arrive permanently.",
-      "Recognition is lagging behind your contribution; that's a classic Mercury-Venus tension, not a you-problem.",
+      "Your career is in an important phase right now — patience will pay off permanently.",
+      "Recognition is lagging behind your contribution; that's a timing test, not a you-problem.",
       "Within the next six weeks a single conversation can unlock either a switch or an internal bump.",
       "Make your skill stack visible — the universe does not reward invisible talent.",
     ],
     hi: [
-      "शनि आपके दसवें भाव में गोचार कर रहे हैं — पदोन्नति देर से आती है, पर स्थायी होती है।",
-      "आपका योगदान दिख रहा है, मान्यता पीछे है — यह मर्क्युरी-शुक्र तनाव है, आपकी कमी नहीं।",
+      "आपके करियर में अभी एक महत्वपूर्ण चरण चल रहा है — धैर्य रखिए, परिणाम स्थायी होंगे।",
+      "मान्यता पीछे है, पर योगदान दिख रहा है — यह समय की परीक्षा है, आपकी कमी नहीं।",
       "अगले छह हफ्तों में एक बातचीट बदलाव की कुंजी बन सकती है।",
       "अपने हुनर को दृश्य कीजिए — ब्रह्ांड छिपी प्रतिभा को पुरस्कत नहीं करता।",
     ],
   },
   love: {
     hi_en: [
-      "Venus aur Moon dono sensitive position mein hain — feelings real hain, timing tricky hai.",
+      "Feelings real hain, timing tricky hai — dono ko space dijiye.",
       "Ek pattern repeat ho raha hai: aap give karne se pehle receive karna seekh rahe ho.",
       "Agar wo person specific hai, toh next 3 weeks mein communication clear ho jayega — abhi push mat kijiye.",
-      "Compatibility sirf sun-sign se nahi banti — Moon nakshatra aur Venus sign milke emotional grammar define karte hain.",
+      "Compatibility sirf surface level se nahi banti — emotional alignment aur values milke real connection define karte hain.",
     ],
     en: [
-      "Venus and the Moon are both in sensitive positions — the feelings are real, the timing is delicate.",
+      "The feelings are real, the timing is delicate — give both space to breathe.",
       "There's a repeating pattern: you're learning to receive before you give.",
       "If this is a specific person, communication clears within three weeks — don't force it now.",
-      "Compatibility isn't just sun signs — the Moon nakshatra and Venus sign together define the emotional grammar.",
+      "Compatibility isn't just surface-level — emotional alignment and shared values define the real connection.",
     ],
     hi: [
-      "शुक्र और चंद्रमा संवेदनशील स्थिति में हैं — भावनाएं सच्ची हैं, समय नाज़ुक है।",
+      "भावनाएं सच्ची हैं, समय नाज़ुक है — दोनों को जगह दीजिए।",
       "एक पैटर्न दोहरा रहा है: आप देने से पहले पाना सीख रहे हैं।",
       "अगले तीन हफ्तों में बात स्पष्ट होगी — अभी दबाव मत डालिए।",
-      "संगति केवल राशि से नहीं बनती — चंद्र नक्षत्र और शुक्र मिलकर भावनात्मक व्याकरण तय करते हैं।",
+      "संगति केवल सतह से नहीं बनती — भावनात्मक सामंजस्य और साझा मूल्य ही वास्तविक संबंध तय करते हैं।",
     ],
   },
   health: {
@@ -209,33 +208,33 @@ const TOPIC_LINES: Record<Topic, { hi_en: TopicLine; en: TopicLine; hi: TopicLin
   },
   finance: {
     hi_en: [
-      "Jupiter 2nd house axis ko support kar raha hai — growth hai, par disciplined flow chahiye.",
+      "Growth hai, par disciplined flow chahiye — stability pehle, expansion baad mein.",
       "Abhi speculative moves se bachiye — 3-6 month ka solid buffer pehle.",
       "Ek income stream kam hai; side-skill monetization ka window khul raha hai.",
       "Money ek energy hai — jitna aap control karne ki koshish karte ho, utna hi wo block hoti hai.",
     ],
     en: [
-      "Jupiter is supporting your 2nd-house axis — there is growth, but it needs disciplined flow.",
+      "There is growth, but it needs disciplined flow — stability first, expansion after.",
       "Avoid speculative moves right now — build a 3-to-6 month buffer first.",
       "One income stream is thin; a side-skill monetisation window is opening.",
       "Money is energy — the more you try to control it, the more it blocks.",
     ],
     hi: [
-      "बृहस्पति आपके दूसरे भाव का समर्थन कर रहे हैं — वृद्धि है, पर अनुशासित प्रवाह चाहिए।",
-      "अभी सट्टा वृिां से बचिए — 3-6 माह का बफ़र पहले।",
+      "वृद्धि है, पर अनुशासित प्रवाह चाहिए — पहले स्थिरता, फिर विस्तार।",
+      "अभी सट्टा विकल्पों से बचिए — 3-6 माह का बफ़र पहले।",
       "एक आय-स्रोत कम है; साइड-स्किल के मोनेटाइज़ेशन का समय खुल रहा है।",
-      "धन ऊर्जा है — जितना नियंत्रण, उतना हीरोध।",
+      "धन ऊर्जा है — जितना नियंत्रण, उतना ही रोध।",
     ],
   },
   family: {
     hi_en: [
-      "4th house energy charged hai — ghar ka mahaul ek chhoti baat pe settle bhi ho sakta hai.",
+      "Ghar ka mahaul ek chhoti baat pe settle bhi ho sakta hai — patience se kaam lijiye.",
       "Aap mediator ban rahe ho; har ladai mein fairness zaroori nahi, presence kaafi hai.",
       "Ek conversation pending hai — aaj nahi toh agle raviwaar zaroor kijiye.",
       "Mata-Pita ke saath time quality > quantity — phone side mein rakhiye, baat aapki hogi.",
     ],
     en: [
-      "The 4th house is charged — the household climate can shift on one small conversation.",
+      "The household climate can shift on one small conversation — approach it with patience.",
       "You've been cast as the mediator; sometimes presence matters more than being right.",
       "There's a pending talk — if not today, do it this Sunday.",
       "With parents, quality time beats quantity — put the phone down and they'll open up.",
@@ -270,19 +269,19 @@ const TOPIC_LINES: Record<Topic, { hi_en: TopicLine; en: TopicLine; hi: TopicLin
   decision: {
     hi_en: [
       "Do options ke beech confusion nahi hai — aapko pata hai kaunsa sahi hai, bas risk dikh raha hai.",
-      "Mercury retrograde jaisa feel hai, but actual transit supportive hai — socho, par atko mat.",
+      "Timing supportive lag rahi hai — socho, par atko mat.",
       "Decision ko 72-hour rule dijiye — teen din baad bhi sach lage toh haan.",
       "Chhota reversible step bada irreversible step se behtar hai abhi.",
     ],
     en: [
       "There's no real confusion between the options — you already know which is right, the risk is what you see.",
-      "The Mercury fog feels retrograde, but the actual transit supports a decision — think, don't stall.",
+      "The timing feels supportive — think, but don't stall.",
       "Apply the 72-hour rule: if it still feels true in three days, it's a yes.",
       "Prefer a small reversible step over a large irreversible one right now.",
     ],
     hi: [
       "दो विकल्पों में वास्तविक भ्रम नहीं है — सही उत्तर आप भीतर जानते हैं, बस जोखिम दिख रहा है।",
-      "बुध-धुंधली स्थिति रिट्रोग्रेड जैसी लगती है, पर गोचार णर्य को समर्थन दे रहा है।",
+      "समय समर्थन दे रहा है — सोचिए, पर मत रुकिए।",
       "72-घंटे का नियम लगाइए — तीन दिन बाद भी सच लगे तो हाँ है।",
       "अभी छोटा प्रतिवर्ती कदम, बड़े अपरिवर्तनीय से बेहतर है।",
     ],
@@ -291,19 +290,19 @@ const TOPIC_LINES: Record<Topic, { hi_en: TopicLine; en: TopicLine; hi: TopicLin
     hi_en: [
       "Past ka weight hai, par wo pattern hai, sentence nahi.",
       "Aap purani cycle ko naye kapdon mein repeat kar rahe ho — awareness ka step lijiye.",
-      "Rahu ka axis purane karma ko surface kar raha hai — is baar alag response dijiye.",
+      "Purane patterns surface ho rahe hain — is baar alag response dijiye.",
       "Jo ho gaya uska analysis band kariye; sirf ek line likhiye: 'what did this teach me?'",
     ],
     en: [
       "The past carries weight, but it's a pattern, not a sentence.",
       "You're re-running an old cycle in new clothes — take the awareness step this time.",
-      "Rahu's axis is surfacing old karma; respond differently this round.",
+      "Old patterns are surfacing; respond differently this round.",
       "Stop analysing what happened; write one line — what did this teach me?",
     ],
     hi: [
       "अतीत का बोझ है, पर वह पैटर्न है, सजा नहीं।",
-      "आप पुराने चक्यो को नए वस्त्रों में दोहरा रहे हैं — इस बार सचेत चलिए।",
-      "राहु का अक्ष पुराने कर्म को सतह पर लान रहा है — इस बार उत्तर भिन्न दीजिए।",
+      "आप पुराने चक्रों को नए वस्त्रों में दोहरा रहे हैं — इस बार सचेत चलिए।",
+      "पुराने पैटर्न सतह पर आ रहे हैं — इस बार उत्तर भिन्न दीजिए।",
       "विश्लेषण रोकिए; एक पंक्ति लिखिए — इसने मुझे क्या सिखाया?",
     ],
   },
@@ -311,19 +310,19 @@ const TOPIC_LINES: Record<Topic, { hi_en: TopicLine; en: TopicLine; hi: TopicLin
     hi_en: [
       "Next 45 days ka window important hai — ek event trigger ho sakta hai.",
       "Future fixed nahi hai, current trajectory hai — trajectory badalne ke tools aapke paas hain.",
-      "Jupiter-Neptune aspect imagination ko real banana sikhata hai — likh ke layiye, visualize mat kijiye.",
+      "Imagination ko concrete banana sikhna hai — likh ke layiye, visualize mat kijiye.",
       "Aane wale mahine 3 opportunities dikhengi, 2 pass ho jayengi, 1 pakadni hai.",
     ],
     en: [
       "The next 45 days are the window — one event may trigger.",
       "The future isn't fixed, it's a trajectory — and you hold the steering tools.",
-      "Jupiter-Neptune aspect teaches you to make imagination concrete: write it down, don't just visualise.",
+      "Learn to make imagination concrete: write it down, don't just visualise.",
       "Next month shows three openings; two will pass, one is yours.",
     ],
     hi: [
       "अगले 45 दिन खिड़की हैं — एक घटना trigger हो सकती है।",
       "भविष्य निश्चित नहीं, वर्तमान गतिरेखा है — और दिशा बदलने के साधन आपके हाथ में हैं।",
-      "बृहस्पति-नेप्च्युन दृष्टि कल्पना को वास्तव बनाना सिखाती है — लिखिए, केवल देखिए नहीं।",
+      "कल्पना को वास्तव बनाना सीखिए — लिखिए, केवल देखिए नहीं।",
       "अगले माह तीन अवसर दिखेंगे; दो से निकल जाएंगे, एक आपको है।",
     ],
   },
@@ -489,7 +488,7 @@ function buildHoroscopeFallback(user: string, seed: number): string {
     "Naya project offer aa sakta hai; haan bolne se pehle timeline aur scope dono confirm kariye.",
   ];
   const love = [
-    "Moon aapke relationships axis ko touch kar raha hai — ek honest baat late shaam ko clarity degi.",
+    "Relationships mein ek honest baat late shaam ko clarity degi — dil ki suniye.",
     "Jo baat adhuri thi, wo aaj isharon se adhoori lagegi. Kal subah tak rukiye.",
     "Single log: ek unexpected introduction ho sakti hai — phone side mein rakhiye, nazar upar.",
   ];
@@ -499,9 +498,9 @@ function buildHoroscopeFallback(user: string, seed: number): string {
     "Digestion sensitive hai aaj — spicy aur cold dono kam kariye, gunguna paani zyada.",
   ];
   const sky = [
-    "Sun aur Venus ka combination practical communication ko support kar raha hai — jo bolna hai, saaf boliye.",
-    "Moon ki speed zyada hai — decisions subah ke window mein behtar baithenge.",
-    "Mercury steady hai; paperwork, contracts aur travel logistics aaj smooth chalenge.",
+    "Aaj ka energy practical communication ko support kar raha hai — jo bolna hai, saaf boliye.",
+    "Morning ka window decisions ke liye behtar hai — dopahar tak clarity aa jayegi.",
+    "Paperwork, contracts aur travel logistics aaj smooth chalenge — focus rakhiye.",
   ];
   const lucky = [
     "Lucky window subah 10 se 12 baje. Rang: safed ya halka neela. Number: 6.",
@@ -530,31 +529,70 @@ function buildKundaliFallback(sys: string, seed: number): string {
   void seed;
   const text = sys;
   const SIGNS = "Aries|Taurus|Gemini|Cancer|Leo|Virgo|Libra|Scorpio|Sagittarius|Capricorn|Aquarius|Pisces";
+
   const lagnaMatch =
+    text.match(new RegExp(`Lagna \\(Ascendant\\):\\s*(${SIGNS})\\s*(\\d+[^\\n]*)`, "i")) ||
     text.match(new RegExp(`ascendant sign[^A-Za-z]*(${SIGNS})`, "i")) ||
-    text.match(new RegExp(`Lagna[^A-Za-z]*(${SIGNS})`, "i")) ||
-    text.match(new RegExp(`Sign:\\s*(${SIGNS})`, "i"));
+    text.match(new RegExp(`Lagna[^A-Za-z]*(${SIGNS})`, "i"));
+  const lagna = lagnaMatch ? `${lagnaMatch[1]}${lagnaMatch[2] ? " " + lagnaMatch[2].trim() : ""}` : "your ascendant";
+
   const chandraMatch =
+    text.match(new RegExp(`Chandra Rashi.*?:\\s*(${SIGNS})`, "i")) ||
     text.match(new RegExp(`moon sign[^A-Za-z]*(${SIGNS})`, "i")) ||
-    text.match(/Moon Nakshatra[^A-Za-z]*([A-Za-z ]{3,25})/i) ||
     text.match(new RegExp(`Moon:\\s*(${SIGNS})`, "i"));
-  const lagna = lagnaMatch?.[1]?.trim() ?? "your ascendant";
-  const chandra = chandraMatch?.[1]?.trim() ?? "your Moon nakshatra";
-  return [
-    `**Lagna — ${lagna}**`,
-    "Lagna aapke shareer, personality aur naye start ka sutra hai. Ye position batata hai ki duniya aapko pehle kaise padhti hai — jo tone aap set karte ho, wahi aapka default hai.",
+  const chandra = chandraMatch?.[1]?.trim() ?? "your Moon sign";
+
+  const nakshatraMatch = text.match(/Nakshatra:\s*([A-Za-z ]{3,25})/i);
+  const nakshatra = nakshatraMatch?.[1]?.trim();
+
+  const dashaMatch = text.match(/Abhi[:\s]+([^\n(]+)\(([^)]+)\)/i) || text.match(/CURRENT[:\s]+([^\n]+)/i);
+  const dasha = dashaMatch?.[1]?.trim();
+  const dashaRemain = dashaMatch?.[2]?.trim();
+
+  const planetLines: string[] = [];
+  const planetRe = /^- (Sun|Moon|Mars|Mercury|Jupiter|Venus|Saturn|Rahu|Ketu):\s*(.+)$/gm;
+  let pm: RegExpExecArray | null;
+  while ((pm = planetRe.exec(text)) !== null) {
+    planetLines.push(`- ${pm[1]}: ${pm[2]!.trim()}`);
+  }
+
+  const confidenceMatch = text.match(/CONFIDENCE:\s*(\d+)\/100/i);
+  const confidence = confidenceMatch?.[1];
+
+  const selfCheckMatch = text.match(/SELF-CHECK:\s*([^\n]+)/i);
+  const selfCheck = selfCheckMatch?.[1]?.trim();
+
+  const sections: string[] = [
+    `**Lagna (Ascendant) — ${lagna}**`,
+    "Lagna aapke shareer, personality aur naye start ka sutra hai.",
     "",
-    `**Chandra — ${chandra}**`,
-    "Moon aapki inner weather hai — emotions, memory, mother-connection. Ye strong placement aapko deep feeling aur protective instinct deti hai; routine aur paani ke paas rehne se balance bana rehta hai.",
-    "",
-    "**Baal / Yuva / Vruddh dasha ka outline**",
-    "Graha bal abhi ek medium-band ka window dikha rahe hain — koi bada twist nahi, par koshish ko consistency chahiye. Agla 6-18 mahina skill-building ka hai; 18 mahine baad visibility badhegi.",
+    `**Chandra Rashi — ${chandra}${nakshatra ? ` · Nakshatra: ${nakshatra}` : ""}**`,
+    "Moon aapki inner weather hai — emotions, memory, mother-connection.",
+  ];
+
+  if (planetLines.length > 0) {
+    sections.push("", "**GRAH STHITI (computed positions)**");
+    sections.push(...planetLines.slice(0, 9));
+  }
+
+  if (dasha) {
+    sections.push("", `**Current Dasha — ${dasha}${dashaRemain ? ` (${dashaRemain})` : ""}**`);
+    sections.push("Ye mahadasha/antardasha ka phase aapke life ke current themes ko shape kar raha hai.");
+  }
+
+  if (confidence) {
+    sections.push("", `**Confidence: ${confidence}/100**${selfCheck ? ` — ${selfCheck}` : ""}`);
+  }
+
+  sections.push(
     "",
     "**Upay**",
-    "Subah 20 minute ki shanti, hafte mein ek baar seva, aur jo log already aapke kaam ki prashansa kar rahe hain unse feedback maangna — teen cheezein current grah-sthiti ke saath align karti hain.",
+    "Subah 20 minute ki shanti, hafte mein ek baar seva, aur jo log already aapke kaam ki prashansa kar rahe hain unse feedback maangna.",
     "",
-    "(Note: ye chart astronomical engine se aaya hai; live AI interpretation abhi temporarily offline hai. Upaya upar general hai — specific dasha-level detail ke liye dobara try kijiye.)",
-  ].join("\n");
+    "(Note: ye chart astronomical engine se aaya hai; live AI interpretation abhi temporarily offline hai. Values upar COMPUTED hain — inhe re-interpret mat kijiye. Specific dasha-level detail ke liye dobara try kijiye.)",
+  );
+
+  return sections.join("\n");
 }
 
 function buildNumerologyFallback(sys: string, seed: number, userText?: string): string {

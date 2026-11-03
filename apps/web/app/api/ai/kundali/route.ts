@@ -76,7 +76,7 @@ export async function POST(req: Request) {
         const result = await runAI({
           task: "kundali",
           systemPrompt:
-            "You are an expert Vedic astrologer (Jyotishi) with mastery over Janam Kundali, planetary houses, nakshatras, and Vimshottari Dashas. The chart below is ALREADY computed by an astronomical engine — NEVER recompute or change degrees, signs or dasha dates; interpret them as given.",
+            "You are an expert Vedic astrologer (Jyotishi) with mastery over Janam Kundali, planetary houses, nakshatras, and Vimshottari Dashas. The chart below is ALREADY computed by an astronomical engine (VSOP87 + ELP2000 ephemeris, Lahiri ayanamsa). You MUST NEVER recompute, guess, or alter any degree, sign, house, nakshatra or dasha date. When you reference a planet's position, quote the EXACT sign and degree from the GRAH STHITI section — never from your own training knowledge. If the SELF-CHECK line says any check failed, hedge your statements.",
           userPrompt: `Interpret this computed Janam Kundali for ${name}:\n\n${chartText}\n\nInclude Lagna, planetary strengths, house placements, and current Dasha overview. Be specific, kind, and non-fatalistic.`,
           temperature: 0.7,
           maxTokens: 1500,

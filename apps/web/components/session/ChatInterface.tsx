@@ -17,6 +17,8 @@ import { BirthIntakeModal } from "@/components/chat/BirthIntakeModal";
 import { useRoomIntake } from "@/lib/chat/use-room-intake";
 import { cn, BrandLoader, PendingDot, StreamingIndicator } from "@zeal/ui";
 import { ChatWelcomeSuggestions } from "./ChatWelcomeSuggestions";
+import { ChatKundaliChart, type ChatKundaliData } from "@/components/astrology/ChatKundaliChart";
+import { computeKundali } from "@/lib/kundali/engine";
 
 interface Props {
   conversationId: string;
@@ -268,6 +270,9 @@ export function ChatInterface({
   const inFlightRef = useRef(false);
   // Fire the kundali-grounded opening message exactly once per conversation.
   const openerFiredRef = useRef(false);
+  // Computed kundali chart — rendered as the first message after intake.
+  const [kundaliChart, setKundaliChart] = useState<ChatKundaliData | null>(null);
+  const [seekerName, setSeekerName] = useState<string | undefined>();
 
   // Smart autoscroll: follow new content only when the reader is already at the
   // bottom (or the message is theirs, or AI output is streaming) — never yank
@@ -278,7 +283,7 @@ export function ChatInterface({
     if (nearBottomRef.current || mine || streamingText !== null || fillerText !== null) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [messages.length, streamingText, fillerText, typingUsers.size, currentUserId, messages]);
+  }, [messages.length, streamingText, fillerText, typingUsers.size, currentUserId, messages, kundaliChart]);
 
   // Load-older scroll restore: after history prepends, keep the viewport pinned
   // to the message the reader was looking at.
@@ -403,6 +408,44 @@ export function ChatInterface({
       onStageDone: () => setStreamingStage(null),
       onSuggestions: (s) => setSuggestions(s),
       onProfileUpdated: intake.applyProfileUpdate,
+      onKundaliChart: (birth) => {
+        if (birth.latitude == null || birth.longitude == null) return;
+        try {
+          const result = computeKundali(
+            birth.name ?? "Seeker",
+            birth.dob,
+            birth.tob,
+            birth.pob,
+            {
+              lat: birth.latitude,
+              lng: birth.longitude,
+              timezone: birth.timezone ?? "Asia/Kolkata",
+              canonicalName: birth.pob,
+              country: "",
+              source: "gazetteer",
+            },
+          );
+          setKundaliChart({
+            ascendantSign: result.chart.ascendantSign,
+            houses: result.chart.houses,
+            planets: result.chart.planets.map((p) => ({
+              planet: p.planet,
+              sign: p.sign,
+              signIndex: p.signIndex,
+              house: p.house,
+              degree: p.degree,
+              isRetrograde: p.isRetrograde,
+            })),
+            nakshatra: result.panchanga.nakshatra,
+            dasha: {
+              mahadasha: result.dasha.currentMahadasha,
+              antardasha: result.dasha.currentAntardasha,
+              remaining: result.dasha.remainingYears,
+            },
+          });
+          setSeekerName(birth.name ?? undefined);
+        } catch { /* invalid birth data — skip chart */ }
+      },
     }, 0, isOpener);
     setStreamingText(null);
     setFillerText(null);
@@ -663,6 +706,22 @@ export function ChatInterface({
             {isAI ? "AI consultant is ready — go ahead and ask." : "Your session has started."}
           </p>
         </div>
+
+        {/* Kundali chart — first message after intake */}
+        {kundaliChart && (
+          <motion.div
+            initial={{ opacity: 0, y: 16, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 22 }}
+            className="py-2"
+          >
+            <ChatKundaliChart
+              data={kundaliChart}
+              seekerName={seekerName}
+              onClose={() => setKundaliChart(null)}
+            />
+          </motion.div>
+        )}
 
         {!isAI && hasMore && messages.length > 0 && (
           <div className="flex justify-center pb-1">
