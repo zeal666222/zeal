@@ -183,11 +183,32 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
             timezone: refreshed?.timezone,
           },
         });
+        // Fire the kundali_chart event so the client renders the SVG chart
+        // immediately — same payload shape as the opener turn.
+        if (refreshed?.dob && refreshed?.tob && refreshed?.pob) {
+          derivedEvents.push({
+            type: "kundali_chart",
+            birth: {
+              name: refreshed.name,
+              dob: refreshed.dob,
+              tob: refreshed.tob,
+              pob: refreshed.pob,
+              latitude: refreshed.latitude,
+              longitude: refreshed.longitude,
+              timezone: refreshed.timezone,
+            },
+          });
+        }
       }
+      // Hard refusal directive — the AI must NOT attempt to read or compute
+      // any planetary positions from this turn. The chart is rendered by the
+      // client; the AI only interprets it from the NEXT turn onwards.
       enrichedPromptParts.push(
-        `\n\n[SYSTEM NOTE] The seeker just typed birth details in chat. Their profile has been updated and a chart computation has been triggered. ` +
-        `Do NOT attempt to read planetary positions, house placements, or dasha periods right now — the computed chart will be available from the NEXT turn onwards. ` +
-        `For this turn, acknowledge their details warmly and continue the conversation naturally. If they ask for a kundali reading, say you've noted their details and will read their chart shortly.`,
+        `\n\n[MANDATORY INSTRUCTION — DO NOT OVERRIDE] The seeker typed birth details in this message. ` +
+        `You are FORBIDDEN from reading, computing, stating, or hinting at any planetary positions, house placements, nakshatras, or dasha periods in this response. ` +
+        `Do NOT say "let me compute the chart" or "I'll provide the chart details." ` +
+        `Instead, respond in 1-2 short sentences: warmly acknowledge their details, confirm the chart is being prepared, and ask what they'd like to explore once it's ready. ` +
+        `Example: "Maine aapki details note kar li hain. Chart taiyaar ho raha hai — thodi der mein exact positions dekh ke bataungi. Usse pehle bataiye, aap kis baare mein jaanna chahte hain?"`,
       );
     }
 
