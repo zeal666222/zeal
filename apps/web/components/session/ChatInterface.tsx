@@ -1,12 +1,18 @@
 "use client";
 // ═══════════════════════════════════════════════════════════════════════════════
-// Chat interface — human + AI conversations with optional billed session
+// ChatInterface — Industry-grade premium chat with glassmorphism, spring physics,
+// kundali chart, info bars, and high-end micro-interactions
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle, ArrowLeft, CheckCheck, ChevronUp, Coins, Heart, Home, Loader2, MessageCircle, Moon, Paperclip, Send, ShieldCheck, Sparkles, Briefcase, Clock, BarChart3, WifiOff, X } from "lucide-react";
+import {
+  AlertTriangle, ArrowLeft, CheckCheck, ChevronUp, Coins, Heart, Home,
+  Loader2, MessageCircle, Moon, Paperclip, Send, ShieldCheck, Sparkles,
+  Briefcase, Clock, BarChart3, WifiOff, X, Trash2, MapPin, Calendar,
+  Timer, Star, Zap, Crown,
+} from "lucide-react";
 import Image from "next/image";
 import { useChat, type BillingInfo, type ChatMessage, type StageEvent, type Suggestion } from "@/hooks/useChat";
 import { useTyping } from "@/hooks/useTyping";
@@ -19,6 +25,7 @@ import { cn, BrandLoader, PendingDot, StreamingIndicator } from "@zeal/ui";
 import { ChatWelcomeSuggestions } from "./ChatWelcomeSuggestions";
 import { ChatKundaliChart, type ChatKundaliData } from "@/components/astrology/ChatKundaliChart";
 import { computeKundali } from "@/lib/kundali/engine";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface Props {
   conversationId: string;
@@ -28,7 +35,6 @@ interface Props {
   partnerAvatar?: string | null;
   isAI?: boolean;
   rate?: number;
-  /** Active billed session (if any) resolved server-side on room load. */
   activeSessionId?: string | null;
 }
 
@@ -51,7 +57,6 @@ function dayLabel(ts: string) {
 }
 
 function MessageContent({ content }: { content: string }) {
-  // Parse markdown-like formatting: bold, italic, lists, headers, links, images
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
   let inList = false;
@@ -70,7 +75,6 @@ function MessageContent({ content }: { content: string }) {
   };
 
   const parseInline = (text: string, keyPrefix: string): React.ReactNode => {
-    // Split by images and links first
     const parts = text.split(/(!\[[^\]]*\]\([^)]+\)|\[[^\]]+\]\([^)]+\))/g);
     return parts.map((part, i) => {
       const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
@@ -101,7 +105,6 @@ function MessageContent({ content }: { content: string }) {
       }
       if (!part.trim()) return null;
 
-      // Parse inline formatting: bold, italic, code
       const formatted = part.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g).map((segment, j) => {
         if (segment.startsWith("**") && segment.endsWith("**")) {
           return <strong key={`${keyPrefix}-b-${j}`} className="font-bold">{segment.slice(2, -2)}</strong>;
@@ -121,14 +124,12 @@ function MessageContent({ content }: { content: string }) {
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
 
-    // Empty line
     if (!trimmed) {
       flushList();
       elements.push(<br key={`br-${idx}`} />);
       return;
     }
 
-    // Headers
     if (trimmed.startsWith("### ")) {
       flushList();
       elements.push(
@@ -157,7 +158,6 @@ function MessageContent({ content }: { content: string }) {
       return;
     }
 
-    // Unordered list items
     if (trimmed.match(/^[-*]\s+/)) {
       inList = true;
       listItems.push(
@@ -168,7 +168,6 @@ function MessageContent({ content }: { content: string }) {
       return;
     }
 
-    // Ordered list items
     if (trimmed.match(/^\d+\.\s+/)) {
       flushList();
       elements.push(
@@ -180,7 +179,6 @@ function MessageContent({ content }: { content: string }) {
       return;
     }
 
-    // Regular paragraph
     flushList();
     elements.push(
       <p key={`p-${idx}`} className="my-1">
@@ -243,8 +241,6 @@ export function ChatInterface({
     isAI,
   });
   const connection = useConnection();
-  // What this consultant already knows about the seeker's birth chart — and the
-  // form that fills the gaps before the first reading is spoken.
   const intake = useRoomIntake(isAI);
   const { typingUsers, setTyping } = useTyping(conversationId, currentUserId);
 
@@ -260,23 +256,20 @@ export function ChatInterface({
   const [sendError, setSendError] = useState<string | null>(null);
   const [failedText, setFailedText] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
   const prevHeightRef = useRef(0);
-  // Synchronous in-flight guard — state-based disabling is async, so rapid
-  // double-clicks can slip past `isSending` before React re-renders.
   const inFlightRef = useRef(false);
-  // Fire the kundali-grounded opening message exactly once per conversation.
   const openerFiredRef = useRef(false);
-  // Computed kundali chart — rendered as the first message after intake.
   const [kundaliChart, setKundaliChart] = useState<ChatKundaliData | null>(null);
   const [seekerName, setSeekerName] = useState<string | undefined>();
+  const [birthInfo, setBirthInfo] = useState<{ dob?: string; tob?: string; pob?: string } | null>(null);
 
-  // Smart autoscroll: follow new content only when the reader is already at the
-  // bottom (or the message is theirs, or AI output is streaming) — never yank
-  // the viewport while they're reading history.
+  // Smart autoscroll
   useEffect(() => {
     const last = messages[messages.length - 1];
     const mine = last?.senderId === currentUserId;
@@ -285,8 +278,7 @@ export function ChatInterface({
     }
   }, [messages.length, streamingText, fillerText, typingUsers.size, currentUserId, messages, kundaliChart]);
 
-  // Load-older scroll restore: after history prepends, keep the viewport pinned
-  // to the message the reader was looking at.
+  // Load-older scroll restore
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || isLoadingOlder || !prevHeightRef.current) return;
@@ -306,8 +298,7 @@ export function ChatInterface({
     nearBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 140;
   };
 
-  // "Seen" receipts — the partner's lastReadAt from the read API, refreshed
-  // lightly while the tab is visible.
+  // Seen receipts
   const [partnerReadAt, setPartnerReadAt] = useState<string | null>(null);
   useEffect(() => {
     if (isAI || !conversationId) return;
@@ -328,8 +319,6 @@ export function ChatInterface({
     return () => { cancelled = true; clearInterval(id); };
   }, [isAI, conversationId, currentUserId]);
 
-  // Mark read whenever new turns land while the tab is visible — not just on
-  // mount, so the unread badge on the other side clears within seconds.
   useEffect(() => {
     if (isAI || !conversationId || messages.length === 0) return;
     if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
@@ -340,16 +329,14 @@ export function ChatInterface({
     void fetch(`/api/chat/${conversationId}/read`, { method: "POST" }).catch(() => {});
   }, [conversationId]);
 
-  // Clear the transitioning overlay once the chat actually starts loading or
-  // when the opener message fires — the seeker sees the brand loader, then the
-  // first message appears and the overlay fades away.
+  // Clear transitioning overlay
   useEffect(() => {
     if (intake.transitioning && (isLoading || messages.length > 0 || inFlightRef.current)) {
       intake.clearTransition();
     }
   }, [intake.transitioning, isLoading, messages.length, intake.clearTransition]);
 
-  // Mobile keyboard handling — keep composer visible when virtual keyboard opens
+  // Mobile keyboard handling
   useEffect(() => {
     if (!window.visualViewport) return;
     const vv = window.visualViewport;
@@ -360,6 +347,65 @@ export function ChatInterface({
     vv.addEventListener("resize", handler);
     return () => vv.removeEventListener("resize", handler);
   }, []);
+
+  // AI chat: fetch birth profile and compute kundali chart
+  useEffect(() => {
+    if (!isAI) return;
+    let cancelled = false;
+    const fetchAndCompute = async () => {
+      try {
+        const res = await fetch("/api/profile/birth", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json() as { profile?: { fullName?: string; dateOfBirth?: string; timeOfBirth?: string; placeOfBirth?: string; latitude?: number; longitude?: number; timezone?: string } | null };
+        if (cancelled) return;
+        const profile = data?.profile;
+        if (!profile?.dateOfBirth || !profile?.placeOfBirth) return;
+        if (profile.latitude == null || profile.longitude == null) return;
+        if (kundaliChart) return;
+        const result = computeKundali(
+          profile.fullName ?? "Seeker",
+          profile.dateOfBirth,
+          profile.timeOfBirth ?? "00:00",
+          profile.placeOfBirth,
+          {
+            lat: profile.latitude,
+            lng: profile.longitude,
+            timezone: profile.timezone ?? "Asia/Kolkata",
+            canonicalName: profile.placeOfBirth,
+            country: "",
+            source: "gazetteer",
+          },
+        );
+        if (cancelled) return;
+        setKundaliChart({
+          ascendantSign: result.chart.ascendantSign,
+          houses: result.chart.houses,
+          planets: result.chart.planets.map((p) => ({
+            planet: p.planet,
+            sign: p.sign,
+            signIndex: p.signIndex,
+            house: p.house,
+            degree: p.degree,
+            isRetrograde: p.isRetrograde,
+          })),
+          nakshatra: result.panchanga.nakshatra,
+          dasha: {
+            mahadasha: result.dasha.currentMahadasha,
+            antardasha: result.dasha.currentAntardasha,
+            remaining: result.dasha.remainingYears,
+          },
+        });
+        setSeekerName(profile.fullName ?? undefined);
+        setBirthInfo({
+          dob: profile.dateOfBirth,
+          tob: profile.timeOfBirth ?? undefined,
+          pob: profile.placeOfBirth,
+        });
+      } catch { /* best-effort */ }
+    };
+    void fetchAndCompute();
+    return () => { cancelled = true; };
+  }, [isAI]);
 
   const handleBilling = (billing: BillingInfo) => {
     if (billing.sessionId) setSessionId(billing.sessionId);
@@ -387,7 +433,6 @@ export function ChatInterface({
     return results;
   };
 
-  /** Stream an AI turn (user message or kundali-grounded opener). */
   const streamAI = async (content: string, isOpener: boolean) => {
     setStreamingText("");
     setFillerText(null);
@@ -444,6 +489,7 @@ export function ChatInterface({
             },
           });
           setSeekerName(birth.name ?? undefined);
+          setBirthInfo({ dob: birth.dob, tob: birth.tob, pob: birth.pob });
         } catch { /* invalid birth data — skip chart */ }
       },
     }, 0, isOpener);
@@ -452,11 +498,7 @@ export function ChatInterface({
     setStreamingStage(null);
   };
 
-  // Auto-opener: when an AI conversation has no messages yet, let the
-  // consultant speak first with a reading grounded in the seeker's kundali.
-  // It waits for the intake read (and for the form, if one is up) so the first
-  // words are either chart-grounded or an honest ask — never a greeting built
-  // on a half-known chart.
+  // Auto-opener
   useEffect(() => {
     if (!isAI || isLoading || !intake.ready || intake.open || openerFiredRef.current) return;
     if (messages.length > 0 || inFlightRef.current || isSending) return;
@@ -471,10 +513,8 @@ export function ChatInterface({
         inFlightRef.current = false;
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAI, isLoading, messages.length, intake.ready, intake.open]);
 
-  /** Deliver an already-composed message (text may include uploaded-file markdown). */
   const deliver = async (messageText: string, restoreText: string) => {
     if (inFlightRef.current || isSending) return;
     inFlightRef.current = true;
@@ -586,6 +626,20 @@ export function ChatInterface({
     return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
+  const handleDeleteConversation = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/chat/${conversationId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      router.push("/chat");
+    } catch {
+      setSendError("Failed to delete conversation. Please try again.");
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const showTyping = !isAI && typingUsers.size > 0;
   const showStreaming = isAI && streamingText !== null;
   const lastMine = [...messages].reverse().find((m) => m.senderId === currentUserId && !m._optimistic);
@@ -598,42 +652,68 @@ export function ChatInterface({
     : "";
 
   return (
-    <div className="flex flex-col h-full bg-background relative">
+    <div className="flex flex-col h-full bg-gradient-to-b from-background via-background to-surface/30 relative overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <motion.div
+          animate={{ opacity: [0.3, 0.5, 0.3], scale: [1, 1.1, 1] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-40 -right-40 w-96 h-96 bg-[var(--color-primary)]/5 rounded-full blur-3xl"
+        />
+        <motion.div
+          animate={{ opacity: [0.2, 0.4, 0.2], scale: [1, 1.15, 1] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+          className="absolute -bottom-40 -left-40 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl"
+        />
+      </div>
+
       {/* Header */}
-      <div className="flex-none h-16 bg-surface backdrop-blur-2xl border-b border-border px-3 md:px-4 flex items-center justify-between z-20">
+      <motion.div
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        className="flex-none h-16 bg-surface/80 backdrop-blur-2xl border-b border-border/50 px-3 md:px-4 flex items-center justify-between z-20 relative"
+      >
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <Link
             href="/"
             aria-label="Home"
             title="Home"
-            className="shrink-0 p-2 rounded-lg hover:bg-surface-raised active:scale-95 text-foreground"
+            className="shrink-0 p-2 rounded-xl hover:bg-surface-raised active:scale-95 text-foreground transition-all"
           >
             <Home size={18} />
           </Link>
           <button
             type="button"
             onClick={() => router.push("/chat")}
-            className="md:hidden p-2 -ml-1 rounded-lg hover:bg-surface-raised active:scale-95"
+            className="md:hidden p-2 -ml-1 rounded-xl hover:bg-surface-raised active:scale-95 transition-all"
             aria-label="Back to inbox"
           >
             <ArrowLeft size={18} className="text-foreground" />
           </button>
-          <div className="relative w-10 h-10 rounded-full bg-surface-sunken flex items-center justify-center font-black text-foreground overflow-hidden shrink-0">
-            {partnerAvatar ? (
-              <Image src={partnerAvatar} alt={partnerName} fill sizes="48px" className="object-cover" />
-            ) : (
-              partnerName.charAt(0).toUpperCase()
-            )}
-            {isAI && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] text-[8px] flex items-center justify-center">
-                AI
-              </span>
-            )}
+          <div className="relative group">
+            <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[var(--color-primary)]/20 to-violet-500/20 flex items-center justify-center font-black text-foreground overflow-hidden shrink-0 ring-2 ring-[var(--color-primary)]/30">
+              {partnerAvatar ? (
+                <Image src={partnerAvatar} alt={partnerName} fill sizes="48px" className="object-cover" />
+              ) : (
+                <span className="text-lg">{partnerName.charAt(0).toUpperCase()}</span>
+              )}
+              {isAI && (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-violet-500 flex items-center justify-center"
+                >
+                  <Sparkles size={9} className="text-white" />
+                </motion.div>
+              )}
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />
           </div>
           <div className="min-w-0">
             <h2 className="font-bold text-foreground text-sm flex items-center gap-2 truncate">
               {partnerName}
-              {isAI && <Sparkles size={13} className="text-[var(--color-primary)] shrink-0" />}
+              {isAI && <Crown size={12} className="text-[var(--color-primary)] shrink-0" />}
             </h2>
             <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold">
               {showTyping ? (
@@ -646,90 +726,190 @@ export function ChatInterface({
           </div>
         </div>
 
-        {/* Per-minute rate chip */}
-        <div
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-black shrink-0",
-            liveRate > 0
-              ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]/30 text-[var(--color-primary)]"
-              : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400",
-          )}
-          role="status"
-          aria-label={liveRate > 0 ? `Billed ₹${liveRate} per minute from your wallet` : "Free conversation"}
-          title={liveRate > 0 ? `Billed ₹${liveRate} per minute from your wallet` : "Free conversation"}
-        >
-          <Coins size={12} />
-          {liveRate > 0 ? `₹${liveRate}/min` : "Free"}
-        </div>
-      </div>
+        <div className="flex items-center gap-2">
+          {/* Rate chip */}
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, delay: 0.2 }}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-black shrink-0",
+              liveRate > 0
+                ? "bg-gradient-to-r from-[var(--color-primary)]/10 to-violet-500/10 border-[var(--color-primary)]/30 text-[var(--color-primary)]"
+                : "bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-emerald-500/25 text-emerald-400",
+            )}
+          >
+            <Coins size={12} />
+            {liveRate > 0 ? `₹${liveRate}/min` : "Free"}
+          </motion.div>
 
-      {/* Reconnecting strip — human rooms fall back to polling while realtime
-          is down; say so instead of leaving the reader guessing. */}
-      {!isAI && connection !== "connected" && (
-        <div className="flex-none px-3 md:px-4 py-1.5 bg-amber-500/10 border-b border-amber-500/25 text-amber-500 text-[11px] font-bold flex items-center gap-2">
-          <WifiOff size={12} /> Reconnecting — messages may arrive with a short delay.
+          {/* Delete button */}
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 rounded-xl hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 transition-all active:scale-95"
+            aria-label="Delete conversation"
+            title="Delete conversation"
+          >
+            <Trash2 size={16} />
+          </button>
         </div>
-      )}
+      </motion.div>
 
-      {/* Billing panel — while a billed session is active */}
-      {sessionId && (
-        <BillingPanel
-          key={sessionId}
-          sessionId={sessionId}
-          rate={liveRate}
-          onEnd={handleSessionEnd}
-          onTerminated={(reason) => { setTerminationReason(reason); setSessionId(null); }}
-        />
-      )}
+      {/* Reconnecting strip */}
+      <AnimatePresence>
+        {!isAI && connection !== "connected" && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex-none px-3 md:px-4 py-1.5 bg-amber-500/10 border-b border-amber-500/25 text-amber-500 text-[11px] font-bold flex items-center gap-2"
+          >
+            <WifiOff size={12} /> Reconnecting — messages may arrive with a short delay.
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Billing panel */}
+      <AnimatePresence>
+        {sessionId && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+          >
+            <BillingPanel
+              key={sessionId}
+              sessionId={sessionId}
+              rate={liveRate}
+              onEnd={handleSessionEnd}
+              onTerminated={(reason) => { setTerminationReason(reason); setSessionId(null); }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Termination banner */}
-      {terminationReason && (
-        <div className="flex-none px-3 md:px-4 py-2 bg-rose-500/10 border-b border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2">
-          <AlertTriangle size={12} /> {terminationReason}
-        </div>
-      )}
+      <AnimatePresence>
+        {terminationReason && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="flex-none px-3 md:px-4 py-2 bg-rose-500/10 border-b border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2"
+          >
+            <AlertTriangle size={12} /> {terminationReason}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar"
+        className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar relative z-10"
         role="log"
         aria-live="polite"
         aria-atomic="false"
       >
-        <div className="text-center pb-6 border-b border-border">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold rounded-full mb-2">
+        {/* Encrypted session badge */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="text-center pb-6"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[var(--color-primary)]/10 via-violet-500/10 to-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold rounded-full mb-2 backdrop-blur-xl">
             <ShieldCheck size={14} /> Encrypted Session
           </div>
           <p className="text-muted-foreground text-[11px]">
             {isAI ? "AI consultant is ready — go ahead and ask." : "Your session has started."}
           </p>
-        </div>
+        </motion.div>
 
-        {/* Kundali chart — first message after intake */}
-        {kundaliChart && (
-          <motion.div
-            initial={{ opacity: 0, y: 16, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: "spring", stiffness: 260, damping: 22 }}
-            className="py-2"
-          >
-            <ChatKundaliChart
-              data={kundaliChart}
-              seekerName={seekerName}
-              onClose={() => setKundaliChart(null)}
-            />
-          </motion.div>
-        )}
+        {/* Kundali chart */}
+        <AnimatePresence>
+          {kundaliChart && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 260, damping: 22 }}
+              className="py-2"
+            >
+              <ChatKundaliChart
+                data={kundaliChart}
+                seekerName={seekerName}
+                onClose={() => setKundaliChart(null)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
+        {/* Birth info bars */}
+        <AnimatePresence>
+          {birthInfo && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ delay: 0.5 }}
+              className="grid grid-cols-3 gap-2 py-2"
+            >
+              {birthInfo.dob && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken/80 border border-border/50 backdrop-blur-xl"
+                >
+                  <Calendar size={12} className="text-[var(--color-primary)]" />
+                  <div className="min-w-0">
+                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Born</p>
+                    <p className="text-[11px] font-bold text-foreground truncate">{birthInfo.dob}</p>
+                  </div>
+                </motion.div>
+              )}
+              {birthInfo.tob && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.7 }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken/80 border border-border/50 backdrop-blur-xl"
+                >
+                  <Timer size={12} className="text-violet-400" />
+                  <div className="min-w-0">
+                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Time</p>
+                    <p className="text-[11px] font-bold text-foreground truncate">{birthInfo.tob}</p>
+                  </div>
+                </motion.div>
+              )}
+              {birthInfo.pob && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.8 }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken/80 border border-border/50 backdrop-blur-xl"
+                >
+                  <MapPin size={12} className="text-amber-400" />
+                  <div className="min-w-0">
+                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Place</p>
+                    <p className="text-[11px] font-bold text-foreground truncate">{birthInfo.pob}</p>
+                  </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Load older */}
         {!isAI && hasMore && messages.length > 0 && (
           <div className="flex justify-center pb-1">
             <button
               type="button"
               onClick={() => void handleLoadOlder()}
               disabled={isLoadingOlder}
-              className="px-3 py-1.5 rounded-full text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground flex items-center gap-1.5 disabled:opacity-60"
+              className="px-3 py-1.5 rounded-full text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground flex items-center gap-1.5 disabled:opacity-60 transition-all"
             >
               {isLoadingOlder
                 ? <Loader2 size={12} className="animate-spin" />
@@ -753,11 +933,15 @@ export function ChatInterface({
               return (
                 <div key={msg.id}>
                   {newDay && (
-                    <div className="flex justify-center pb-1">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex justify-center pb-1"
+                    >
                       <span className="px-3 py-1 rounded-full bg-surface-sunken border border-border text-[10px] font-bold text-muted-foreground">
                         {dayLabel(msg.createdAt)}
                       </span>
-                    </div>
+                    </motion.div>
                   )}
                   <motion.div
                     initial={{ opacity: 0, y: 12, scale: 0.95 }}
@@ -772,10 +956,10 @@ export function ChatInterface({
                   >
                     <div className={cn(
                       "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words relative",
-                      "[&>*]:max-w-[65ch]", // Optimal line width for readability (ChatGPT standard)
+                      "[&>*]:max-w-[65ch]",
                       isMe
-                        ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/15"
-                        : "bg-surface-sunken text-foreground border border-border rounded-bl-sm",
+                        ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/20"
+                        : "bg-surface-sunken/90 text-foreground border border-border/50 rounded-bl-sm backdrop-blur-xl",
                       !isMe && isAI && "shadow-md shadow-[var(--color-primary)]/5",
                       msg._optimistic && "opacity-85 saturate-75"
                     )}>
@@ -788,15 +972,11 @@ export function ChatInterface({
                       {isMe && !msg._optimistic && isSeen && msg.id === lastMine?.id && (
                         <CheckCheck size={12} className="text-sky-400" />
                       )}
-                      {/* Feedback buttons for AI messages */}
                       {!isMe && isAI && (
                         <span className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             type="button"
-                            onClick={() => {
-                              // TODO: Wire to feedback API
-                              console.log("Thumbs up for message:", msg.id);
-                            }}
+                            onClick={() => console.log("Thumbs up:", msg.id)}
                             className="p-0.5 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-400 transition-colors"
                             aria-label="Helpful response"
                           >
@@ -807,10 +987,7 @@ export function ChatInterface({
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              // TODO: Wire to feedback API
-                              console.log("Thumbs down for message:", msg.id);
-                            }}
+                            onClick={() => console.log("Thumbs down:", msg.id)}
                             className="p-0.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 transition-colors"
                             aria-label="Not helpful"
                           >
@@ -829,10 +1006,15 @@ export function ChatInterface({
           </AnimatePresence>
         )}
 
+        {/* Streaming */}
         {showStreaming && (
           <div className="flex flex-col items-start">
             {streamingStage && !streamingText && (
-              <div className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)]/8 border border-[var(--color-primary)]/20 flex items-center gap-2 text-[11px] font-semibold text-[var(--color-primary)]">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)]/8 border border-[var(--color-primary)]/20 flex items-center gap-2 text-[11px] font-semibold text-[var(--color-primary)] backdrop-blur-xl"
+              >
                 <span className="relative flex w-1.5 h-1.5">
                   <span className="absolute inset-0 rounded-full bg-[var(--color-primary)] animate-ping opacity-70" />
                   <span className="relative rounded-full w-1.5 h-1.5 bg-[var(--color-primary)]" />
@@ -841,21 +1023,25 @@ export function ChatInterface({
                 <span className="text-[var(--color-primary)]/60 tabular-nums shrink-0">
                   {streamingStage.index + 1}/{streamingStage.total}
                 </span>
-              </div>
+              </motion.div>
             )}
             {completedStages.length > 0 && !streamingText && !streamingStage && (
-              <div className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 flex items-center gap-2 text-[11px] font-semibold text-emerald-400">
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 flex items-center gap-2 text-[11px] font-semibold text-emerald-400 backdrop-blur-xl"
+              >
                 <Sparkles size={11} className="shrink-0" />
                 <span>Composing your reading…</span>
-              </div>
+              </motion.div>
             )}
             <motion.div
               initial={{ opacity: 0, y: 8, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className={cn(
-                "max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken text-foreground border border-border text-sm leading-relaxed relative",
-                "[&>*]:max-w-[65ch]", // Optimal line width for readability
+                "max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken/90 text-foreground border border-border/50 text-sm leading-relaxed relative backdrop-blur-xl",
+                "[&>*]:max-w-[65ch]",
                 streamingStage && !streamingText && "opacity-60",
               )}
             >
@@ -871,16 +1057,13 @@ export function ChatInterface({
               ) : (
                 <span className="italic text-muted-foreground">Thinking…</span>
               )}
-              {/* Blinking cursor during streaming */}
               {streamingText && (
                 <span className="inline-block w-0.5 h-4 ml-0.5 bg-[var(--color-primary)] align-middle animate-cursor-blink" />
               )}
-              {/* Stop generation button */}
               {streamingText && (
                 <button
                   type="button"
                   onClick={() => {
-                    // TODO: Implement abort controller exposure from useChat
                     setStreamingText(null);
                     setFillerText(null);
                     setStreamingStage(null);
@@ -896,15 +1079,23 @@ export function ChatInterface({
           </div>
         )}
 
+        {/* Suggestions */}
         {isAI && !showStreaming && suggestions.length > 0 && messages.length > 0 && (
-          <div className="flex flex-col items-start gap-2 pt-1">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-start gap-2 pt-1"
+          >
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
               Ask next
             </span>
             <div className="flex flex-wrap gap-2 max-w-[85%]">
               {suggestions.map((s, i) => (
-                <button
+                <motion.button
                   key={`${s.label}-${i}`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
                   type="button"
                   onClick={() => void deliver(s.prompt, "")}
                   disabled={isSending || inFlightRef.current}
@@ -918,19 +1109,20 @@ export function ChatInterface({
                 >
                   <SuggestionIcon name={s.icon} />
                   <span>{s.label}</span>
-                </button>
+                </motion.button>
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
 
+        {/* Typing indicator */}
         {showTyping && (
           <motion.div
             initial={{ opacity: 0, y: 6, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="flex items-center gap-2 px-4 py-3 bg-surface-sunken border border-border rounded-2xl rounded-bl-sm w-max shadow-sm"
+            className="flex items-center gap-2 px-4 py-3 bg-surface-sunken/90 border border-border/50 rounded-2xl rounded-bl-sm w-max shadow-sm backdrop-blur-xl"
           >
             <span className="text-[10px] font-bold text-muted-foreground">{partnerName}</span>
             <span className="flex gap-1 items-center">
@@ -957,11 +1149,14 @@ export function ChatInterface({
       </div>
 
       {/* Input */}
-      <div
-        className="flex-none p-3 md:p-4 bg-background backdrop-blur-3xl border-t border-border transition-[padding] duration-150"
+      <motion.div
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="flex-none p-3 md:p-4 bg-surface/80 backdrop-blur-3xl border-t border-border/50 transition-[padding] duration-150 relative z-10"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px + var(--kb-offset, 0px))" }}
       >
-        {/* Send error banner */}
+        {/* Send error */}
         <AnimatePresence>
           {sendError && (
             <motion.div
@@ -995,28 +1190,36 @@ export function ChatInterface({
             </motion.div>
           )}
         </AnimatePresence>
-        {/* Quick replies for AI */}
+
+        {/* Quick replies */}
         {isAI && messages.length === 0 && (
           <div className="max-w-4xl mx-auto mb-3 flex flex-wrap gap-2">
-            {AI_QUICK_REPLIES.map((q) => (
-              <button
+            {AI_QUICK_REPLIES.map((q, i) => (
+              <motion.button
                 key={q}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 + i * 0.05 }}
                 type="button"
                 onClick={() => { setInput(q); }}
                 className="px-3 py-1.5 rounded-full text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground hover:border-[var(--color-luxury-gold)]/30 transition-all active:scale-[0.97]"
               >
                 <Sparkles size={10} className="inline mr-1" />{q}
-              </button>
+              </motion.button>
             ))}
           </div>
         )}
+
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-          {/* Attachment previews */}
+          {/* Attachments */}
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-3 px-1">
               {attachments.map((file, idx) => (
-                <div
+                <motion.div
                   key={`${file.name}-${idx}`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
                   className="relative group flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken border border-border text-xs"
                 >
                   {file.type.startsWith("image/") && previewUrls[idx] ? (
@@ -1042,13 +1245,12 @@ export function ChatInterface({
                   >
                     <X size={12} className="text-muted-foreground" />
                   </button>
-                </div>
+                </motion.div>
               ))}
             </div>
           )}
 
           <div className="flex items-center gap-2 md:gap-3">
-            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -1087,7 +1289,7 @@ export function ChatInterface({
               aria-label={`Message ${partnerName}`}
               maxLength={4000}
               rows={1}
-              className="flex-1 bg-surface border border-border rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground resize-none overflow-hidden min-h-[48px] max-h-[120px] leading-snug"
+              className="flex-1 bg-surface border border-border rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground resize-none overflow-hidden min-h-[48px] max-h-[120px] leading-snug transition-all"
               style={{ height: "auto" }}
               ref={(el) => {
                 if (el) {
@@ -1103,7 +1305,7 @@ export function ChatInterface({
               className={cn(
                 "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all shrink-0",
                 (input.trim() || attachments.length > 0) && !isSending && !showStreaming && !uploading
-                  ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-[0_0_15px_rgba(157,125,197,0.3)] active:scale-95"
+                  ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-[0_0_20px_rgba(157,125,197,0.4)] active:scale-95"
                   : "bg-surface-sunken text-muted-foreground cursor-not-allowed"
               )}
             >
@@ -1111,7 +1313,7 @@ export function ChatInterface({
             </button>
           </div>
         </form>
-      </div>
+      </motion.div>
 
       <WalletGateDialog
         open={walletGate !== null}
@@ -1138,6 +1340,18 @@ export function ChatInterface({
           <BrandLoader variant="chat-bubble" label="Preparing your reading room…" />
         </div>
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Conversation"
+        description="This will permanently delete this conversation and all messages. This action cannot be undone."
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={handleDeleteConversation}
+        loading={deleting}
+      />
     </div>
   );
 }
