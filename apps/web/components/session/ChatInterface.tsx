@@ -1,7 +1,7 @@
 "use client";
 // ═══════════════════════════════════════════════════════════════════════════════
-// ChatInterface — Industry-grade premium chat with glassmorphism, spring physics,
-// kundali chart, info bars, and high-end micro-interactions
+// ChatInterface — Ultra-premium astrology chat with DG-beating design
+// Features: Birth card, info cards, moon phase, chart toggles, premium bubbles
 // ═══════════════════════════════════════════════════════════════════════════════
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -11,7 +11,7 @@ import {
   AlertTriangle, ArrowLeft, CheckCheck, ChevronUp, Coins, Heart, Home,
   Loader2, MessageCircle, Moon, Paperclip, Send, ShieldCheck, Sparkles,
   Briefcase, Clock, BarChart3, WifiOff, X, Trash2, MapPin, Calendar,
-  Timer, Star, Zap, Crown,
+  Timer, Star, Zap, Crown, Sun, Sunrise,
 } from "lucide-react";
 import Image from "next/image";
 import { useChat, type BillingInfo, type ChatMessage, type StageEvent, type Suggestion } from "@/hooks/useChat";
@@ -212,6 +212,69 @@ function SuggestionIcon({ name }: { name?: Suggestion["icon"] }) {
   }
 }
 
+// Moon phase calculation (simplified)
+function getMoonPhase(date: Date): number {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  let c = 0, e = 0, jd = 0, b = 0;
+  if (month < 3) {
+    c = year - 1;
+    e = month + 12;
+  } else {
+    c = year;
+    e = month;
+  }
+  jd = (365.25 * (c + 4716)) + (30.6001 * (e + 1)) + day - 1524.5;
+  const daysSinceNew = jd - 2451549.5;
+  const newMoons = daysSinceNew / 29.53058867;
+  const phase = (newMoons - Math.floor(newMoons)) * 29.53058867;
+  return phase;
+}
+
+function MoonPhaseBar({ date }: { date: Date }) {
+  const phase = getMoonPhase(date);
+  const phasePercent = (phase / 29.53) * 100;
+  const isWaxing = phase < 14.77;
+  
+  return (
+    <div className="relative h-10 rounded-full bg-gradient-to-r from-indigo-900 via-purple-900 to-indigo-900 overflow-hidden border border-purple-500/20">
+      {/* Stars */}
+      <div className="absolute inset-0">
+        {[...Array(20)].map((_, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 2, repeat: Infinity, delay: i * 0.1 }}
+            className="absolute w-0.5 h-0.5 bg-white rounded-full"
+            style={{
+              left: `${(i * 37) % 100}%`,
+              top: `${(i * 23) % 100}%`,
+            }}
+          />
+        ))}
+      </div>
+      {/* Moon position */}
+      <motion.div
+        initial={{ left: 0 }}
+        animate={{ left: `${phasePercent}%` }}
+        transition={{ duration: 1, ease: "easeOut" }}
+        className="absolute top-1/2 -translate-y-1/2"
+      >
+        <div className="relative">
+          <div className="absolute inset-0 bg-amber-200 rounded-full blur-md" />
+          <Moon size={20} className="text-amber-100 relative z-10" fill="currentColor" />
+        </div>
+      </motion.div>
+      {/* Phase label */}
+      <div className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-purple-200">
+        {isWaxing ? "Waxing" : "Waning"}
+      </div>
+    </div>
+  );
+}
+
 export function ChatInterface({
   conversationId,
   currentUserId,
@@ -257,6 +320,8 @@ export function ChatInterface({
   const [uploading, setUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [chartType, setChartType] = useState<"D1" | "D9">("D1");
+  const [showAllCharts, setShowAllCharts] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -266,7 +331,10 @@ export function ChatInterface({
   const openerFiredRef = useRef(false);
   const [kundaliChart, setKundaliChart] = useState<ChatKundaliData | null>(null);
   const [seekerName, setSeekerName] = useState<string | undefined>();
-  const [birthInfo, setBirthInfo] = useState<{ dob?: string; tob?: string; pob?: string } | null>(null);
+  const [birthInfo, setBirthInfo] = useState<{ dob?: string; tob?: string; pob?: string; name?: string } | null>(null);
+  const [moonSign, setMoonSign] = useState<string>("");
+  const [nakshatra, setNakshatra] = useState<string>("");
+  const [lagna, setLagna] = useState<string>("");
 
   // Smart autoscroll
   useEffect(() => {
@@ -347,7 +415,7 @@ export function ChatInterface({
     return () => vv.removeEventListener("resize", handler);
   }, []);
 
-  // AI chat: fetch birth profile and compute kundali chart
+  // AI chat: fetch birth profile and compute kundali chart + info cards
   useEffect(() => {
     if (!isAI) return;
     let cancelled = false;
@@ -396,10 +464,16 @@ export function ChatInterface({
         });
         setSeekerName(profile.fullName ?? undefined);
         setBirthInfo({
+          name: profile.fullName,
           dob: profile.dateOfBirth,
           tob: profile.timeOfBirth ?? undefined,
           pob: profile.placeOfBirth,
         });
+        setLagna(result.chart.ascendantSign);
+        setNakshatra(result.panchanga.nakshatra);
+        // Find moon sign from planets
+        const moon = result.chart.planets.find((p) => p.planet === "Moon");
+        if (moon) setMoonSign(moon.sign);
       } catch { /* best-effort */ }
     };
     void fetchAndCompute();
@@ -488,7 +562,11 @@ export function ChatInterface({
             },
           });
           setSeekerName(birth.name ?? undefined);
-          setBirthInfo({ dob: birth.dob, tob: birth.tob, pob: birth.pob });
+          setBirthInfo({ name: birth.name, dob: birth.dob, tob: birth.tob, pob: birth.pob });
+          setLagna(result.chart.ascendantSign);
+          setNakshatra(result.panchanga.nakshatra);
+          const moon = result.chart.planets.find((p) => p.planet === "Moon");
+          if (moon) setMoonSign(moon.sign);
         } catch { /* invalid birth data — skip chart */ }
       },
     }, 0, isOpener);
@@ -651,18 +729,18 @@ export function ChatInterface({
     : "";
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-background via-background to-surface/30 relative overflow-hidden">
-      {/* Ambient background glow */}
+    <div className="flex flex-col h-full bg-gradient-to-b from-[#0a0a0f] via-[#0f0f1a] to-[#0a0a0f] relative overflow-hidden">
+      {/* Ambient background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <motion.div
           animate={{ opacity: [0.3, 0.5, 0.3], scale: [1, 1.1, 1] }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute -top-40 -right-40 w-96 h-96 bg-[var(--color-primary)]/5 rounded-full blur-3xl"
+          className="absolute -top-40 -right-40 w-96 h-96 bg-amber-500/5 rounded-full blur-3xl"
         />
         <motion.div
           animate={{ opacity: [0.2, 0.4, 0.2], scale: [1, 1.15, 1] }}
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-          className="absolute -bottom-40 -left-40 w-96 h-96 bg-violet-500/5 rounded-full blur-3xl"
+          className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl"
         />
       </div>
 
@@ -671,136 +749,58 @@ export function ChatInterface({
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="flex-none h-16 bg-surface/80 backdrop-blur-2xl border-b border-border/50 px-3 md:px-4 flex items-center justify-between z-20 relative"
+        className="flex-none h-16 bg-[#0f0f1a]/90 backdrop-blur-2xl border-b border-amber-500/10 px-3 md:px-4 flex items-center justify-between z-20 relative"
       >
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <Link
             href="/"
             aria-label="Home"
-            title="Home"
-            className="shrink-0 p-2 rounded-xl hover:bg-surface-raised active:scale-95 text-foreground transition-all"
+            className="shrink-0 p-2 rounded-xl hover:bg-white/5 text-amber-100/70 hover:text-amber-100 transition-all"
           >
-            <Home size={18} />
+            <ArrowLeft size={18} />
           </Link>
-          <button
-            type="button"
-            onClick={() => router.push("/chat")}
-            className="md:hidden p-2 -ml-1 rounded-xl hover:bg-surface-raised active:scale-95 transition-all"
-            aria-label="Back to inbox"
-          >
-            <ArrowLeft size={18} className="text-foreground" />
-          </button>
-          <div className="relative group">
-            <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-[var(--color-primary)]/20 to-violet-500/20 flex items-center justify-center font-black text-foreground overflow-hidden shrink-0 ring-2 ring-[var(--color-primary)]/30">
+          <div className="relative">
+            <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-amber-400/20 to-purple-500/20 flex items-center justify-center overflow-hidden shrink-0 ring-2 ring-amber-400/30">
               {partnerAvatar ? (
                 <Image src={partnerAvatar} alt={partnerName} fill sizes="48px" className="object-cover" />
               ) : (
-                <span className="text-lg">{partnerName.charAt(0).toUpperCase()}</span>
+                <span className="text-lg font-bold text-amber-100">{partnerName.charAt(0).toUpperCase()}</span>
               )}
               {isAI && (
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-violet-500 flex items-center justify-center"
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-r from-amber-400 to-purple-500 flex items-center justify-center"
                 >
                   <Sparkles size={9} className="text-white" />
                 </motion.div>
               )}
             </div>
-            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-2 ring-[#0f0f1a]" />
           </div>
           <div className="min-w-0">
-            <h2 className="font-bold text-foreground text-sm flex items-center gap-2 truncate">
-              {partnerName}
-              {isAI && <Crown size={12} className="text-[var(--color-primary)] shrink-0" />}
+            <h2 className="font-bold text-amber-100 text-sm flex items-center gap-2 truncate">
+              Chat with {partnerName}
+              {isAI && <Crown size={12} className="text-amber-400 shrink-0" />}
             </h2>
             <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold">
-              {showTyping ? (
-                <><span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" /> typing…</>
-              ) : (
-                <><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  {isAI ? "AI · 24/7" : "Secure Session"}</>
-              )}
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              {isAI ? "AI · 24/7" : "Online"}
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Rate chip */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: "spring", stiffness: 400, delay: 0.2 }}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-black shrink-0",
-              liveRate > 0
-                ? "bg-gradient-to-r from-[var(--color-primary)]/10 to-violet-500/10 border-[var(--color-primary)]/30 text-[var(--color-primary)]"
-                : "bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-emerald-500/25 text-emerald-400",
-            )}
-          >
-            <Coins size={12} />
-            {liveRate > 0 ? `₹${liveRate}/min` : "Free"}
-          </motion.div>
-
-          {/* Delete button */}
           <button
             type="button"
             onClick={() => setShowDeleteConfirm(true)}
-            className="p-2 rounded-xl hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 transition-all active:scale-95"
+            className="p-2 rounded-xl hover:bg-rose-500/10 text-amber-100/50 hover:text-rose-400 transition-all"
             aria-label="Delete conversation"
-            title="Delete conversation"
           >
             <Trash2 size={16} />
           </button>
         </div>
       </motion.div>
-
-      {/* Reconnecting strip */}
-      <AnimatePresence>
-        {!isAI && connection !== "connected" && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="flex-none px-3 md:px-4 py-1.5 bg-amber-500/10 border-b border-amber-500/25 text-amber-500 text-[11px] font-bold flex items-center gap-2"
-          >
-            <WifiOff size={12} /> Reconnecting — messages may arrive with a short delay.
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Billing panel */}
-      <AnimatePresence>
-        {sessionId && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-          >
-            <BillingPanel
-              key={sessionId}
-              sessionId={sessionId}
-              rate={liveRate}
-              onEnd={handleSessionEnd}
-              onTerminated={(reason) => { setTerminationReason(reason); setSessionId(null); }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Termination banner */}
-      <AnimatePresence>
-        {terminationReason && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="flex-none px-3 md:px-4 py-2 bg-rose-500/10 border-b border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2"
-          >
-            <AlertTriangle size={12} /> {terminationReason}
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Messages */}
       <div
@@ -809,115 +809,142 @@ export function ChatInterface({
         className="flex-1 overflow-y-auto px-3 md:px-4 py-4 space-y-4 custom-scrollbar relative z-10"
         role="log"
         aria-live="polite"
-        aria-atomic="false"
       >
-        {/* Encrypted session badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="text-center pb-6"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[var(--color-primary)]/10 via-violet-500/10 to-[var(--color-primary)]/10 border border-[var(--color-primary)]/20 text-[var(--color-primary)] text-xs font-bold rounded-full mb-2 backdrop-blur-xl">
-            <ShieldCheck size={14} /> Encrypted Session
-          </div>
-          <p className="text-muted-foreground text-[11px]">
-            {isAI ? "AI consultant is ready — go ahead and ask." : "Your session has started."}
-          </p>
-        </motion.div>
-
-        {/* Kundali chart */}
-        <AnimatePresence>
-          {kundaliChart && (
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 260, damping: 22 }}
-              className="py-2"
-            >
-              <ChatKundaliChart
-                data={kundaliChart}
-                seekerName={seekerName}
-                onClose={() => setKundaliChart(null)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Birth info bars */}
-        <AnimatePresence>
-          {birthInfo && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ delay: 0.5 }}
-              className="grid grid-cols-3 gap-2 py-2"
-            >
+        {/* Birth Details Card */}
+        {birthInfo && isAI && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="rounded-2xl bg-gradient-to-br from-[#1a1a2e] to-[#16162a] border border-amber-500/20 p-4 mb-4"
+          >
+            {/* 2x2 Grid */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              {birthInfo.name && (
+                <div>
+                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Name</p>
+                  <p className="text-sm font-bold text-amber-100">{birthInfo.name}</p>
+                </div>
+              )}
               {birthInfo.dob && (
+                <div>
+                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Birth Date</p>
+                  <p className="text-sm font-bold text-amber-100">{new Date(birthInfo.dob).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+                </div>
+              )}
+              {birthInfo.tob && (
+                <div>
+                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Birth Time</p>
+                  <p className="text-sm font-bold text-amber-100">{birthInfo.tob}</p>
+                </div>
+              )}
+              {birthInfo.pob && (
+                <div>
+                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Birth Place</p>
+                  <p className="text-sm font-bold text-amber-100">{birthInfo.pob}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Info Cards */}
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {lagna && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="rounded-xl bg-gradient-to-br from-purple-900/40 to-purple-950/60 border border-purple-500/30 px-3 py-2 text-center"
+                >
+                  <p className="text-[9px] text-purple-200/70 font-semibold uppercase tracking-wider">Lagan</p>
+                  <p className="text-sm font-bold text-purple-100 mt-0.5">{lagna}</p>
+                </motion.div>
+              )}
+              {moonSign && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.6 }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken/80 border border-border/50 backdrop-blur-xl"
+                  className="rounded-xl bg-gradient-to-br from-amber-900/40 to-amber-950/60 border border-amber-500/30 px-3 py-2 text-center"
                 >
-                  <Calendar size={12} className="text-[var(--color-primary)]" />
-                  <div className="min-w-0">
-                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Born</p>
-                    <p className="text-[11px] font-bold text-foreground truncate">{birthInfo.dob}</p>
-                  </div>
+                  <p className="text-[9px] text-amber-200/70 font-semibold uppercase tracking-wider">Moon Sign</p>
+                  <p className="text-sm font-bold text-amber-100 mt-0.5">{moonSign}</p>
                 </motion.div>
               )}
-              {birthInfo.tob && (
+              {nakshatra && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.7 }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken/80 border border-border/50 backdrop-blur-xl"
+                  className="rounded-xl bg-gradient-to-br from-teal-900/40 to-teal-950/60 border border-teal-500/30 px-3 py-2 text-center"
                 >
-                  <Timer size={12} className="text-violet-400" />
-                  <div className="min-w-0">
-                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Time</p>
-                    <p className="text-[11px] font-bold text-foreground truncate">{birthInfo.tob}</p>
-                  </div>
+                  <p className="text-[9px] text-teal-200/70 font-semibold uppercase tracking-wider">Nakshatra</p>
+                  <p className="text-sm font-bold text-teal-100 mt-0.5">{nakshatra}</p>
                 </motion.div>
               )}
-              {birthInfo.pob && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.8 }}
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken/80 border border-border/50 backdrop-blur-xl"
-                >
-                  <MapPin size={12} className="text-amber-400" />
-                  <div className="min-w-0">
-                    <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider">Place</p>
-                    <p className="text-[11px] font-bold text-foreground truncate">{birthInfo.pob}</p>
-                  </div>
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
 
-        {/* Load older */}
-        {!isAI && hasMore && messages.length > 0 && (
-          <div className="flex justify-center pb-1">
+            {/* Moon Phase Bar */}
+            <MoonPhaseBar date={new Date()} />
+
+            {/* Chart Type Toggle */}
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setChartType("D1")}
+                className={cn(
+                  "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                  chartType === "D1"
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
+                    : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
+                )}
+              >
+                Ascendant (D1)
+              </button>
+              <button
+                type="button"
+                onClick={() => setChartType("D9")}
+                className={cn(
+                  "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
+                  chartType === "D9"
+                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
+                    : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
+                )}
+              >
+                Navamsha (D9)
+              </button>
+            </div>
+
+            {/* Kundali Chart */}
+            {kundaliChart && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="mt-4"
+              >
+                <p className="text-center text-xs font-bold text-amber-100/70 mb-2">
+                  {chartType === "D1" ? "Ascendant Chart (D1)" : "Navamsha Chart (D9)"}
+                </p>
+                <ChatKundaliChart
+                  data={kundaliChart}
+                  seekerName={seekerName}
+                />
+              </motion.div>
+            )}
+
+            {/* Show All Charts Button */}
             <button
               type="button"
-              onClick={() => void handleLoadOlder()}
-              disabled={isLoadingOlder}
-              className="px-3 py-1.5 rounded-full text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground flex items-center gap-1.5 disabled:opacity-60 transition-all"
+              onClick={() => setShowAllCharts(!showAllCharts)}
+              className="w-full mt-4 py-2.5 rounded-xl bg-white/5 border border-amber-500/20 text-amber-100/90 text-xs font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
             >
-              {isLoadingOlder
-                ? <Loader2 size={12} className="animate-spin" />
-                : <ChevronUp size={12} />}
-              Load earlier messages
+              <BarChart3 size={14} />
+              {showAllCharts ? "Hide Charts" : "Show All Charts"}
             </button>
-          </div>
+          </motion.div>
         )}
 
+        {/* Messages */}
         {isLoading && messages.length === 0 ? (
           <BrandLoader variant="chat-bubble" label="Opening the reading room…" />
         ) : messages.length === 0 ? (
@@ -937,7 +964,7 @@ export function ChatInterface({
                       animate={{ opacity: 1 }}
                       className="flex justify-center pb-1"
                     >
-                      <span className="px-3 py-1 rounded-full bg-surface-sunken border border-border text-[10px] font-bold text-muted-foreground">
+                      <span className="px-3 py-1 rounded-full bg-white/5 border border-amber-500/10 text-[10px] font-bold text-amber-100/50">
                         {dayLabel(msg.createdAt)}
                       </span>
                     </motion.div>
@@ -951,53 +978,36 @@ export function ChatInterface({
                       damping: isMe ? 35 : 30,
                       delay: idx * 0.03,
                     }}
-                    className={cn("flex flex-col group", isMe ? "items-end" : "items-start")}
+                    className={cn("flex gap-2", isMe ? "flex-row-reverse" : "flex-row")}
                   >
-                    <div className={cn(
-                      "max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words relative",
-                      "[&>*]:max-w-[65ch]",
-                      isMe
-                        ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white rounded-br-sm shadow-lg shadow-[var(--color-primary)]/20"
-                        : "bg-surface-sunken/90 text-foreground border border-border/50 rounded-bl-sm backdrop-blur-xl",
-                      !isMe && isAI && "shadow-md shadow-[var(--color-primary)]/5",
-                      msg._optimistic && "opacity-85 saturate-75"
-                    )}>
-                      <MessageContent content={msg.content} />
+                    {/* Avatar */}
+                    {!isMe && (
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-amber-400/20 to-purple-500/20 flex items-center justify-center ring-1 ring-amber-400/30">
+                        {partnerAvatar ? (
+                          <Image src={partnerAvatar} alt={partnerName} width={32} height={32} className="rounded-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-amber-100">{partnerName.charAt(0)}</span>
+                        )}
+                      </div>
+                    )}
+                    <div className={cn("flex flex-col max-w-[75%]", isMe ? "items-end" : "items-start")}>
+                      <div className={cn(
+                        "px-4 py-3 rounded-2xl text-sm leading-relaxed break-words",
+                        isMe
+                          ? "bg-gradient-to-br from-amber-100 to-amber-50 text-[#1a1a2e] rounded-br-sm shadow-lg shadow-amber-500/10"
+                          : "bg-[#1a1a2e] text-amber-50 border border-amber-500/10 rounded-bl-sm"
+                      )}>
+                        <MessageContent content={msg.content} />
+                      </div>
+                      <span className="flex items-center gap-1.5 text-[10px] text-amber-100/40 mt-1 px-1">
+                        {isMe && msg._optimistic && <PendingDot />}
+                        {formatTime(msg.createdAt)}
+                        {isMe && msg._optimistic && <span className="opacity-70">sending…</span>}
+                        {isMe && !msg._optimistic && isSeen && msg.id === lastMine?.id && (
+                          <CheckCheck size={12} className="text-sky-400" />
+                        )}
+                      </span>
                     </div>
-                    <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-1 px-1 font-medium">
-                      {isMe && msg._optimistic && <PendingDot />}
-                      {formatTime(msg.createdAt)}
-                      {isMe && msg._optimistic && <span className="opacity-70">sending…</span>}
-                      {isMe && !msg._optimistic && isSeen && msg.id === lastMine?.id && (
-                        <CheckCheck size={12} className="text-sky-400" />
-                      )}
-                      {!isMe && isAI && (
-                        <span className="flex items-center gap-0.5 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            type="button"
-                            onClick={() => console.log("Thumbs up:", msg.id)}
-                            className="p-0.5 rounded hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-400 transition-colors"
-                            aria-label="Helpful response"
-                          >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M7 10v12" />
-                              <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h0a3.13 3.13 0 0 1 3 3.88Z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => console.log("Thumbs down:", msg.id)}
-                            className="p-0.5 rounded hover:bg-rose-500/10 text-muted-foreground hover:text-rose-400 transition-colors"
-                            aria-label="Not helpful"
-                          >
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M17 14V2" />
-                              <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 1-1.79 1.11L12 22h0a3.13 3.13 0 0 1-3-3.88Z" />
-                            </svg>
-                          </button>
-                        </span>
-                      )}
-                    </span>
                   </motion.div>
                 </div>
               );
@@ -1007,74 +1017,50 @@ export function ChatInterface({
 
         {/* Streaming */}
         {showStreaming && (
-          <div className="flex flex-col items-start">
-            {streamingStage && !streamingText && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-[var(--color-primary)]/8 border border-[var(--color-primary)]/20 flex items-center gap-2 text-[11px] font-semibold text-[var(--color-primary)] backdrop-blur-xl"
-              >
-                <span className="relative flex w-1.5 h-1.5">
-                  <span className="absolute inset-0 rounded-full bg-[var(--color-primary)] animate-ping opacity-70" />
-                  <span className="relative rounded-full w-1.5 h-1.5 bg-[var(--color-primary)]" />
-                </span>
-                <span className="truncate">{streamingStage.label}</span>
-                <span className="text-[var(--color-primary)]/60 tabular-nums shrink-0">
-                  {streamingStage.index + 1}/{streamingStage.total}
-                </span>
-              </motion.div>
-            )}
-            {completedStages.length > 0 && !streamingText && !streamingStage && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="max-w-[80%] mb-1.5 px-3 py-1.5 rounded-full bg-emerald-500/8 border border-emerald-500/20 flex items-center gap-2 text-[11px] font-semibold text-emerald-400 backdrop-blur-xl"
-              >
-                <Sparkles size={11} className="shrink-0" />
-                <span>Composing your reading…</span>
-              </motion.div>
-            )}
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className={cn(
-                "max-w-[80%] px-4 py-2.5 rounded-2xl rounded-bl-sm bg-surface-sunken/90 text-foreground border border-border/50 text-sm leading-relaxed relative backdrop-blur-xl",
-                "[&>*]:max-w-[65ch]",
-                streamingStage && !streamingText && "opacity-60",
-              )}
-            >
-              {streamDisplay ? (
-                <>
-                  {!streamingText && fillerText && (
-                    <span className="italic text-muted-foreground">{streamDisplay}</span>
-                  )}
-                  {streamingText && <MessageContent content={streamingText} />}
-                </>
-              ) : !streamingStage ? (
-                <StreamingIndicator />
+          <div className="flex gap-2">
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-amber-400/20 to-purple-500/20 flex items-center justify-center ring-1 ring-amber-400/30">
+              {partnerAvatar ? (
+                <Image src={partnerAvatar} alt={partnerName} width={32} height={32} className="rounded-full object-cover" />
               ) : (
-                <span className="italic text-muted-foreground">Thinking…</span>
+                <span className="text-xs font-bold text-amber-100">{partnerName.charAt(0)}</span>
               )}
-              {streamingText && (
-                <span className="inline-block w-0.5 h-4 ml-0.5 bg-[var(--color-primary)] align-middle animate-cursor-blink" />
-              )}
-              {streamingText && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStreamingText(null);
-                    setFillerText(null);
-                    setStreamingStage(null);
-                  }}
-                  className="absolute -bottom-3 right-2 px-2.5 py-1 rounded-full bg-surface border border-border text-[10px] font-bold text-muted-foreground hover:text-foreground hover:border-[var(--color-primary)]/40 transition-all active:scale-95 flex items-center gap-1"
-                  aria-label="Stop generating"
+            </div>
+            <div className="flex flex-col items-start max-w-[75%]">
+              {streamingStage && !streamingText && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center gap-2 text-[11px] font-semibold text-amber-200"
                 >
-                  <span className="w-1.5 h-1.5 rounded-sm bg-current" />
-                  Stop
-                </button>
+                  <span className="relative flex w-1.5 h-1.5">
+                    <span className="absolute inset-0 rounded-full bg-amber-400 animate-ping opacity-70" />
+                    <span className="relative rounded-full w-1.5 h-1.5 bg-amber-400" />
+                  </span>
+                  <span className="truncate">{streamingStage.label}</span>
+                </motion.div>
               )}
-            </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="px-4 py-3 rounded-2xl rounded-bl-sm bg-[#1a1a2e] text-amber-50 border border-amber-500/10 text-sm leading-relaxed"
+              >
+                {streamDisplay ? (
+                  <>
+                    {!streamingText && fillerText && (
+                      <span className="italic text-amber-100/50">{streamDisplay}</span>
+                    )}
+                    {streamingText && <MessageContent content={streamingText} />}
+                  </>
+                ) : !streamingStage ? (
+                  <StreamingIndicator />
+                ) : (
+                  <span className="italic text-amber-100/50">Thinking…</span>
+                )}
+                {streamingText && (
+                  <span className="inline-block w-0.5 h-4 ml-0.5 bg-amber-400 align-middle animate-cursor-blink" />
+                )}
+              </motion.div>
+            </div>
           </div>
         )}
 
@@ -1085,10 +1071,10 @@ export function ChatInterface({
             animate={{ opacity: 1, y: 0 }}
             className="flex flex-col items-start gap-2 pt-1"
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-100/50 px-1">
               Ask next
             </span>
-            <div className="flex flex-wrap gap-2 max-w-[85%]">
+            <div className="flex flex-wrap gap-2">
               {suggestions.map((s, i) => (
                 <motion.button
                   key={`${s.label}-${i}`}
@@ -1098,13 +1084,7 @@ export function ChatInterface({
                   type="button"
                   onClick={() => void deliver(s.prompt, "")}
                   disabled={isSending || inFlightRef.current}
-                  className={cn(
-                    "group inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold",
-                    "bg-surface border border-border text-foreground",
-                    "hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 hover:text-[var(--color-primary)]",
-                    "active:scale-[0.97] transition-all disabled:opacity-50 disabled:cursor-wait",
-                  )}
-                  title={s.prompt}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-bold bg-white/5 border border-amber-500/20 text-amber-100 hover:bg-white/10 hover:border-amber-500/40 transition-all disabled:opacity-50"
                 >
                   <SuggestionIcon name={s.icon} />
                   <span>{s.label}</span>
@@ -1120,25 +1100,24 @@ export function ChatInterface({
             initial={{ opacity: 0, y: 6, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            className="flex items-center gap-2 px-4 py-3 bg-surface-sunken/90 border border-border/50 rounded-2xl rounded-bl-sm w-max shadow-sm backdrop-blur-xl"
+            className="flex items-center gap-2 px-4 py-3 bg-[#1a1a2e] border border-amber-500/10 rounded-2xl rounded-bl-sm w-max"
           >
-            <span className="text-[10px] font-bold text-muted-foreground">{partnerName}</span>
+            <span className="text-[10px] font-bold text-amber-100/50">{partnerName}</span>
             <span className="flex gap-1 items-center">
               <motion.span
                 animate={{ y: [0, -4, 0] }}
                 transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut" }}
-                className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full"
+                className="w-1.5 h-1.5 bg-amber-400 rounded-full"
               />
               <motion.span
                 animate={{ y: [0, -4, 0] }}
                 transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
-                className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full"
+                className="w-1.5 h-1.5 bg-amber-400 rounded-full"
               />
               <motion.span
                 animate={{ y: [0, -4, 0] }}
                 transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                className="w-1.5 h-1.5 bg-[var(--color-primary)] rounded-full"
+                className="w-1.5 h-1.5 bg-amber-400 rounded-full"
               />
             </span>
           </motion.div>
@@ -1147,148 +1126,43 @@ export function ChatInterface({
         <div ref={bottomRef} />
       </div>
 
+      {/* Bottom Status Bar */}
+      {isAI && (
+        <div className="flex-none px-4 py-2 bg-[#0f0f1a]/90 border-t border-amber-500/10 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-amber-400">Free</span>
+            <span className="text-amber-100/50">·</span>
+            <span className="text-amber-100/70">1 questions left</span>
+          </div>
+          <button className="font-bold text-amber-400 hover:text-amber-300 transition-colors">
+            Upgrade
+          </button>
+        </div>
+      )}
+
       {/* Input */}
       <motion.div
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className="flex-none p-3 md:p-4 bg-surface/80 backdrop-blur-3xl border-t border-border/50 transition-[padding] duration-150 relative z-10"
+        className="flex-none p-3 md:p-4 bg-[#0f0f1a]/90 backdrop-blur-3xl border-t border-amber-500/10 relative z-10"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 12px + var(--kb-offset, 0px))" }}
       >
-        {/* Send error */}
-        <AnimatePresence>
-          {sendError && (
-            <motion.div
-              initial={{ opacity: 0, y: 8, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: "auto" }}
-              exit={{ opacity: 0, y: -4, height: 0 }}
-              className="max-w-4xl mx-auto mb-2"
-            >
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs font-bold">
-                <AlertTriangle size={12} className="shrink-0" />
-                <span className="flex-1">{sendError}</span>
-                {failedText && (
-                  <button
-                    type="button"
-                    onClick={() => void deliver(failedText, "")}
-                    disabled={isSending || uploading}
-                    className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 transition-colors disabled:opacity-50 disabled:cursor-wait"
-                  >
-                    Retry
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setSendError(null)}
-                  className="p-0.5 rounded-full hover:bg-rose-500/20 transition-colors"
-                  aria-label="Dismiss"
-                >
-                  <X size={12} />
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Quick replies */}
-        {isAI && messages.length === 0 && (
-          <div className="max-w-4xl mx-auto mb-3 flex flex-wrap gap-2">
-            {AI_QUICK_REPLIES.map((q, i) => (
-              <motion.button
-                key={q}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + i * 0.05 }}
-                type="button"
-                onClick={() => { setInput(q); }}
-                className="px-3 py-1.5 rounded-full text-[11px] font-bold glass-luxury text-muted-foreground hover:text-foreground hover:border-[var(--color-luxury-gold)]/30 transition-all active:scale-[0.97]"
-              >
-                <Sparkles size={10} className="inline mr-1" />{q}
-              </motion.button>
-            ))}
-          </div>
-        )}
-
         <form onSubmit={handleSubmit} className="max-w-4xl mx-auto">
-          {/* Attachments */}
-          {attachments.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3 px-1">
-              {attachments.map((file, idx) => (
-                <motion.div
-                  key={`${file.name}-${idx}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="relative group flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-sunken border border-border text-xs"
-                >
-                  {file.type.startsWith("image/") && previewUrls[idx] ? (
-                    <img
-                      src={previewUrls[idx]}
-                      alt={file.name}
-                      className="w-8 h-8 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
-                      <Paperclip size={14} className="text-[var(--color-primary)]" />
-                    </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-foreground font-bold truncate max-w-[120px]">{file.name}</p>
-                    <p className="text-muted-foreground text-[10px]">{formatFileSize(file.size)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeAttachment(idx)}
-                    className="p-0.5 rounded-full hover:bg-border/60 transition-colors"
-                    aria-label={`Remove ${file.name}`}
-                  >
-                    <X size={12} className="text-muted-foreground" />
-                  </button>
-                </motion.div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2 md:gap-3">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,.pdf,.doc,.docx,.txt"
-              onChange={handleFileSelect}
-              className="hidden"
-              aria-label="Upload file"
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={attachments.length >= 5 || uploading}
-              aria-label="Attach a file or photo"
-              title={attachments.length >= 5 ? "Too many files — remove some first" : "Send an image or file for analysis"}
-              className={cn(
-                "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center shrink-0 transition-all",
-                attachments.length >= 5 || uploading
-                  ? "bg-surface-sunken text-muted-foreground/50 cursor-not-allowed"
-                  : "bg-surface border border-border text-muted-foreground hover:text-[var(--color-primary)] hover:border-[var(--color-primary)]/40 active:scale-95"
-              )}
-            >
-              {uploading ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
-            </button>
+          <div className="flex items-center gap-2">
             <textarea
               value={input}
               onChange={handleChange}
-              onBlur={() => !isAI && setTyping(false)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   handleSubmit(e as unknown as React.FormEvent);
                 }
               }}
-              placeholder={isAI ? `Write a message to ${partnerName}…` : "Type your message…"}
-              aria-label={`Message ${partnerName}`}
+              placeholder={`Ask ${partnerName} about astrology...`}
               maxLength={4000}
               rows={1}
-              className="flex-1 bg-surface border border-border rounded-3xl px-5 py-3 text-sm focus:outline-none focus:border-[var(--color-primary)] text-foreground shadow-inner placeholder:text-muted-foreground resize-none overflow-hidden min-h-[48px] max-h-[120px] leading-snug transition-all"
+              className="flex-1 bg-white/5 border border-amber-500/20 rounded-2xl px-4 py-3 text-sm text-amber-50 placeholder:text-amber-100/30 resize-none overflow-hidden min-h-[48px] max-h-[120px] leading-snug focus:outline-none focus:border-amber-500/40 transition-all"
               style={{ height: "auto" }}
               ref={(el) => {
                 if (el) {
@@ -1299,16 +1173,10 @@ export function ChatInterface({
             />
             <button
               type="submit"
-              disabled={(!input.trim() && attachments.length === 0) || isSending || showStreaming || uploading}
-              aria-label="Send message"
-              className={cn(
-                "w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all shrink-0",
-                (input.trim() || attachments.length > 0) && !isSending && !showStreaming && !uploading
-                  ? "bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] text-white shadow-[0_0_20px_rgba(157,125,197,0.4)] active:scale-95"
-                  : "bg-surface-sunken text-muted-foreground cursor-not-allowed"
-              )}
+              disabled={!input.trim() || isSending || showStreaming}
+              className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-500/25 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-all"
             >
-              {isSending || uploading ? <BrandLoader variant="inline" /> : <Send size={18} className="ml-0.5" />}
+              {isSending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} className="ml-0.5" />}
             </button>
           </div>
         </form>
@@ -1335,7 +1203,7 @@ export function ChatInterface({
       )}
 
       {isAI && intake.transitioning && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-300">
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-[#0a0a0f]/90 backdrop-blur-sm">
           <BrandLoader variant="chat-bubble" label="Preparing your reading room…" />
         </div>
       )}

@@ -151,3 +151,30 @@ export function sqliteNow(d: Date = new Date()): string {
 export function isoOf(stamp: string): string {
   return stamp.includes("T") ? stamp : `${stamp.replace(" ", "T")}Z`;
 }
+
+/** Delete a conversation and all its messages. Returns true if a row was removed. */
+export async function deleteConversation(
+  env: Env,
+  conversationId: string,
+  userId: string,
+): Promise<boolean> {
+  // Verify the user owns this conversation
+  const conv = await loadConversation(env, conversationId);
+  if (!conv || conv.user_id !== userId) {
+    return false;
+  }
+
+  // Delete messages first (foreign key would block conversation delete)
+  await env.DB.prepare(`DELETE FROM message WHERE conversation_id = ?`)
+    .bind(conversationId).run();
+
+  // Delete participants
+  await env.DB.prepare(`DELETE FROM conversation_participant WHERE conversation_id = ?`)
+    .bind(conversationId).run();
+
+  // Delete the conversation itself
+  const result = await env.DB.prepare(`DELETE FROM conversation WHERE id = ?`)
+    .bind(conversationId).run();
+
+  return (result.meta.changes ?? 0) > 0;
+}

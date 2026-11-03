@@ -95,6 +95,9 @@ export default {
       if (!sub && req.method === "GET") {
         return handleGetConversation(req, env, conversationId, corsHeaders);
       }
+      if (!sub && req.method === "DELETE") {
+        return handleDeleteConversation(req, env, conversationId, corsHeaders);
+      }
       if (sub === "/messages" && req.method === "GET") {
         return handleGetMessages(req, env, conversationId, corsHeaders);
       }
@@ -650,6 +653,26 @@ async function handleGetConversation(
     },
     { headers: corsHeaders },
   );
+}
+
+/** Delete a conversation and all its messages. */
+async function handleDeleteConversation(
+  req: Request,
+  env: Env,
+  conversationId: string,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const userId = await requireUserId(req, env);
+  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+
+  const { deleteConversation } = await import("./conversation-store");
+  const deleted = await deleteConversation(env, conversationId, userId);
+
+  if (!deleted) {
+    return Response.json({ error: "Not found or not owned by user" }, { status: 404, headers: corsHeaders });
+  }
+
+  return Response.json({ success: true }, { headers: corsHeaders });
 }
 
 async function handleGetMessages(

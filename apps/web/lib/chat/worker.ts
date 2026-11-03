@@ -140,6 +140,10 @@ export function getConversation(accessToken: string, conversationId: string): Pr
   return call(accessToken, `/api/conversations/${conversationId}`);
 }
 
+export function deleteConversation(accessToken: string, conversationId: string): Promise<{ success: boolean }> {
+  return call(accessToken, `/api/conversations/${conversationId}`, { method: "DELETE" });
+}
+
 export function readMessages(
   accessToken: string,
   conversationId: string,
