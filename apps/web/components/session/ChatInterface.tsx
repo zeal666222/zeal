@@ -21,11 +21,10 @@ import { BillingPanel } from "./BillingPanel";
 import { WalletGateDialog, type WalletGateInfo } from "@/components/billing/WalletGateDialog";
 import { BirthIntakeModal } from "@/components/chat/BirthIntakeModal";
 import { useRoomIntake } from "@/lib/chat/use-room-intake";
-import { cn, BrandLoader, PendingDot, StreamingIndicator } from "@zeal/ui";
+import { cn, BrandLoader, PendingDot, StreamingIndicator, ConfirmDialog } from "@zeal/ui";
 import { ChatWelcomeSuggestions } from "./ChatWelcomeSuggestions";
 import { ChatKundaliChart, type ChatKundaliData } from "@/components/astrology/ChatKundaliChart";
 import { computeKundali } from "@/lib/kundali/engine";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface Props {
   conversationId: string;
