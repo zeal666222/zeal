@@ -889,8 +889,8 @@ export function ChatInterface({
         </div>
       </motion.div>
 
-      {/* Kundali Expandable Bar */}
-      {isAI && birthInfo && kundaliChart && (
+      {/* Kundali Expandable Bar — always visible for AI chats */}
+      {isAI && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
@@ -900,7 +900,14 @@ export function ChatInterface({
           {/* Collapsed Bar */}
           <button
             type="button"
-            onClick={() => setKundaliBarExpanded(!kundaliBarExpanded)}
+            onClick={() => {
+              if (!birthInfo || !kundaliChart) {
+                // No birth data yet — open the intake modal
+                setShowEditIntake(true);
+                return;
+              }
+              setKundaliBarExpanded(!kundaliBarExpanded);
+            }}
             className="w-full px-3 md:px-4 py-2.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
           >
             <div className="flex items-center gap-2.5">
@@ -908,21 +915,27 @@ export function ChatInterface({
                 <BarChart3 size={14} className="text-amber-400" />
               </div>
               <span className="text-xs font-bold text-amber-100/90">Kundali</span>
-              {lagna && (
+              {birthInfo && kundaliChart && lagna ? (
                 <span className="text-[10px] text-amber-100/40 hidden sm:inline">{lagna} · {moonSign} · {nakshatra}</span>
+              ) : (
+                <span className="text-[10px] text-amber-400/60 hidden sm:inline font-semibold">Tap to add birth details →</span>
               )}
             </div>
-            <motion.div
-              animate={{ rotate: kundaliBarExpanded ? 180 : 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            >
-              <ChevronDown size={14} className="text-amber-100/50" />
-            </motion.div>
+            {birthInfo && kundaliChart ? (
+              <motion.div
+                animate={{ rotate: kundaliBarExpanded ? 180 : 0 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              >
+                <ChevronDown size={14} className="text-amber-100/50" />
+              </motion.div>
+            ) : (
+              <Pencil size={12} className="text-amber-400/60" />
+            )}
           </button>
 
           {/* Expanded Content */}
           <AnimatePresence>
-            {kundaliBarExpanded && (
+            {kundaliBarExpanded && birthInfo && kundaliChart && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -1034,6 +1047,33 @@ export function ChatInterface({
                       {chartType === "D1" ? "Ascendant Chart (D1)" : "Navamsha Chart (D9)"}
                     </p>
                     <ChatKundaliChart data={kundaliChart} seekerName={seekerName} />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            {kundaliBarExpanded && (!birthInfo || !kundaliChart) && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="overflow-hidden"
+              >
+                <div className="px-3 md:px-4 pb-4 pt-2">
+                  <div className="rounded-xl bg-gradient-to-br from-amber-500/10 to-purple-500/10 border border-amber-500/20 p-4 text-center">
+                    <p className="text-amber-100/80 text-xs font-semibold mb-2">
+                      Birth details needed for your Kundali chart
+                    </p>
+                    <p className="text-amber-100/50 text-[10px] mb-3">
+                      Add your date, time, and place of birth to see your personalized astrological chart.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowEditIntake(true)}
+                      className="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 transition-all active:scale-95"
+                    >
+                      Add Birth Details
+                    </button>
                   </div>
                 </div>
               </motion.div>

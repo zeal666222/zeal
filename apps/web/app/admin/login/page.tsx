@@ -11,6 +11,7 @@ import {
 import { ThemeToggle } from "@zeal/ui";
 import { adminLoginAction } from "@/actions/admin/auth";
 import { PostAuthTransition } from "@/components/admin/auth/PostAuthTransition";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
 type Destination = "studio" | "console";
 
@@ -332,6 +333,21 @@ function Content() {
                 )}
               </button>
             </form>
+
+            <div className="mt-6">
+              <div className="relative my-6 flex items-center justify-center">
+                <div className="border-t border-border w-full" />
+                <span className="bg-[var(--color-background)] px-4 text-[10px] uppercase tracking-[0.25em] text-muted-foreground font-bold">
+                  or
+                </span>
+                <div className="border-t border-border w-full" />
+              </div>
+              <GoogleAuthButton
+                label="Continue with Google"
+                redirectPath="/admin/consultant/dashboard"
+                intent="consultant"
+              />
+            </div>
 
             <div className="my-7 relative flex items-center justify-center">
               <div className="border-t border-border w-full" />
