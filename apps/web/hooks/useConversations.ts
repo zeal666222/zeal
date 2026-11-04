@@ -123,15 +123,22 @@ export function useConversations(
 
   // Listen for deletion events dispatched from ChatInterface
   useEffect(() => {
-    const handler = (e: Event) => {
+    const deleteHandler = (e: Event) => {
       const detail = (e as CustomEvent<string>).detail;
       if (detail) {
         setConversations((prev) => prev.filter((c) => c.sessionId !== detail));
       }
     };
-    window.addEventListener("zeal:conversation-deleted", handler);
-    return () => window.removeEventListener("zeal:conversation-deleted", handler);
-  }, []);
+    const refreshHandler = () => {
+      void refresh();
+    };
+    window.addEventListener("zeal:conversation-deleted", deleteHandler);
+    window.addEventListener("zeal:refresh-conversations", refreshHandler);
+    return () => {
+      window.removeEventListener("zeal:conversation-deleted", deleteHandler);
+      window.removeEventListener("zeal:refresh-conversations", refreshHandler);
+    };
+  }, [refresh]);
 
   const markRead = useCallback((sessionId: string) => {
     setConversations((prev) =>

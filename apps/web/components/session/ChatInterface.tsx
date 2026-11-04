@@ -447,12 +447,21 @@ export function ChatInterface({
     const fetchAndCompute = async () => {
       try {
         const res = await fetch("/api/profile/birth", { cache: "no-store" });
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn("[ChatInterface] Birth profile fetch failed:", res.status);
+          return;
+        }
         const data = await res.json() as { profile?: { fullName?: string; dateOfBirth?: string; timeOfBirth?: string; placeOfBirth?: string; latitude?: number; longitude?: number; timezone?: string } | null };
         if (cancelled) return;
         const profile = data?.profile;
-        if (!profile?.dateOfBirth || !profile?.placeOfBirth) return;
-        if (profile.latitude == null || profile.longitude == null) return;
+        if (!profile?.dateOfBirth || !profile?.placeOfBirth) {
+          console.warn("[ChatInterface] Missing birth data:", { dob: profile?.dateOfBirth, pob: profile?.placeOfBirth });
+          return;
+        }
+        if (profile.latitude == null || profile.longitude == null) {
+          console.warn("[ChatInterface] Missing coordinates:", { lat: profile.latitude, lng: profile.longitude });
+          return;
+        }
         if (kundaliChart) return;
         const result = computeKundali(
           profile.fullName ?? "Seeker",
@@ -499,7 +508,10 @@ export function ChatInterface({
         // Find moon sign from planets
         const moon = result.chart.planets.find((p) => p.planet === "Moon");
         if (moon) setMoonSign(moon.sign);
-      } catch { /* best-effort */ }
+        console.log("[ChatInterface] Kundali chart computed successfully:", { lagna: result.chart.ascendantSign, nakshatra: result.panchanga.nakshatra });
+      } catch (err) {
+        console.error("[ChatInterface] Kundali computation failed:", err);
+      }
     };
     void fetchAndCompute();
     return () => { cancelled = true; };
@@ -735,9 +747,18 @@ export function ChatInterface({
     try {
       const res = await fetch(`/api/chat/${conversationId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
-      window.dispatchEvent(new CustomEvent("zeal:conversation-deleted", { detail: conversationId }));
+      
+      // Dispatch event with a small delay to ensure sidebar listener is ready
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("zeal:conversation-deleted", { detail: conversationId }));
+      }, 50);
+      
+      // Also refresh the conversations list directly
+      window.dispatchEvent(new CustomEvent("zeal:refresh-conversations"));
+      
       router.push("/chat");
-    } catch {
+    } catch (err) {
+      console.error("[ChatInterface] Delete failed:", err);
       setSendError("Failed to delete conversation. Please try again.");
     } finally {
       setDeleting(false);

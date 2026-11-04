@@ -206,6 +206,17 @@ export function middleware(request: NextRequest) {
   const forwarded = new Headers(request.headers);
   forwarded.set("x-request-id", requestId);
 
+  // ─── WWW redirect: canonicalize to non-www for SEO ──────────────────────────
+  const host = request.headers.get("host") ?? "";
+  if (host.startsWith("www.")) {
+    const url = request.nextUrl.clone();
+    url.hostname = host.replace(/^www\./, "");
+    url.protocol = "https:";
+    const redirect = NextResponse.redirect(url, 301);
+    redirect.headers.set("x-request-id", requestId);
+    return redirect;
+  }
+
   // ─── OPTIONS preflight: pass through untouched ──────────────────────────────
   if (request.method === "OPTIONS") {
     const preflight = NextResponse.next({ request: { headers: forwarded } });
@@ -214,7 +225,6 @@ export function middleware(request: NextRequest) {
   }
 
   // ─── Subdomain routing: rewrite to /white-label/[subdomain] ─────────────────
-  const host = request.headers.get("host") ?? "";
   const subdomain = extractSubdomain(host);
   if (subdomain && !pathname.startsWith("/white-label/")) {
     const url = request.nextUrl.clone();

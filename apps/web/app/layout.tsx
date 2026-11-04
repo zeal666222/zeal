@@ -37,14 +37,14 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Zeal — Free Astrology, Tarot, Therapy & 37+ Spiritual Services Online",
+    default: "Zeal — Free Astrology, Tarot & Spiritual Services",
     template: "%s | Zeal",
   },
   description:
-    "Free online astrology, tarot, kundali, numerology, palmistry, dream interpretation, therapy, reiki, meditation & more. 37+ spiritual services — connect with verified astrologers, therapists, healers & life coaches. AI-powered readings available 24/7.",
+    "Free astrology, tarot, kundali & spiritual guidance. Connect with 37+ verified astrologers, therapists & healers. AI-powered readings 24/7.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in"),
   alternates: {
-    canonical: "/",
+    canonical: process.env.NEXT_PUBLIC_APP_URL || "https://zealer.co.in",
   },
   openGraph: {
     type: "website",

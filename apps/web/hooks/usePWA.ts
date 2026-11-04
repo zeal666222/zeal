@@ -27,9 +27,17 @@ export function usePWA() {
           const worker = reg.installing;
           if (!worker) return;
           worker.addEventListener("statechange", () => {
-            if (worker.state === "activated") setSwReady(true);
+            if (worker.state === "activated") {
+              setSwReady(true);
+              // Trigger prefetch of likely navigation targets after SW activates
+              worker.postMessage("PREFETCH");
+            }
           });
         });
+        // If SW is already active, trigger prefetch
+        if (reg.active) {
+          reg.active.postMessage("PREFETCH");
+        }
       } catch {
         // SW registration failed — non-critical
       }

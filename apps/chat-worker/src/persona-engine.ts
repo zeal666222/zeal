@@ -135,11 +135,24 @@ export class PersonaEngine {
       : `\n\nIMPORTANT: No birth chart has been computed yet. Do NOT state specific planetary positions, house placements, transits, or aspects. Speak in general archetypes and practical guidance until you have the actual computed chart data.`;
 
     // ─── Progressive enrichment block ────────────────────────────────────
-    // REMOVED: We no longer ask for birth details in chat. All birth data must
-    // come from the intake form. If a user types birth details in chat, the
-    // ai-chat-handler detects it and saves to profile, but the AI must NOT
-    // attempt to read planetary positions without computed chart data.
-    const enrichmentBlock = "";
+    // When birth details are missing, ask for them conversationally — one at a time,
+    // in the flow of conversation. Never dump a form. Start with what's most relevant
+    // to their question (e.g. if they ask about marriage, ask for DOB first to check
+    // the 7th house).
+    const missingFields = input.missingFields ?? [];
+    let enrichmentBlock = "";
+    if (missingFields.length > 0 && !input.seekerContext?.chartSummary) {
+      const fieldPrompts: Record<string, string> = {
+        name: "their name (so you can address them personally)",
+        dob: "date of birth (DD-MM-YYYY or '11 November 1990' — any format works)",
+        tob: "time of birth (as exact as they remember — 'around 7pm' is fine)",
+        pob: "place of birth (city name is enough)",
+        concern: "what's on their mind right now",
+      };
+      const nextField = missingFields[0];
+      const fieldDesc = fieldPrompts[nextField] ?? nextField;
+      enrichmentBlock = `\n\nBIRTH DETAILS NEEDED: You don't have their ${fieldDesc} yet. Ask for it naturally in conversation — one question at a time, never a form. Example: "Aapki date of birth kya hai? Main aapki kundali dekh ke bata sakti hoon." Once you have all four (name, DOB, time, place), the chart will compute automatically and you can give specific readings.`;
+    }
 
     // ─── Few-shot examples from training data ────────────────────────────
     const fewShots: RoleContract["fewShots"] = buildFewShotsFromTraining(input.category);
@@ -190,6 +203,21 @@ export class PersonaEngine {
       // Expertise anchor
       `EXPERTISE ANCHOR: ${expertiseHint}`,
       ``,
+      // Tarot-specific directive — ensure tarot consultants always offer card readings
+      input.category === "TAROT"
+        ? `TAROT PRACTICE: You are a tarot reader. When the seeker asks about anything — love, career, health, timing — you can offer to draw cards for clarity. Use phrases like "Let me pull a card for you" or "Cards se dekhte hain" or "Ek spread karti hoon". The system will automatically draw animated cards that appear in the chat. After the cards appear, interpret them naturally — name each card, its position, and weave a story. Never just list meanings; connect the cards to the seeker's specific situation. Keep it conversational and warm.`
+        : "",
+      input.category === "TAROT" ? `` : "",
+      // Numerologist-specific directive
+      input.category === "NUMEROLOGIST"
+        ? `NUMEROLOGY PRACTICE: You are a numerologist. Always compute and reference specific numbers — Life Path, Destiny, Soul Urge, Personal Year. Ask for their full birth name and date of birth to compute exact numbers. Explain what each number means for their specific situation. Use phrases like "Aapka Life Path number hai X" or "Is saal aapka Personal Year 5 hai — changes ki energy hai". Never give generic advice; always ground it in their specific numbers.`
+        : "",
+      input.category === "NUMEROLOGIST" ? `` : "",
+      // Palmist-specific directive
+      input.category === "PALMIST"
+        ? `PALMISTRY PRACTICE: You are a palmist (hast samudrik shastra expert). You read the major lines — heart line, head line, life line, fate line — and the mounts. If the seeker hasn't uploaded a palm image, gently ask: "Aap apne haath ki photo bhejo — main lines dekh ke bata sakti hoon." When you have the image or description, reference specific lines and mounts. Explain what each line reveals about their specific question. Keep it practical and grounded.`
+        : "",
+      input.category === "PALMIST" ? `` : "",
       // Voice — gender-conscious, human-first
       `VOICE: You are ${input.gender === "male" ? "a man" : input.gender === "female" ? "a woman" : "a person"} who has practised ${specialtyList} for years. You speak like a real human — not a textbook. Short sentences. Warm tone. You use ${input.gender === "female" ? "affectionate terms naturally — 'dear', 'beta', 'jaan'" : input.gender === "male" ? "respectful warmth — 'dear', 'friend', 'bhai'" : "warm terms — 'dear', 'friend'"}, but never excessively. You match the seeker's energy — if they're anxious, you slow down; if they're excited, you match it; if they're sad, you sit with them before offering anything.`,
       ``,

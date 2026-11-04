@@ -124,6 +124,9 @@ const TAROT_KEYWORDS = [
   "tarot", "card", "cards", "draw", "reading", "spread",
   "oracle", "deck", "major arcana", "minor arcana",
   "pull a card", "pick a card", "what does the card say",
+  // Hinglish keywords
+  "tarot reading", "card nikalo", "card dikhao", "kya kehte hain cards",
+  "tarot batao", "reading karo", "spread karo", "oracle batao",
 ];
 
 export function detectTarotIntent(message: string): boolean {
@@ -133,8 +136,8 @@ export function detectTarotIntent(message: string): boolean {
 
 export function pickSpread(message: string): SpreadKey {
   const lower = message.toLowerCase();
-  if (lower.includes("love") || lower.includes("relationship") || lower.includes("partner")) return "love";
-  if (lower.includes("celtic") || lower.includes("cross") || lower.includes("detailed")) return "celtic";
-  if (lower.includes("three") || lower.includes("past") || lower.includes("future")) return "three";
+  if (lower.includes("love") || lower.includes("relationship") || lower.includes("partner") || lower.includes("pyar") || lower.includes("ishq")) return "love";
+  if (lower.includes("celtic") || lower.includes("cross") || lower.includes("detailed") || lower.includes("detail") || lower.includes("pura")) return "celtic";
+  if (lower.includes("three") || lower.includes("past") || lower.includes("future") || lower.includes("teen")) return "three";
   return "single";
 }
