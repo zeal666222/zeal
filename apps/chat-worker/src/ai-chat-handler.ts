@@ -10,6 +10,7 @@ import { detectEmotion, buildEmotionDirective, trackEmotionalTrajectory } from "
 import { record as recordAiMetric } from "./ai-metrics";
 import { insertMessage, isoOf, readMessages, requireParticipant, sqliteNow, touchConversation } from "./conversation-store";
 import { orchestrateBirthDisclosure, buildOpenerChartEvent } from "./kundali/orchestrator";
+import { detectAndDrawTarot, buildTarotSSEEvent, buildTarotPromptDirective } from "./tarot/orchestrator";
 import { PersonaEngine } from "./persona-engine";
 import { screenReply } from "./moderation";
 import { publishToRoom } from "./realtime";
@@ -129,6 +130,7 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
   const enrichedPromptParts: string[] = [persona.systemPrompt];
   const derivedEvents: unknown[] = [];
   let emotionSignal: ReturnType<typeof detectEmotion> | null = null;
+  let tarotPayload: import("./tarot/orchestrator").TarotSpreadPayload | null = null;
 
   if (opener) {
     enrichedPromptParts.push(
@@ -160,6 +162,16 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         derivedEvents.push(...orchestrated.events);
         enrichedPromptParts[0] = orchestrated.rebuiltSystemPrompt;
       }
+    }
+
+    // Tarot intent detection — if the seeker asks for cards, draw a spread
+    // and inject the cards as an SSE event + prompt directive so the AI
+    // consultant interprets the actual drawn cards, not generic tarot talk.
+    const tarot = detectAndDrawTarot(trimmed);
+    if (tarot.detected && tarot.payload) {
+      tarotPayload = tarot.payload;
+      derivedEvents.push(buildTarotSSEEvent(tarot.payload));
+      enrichedPromptParts.push(buildTarotPromptDirective(tarot.payload));
     }
 
     // Real-time emotion detection — runs in <0.1ms, pure regex.
@@ -377,12 +389,18 @@ export async function handleAIChat(params: ChatHandlerParams): Promise<ChatHandl
         // above uses that default. An ISO 'T'-separated stamp would sort ahead
         // of same-second rows lexicographically and reorder the transcript.
         const stamp = sqliteNow();
+        // When a tarot spread was drawn, persist the card data alongside the
+        // interpretation so the client can re-render the spread on page load.
+        const msgType = tarotPayload ? "tarot_spread" : "text";
+        const msgContent = tarotPayload
+          ? `<!--tarot:${JSON.stringify({ spread: tarotPayload.spread, spreadName: tarotPayload.spreadName, cards: tarotPayload.cards })}-->\n${safeText}`
+          : safeText;
         await insertMessage(env, {
           id: assistantId,
           conversationId,
           senderId: persona.userId,
-          content: safeText,
-          type: "text",
+          content: msgContent,
+          type: msgType,
           createdAt: stamp,
         });
         await touchConversation(env, conversationId, safeText);

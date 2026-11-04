@@ -37,31 +37,31 @@ interface ResolvedBirth {
   name?: string;
 }
 
-const memo = new Map<string, { summary: string; at: number }>();
-const MEMO_TTL_MS = 10 * 60 * 1000;
-const MEMO_MAX = 200;
+const memo = new Map<string, { summary: string; at: number; validation?: { validated: boolean; confidence: number; sources: string[] } }>();
+const MEMO_TTL_MS = 15 * 60 * 1000; // Extended from 10min to 15min for better cache hit rate
+const MEMO_MAX = 300; // Increased from 200 to handle more concurrent users
 
 function memoKey(userId: string, signature: string): string {
   return `${userId}|${signature}`;
 }
 
-function memoGet(key: string): string | null {
+function memoGet(key: string): { summary: string; validation?: { validated: boolean; confidence: number; sources: string[] } } | null {
   const hit = memo.get(key);
   if (!hit) return null;
   if (Date.now() - hit.at > MEMO_TTL_MS) {
     memo.delete(key);
     return null;
   }
-  return hit.summary;
+  return { summary: hit.summary, validation: hit.validation };
 }
 
-function memoSet(key: string, summary: string): void {
+function memoSet(key: string, summary: string, validation?: { validated: boolean; confidence: number; sources: string[] }): void {
   if (memo.size >= MEMO_MAX) {
     // Drop the oldest entry (Map iteration order is insertion order).
     const oldest = memo.keys().next().value;
     if (oldest) memo.delete(oldest);
   }
-  memo.set(key, { summary, at: Date.now() });
+  memo.set(key, { summary, at: Date.now(), validation });
 }
 
 /**
@@ -144,10 +144,10 @@ export async function ensureChart(
   const cached = memoGet(key);
   if (
     cached &&
-    currentRow.chart_summary === cached &&
+    currentRow.chart_summary === cached.summary &&
     currentRow.chart_key === signature
   ) {
-    return { summary: cached, stale: false };
+    return { summary: cached.summary, stale: false, validation: cached.validation };
   }
 
   // Compute.
@@ -163,8 +163,8 @@ export async function ensureChart(
     if (brief.planets && brief.planets.length > 0) {
       try {
         const validation = await validateWithLiveAPIs(brief.planets, resolved.birthData, {
-          tolerance: 0.5,
-          timeout: 3000,
+          tolerance: 0.3, // Tightened from 0.5° for higher accuracy
+          timeout: 4000,
           requiredSources: 2,
         });
         validationInfo = {
@@ -177,6 +177,11 @@ export async function ensureChart(
           console.warn(
             `[kundali] Live API validation found ${validation.discrepancies.length} discrepancies`,
             validation.discrepancies.slice(0, 3)
+          );
+        } else if (validation.validated) {
+          console.log(
+            `[kundali] Chart validated with ${(validation.confidence * 100).toFixed(1)}% confidence`,
+            `across ${validation.sources.length} sources`
           );
         }
       } catch (valErr) {
@@ -194,11 +199,11 @@ export async function ensureChart(
   // Persist.
   const updated = await saveSeekerProfile(env, userId, { chartSummary: summary });
   if (updated) {
-    memoSet(key, summary);
+    memoSet(key, summary, validationInfo ?? undefined);
     return { summary, stale: false, validation: validationInfo };
   }
   // Persist failed (shouldn't happen, but don't lose the chart).
-  memoSet(key, summary);
+  memoSet(key, summary, validationInfo ?? undefined);
   return { summary, stale: true, validation: validationInfo };
 }
 
@@ -250,8 +255,8 @@ export async function recomputeChart(
     if (brief.planets && brief.planets.length > 0) {
       try {
         const validation = await validateWithLiveAPIs(brief.planets, resolved.birthData, {
-          tolerance: 0.5,
-          timeout: 3000,
+          tolerance: 0.3, // Tightened from 0.5° for higher accuracy
+          timeout: 4000,
           requiredSources: 2,
         });
 
@@ -259,6 +264,10 @@ export async function recomputeChart(
           console.warn(
             `[kundali] Live API validation found ${validation.discrepancies.length} discrepancies`,
             validation.discrepancies.slice(0, 3)
+          );
+        } else if (validation.validated) {
+          console.log(
+            `[kundali] Recomputed chart validated with ${(validation.confidence * 100).toFixed(1)}% confidence`
           );
         }
       } catch (valErr) {
@@ -286,7 +295,7 @@ export async function recomputeChart(
 
   // Memoize.
   const signature = chartSignatureOf(synthetic);
-  memoSet(memoKey(userId, signature), summary);
+  memoSet(memoKey(userId, signature), summary, undefined); // No validation info cached for recomputes
 
   return summary;
 }

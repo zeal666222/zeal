@@ -62,6 +62,27 @@ export interface ProfileUpdate {
   missing: Array<"name" | "dob" | "pob">;
 }
 
+/** Tarot spread drawn by the worker — cards are revealed one by one in the UI. */
+export interface TarotSpreadEvent {
+  type: "tarot_spread";
+  spread: string;
+  spreadName: string;
+  cards: Array<{
+    id: string;
+    name: string;
+    arcana: "major" | "minor";
+    suit?: string;
+    symbol: string;
+    keywords: string[];
+    upright: string;
+    reversed: string;
+    guidance: string;
+    isReversed: boolean;
+    position: string;
+  }>;
+  userMessage: string;
+}
+
 interface MessageRow {
   id?: string;
   conversationId?: string;
@@ -312,6 +333,8 @@ export function useChat({
       longitude?: number;
       timezone?: string;
     }) => void;
+    /** Worker drew tarot cards — client renders the interactive spread. */
+    onTarotSpread?: (spread: TarotSpreadEvent) => void;
   }
 
   // Typewriter pacing: burst provider chunks (Groq/CF AI can drop a whole
@@ -332,6 +355,7 @@ export function useChat({
       const onSuggestions = typeof handlers === "function" ? undefined : handlers.onSuggestions;
       const onProfileUpdated = typeof handlers === "function" ? undefined : handlers.onProfileUpdated;
       const onKundaliChart = typeof handlers === "function" ? undefined : handlers.onKundaliChart;
+      const onTarotSpread = typeof handlers === "function" ? undefined : handlers.onTarotSpread;
 
       const trimmed = content.trim();
       if ((!trimmed && !isOpener) || !conversationId || !consultantId) return;
@@ -457,6 +481,9 @@ export function useChat({
                 };
                 if (parsed.type === "kundali_chart" && parsed.birth && onKundaliChart) {
                   onKundaliChart(parsed.birth);
+                }
+                if (parsed.type === "tarot_spread" && onTarotSpread) {
+                  onTarotSpread(parsed as unknown as TarotSpreadEvent);
                 }
                 if (parsed.userMessageId) {
                   progressed = true;

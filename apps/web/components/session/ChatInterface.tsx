@@ -24,7 +24,9 @@ import { useRoomIntake } from "@/lib/chat/use-room-intake";
 import { cn, BrandLoader, PendingDot, StreamingIndicator, ConfirmDialog } from "@zeal/ui";
 import { ChatWelcomeSuggestions } from "./ChatWelcomeSuggestions";
 import { ChatKundaliChart, type ChatKundaliData } from "@/components/astrology/ChatKundaliChart";
+import { TarotCardPicker, type TarotCard } from "@/components/chat/TarotCardPicker";
 import { computeKundali } from "@/lib/kundali/engine";
+import type { TarotSpreadEvent } from "@/hooks/useChat";
 
 interface Props {
   conversationId: string;
@@ -53,6 +55,19 @@ function dayLabel(ts: string) {
     day: "numeric",
     ...(d.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
   });
+}
+
+function parseTarotFromContent(content: string): { spread: string; spreadName: string; cards: TarotCard[] } | null {
+  const match = content.match(/^<!--tarot:(.+?)-->\n?/);
+  if (!match?.[1]) return null;
+  try {
+    const data = JSON.parse(match[1]);
+    return { spread: data.spread, spreadName: data.spreadName, cards: data.cards };
+  } catch { return null; }
+}
+
+function stripTarotPrefix(content: string): string {
+  return content.replace(/^<!--tarot:.+?-->\n?/, "");
 }
 
 function MessageContent({ content }: { content: string }) {
@@ -312,6 +327,15 @@ export function ChatInterface({
   const [streamingStage, setStreamingStage] = useState<StageEvent | null>(null);
   const [completedStages, setCompletedStages] = useState<StageEvent[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [tarotSpread, setTarotSpread] = useState<TarotSpreadEvent | null>(null);
+
+  // Once the tarot spread is persisted as a message, retire the transient state
+  // so it doesn't render twice (once from messages[], once from tarotSpread).
+  useEffect(() => {
+    if (!tarotSpread) return;
+    const hasPersisted = messages.some((m) => m.type === "tarot_spread" && m.content.includes("<!--tarot:"));
+    if (hasPersisted) setTarotSpread(null);
+  }, [messages, tarotSpread]);
   const [terminationReason, setTerminationReason] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
@@ -513,6 +537,7 @@ export function ChatInterface({
     setStreamingStage(null);
     setCompletedStages([]);
     setSuggestions([]);
+    setTarotSpread(null);
     await sendToAI(partnerId, content, {
       onDelta: (acc) => { setStreamingText(acc); setFillerText(null); },
       onFiller: (f) => setFillerText(f),
@@ -570,6 +595,7 @@ export function ChatInterface({
           if (moon) setMoonSign(moon.sign);
         } catch { /* invalid birth data — skip chart */ }
       },
+      onTarotSpread: (spread) => setTarotSpread(spread),
     }, 0, isOpener);
     setStreamingText(null);
     setFillerText(null);
@@ -1015,6 +1041,8 @@ export function ChatInterface({
               const prev = idx > 0 ? messages[idx - 1] : null;
               const newDay = !prev
                 || new Date(prev.createdAt).toDateString() !== new Date(msg.createdAt).toDateString();
+              const tarotData = msg.type === "tarot_spread" ? parseTarotFromContent(msg.content) : null;
+              const displayContent = tarotData ? stripTarotPrefix(msg.content) : msg.content;
               return (
                 <div key={msg.id}>
                   {newDay && (
@@ -1049,15 +1077,27 @@ export function ChatInterface({
                         )}
                       </div>
                     )}
-                    <div className={cn("flex flex-col max-w-[75%]", isMe ? "items-end" : "items-start")}>
-                      <div className={cn(
-                        "px-4 py-3 rounded-2xl text-sm leading-relaxed break-words",
-                        isMe
-                          ? "bg-gradient-to-br from-amber-100 to-amber-50 text-[#1a1a2e] rounded-br-sm shadow-lg shadow-amber-500/10"
-                          : "bg-[#1a1a2e] text-amber-50 border border-amber-500/10 rounded-bl-sm"
-                      )}>
-                        <MessageContent content={msg.content} />
-                      </div>
+                    <div className={cn("flex flex-col max-w-[85%]", isMe ? "items-end" : "items-start")}>
+                      {/* Tarot spread — interactive card picker */}
+                      {tarotData && !isMe && (
+                        <div className="w-full px-3 py-2 rounded-2xl rounded-bl-sm bg-[#1a1a2e] border border-amber-500/10 mb-1">
+                          <TarotCardPicker
+                            spreadName={tarotData.spreadName}
+                            cards={tarotData.cards}
+                          />
+                        </div>
+                      )}
+                      {/* Message bubble — for tarot, this is the interpretation text */}
+                      {(displayContent.trim() || !tarotData) && (
+                        <div className={cn(
+                          "px-4 py-3 rounded-2xl text-sm leading-relaxed break-words",
+                          isMe
+                            ? "bg-gradient-to-br from-amber-100 to-amber-50 text-[#1a1a2e] rounded-br-sm shadow-lg shadow-amber-500/10"
+                            : "bg-[#1a1a2e] text-amber-50 border border-amber-500/10 rounded-bl-sm"
+                        )}>
+                          <MessageContent content={displayContent} />
+                        </div>
+                      )}
                       <span className="flex items-center gap-1.5 text-[10px] text-amber-100/40 mt-1 px-1">
                         {isMe && msg._optimistic && <PendingDot />}
                         {formatTime(msg.createdAt)}
@@ -1072,6 +1112,32 @@ export function ChatInterface({
               );
             })}
           </AnimatePresence>
+        )}
+
+        {/* Tarot spread — rendered as a consultant message when the worker draws cards */}
+        {tarotSpread && (
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="flex gap-2"
+          >
+            <div className="shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-amber-400/20 to-purple-500/20 flex items-center justify-center ring-1 ring-amber-400/30">
+              {partnerAvatar ? (
+                <Image src={partnerAvatar} alt={partnerName} width={32} height={32} className="rounded-full object-cover" />
+              ) : (
+                <span className="text-xs font-bold text-amber-100">{partnerName.charAt(0)}</span>
+              )}
+            </div>
+            <div className="flex flex-col items-start max-w-[85%]">
+              <div className="px-3 py-2 rounded-2xl rounded-bl-sm bg-[#1a1a2e] text-amber-50 border border-amber-500/10 w-full">
+                <TarotCardPicker
+                  spreadName={tarotSpread.spreadName}
+                  cards={tarotSpread.cards as TarotCard[]}
+                />
+              </div>
+            </div>
+          </motion.div>
         )}
 
         {/* Streaming */}
