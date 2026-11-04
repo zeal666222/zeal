@@ -57,7 +57,7 @@
     "@radix-ui/react-tabs": "1.1.21",
     "@radix-ui/react-tooltip": "1.2.16",
     "@roxyapi/sdk": "1.2.57",
-    "@supabase/ssr": "0.12.6",
+    "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.115.0",
     "@tanstack/react-query-devtools": "5.101.4",
     "ai": "7.0.51",
