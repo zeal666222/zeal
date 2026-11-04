@@ -149,11 +149,12 @@ export function TopNavBar({ userId, initialBalance }: Props) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
+                    key={user?.id || "anon"}
                     className="relative w-9 h-9 rounded-full overflow-hidden bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-hover)] flex items-center justify-center text-white font-black text-sm ring-2 ring-transparent hover:ring-[var(--color-primary)]/40 transition-all duration-200 active:scale-95"
                     aria-label="Account menu"
                   >
                     {user?.avatar ? (
-                      <Image src={getImageUrl(user.avatar, "avatar-sm")} alt="" fill sizes="36px" className="object-cover" />
+                      <Image src={getImageUrl(user.avatar, "avatar-sm")} alt="" fill sizes="36px" className="object-cover" key={user.avatar} />
                     ) : (
                       (user?.name || user?.email || "?").charAt(0).toUpperCase()
                     )}
