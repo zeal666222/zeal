@@ -1,15 +1,20 @@
-// Zeal Service Worker — offline-first shell cache + stale-while-revalidate for API
-const CACHE_VERSION = "zeal-sw-v1";
+// Zeal Service Worker v2 — optimized shell cache + stale-while-revalidate for API
+const CACHE_VERSION = "zeal-sw-v2";
 const SHELL_CACHE = `zeal-shell-${CACHE_VERSION}`;
 const API_CACHE = `zeal-api-${CACHE_VERSION}`;
+const FONT_CACHE = `zeal-font-${CACHE_VERSION}`;
 
 const SHELL_URLS = [
   "/",
   "/offline",
+  "/chat",
+  "/explore",
+  "/services",
 ];
 
-const MAX_API_CACHE = 50;
-const API_CACHE_TTL = 5 * 60 * 1000;
+const MAX_API_CACHE = 80;
+const API_CACHE_TTL = 10 * 60 * 1000;
+const MAX_FONT_CACHE = 20;
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
@@ -23,7 +28,7 @@ self.addEventListener("activate", (event) => {
     caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter((k) => k.startsWith("zeal-") && k !== SHELL_CACHE && k !== API_CACHE)
+          .filter((k) => k.startsWith("zeal-") && k !== SHELL_CACHE && k !== API_CACHE && k !== FONT_CACHE)
           .map((k) => caches.delete(k))
       )
     )
@@ -37,18 +42,32 @@ self.addEventListener("fetch", (event) => {
 
   if (request.method !== "GET") return;
   if (url.origin !== self.location.origin) return;
-  if (request.headers.get("accept")?.includes("text/html")) {
-    event.respondWith(networkFirstHTML(request));
+
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/media/")) {
+    event.respondWith(cacheFirstImmutable(request, SHELL_CACHE));
     return;
   }
+
+  if (url.pathname.startsWith("/_next/font/") || url.pathname.endsWith(".woff2") || url.pathname.endsWith(".woff")) {
+    event.respondWith(cacheFirstImmutable(request, FONT_CACHE));
+    return;
+  }
+
   if (url.pathname.startsWith("/api/")) {
     event.respondWith(networkThenCache(request));
     return;
   }
-  if (url.pathname.startsWith("/_next/static/")) {
-    event.respondWith(cacheFirstImmutable(request));
+
+  if (request.headers.get("accept")?.includes("text/html")) {
+    event.respondWith(networkFirstHTML(request));
     return;
   }
+
+  if (url.pathname.startsWith("/_next/image")) {
+    event.respondWith(cacheFirstImmutable(request, SHELL_CACHE));
+    return;
+  }
+
   event.respondWith(staleWhileRevalidate(request));
 });
 
@@ -93,13 +112,13 @@ async function networkThenCache(request) {
   }
 }
 
-async function cacheFirstImmutable(request) {
+async function cacheFirstImmutable(request, cacheName) {
   const cached = await caches.match(request);
   if (cached) return cached;
   try {
     const fresh = await fetch(request);
     if (fresh.ok) {
-      const cache = await caches.open(SHELL_CACHE);
+      const cache = await caches.open(cacheName);
       cache.put(request, fresh.clone());
     }
     return fresh;

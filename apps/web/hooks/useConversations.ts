@@ -26,9 +26,9 @@ interface MessageRow {
   createdAt?: string;
 }
 
-const FAST_POLL_MS = 3_000;
-const SLOW_POLL_MS = 15_000;
-const FAST_POLL_DURATION_MS = 30_000;
+const FAST_POLL_MS = 5_000;
+const SLOW_POLL_MS = 30_000;
+const FAST_POLL_DURATION_MS = 15_000;
 
 export function useConversations(
   userId: string,
