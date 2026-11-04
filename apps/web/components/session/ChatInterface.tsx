@@ -11,7 +11,7 @@ import {
   AlertTriangle, ArrowLeft, CheckCheck, ChevronUp, Coins, Heart, Home,
   Loader2, MessageCircle, Moon, Paperclip, Send, ShieldCheck, Sparkles,
   Briefcase, Clock, BarChart3, WifiOff, X, Trash2, MapPin, Calendar,
-  Timer, Star, Zap, Crown, Sun, Sunrise,
+  Timer, Star, Zap, Crown, Sun, Sunrise, ChevronDown, Pencil,
 } from "lucide-react";
 import Image from "next/image";
 import { useChat, type BillingInfo, type ChatMessage, type StageEvent, type Suggestion } from "@/hooks/useChat";
@@ -321,7 +321,8 @@ export function ChatInterface({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [chartType, setChartType] = useState<"D1" | "D9">("D1");
-  const [showKundaliDrawer, setShowKundaliDrawer] = useState(false);
+  const [kundaliBarExpanded, setKundaliBarExpanded] = useState(false);
+  const [showEditIntake, setShowEditIntake] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -708,13 +709,51 @@ export function ChatInterface({
     try {
       const res = await fetch(`/api/chat/${conversationId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete");
-      // Navigate to chat home to trigger sidebar refresh
+      window.dispatchEvent(new CustomEvent("zeal:conversation-deleted", { detail: conversationId }));
       router.push("/chat");
     } catch {
       setSendError("Failed to delete conversation. Please try again.");
     } finally {
       setDeleting(false);
       setShowDeleteConfirm(false);
+    }
+  };
+
+  const handleEditIntakeSubmit = async (data: Parameters<typeof intake.submit>[0]) => {
+    await intake.submit(data);
+    setShowEditIntake(false);
+    try {
+      const res = await fetch("/api/profile/birth", { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json();
+        const p = json.profile;
+        if (p?.dateOfBirth && p?.placeOfBirth && p?.latitude && p?.longitude) {
+          const result = computeKundali(
+            p.fullName ?? data.fullName ?? seekerName ?? "Seeker",
+            p.dateOfBirth,
+            p.timeOfBirth ?? data.timeOfBirth ?? "00:00",
+            p.placeOfBirth,
+            { lat: p.latitude, lng: p.longitude, timezone: p.timezone ?? "Asia/Kolkata", canonicalName: p.placeOfBirth, country: "", source: "gazetteer" },
+          );
+          setKundaliChart({
+            ascendantSign: result.chart.ascendantSign,
+            houses: result.chart.houses,
+            planets: result.chart.planets.map((pl) => ({
+              planet: pl.planet, sign: pl.sign, signIndex: pl.signIndex, house: pl.house, degree: pl.degree, isRetrograde: pl.isRetrograde,
+            })),
+            nakshatra: result.panchanga.nakshatra,
+            dasha: { mahadasha: result.dasha.currentMahadasha, antardasha: result.dasha.currentAntardasha, remaining: result.dasha.remainingYears },
+          });
+          setSeekerName(p.fullName ?? data.fullName);
+          setBirthInfo({ name: p.fullName ?? data.fullName, dob: p.dateOfBirth, tob: p.timeOfBirth ?? data.timeOfBirth ?? undefined, pob: p.placeOfBirth });
+          setLagna(result.chart.ascendantSign);
+          setNakshatra(result.panchanga.nakshatra);
+          const moon = result.chart.planets.find((pl) => pl.planet === "Moon");
+          if (moon) setMoonSign(moon.sign);
+        }
+      }
+    } catch (err) {
+      console.warn("[ChatInterface] recompute kundali after edit:", err instanceof Error ? err.message : err);
     }
   };
 
@@ -803,6 +842,159 @@ export function ChatInterface({
         </div>
       </motion.div>
 
+      {/* Kundali Expandable Bar */}
+      {isAI && birthInfo && kundaliChart && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: "auto" }}
+          transition={{ delay: 0.3, type: "spring", stiffness: 300, damping: 30 }}
+          className="flex-none border-b border-amber-500/10 bg-[#0f0f1a]/80 backdrop-blur-xl z-10 relative"
+        >
+          {/* Collapsed Bar */}
+          <button
+            type="button"
+            onClick={() => setKundaliBarExpanded(!kundaliBarExpanded)}
+            className="w-full px-3 md:px-4 py-2.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500/20 to-purple-500/20 flex items-center justify-center">
+                <BarChart3 size={14} className="text-amber-400" />
+              </div>
+              <span className="text-xs font-bold text-amber-100/90">Kundali</span>
+              {lagna && (
+                <span className="text-[10px] text-amber-100/40 hidden sm:inline">{lagna} · {moonSign} · {nakshatra}</span>
+              )}
+            </div>
+            <motion.div
+              animate={{ rotate: kundaliBarExpanded ? 180 : 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            >
+              <ChevronDown size={14} className="text-amber-100/50" />
+            </motion.div>
+          </button>
+
+          {/* Expanded Content */}
+          <AnimatePresence>
+            {kundaliBarExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="overflow-hidden"
+              >
+                <div className="px-3 md:px-4 pb-3 space-y-3">
+                  {/* Birth Details */}
+                  <div className="rounded-xl bg-gradient-to-br from-[#1a1a2e] to-[#16162a] border border-amber-500/15 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={11} className="text-amber-400" />
+                        <span className="text-[10px] font-bold text-amber-100/60 uppercase tracking-wider">Birth Details</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowEditIntake(true)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-amber-500/15 text-[10px] font-bold text-amber-100/70 hover:text-amber-100 transition-all"
+                      >
+                        <Pencil size={9} />
+                        Edit
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      {birthInfo.name && (
+                        <div>
+                          <p className="text-amber-100/40 text-[10px]">Name</p>
+                          <p className="font-bold text-amber-100 text-[11px]">{birthInfo.name}</p>
+                        </div>
+                      )}
+                      {birthInfo.dob && (
+                        <div>
+                          <p className="text-amber-100/40 text-[10px]">Date</p>
+                          <p className="font-bold text-amber-100 text-[11px]">{new Date(birthInfo.dob).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                        </div>
+                      )}
+                      {birthInfo.tob && (
+                        <div>
+                          <p className="text-amber-100/40 text-[10px]">Time</p>
+                          <p className="font-bold text-amber-100 text-[11px]">{birthInfo.tob}</p>
+                        </div>
+                      )}
+                      {birthInfo.pob && (
+                        <div>
+                          <p className="text-amber-100/40 text-[10px]">Place</p>
+                          <p className="font-bold text-amber-100 text-[11px] truncate">{birthInfo.pob}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info Cards */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {lagna && (
+                      <div className="rounded-lg bg-gradient-to-br from-purple-900/30 to-purple-950/50 border border-purple-500/20 px-2 py-2 text-center">
+                        <p className="text-[8px] text-purple-200/60 font-semibold uppercase tracking-wider">Lagan</p>
+                        <p className="text-[11px] font-bold text-purple-100 mt-0.5">{lagna}</p>
+                      </div>
+                    )}
+                    {moonSign && (
+                      <div className="rounded-lg bg-gradient-to-br from-amber-900/30 to-amber-950/50 border border-amber-500/20 px-2 py-2 text-center">
+                        <p className="text-[8px] text-amber-200/60 font-semibold uppercase tracking-wider">Moon Sign</p>
+                        <p className="text-[11px] font-bold text-amber-100 mt-0.5">{moonSign}</p>
+                      </div>
+                    )}
+                    {nakshatra && (
+                      <div className="rounded-lg bg-gradient-to-br from-teal-900/30 to-teal-950/50 border border-teal-500/20 px-2 py-2 text-center">
+                        <p className="text-[8px] text-teal-200/60 font-semibold uppercase tracking-wider">Nakshatra</p>
+                        <p className="text-[11px] font-bold text-teal-100 mt-0.5">{nakshatra}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Moon Phase */}
+                  <MoonPhaseBar date={new Date()} />
+
+                  {/* Chart Toggle */}
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setChartType("D1")}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all",
+                        chartType === "D1"
+                          ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20"
+                          : "bg-white/5 text-amber-100/60 border border-amber-500/15 hover:bg-white/10"
+                      )}
+                    >
+                      Ascendant (D1)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setChartType("D9")}
+                      className={cn(
+                        "flex-1 py-1.5 rounded-lg text-[10px] font-bold transition-all",
+                        chartType === "D9"
+                          ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/20"
+                          : "bg-white/5 text-amber-100/60 border border-amber-500/15 hover:bg-white/10"
+                      )}
+                    >
+                      Navamsha (D9)
+                    </button>
+                  </div>
+
+                  {/* Chart */}
+                  <div>
+                    <p className="text-center text-[10px] font-bold text-amber-100/50 mb-2">
+                      {chartType === "D1" ? "Ascendant Chart (D1)" : "Navamsha Chart (D9)"}
+                    </p>
+                    <ChatKundaliChart data={kundaliChart} seekerName={seekerName} />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -811,130 +1003,6 @@ export function ChatInterface({
         role="log"
         aria-live="polite"
       >
-        {/* Birth Details Card */}
-        {birthInfo && isAI && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="rounded-2xl bg-gradient-to-br from-[#1a1a2e] to-[#16162a] border border-amber-500/20 p-4 mb-4"
-          >
-            {/* 2x2 Grid */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              {birthInfo.name && (
-                <div>
-                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Name</p>
-                  <p className="text-sm font-bold text-amber-100">{birthInfo.name}</p>
-                </div>
-              )}
-              {birthInfo.dob && (
-                <div>
-                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Birth Date</p>
-                  <p className="text-sm font-bold text-amber-100">{new Date(birthInfo.dob).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
-                </div>
-              )}
-              {birthInfo.tob && (
-                <div>
-                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Birth Time</p>
-                  <p className="text-sm font-bold text-amber-100">{birthInfo.tob}</p>
-                </div>
-              )}
-              {birthInfo.pob && (
-                <div>
-                  <p className="text-[10px] text-amber-100/50 font-semibold uppercase tracking-wider mb-1">Birth Place</p>
-                  <p className="text-sm font-bold text-amber-100">{birthInfo.pob}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Info Cards */}
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              {lagna && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="rounded-xl bg-gradient-to-br from-purple-900/40 to-purple-950/60 border border-purple-500/30 px-3 py-2 text-center"
-                >
-                  <p className="text-[9px] text-purple-200/70 font-semibold uppercase tracking-wider">Lagan</p>
-                  <p className="text-sm font-bold text-purple-100 mt-0.5">{lagna}</p>
-                </motion.div>
-              )}
-              {moonSign && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.6 }}
-                  className="rounded-xl bg-gradient-to-br from-amber-900/40 to-amber-950/60 border border-amber-500/30 px-3 py-2 text-center"
-                >
-                  <p className="text-[9px] text-amber-200/70 font-semibold uppercase tracking-wider">Moon Sign</p>
-                  <p className="text-sm font-bold text-amber-100 mt-0.5">{moonSign}</p>
-                </motion.div>
-              )}
-              {nakshatra && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.7 }}
-                  className="rounded-xl bg-gradient-to-br from-teal-900/40 to-teal-950/60 border border-teal-500/30 px-3 py-2 text-center"
-                >
-                  <p className="text-[9px] text-teal-200/70 font-semibold uppercase tracking-wider">Nakshatra</p>
-                  <p className="text-sm font-bold text-teal-100 mt-0.5">{nakshatra}</p>
-                </motion.div>
-              )}
-            </div>
-
-            {/* Moon Phase Bar */}
-            <MoonPhaseBar date={new Date()} />
-
-            {/* Chart Type Toggle */}
-            <div className="flex gap-2 mt-4">
-              <button
-                type="button"
-                onClick={() => setChartType("D1")}
-                className={cn(
-                  "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
-                  chartType === "D1"
-                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
-                    : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
-                )}
-              >
-                Ascendant (D1)
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartType("D9")}
-                className={cn(
-                  "flex-1 py-2 rounded-xl text-xs font-bold transition-all",
-                  chartType === "D9"
-                    ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
-                    : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
-                )}
-              >
-                Navamsha (D9)
-              </button>
-            </div>
-
-            {/* Kundali Chart */}
-            {kundaliChart && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                className="mt-4"
-              >
-                <p className="text-center text-xs font-bold text-amber-100/70 mb-2">
-                  {chartType === "D1" ? "Ascendant Chart (D1)" : "Navamsha Chart (D9)"}
-                </p>
-                <ChatKundaliChart
-                  data={kundaliChart}
-                  seekerName={seekerName}
-                />
-              </motion.div>
-            )}
-          </motion.div>
-        )}
-
         {/* Messages */}
         {isLoading && messages.length === 0 ? (
           <BrandLoader variant="chat-bubble" label="Opening the reading room…" />
@@ -1185,164 +1253,18 @@ export function ChatInterface({
         </div>
       )}
 
-      {/* Kundali & Chart Drawer */}
-      {isAI && birthInfo && kundaliChart && (
-        <>
-          {/* Floating Button */}
-          <motion.button
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 1, type: "spring" }}
-            onClick={() => setShowKundaliDrawer(true)}
-            className="fixed bottom-24 right-4 z-30 w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-purple-600 text-white shadow-2xl shadow-amber-500/30 flex items-center justify-center hover:scale-110 transition-transform"
-            aria-label="View Kundali Chart"
-          >
-            <BarChart3 size={24} />
-          </motion.button>
-
-          {/* Drawer Overlay */}
-          <AnimatePresence>
-            {showKundaliDrawer && (
-              <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setShowKundaliDrawer(false)}
-                  className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-                />
-                <motion.div
-                  initial={{ x: "100%" }}
-                  animate={{ x: 0 }}
-                  exit={{ x: "100%" }}
-                  transition={{ type: "spring", damping: 30, stiffness: 300 }}
-                  className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-gradient-to-b from-[#0f0f1a] to-[#0a0a0f] border-l border-amber-500/20 z-50 overflow-y-auto"
-                >
-                  {/* Drawer Header */}
-                  <div className="sticky top-0 bg-[#0f0f1a]/95 backdrop-blur-xl border-b border-amber-500/20 p-4 flex items-center justify-between z-10">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500/20 to-purple-500/20 flex items-center justify-center">
-                        <Sparkles size={20} className="text-amber-400" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-amber-100">Kundali & Chart</h3>
-                        <p className="text-xs text-amber-100/50">{seekerName ?? "Seeker"}</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setShowKundaliDrawer(false)}
-                      className="p-2 rounded-xl hover:bg-white/5 text-amber-100/70 hover:text-amber-100 transition-all"
-                      aria-label="Close drawer"
-                    >
-                      <X size={20} />
-                    </button>
-                  </div>
-
-                  {/* Drawer Content */}
-                  <div className="p-4 space-y-4">
-                    {/* Birth Details */}
-                    <div className="rounded-2xl bg-gradient-to-br from-[#1a1a2e] to-[#16162a] border border-amber-500/20 p-4">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Calendar size={14} className="text-amber-400" />
-                        <h4 className="text-xs font-bold text-amber-100 uppercase tracking-wider">Birth Details</h4>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 text-xs">
-                        {birthInfo.name && (
-                          <div>
-                            <p className="text-amber-100/50 mb-1">Name</p>
-                            <p className="font-bold text-amber-100">{birthInfo.name}</p>
-                          </div>
-                        )}
-                        {birthInfo.dob && (
-                          <div>
-                            <p className="text-amber-100/50 mb-1">Birth Date</p>
-                            <p className="font-bold text-amber-100">{new Date(birthInfo.dob).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
-                          </div>
-                        )}
-                        {birthInfo.tob && (
-                          <div>
-                            <p className="text-amber-100/50 mb-1">Birth Time</p>
-                            <p className="font-bold text-amber-100">{birthInfo.tob}</p>
-                          </div>
-                        )}
-                        {birthInfo.pob && (
-                          <div className="col-span-2">
-                            <p className="text-amber-100/50 mb-1">Birth Place</p>
-                            <p className="font-bold text-amber-100">{birthInfo.pob}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Info Cards */}
-                    <div className="grid grid-cols-3 gap-2">
-                      {lagna && (
-                        <div className="rounded-xl bg-gradient-to-br from-purple-900/40 to-purple-950/60 border border-purple-500/30 px-3 py-3 text-center">
-                          <p className="text-[9px] text-purple-200/70 font-semibold uppercase tracking-wider">Lagan</p>
-                          <p className="text-sm font-bold text-purple-100 mt-1">{lagna}</p>
-                        </div>
-                      )}
-                      {moonSign && (
-                        <div className="rounded-xl bg-gradient-to-br from-amber-900/40 to-amber-950/60 border border-amber-500/30 px-3 py-3 text-center">
-                          <p className="text-[9px] text-amber-200/70 font-semibold uppercase tracking-wider">Moon Sign</p>
-                          <p className="text-sm font-bold text-amber-100 mt-1">{moonSign}</p>
-                        </div>
-                      )}
-                      {nakshatra && (
-                        <div className="rounded-xl bg-gradient-to-br from-teal-900/40 to-teal-950/60 border border-teal-500/30 px-3 py-3 text-center">
-                          <p className="text-[9px] text-teal-200/70 font-semibold uppercase tracking-wider">Nakshatra</p>
-                          <p className="text-sm font-bold text-teal-100 mt-1">{nakshatra}</p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Moon Phase */}
-                    <MoonPhaseBar date={new Date()} />
-
-                    {/* Chart Type Toggle */}
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setChartType("D1")}
-                        className={cn(
-                          "flex-1 py-2.5 rounded-xl text-xs font-bold transition-all",
-                          chartType === "D1"
-                            ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
-                            : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
-                        )}
-                      >
-                        Ascendant (D1)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setChartType("D9")}
-                        className={cn(
-                          "flex-1 py-2.5 rounded-xl text-xs font-bold transition-all",
-                          chartType === "D9"
-                            ? "bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25"
-                            : "bg-white/5 text-amber-100/70 border border-amber-500/20 hover:bg-white/10"
-                        )}
-                      >
-                        Navamsha (D9)
-                      </button>
-                    </div>
-
-                    {/* Kundali Chart */}
-                    <div>
-                      <p className="text-center text-xs font-bold text-amber-100/70 mb-3">
-                        {chartType === "D1" ? "Ascendant Chart (D1)" : "Navamsha Chart (D9)"}
-                      </p>
-                      <ChatKundaliChart
-                        data={kundaliChart}
-                        seekerName={seekerName}
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              </>
-            )}
-          </AnimatePresence>
-        </>
+      {/* Edit Birth Details Modal */}
+      {isAI && showEditIntake && (
+        <BirthIntakeModal
+          open
+          onOpenChange={setShowEditIntake}
+          consultantName={partnerName}
+          existingProfile={intake.prefill}
+          onSubmit={handleEditIntakeSubmit}
+          isLoading={intake.saving}
+          error={intake.error}
+          actionLabel="Update and recompute"
+        />
       )}
 
       <ConfirmDialog

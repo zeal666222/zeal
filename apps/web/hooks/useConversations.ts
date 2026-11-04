@@ -121,6 +121,18 @@ export function useConversations(
     },
   });
 
+  // Listen for deletion events dispatched from ChatInterface
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (detail) {
+        setConversations((prev) => prev.filter((c) => c.sessionId !== detail));
+      }
+    };
+    window.addEventListener("zeal:conversation-deleted", handler);
+    return () => window.removeEventListener("zeal:conversation-deleted", handler);
+  }, []);
+
   const markRead = useCallback((sessionId: string) => {
     setConversations((prev) =>
       prev.map((c) => (c.sessionId === sessionId ? { ...c, unreadCount: 0 } : c)),
@@ -134,22 +146,26 @@ function mergeConversations(
   existing: ConversationItem[],
   incoming: ConversationItem[],
 ): ConversationItem[] {
-  const map = new Map<string, ConversationItem>();
-  for (const c of existing) map.set(c.sessionId, c);
-  for (const c of incoming) {
-    const prev = map.get(c.sessionId);
+  const incomingIds = new Set(incoming.map((c) => c.sessionId));
+  const preserved = new Map<string, ConversationItem>();
+  for (const c of existing) {
+    if (incomingIds.has(c.sessionId)) {
+      preserved.set(c.sessionId, c);
+    }
+  }
+  const merged = incoming.map((c) => {
+    const prev = preserved.get(c.sessionId);
     if (prev) {
-      map.set(c.sessionId, {
+      return {
         ...c,
         unreadCount: prev.unreadCount ?? c.unreadCount ?? 0,
         isPinned: prev.isPinned ?? c.isPinned ?? false,
         isTyping: prev.isTyping ?? false,
-      });
-    } else {
-      map.set(c.sessionId, c);
+      };
     }
-  }
-  return Array.from(map.values()).sort((a, b) => {
+    return c;
+  });
+  return merged.sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;
     const ta = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
