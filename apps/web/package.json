@@ -29,7 +29,7 @@
     "@roxyapi/sdk": "1.2.57",
     "@supabase/ssr": "0.12.6",
     "@supabase/supabase-js": "2.115.0",
-    "@tanstack/react-query": "5.101.4",
+    "@tanstack/react-query": "5.106.1",
     "@trpc/server": "11.18.0",
     "@zeal/astrology": "*",
     "@zeal/database": "*",
@@ -65,7 +65,7 @@
     "zustand": "4.5.7"
   },
   "devDependencies": {
-    "@tanstack/react-query-devtools": "5.101.4",
+    "@tanstack/react-query-devtools": "5.106.1",
     "@types/node": "^20.0.0",
     "@types/react": "19.1.2",
     "@types/react-dom": "19.1.2",
